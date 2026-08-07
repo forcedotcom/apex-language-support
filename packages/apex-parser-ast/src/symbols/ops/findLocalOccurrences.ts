@@ -7,10 +7,12 @@
  */
 
 import { SymbolTable, SymbolKind, ApexSymbol } from '../../types/symbol';
+import { ReferenceContext } from '../../types/symbolReference';
 import {
   findOccurrencesInFile,
   OccurrenceMatch,
 } from './findOccurrencesInFile';
+import { isPositionInIdentifierRange } from './positionUtils';
 
 /**
  * Kinds that renameLocal handles: block-scoped locals and method parameters.
@@ -108,9 +110,20 @@ export function findLocalOccurrences(
   // declaration during compilation, and that id is byte-identical to the
   // declaration's own `id` (same id space), so an O(1) id compare settles each
   // candidate — reusing the parser's resolution rather than re-deriving it with
-  // a per-candidate scope walk. A candidate the parser left unresolved carries
-  // no `resolvedSymbolId` and is not renamed; for a well-formed local that never
-  // happens.
+  // a per-candidate scope walk.
+  //
+  // Safety over partial edits: a rename must be all-or-nothing. If the parser
+  // left ANY same-name/kind candidate UNRESOLVED (no `resolvedSymbolId`), we
+  // can't prove whether it binds to this declaration or a shadowing sibling —
+  // renaming the resolved subset while skipping the unresolved one would leave
+  // some usages behind and still report success, silently breaking the build.
+  // For a well-formed local this never happens; when it does, abort with `null`
+  // (no edit) rather than emit an incomplete rename.
+  const hasUnresolvedCandidate = candidates.some(
+    (c) => c.resolvedSymbolId === undefined,
+  );
+  if (hasUnresolvedCandidate) return null;
+
   const seen = new Set<string>();
   const identifierRanges: OccurrenceMatch['identifierRange'][] = [];
 
@@ -139,21 +152,59 @@ export function findLocalOccurrences(
 }
 
 /**
- * The identifier name the cursor sits on, whether it lands on a declaration
- * (a Variable/Parameter symbol) or a usage (a reference). Used to seed
- * `resolveVariableAtPosition`, which resolves by name at a position. Returns
- * `undefined` when the cursor is on neither.
+ * Reference contexts that mean the cursor is on a MEMBER of some receiver
+ * (a field/property access such as `this.total`, `acc.total`, `A.b.c`), never
+ * on a block-scoped local. A member belongs to renameField, so a cursor on one
+ * must not be treated as a local rename — even when a same-named local shadows
+ * the field in scope.
+ */
+const MEMBER_ACCESS_CONTEXTS = new Set<ReferenceContext>([
+  ReferenceContext.FIELD_ACCESS,
+  ReferenceContext.PROPERTY_REFERENCE,
+]);
+
+/**
+ * The identifier name the cursor sits on WHEN it names a block-scoped local
+ * (a Variable/Parameter), whether the cursor is on the declaration token or a
+ * usage. Seeds `resolveVariableAtPosition`, which then resolves by name +
+ * position (shadowing-safe). Returns `undefined` when the cursor is on anything
+ * that is not a local — in particular a field/property member access — so the
+ * caller falls through to `null` (and, later, to renameField).
  */
 function symbolNameAtPosition(
   table: SymbolTable,
   position: { line: number; character: number },
 ): string | undefined {
   // A reference under the cursor (the common case: renaming from a usage site).
+  // At a member expression like `acc.total`, getReferencesAtPosition returns
+  // BOTH the receiver ref (`acc`, VARIABLE_USAGE) and the member ref (`total`,
+  // FIELD_ACCESS) — they share the same identifier range. The old
+  // `!name.includes('.')` heuristic picked whichever non-dotted ref came first,
+  // which could be the receiver local (renaming `acc` when the cursor is on
+  // `.total`) or, via a shadowing local, the wrong `total`. Instead: if ANY
+  // reference at the cursor is a member access, the cursor is on a field/member,
+  // not a local — bail so renameField handles it.
   const refs = table.getReferencesAtPosition(position);
-  const refName =
-    refs.find((r) => !r.name.includes('.'))?.name ?? refs[0]?.name;
-  if (refName) {
-    return refName.includes('.') ? refName.split('.').pop() : refName;
+  if (refs.length > 0) {
+    if (refs.some((r) => MEMBER_ACCESS_CONTEXTS.has(r.context))) {
+      return undefined;
+    }
+    // A genuine local usage: VARIABLE_USAGE the parser bound to a local-kind
+    // declaration. Prefer it explicitly rather than by dot-in-name.
+    const localUsage = refs.find(
+      (r) =>
+        r.context === ReferenceContext.VARIABLE_USAGE &&
+        r.resolvedSymbolId !== undefined &&
+        localKindById(table, r.resolvedSymbolId),
+    );
+    if (localUsage) return localUsage.name;
+
+    // No resolved local usage and no member access: a bare, unqualified name
+    // (e.g. a field usage the parser left as VARIABLE_USAGE without resolving).
+    // Fall through to the declaration-token scan / resolveVariableAtPosition,
+    // which only accepts a LOCAL_KIND symbol, so a field still yields null.
+    const bare = refs.find((r) => !r.name.includes('.'));
+    if (bare) return bare.name;
   }
 
   // Otherwise the cursor may be on the declaration token itself; find a
@@ -161,14 +212,13 @@ function symbolNameAtPosition(
   const decl = table.getAllSymbols().find((s) => {
     if (!LOCAL_KINDS.has(s.kind)) return false;
     const ir = s.location?.identifierRange;
-    if (!ir) return false;
-    const afterStart =
-      ir.startLine < position.line ||
-      (ir.startLine === position.line && ir.startColumn <= position.character);
-    const beforeEnd =
-      ir.endLine > position.line ||
-      (ir.endLine === position.line && ir.endColumn >= position.character);
-    return afterStart && beforeEnd;
+    return !!ir && isPositionInIdentifierRange(position, ir);
   });
   return decl?.name;
+}
+
+/** True when `id` resolves to a block-scoped local (Variable/Parameter). */
+function localKindById(table: SymbolTable, id: string): boolean {
+  const sym = table.getSymbolById(id);
+  return !!sym && LOCAL_KINDS.has(sym.kind);
 }
