@@ -497,4 +497,56 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
     // prepareRename returns null when the cursor isn't on a renamable local.
     expect(result).toBeNull();
   }, 120_000);
+
+  it('returns null from prepareRename when the cursor is one past the identifier end', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        (uri) => SOURCES[uri],
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: LOCAL_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => LOCAL_SRC,
+          },
+          textDocument: { uri: LOCAL_URI },
+          text: LOCAL_SRC,
+        }),
+      );
+
+      // Declaration line `        Integer total = 0;` (LSP line 2): `total`
+      // occupies chars 16-20, so the half-open identifier range ends at
+      // exclusive column 21 (the space before `=`). A cursor at char 21 sits
+      // AFTER the identifier and must NOT resolve — this is the off-by-one the
+      // `endColumn > cursorChar` (not `>=`) fix guards against.
+      const result = yield* Effect.promise(() =>
+        dispatcher.dispatch('prepareRename', {
+          textDocument: { uri: LOCAL_URI },
+          position: { line: 2, character: 21 },
+        }),
+      );
+
+      return { result };
+    }).pipe(Effect.scoped);
+
+    const { result } = await Effect.runPromise(program);
+
+    expect(result).toBeNull();
+  }, 120_000);
 });

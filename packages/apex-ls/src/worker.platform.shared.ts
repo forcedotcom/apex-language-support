@@ -3646,19 +3646,28 @@ async function resolvePrepareRenameForLocal(req: PositionReq): Promise<{
     const cursorLine = req.position.line + 1;
     const cursorChar = req.position.character;
 
-    let cursorRange = local.identifierRanges[0]; // fallback to declaration
+    // identifierRange columns are half-open [startColumn, endColumn): endColumn
+    // is one past the last character (parser builds it as stop.column +
+    // text.length). So a cursor exactly at endColumn sits on the whitespace
+    // AFTER the identifier and must NOT match — hence `endColumn > cursorChar`,
+    // not `>=`. VS Code requires the range returned by prepareRename to CONTAIN
+    // the cursor; if none does (a parser edge where the resolved local's own
+    // occurrence isn't among identifierRanges), return null rather than a
+    // declaration range that doesn't contain the cursor.
+    let cursorRange: (typeof local.identifierRanges)[number] | undefined;
     for (const r of local.identifierRanges) {
       const afterStart =
         r.startLine < cursorLine ||
         (r.startLine === cursorLine && r.startColumn <= cursorChar);
       const beforeEnd =
         r.endLine > cursorLine ||
-        (r.endLine === cursorLine && r.endColumn >= cursorChar);
+        (r.endLine === cursorLine && r.endColumn > cursorChar);
       if (afterStart && beforeEnd) {
         cursorRange = r;
         break;
       }
     }
+    if (!cursorRange) return null;
 
     return {
       range: {

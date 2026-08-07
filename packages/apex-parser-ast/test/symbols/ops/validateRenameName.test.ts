@@ -43,6 +43,29 @@ describe('validateRenameName', () => {
         expect(result.message).toContain('cannot be a keyword');
       }
     });
+
+    // Apex identifiers are case-insensitive, so reserved-word / keyword
+    // rejection must be too. These lock in the `.toLowerCase()` fold in
+    // IdentifierValidator; a refactor that drops it would break silently.
+    it('should reject a reserved word regardless of casing', () => {
+      for (const name of ['Array', 'ARRAY', 'ArRaY']) {
+        const result = validateRenameName(name, SymbolKind.Variable);
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.message).toContain('Identifier name is reserved');
+        }
+      }
+    });
+
+    it('should reject a keyword regardless of casing', () => {
+      for (const name of ['Class', 'CLASS', 'ClAsS']) {
+        const result = validateRenameName(name, SymbolKind.Variable);
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.message).toContain('cannot be a keyword');
+        }
+      }
+    });
   });
 
   describe('invalid characters', () => {
