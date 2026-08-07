@@ -715,6 +715,19 @@ export class LSPQueueManager {
   }
 
   /**
+   * Submit a prepareRename request (W-23631080)
+   */
+  async submitPrepareRenameRequest(
+    params: any,
+    token?: CancellationLike,
+  ): Promise<any> {
+    return this.submitRequest('prepareRename', params, {
+      priority: Priority.Low,
+      token,
+    });
+  }
+
+  /**
    * Submit an execute command request
    */
   async submitExecuteCommandRequest(params: any): Promise<any> {
