@@ -19,6 +19,7 @@
  */
 
 import * as WorkerRunner from '@effect/platform/WorkerRunner';
+import type { WorkspaceEdit } from 'vscode-languageserver';
 import {
   Cause,
   Effect,
@@ -3427,23 +3428,14 @@ function safelyCaptureResolutionStateAttributes(
 // ---------------------------------------------------------------------------
 
 /**
- * An LSP `WorkspaceEdit` in its simplest shape: a `changes` map from document
- * URI to the text edits to apply. renameLocal only ever touches one file (a
- * local's declaration and usages are all in the same file), so the map has a
- * single key, but the shape generalizes to the cross-file kinds later.
+ * The rename result is a standard LSP `WorkspaceEdit` (re-exported by
+ * `vscode-languageserver`, the protocol type `RenameProcessingService` uses).
+ * renameLocal only ever touches one file — a local's declaration and usages are
+ * all in the same file — so `changes` has a single key, but the shape
+ * generalizes to the cross-file kinds later. Type-only import: erased at
+ * compile time, so no worker-bundle weight is added.
  */
-type WorkspaceEditResult = {
-  changes: Record<
-    string,
-    Array<{
-      range: {
-        start: { line: number; character: number };
-        end: { line: number; character: number };
-      };
-      newText: string;
-    }>
-  >;
-};
+type WorkspaceEditResult = WorkspaceEdit;
 
 /**
  * Build a rename `WorkspaceEdit` for a LOCAL variable or parameter under the
@@ -3476,47 +3468,52 @@ async function resolveLocalRename(
 
   const uri = req.textDocument.uri;
 
-  let table: InstanceType<typeof SymbolTable>;
+  // Parse + occurrence-binding + edit assembly all share one guard: any throw
+  // here (a parser edge case, an unexpected symbol shape) must degrade to the
+  // same graceful `null` this function returns for every other failure mode,
+  // NOT escape as an unhandled Effect defect that fails the whole request.
   try {
     const t = new SymbolTable();
     const listener = new FullSymbolCollectorListener(t);
-    const result = new CompilerService().compile(req.content, uri, listener, {
+    const compiled = new CompilerService().compile(req.content, uri, listener, {
       collectReferences: true,
       resolveReferences: true,
     });
-    table = result?.result instanceof SymbolTable ? result.result : t;
-  } catch (err) {
+    const table: InstanceType<typeof SymbolTable> =
+      compiled?.result instanceof SymbolTable ? compiled.result : t;
+
+    // LSP (0-based line) → parser (1-based line, 0-based column).
+    const local = findLocalOccurrences(table, uri, {
+      line: req.position.line + 1,
+      character: req.position.character,
+    });
+    // `null` = the cursor isn't on a renamable local (a field/method/type/none),
+    // or the local's occurrences couldn't be bound unambiguously. Either way,
+    // produce no edit. `identifierRanges` is never empty for a non-null result
+    // (the declaration's own range is always the first entry).
+    if (!local) return null;
+
+    // Parser coordinates are 1-based line / 0-based column; LSP is 0-based line,
+    // so subtract 1 from each line. Each occurrence becomes a TextEdit replacing
+    // the identifier token with the new name.
+    const edits = local.identifierRanges.map((r) => ({
+      range: {
+        start: { line: r.startLine - 1, character: r.startColumn },
+        end: { line: r.endLine - 1, character: r.endColumn },
+      },
+      newText: req.newName,
+    }));
+
     emitWorkerLog(
-      'warn',
-      `[RENAME] cursor file parse failed for ${uri}: ${err}`,
+      'info',
+      `[RENAME] local '${local.declaration.name}' → '${req.newName}': ` +
+        `${edits.length} edit(s) in ${uri}`,
     );
+    return { changes: { [uri]: edits } };
+  } catch (err) {
+    emitWorkerLog('warn', `[RENAME] local rename failed for ${uri}: ${err}`);
     return null;
   }
-
-  // LSP (0-based line) → parser (1-based line, 0-based column).
-  const local = findLocalOccurrences(table, uri, {
-    line: req.position.line + 1,
-    character: req.position.character,
-  });
-  if (!local || local.identifierRanges.length === 0) return null;
-
-  // Parser coordinates are 1-based line / 0-based column; LSP is 0-based line,
-  // so subtract 1 from each line. Each occurrence becomes a TextEdit replacing
-  // the identifier token with the new name.
-  const edits = local.identifierRanges.map((r) => ({
-    range: {
-      start: { line: r.startLine - 1, character: r.startColumn },
-      end: { line: r.endLine - 1, character: r.endColumn },
-    },
-    newText: req.newName,
-  }));
-
-  emitWorkerLog(
-    'info',
-    `[RENAME] local '${local.declaration.name}' → '${req.newName}': ` +
-      `${edits.length} edit(s) in ${uri}`,
-  );
-  return { changes: { [uri]: edits } };
 }
 
 // ---------------------------------------------------------------------------
