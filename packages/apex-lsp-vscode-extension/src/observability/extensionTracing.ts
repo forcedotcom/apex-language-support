@@ -21,10 +21,13 @@ import type {
   SdkSpanRuntimeFactory,
 } from './sdkSpanReplay';
 import { context, propagation, trace } from '@opentelemetry/api';
+import {
+  getSalesforceServicesExtension,
+  SALESFORCE_SERVICES_EXTENSION_ID,
+} from '../services/salesforce-services-extension';
 
 const ACTIVATION_SPAN = 'apex-language-server-extension.activate';
 
-const SERVICES_EXT_ID = 'salesforce.salesforcedx-vscode-services';
 const SALESFORCE_DX_SECTION = 'salesforcedx-vscode-salesforcedx';
 
 class ServicesExtensionNotFoundError extends Data.TaggedError(
@@ -114,9 +117,7 @@ export function injectTraceContextFromCurrentEffectSpan<
 }
 
 /** Effect that resolves the services extension API, activating it if needed. */
-const getServicesApi = Effect.sync(() =>
-  vscode.extensions.getExtension<SalesforceVSCodeServicesApi>(SERVICES_EXT_ID),
-).pipe(
+const getServicesApi = Effect.sync(() => getSalesforceServicesExtension()).pipe(
   Effect.flatMap((ext) =>
     ext
       ? Effect.succeed(ext)
@@ -226,7 +227,7 @@ async function buildTracingRuntime(
       Effect.catchTag('ServicesExtensionNotFoundError', () =>
         Effect.sync(() =>
           logToOutputChannel(
-            `${SERVICES_EXT_ID} not found; extension-host OTEL tracing disabled`,
+            `${SALESFORCE_SERVICES_EXTENSION_ID} not found; extension-host OTEL tracing disabled`,
             'warning',
           ),
         ),

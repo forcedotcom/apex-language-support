@@ -10,6 +10,7 @@
 /* eslint-disable max-len */
 
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
+import { FullSymbolCollectorListener } from '../../src/parser/listeners/FullSymbolCollectorListener';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ReferenceContext } from '../../src/types/symbolReference';
 import { isChainedSymbolReference } from '../../src/utils/symbolNarrowing';
@@ -316,6 +317,322 @@ describe('ApexSymbolCollectorListener with Type References', () => {
           r.context === ReferenceContext.CLASS_REFERENCE && r.name === 'String',
       );
       expect(typeLiteralRefs.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('SOQL sObject evidence', () => {
+    const compileReferences = (
+      sourceCode: string,
+      listener:
+        | ApexSymbolCollectorListener
+        | FullSymbolCollectorListener = new ApexSymbolCollectorListener(),
+    ) => {
+      compilerService.compile(sourceCode, 'SoqlEvidence.cls', listener);
+      return listener.getResult().getAllReferences();
+    };
+
+    it('captures each root and relationship-subquery FROM name precisely', () => {
+      const references = compileReferences(`
+        public class SoqlEvidence {
+          public void run() {
+            Account row = [SELECT Id, (SELECT Id FROM Contacts) FROM Account];
+          }
+        }
+      `);
+      const fromReferences = references.filter(
+        (ref) => ref.context === ReferenceContext.SOQL_FROM_TYPE,
+      );
+
+      expect(fromReferences.map((ref) => ref.name)).toEqual([
+        'Contacts',
+        'Account',
+      ]);
+      expect(fromReferences.every((ref) => ref.isSObject)).toBe(true);
+      expect(fromReferences[0].location.identifierRange).toEqual({
+        startLine: 4,
+        startColumn: 54,
+        endLine: 4,
+        endColumn: 62,
+      });
+      expect(fromReferences[1].location.identifierRange).toEqual({
+        startLine: 4,
+        startColumn: 69,
+        endLine: 4,
+        endColumn: 76,
+      });
+    });
+
+    it('emits one reference for every FROM name accepted by the grammar', () => {
+      const references = compileReferences(`
+        public class SoqlEvidence {
+          public void run() {
+            List<SObject> rows = [SELECT Id FROM Account, Contact];
+          }
+        }
+      `);
+
+      expect(
+        references
+          .filter((ref) => ref.context === ReferenceContext.SOQL_FROM_TYPE)
+          .map((ref) => ref.name),
+      ).toEqual(['Account', 'Contact']);
+    });
+
+    it('marks direct and list assignment types without marking List itself', () => {
+      const references = compileReferences(`
+        public class SoqlEvidence {
+          public void run() {
+            Account row = [SELECT Id FROM Account];
+            List<Account> rows = [SELECT Id FROM Account];
+          }
+        }
+      `);
+      const accountDeclarations = references.filter(
+        (ref) =>
+          ref.name === 'Account' &&
+          (ref.context === ReferenceContext.TYPE_DECLARATION ||
+            ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE),
+      );
+      const listDeclaration = references.find(
+        (ref) =>
+          ref.name === 'List' &&
+          ref.context === ReferenceContext.TYPE_DECLARATION,
+      );
+
+      expect(accountDeclarations).toHaveLength(2);
+      expect(accountDeclarations.every((ref) => ref.isSObject)).toBe(true);
+      expect(listDeclaration?.isSObject).toBeUndefined();
+    });
+
+    it('marks a SOQL-for-loop declaration type', () => {
+      const references = compileReferences(`
+        public class SoqlEvidence {
+          public void run() {
+            for (Account row : [SELECT Id FROM Account]) {
+              System.debug(row.Id);
+            }
+          }
+        }
+      `);
+      const loopTypes = references.filter(
+        (ref) =>
+          ref.name === 'Account' &&
+          ref.context === ReferenceContext.PARAMETER_TYPE,
+      );
+
+      expect(loopTypes.length).toBeGreaterThanOrEqual(1);
+      expect(loopTypes.some((ref) => ref.isSObject)).toBe(true);
+    });
+
+    it('does not mark an unrelated assignment declaration', () => {
+      const references = compileReferences(`
+        public class SoqlEvidence {
+          public void run() {
+            Account row = getAccount();
+          }
+          private Account getAccount() { return null; }
+        }
+      `);
+      const declaration = references.find(
+        (ref) =>
+          ref.name === 'Account' &&
+          ref.context === ReferenceContext.TYPE_DECLARATION,
+      );
+
+      expect(declaration?.isSObject).toBeUndefined();
+      expect(
+        references.some(
+          (ref) => ref.context === ReferenceContext.SOQL_FROM_TYPE,
+        ),
+      ).toBe(false);
+    });
+
+    it('does not mark a declaration when SOQL is nested inside its initializer', () => {
+      const references = compileReferences(`
+        public class SoqlEvidence {
+          public void run() {
+            Contact row = choose([SELECT Id FROM Account]);
+          }
+        }
+      `);
+      const declaration = references.find(
+        (ref) =>
+          ref.name === 'Contact' &&
+          ref.context === ReferenceContext.TYPE_DECLARATION,
+      );
+
+      expect(declaration?.isSObject).toBeUndefined();
+      expect(
+        references.some(
+          (ref) =>
+            ref.name === 'Account' &&
+            ref.context === ReferenceContext.SOQL_FROM_TYPE &&
+            ref.isSObject,
+        ),
+      ).toBe(true);
+    });
+
+    it('keeps full and layered collection evidence in parity without duplicates', () => {
+      const sourceCode = `
+        public class SoqlEvidence {
+          public void run() {
+            List<Account> rows = [SELECT Id FROM Account];
+          }
+        }
+      `;
+      const fullReferences = compileReferences(
+        sourceCode,
+        new ApexSymbolCollectorListener(),
+      );
+      const layeredReferences = compileReferences(
+        sourceCode,
+        new FullSymbolCollectorListener(),
+      );
+      const evidenceKey = (ref: (typeof fullReferences)[number]) =>
+        `${ref.name}:${ref.context}:${ref.location.identifierRange.startLine}:${ref.location.identifierRange.startColumn}:${ref.isSObject === true}`;
+      const fullEvidence = fullReferences
+        .filter(
+          (ref) =>
+            ref.context === ReferenceContext.SOQL_FROM_TYPE ||
+            ref.isSObject === true,
+        )
+        .map(evidenceKey);
+      const layeredEvidence = layeredReferences
+        .filter(
+          (ref) =>
+            ref.context === ReferenceContext.SOQL_FROM_TYPE ||
+            ref.isSObject === true,
+        )
+        .map(evidenceKey);
+
+      expect(new Set(fullEvidence).size).toBe(fullEvidence.length);
+      expect(new Set(layeredEvidence).size).toBe(layeredEvidence.length);
+      expect(layeredEvidence).toEqual(fullEvidence);
+    });
+  });
+
+  describe('additional deterministic sObject evidence', () => {
+    const compileReferences = (sourceCode: string) => {
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(sourceCode, 'SObjectEvidence.cls', listener);
+      return listener.getResult().getAllReferences();
+    };
+
+    it('marks named-field constructors but keeps bare and positional constructors ambiguous', () => {
+      const references = compileReferences(`
+        public class SObjectEvidence {
+          public void run() {
+            Account named = new Account(Name = 'Acme');
+            Account bare = new Account();
+            Account positional = new Account('Acme');
+          }
+        }
+      `);
+      const constructors = references.filter(
+        (ref) =>
+          ref.name === 'Account' &&
+          ref.context === ReferenceContext.CONSTRUCTOR_CALL,
+      );
+
+      expect(constructors).toHaveLength(3);
+      expect(constructors[0].isSObject).toBe(true);
+      expect(constructors[1].isSObject).toBeUndefined();
+      expect(constructors[2].isSObject).toBeUndefined();
+    });
+
+    it('marks only a Map value type whose constructor argument is SOQL', () => {
+      const references = compileReferences(`
+        public class SObjectEvidence {
+          public void run() {
+            Map<Id, Account> byId =
+              new Map<Id, Account>([SELECT Id FROM Account]);
+            Map<Id, Contact> ordinary = new Map<Id, Contact>();
+          }
+        }
+      `);
+      const accountGenerics = references.filter(
+        (ref) =>
+          ref.name === 'Account' &&
+          ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE,
+      );
+      const contactGenerics = references.filter(
+        (ref) =>
+          ref.name === 'Contact' &&
+          ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE,
+      );
+
+      expect(accountGenerics.some((ref) => ref.isSObject)).toBe(true);
+      expect(contactGenerics.every((ref) => ref.isSObject === undefined)).toBe(
+        true,
+      );
+    });
+
+    it('traces simple scalar and collection DML operands to declaration types', () => {
+      const references = compileReferences(`
+        public class SObjectEvidence {
+          private Account makeAccount() { return null; }
+          public void run() {
+            Account row;
+            insert row;
+            List<Contact> contacts;
+            update contacts;
+            Account complex;
+            insert makeAccount();
+          }
+        }
+      `);
+      const rowType = references.find(
+        (ref) =>
+          ref.name === 'Account' &&
+          ref.context === ReferenceContext.TYPE_DECLARATION &&
+          ref.location.identifierRange.startLine === 5,
+      );
+      const contactType = references.find(
+        (ref) =>
+          ref.name === 'Contact' &&
+          ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE,
+      );
+      const complexType = references.find(
+        (ref) =>
+          ref.name === 'Account' &&
+          ref.context === ReferenceContext.TYPE_DECLARATION &&
+          ref.location.identifierRange.startLine === 9,
+      );
+
+      expect(rowType?.isSObject).toBe(true);
+      expect(contactType?.isSObject).toBe(true);
+      expect(complexType?.isSObject).toBeUndefined();
+    });
+
+    it('marks canonical suffix types without treating relationships as types', () => {
+      const references = compileReferences(`
+        public class SObjectEvidence {
+          public void run() {
+            Property__c property;
+            List<Platform_Event__e> events;
+            Owner__r relationship;
+          }
+        }
+      `);
+      const propertyType = references.find(
+        (ref) =>
+          ref.name === 'Property__c' &&
+          ref.context === ReferenceContext.TYPE_DECLARATION,
+      );
+      const eventType = references.find(
+        (ref) =>
+          ref.name === 'Platform_Event__e' &&
+          ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE,
+      );
+      const relationshipType = references.find(
+        (ref) =>
+          ref.name === 'Owner__r' &&
+          ref.context === ReferenceContext.TYPE_DECLARATION,
+      );
+
+      expect(propertyType?.isSObject).toBe(true);
+      expect(eventType?.isSObject).toBe(true);
+      expect(relationshipType?.isSObject).toBeUndefined();
     });
   });
 

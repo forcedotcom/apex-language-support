@@ -32,6 +32,7 @@ export enum ReferenceContext {
   INHERITANCE = 16, // For a class's `extends` superclass (subclass → superclass edge)
   INTERFACE_IMPLEMENTATION = 17, // For `implements` / interface `extends` (implementor → interface edge)
   KEYWORD_USAGE = 18,
+  SOQL_FROM_TYPE = 19, // For sObject names in SOQL FROM clauses
 }
 
 export type MemberAccessSemanticContext = {
@@ -139,6 +140,8 @@ export interface SymbolReference {
   isStatic?: boolean;
   /** Parser-owned structural context orthogonal to the reference kind. */
   semanticContext?: SymbolReferenceSemanticContext;
+  /** Deterministic evidence that this type reference denotes an sObject. */
+  isSObject?: boolean;
   /** Optional: literal value for LITERAL context (string, number, boolean, or null) */
   literalValue?: string | number | boolean | null;
   /** Optional: literal type for LITERAL context */
@@ -210,6 +213,7 @@ export interface SymbolReferenceOptions {
   access?: 'read' | 'write' | 'readwrite';
   isStatic?: boolean;
   semanticContext?: SymbolReferenceSemanticContext;
+  isSObject?: boolean;
   literalValue?: string | number | boolean | null;
   literalType?: 'Integer' | 'Long' | 'Decimal' | 'String' | 'Boolean' | 'Null';
   chainNodes?: SymbolReference[];
@@ -236,6 +240,7 @@ export class EnhancedSymbolReference implements SymbolReference {
   public access?: 'read' | 'write' | 'readwrite';
   public isStatic?: boolean;
   public semanticContext?: SymbolReferenceSemanticContext;
+  public isSObject?: boolean;
   public literalValue?: string | number | boolean | null;
   public literalType?:
     'Integer' | 'Long' | 'Decimal' | 'String' | 'Boolean' | 'Null';
@@ -268,6 +273,7 @@ export class EnhancedSymbolReference implements SymbolReference {
     this.access = options.access;
     this.isStatic = options.isStatic;
     this.semanticContext = options.semanticContext;
+    this.isSObject = options.isSObject;
     this.literalValue = options.literalValue;
     this.literalType = options.literalType;
     this.chainNodes = options.chainNodes;
@@ -292,6 +298,7 @@ export class EnhancedSymbolReference implements SymbolReference {
       access: this.access,
       isStatic: this.isStatic,
       semanticContext: this.semanticContext,
+      isSObject: this.isSObject,
       literalValue: this.literalValue,
       literalType: this.literalType,
       chainNodes: this.chainNodes,

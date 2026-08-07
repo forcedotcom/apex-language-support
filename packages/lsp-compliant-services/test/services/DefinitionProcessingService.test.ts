@@ -240,7 +240,7 @@ describe('DefinitionProcessingService', () => {
           service['missingArtifactUtils'],
           'tryResolveMissingArtifactBlocking',
         )
-        .mockResolvedValue('not-found');
+        .mockResolvedValue({ status: 'not-found' });
 
       // Act
       const result = await service.processDefinition(params);
@@ -317,7 +317,7 @@ describe('DefinitionProcessingService', () => {
           service['missingArtifactUtils'],
           'tryResolveMissingArtifactBlocking',
         )
-        .mockResolvedValue('not-found');
+        .mockResolvedValue({ status: 'not-found' });
 
       // Act
       const result = await service.processDefinition(params);

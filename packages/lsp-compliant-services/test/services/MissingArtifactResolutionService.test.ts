@@ -11,10 +11,12 @@ import type {
   FindMissingArtifactParams,
   FindMissingArtifactResult,
 } from '@salesforce/apex-lsp-shared';
+import { MAX_SOBJECT_WIRE_BYTES } from '@salesforce/apex-lsp-shared';
 import {
   MissingArtifactConfig,
   DEFAULT_MISSING_ARTIFACT_CONFIG,
   createMissingArtifactResolutionService,
+  decodeFindMissingArtifactResult,
   type BlockingResult,
 } from '../../src/services/MissingArtifactResolutionService';
 
@@ -89,11 +91,11 @@ describe('MissingArtifactResolutionService', () => {
   describe('BlockingResult types', () => {
     it('should have correct result types', () => {
       const results: BlockingResult[] = [
-        'resolved',
-        'not-found',
-        'timeout',
-        'cancelled',
-        'unsupported',
+        { status: 'resolved', opened: ['file:///Found.cls'] },
+        { status: 'not-found' },
+        { status: 'timeout' },
+        { status: 'cancelled' },
+        { status: 'unsupported' },
       ];
 
       expect(results).toHaveLength(5);
@@ -231,6 +233,184 @@ describe('MissingArtifactResolutionService', () => {
       expect('opened' in openedResult).toBe(true);
       expect('notFound' in notFoundResult).toBe(true);
       expect('accepted' in acceptedResult).toBe(true);
+    });
+  });
+
+  describe('client result decoding', () => {
+    const sObjectParams: FindMissingArtifactParams = {
+      identifiers: [
+        {
+          name: 'Invoice__c',
+          identifierType: 'sobject',
+          provenance: semanticProvenance,
+        },
+      ],
+      origin: {
+        uri: 'file:///Consumer.cls',
+        requestKind: 'definition',
+      },
+      mode: 'blocking',
+    };
+    const artifact = {
+      identifierType: 'sobject' as const,
+      name: 'Invoice__c',
+      describe: {
+        name: 'Invoice__c',
+        custom: true,
+        fields: [],
+        definitionTarget: { uri: 'org://Invoice__c' },
+      },
+    };
+
+    it('accepts a schema-valid artifact matching a requested sObject', () => {
+      expect(
+        decodeFindMissingArtifactResult(
+          { artifacts: [artifact] },
+          sObjectParams,
+        ),
+      ).toEqual({ artifacts: [artifact] });
+    });
+
+    it('preserves artifacts when an artifact result also contains opened URIs', () => {
+      expect(
+        decodeFindMissingArtifactResult(
+          {
+            artifacts: [artifact],
+            opened: ['file:///SupportingClass.cls'],
+          },
+          sObjectParams,
+        ),
+      ).toEqual({
+        artifacts: [artifact],
+        opened: ['file:///SupportingClass.cls'],
+      });
+    });
+
+    it('rejects malformed client data', () => {
+      expect(
+        decodeFindMissingArtifactResult(
+          { artifacts: [{ name: 'Invoice__c' }] },
+          sObjectParams,
+        ),
+      ).toBeUndefined();
+    });
+
+    it.each([
+      ['artifact name', { ...artifact, name: '   ' }],
+      [
+        'describe name',
+        { ...artifact, describe: { ...artifact.describe, name: '   ' } },
+      ],
+      [
+        'field name',
+        {
+          ...artifact,
+          describe: {
+            ...artifact.describe,
+            fields: [
+              {
+                name: '   ',
+                type: 'string',
+                definitionTarget: { uri: 'org://Invoice__c/Name' },
+              },
+            ],
+          },
+        },
+      ],
+      [
+        'field type',
+        {
+          ...artifact,
+          describe: {
+            ...artifact.describe,
+            fields: [
+              {
+                name: 'Name',
+                type: '   ',
+                definitionTarget: { uri: 'org://Invoice__c/Name' },
+              },
+            ],
+          },
+        },
+      ],
+      [
+        'definition URI',
+        {
+          ...artifact,
+          describe: {
+            ...artifact.describe,
+            definitionTarget: { uri: '   ' },
+          },
+        },
+      ],
+    ])('rejects an empty %s at the wire boundary', (_label, malformed) => {
+      expect(
+        decodeFindMissingArtifactResult(
+          { artifacts: [malformed] },
+          sObjectParams,
+        ),
+      ).toBeUndefined();
+    });
+
+    it('rejects an sObject artifact larger than the shared wire limit', () => {
+      expect(
+        decodeFindMissingArtifactResult(
+          {
+            artifacts: [
+              {
+                ...artifact,
+                describe: {
+                  ...artifact.describe,
+                  label: 'x'.repeat(MAX_SOBJECT_WIRE_BYTES),
+                },
+              },
+            ],
+          },
+          sObjectParams,
+        ),
+      ).toBeUndefined();
+    });
+
+    it('rejects artifacts with an unrequested name', () => {
+      expect(
+        decodeFindMissingArtifactResult(
+          {
+            artifacts: [
+              {
+                ...artifact,
+                name: 'Other__c',
+                describe: { ...artifact.describe, name: 'Other__c' },
+              },
+            ],
+          },
+          sObjectParams,
+        ),
+      ).toBeUndefined();
+    });
+
+    it('rejects artifacts when the describe name disagrees', () => {
+      expect(
+        decodeFindMissingArtifactResult(
+          {
+            artifacts: [
+              {
+                ...artifact,
+                describe: { ...artifact.describe, name: 'Other__c' },
+              },
+            ],
+          },
+          sObjectParams,
+        ),
+      ).toBeUndefined();
+    });
+
+    it('rejects contradictory result variants', () => {
+      expect(
+        decodeFindMissingArtifactResult(
+          { artifacts: [artifact], notFound: true },
+          sObjectParams,
+        ),
+      ).toBeUndefined();
     });
   });
 });

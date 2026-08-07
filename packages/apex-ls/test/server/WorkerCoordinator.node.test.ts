@@ -23,6 +23,7 @@ import {
   QueryGraphData,
   QuerySymbolSubset,
   UpdateSymbolSubset,
+  InstallSObjectArtifacts,
 } from '@salesforce/apex-lsp-shared';
 import { Effect, Exit, Scope } from 'effect';
 import type { LoggerInterface } from '@salesforce/apex-lsp-shared';
@@ -178,6 +179,48 @@ describe('WorkerCoordinator', () => {
         expect(result.accepted).toBe(false);
         expect(result.versionMismatch).toBe(false);
         expect(result.merged).toBe(0);
+      });
+
+      it('installs sObject artifacts without requiring a source document', async () => {
+        const ownerUri = 'apex-sobject://graph/property__c';
+        const result = await Effect.runPromise(
+          topology.dataOwner.executeEffect(
+            new InstallSObjectArtifacts({
+              artifacts: [
+                {
+                  identifierType: 'sobject',
+                  name: 'Property__c',
+                  describe: {
+                    name: 'Property__c',
+                    custom: true,
+                    fields: [],
+                    definitionTarget: {
+                      uri: 'file:///objects/Property__c.object-meta.xml',
+                    },
+                  },
+                },
+              ],
+              originUri: 'file:///test.cls',
+            }),
+          ),
+        );
+        expect(result.installed).toBe(1);
+
+        const subset = await Effect.runPromise(
+          topology.dataOwner.executeEffect(
+            new QuerySymbolSubset({ uris: [ownerUri] }),
+          ),
+        );
+        expect(subset.entries[ownerUri]).toEqual(
+          expect.objectContaining({
+            fileUri: ownerUri,
+            symbols: expect.arrayContaining([
+              expect.objectContaining({
+                name: 'Property__c',
+              }),
+            ]),
+          }),
+        );
       });
 
       it('data-owner rejects UpdateSymbolSubset when detail level is not higher', async () => {

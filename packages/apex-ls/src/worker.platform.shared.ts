@@ -37,6 +37,7 @@ import {
   QuerySymbolSubset,
   AwaitSymbolReadiness,
   UpdateSymbolSubset,
+  InstallSObjectArtifacts,
   ResolveDepUris,
   ResolveDependentUris,
   WorkspaceBatchIngest,
@@ -74,6 +75,7 @@ import {
   FindOccurrenceCandidates,
   WIRE_PROTOCOL_VERSION,
   ApexCapabilitiesManager,
+  ApexSettingsManager,
   type WorkerRole,
   type WorkerLogLevel,
 } from '@salesforce/apex-lsp-shared';
@@ -93,7 +95,10 @@ import type {
   SymbolReference,
 } from '@salesforce/apex-lsp-parser-ast';
 import {
+  composeSObjectSymbolTable,
+  ownerUriForSObject,
   STANDARD_APEX_LIBRARY_URI,
+  SymbolKind,
   SymbolTable,
 } from '@salesforce/apex-lsp-parser-ast';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -128,6 +133,7 @@ export const AllWorkerRequests = Schema.Union(
   QuerySymbolSubset,
   AwaitSymbolReadiness,
   UpdateSymbolSubset,
+  InstallSObjectArtifacts,
   ResolveDepUris,
   ResolveDependentUris,
   WorkspaceBatchIngest,
@@ -695,12 +701,8 @@ const processItem = (item: DOQueueItem) =>
     // queued work actually executes.
     execution = workerTracingHooks.provide(execution);
 
-    const result = yield* Effect.either(execution);
-    if (result._tag === 'Right') {
-      yield* Deferred.succeed(item.deferred, result.right);
-    } else {
-      yield* Deferred.fail(item.deferred, result.left);
-    }
+    const result = yield* Effect.exit(execution);
+    yield* Deferred.done(item.deferred, result);
   });
 
 const initDataOwnerQueues: Effect.Effect<DOQueues> = Effect.cached(
@@ -1517,6 +1519,7 @@ async function materializeCursorCrossFileReferences(
 
 function loadCursorTargetDependencies(
   svc: RequestServices,
+  requestType: LSPRequestType,
   uri: string,
   position: { line: number; character: number },
 ): Effect.Effect<CursorTargetDependencyTelemetry, never, never> {
@@ -1534,9 +1537,8 @@ function loadCursorTargetDependencies(
     );
     if (!symbolTable) return empty;
 
-    const { ReferenceContext, SymbolKind, SymbolTable } = yield* Effect.promise(
-      () => import('@salesforce/apex-lsp-parser-ast'),
-    );
+    const { ReferenceContext, SObjectRegistry, SymbolKind, SymbolTable } =
+      yield* Effect.promise(() => import('@salesforce/apex-lsp-parser-ast'));
     const parserPosition = {
       line: position.line + 1,
       character: position.character,
@@ -1733,7 +1735,7 @@ function loadCursorTargetDependencies(
         const table = yield* Effect.promise(() =>
           svc.symbolManager.getSymbolTableForFile(candidate.fileUri!),
         );
-        if (table) {
+        if (table && table.getMetadata().parseCompleteness !== 'incomplete') {
           locallyAvailable = true;
           break;
         }
@@ -1767,6 +1769,164 @@ function loadCursorTargetDependencies(
         catch: () => 0,
       }).pipe(Effect.catchAll(() => Effect.succeed(0)));
       ingestedCount += fallbackIngested;
+
+      // A cursor-target miss can be the first semantic observation of an org
+      // SObject. The data owner cannot return a table it has never seen, so
+      // forward only parser-evidenced SObject type references through the
+      // existing missing-artifact service, then retry the data-owner ingest.
+      // No document text is inspected here.
+      const requestKinds = new Set([
+        'definition',
+        'implementation',
+        'hover',
+        'references',
+        'completion',
+        'signatureHelp',
+      ]);
+      const artifactRequestKind = requestKinds.has(requestType)
+        ? (requestType as
+            | 'definition'
+            | 'implementation'
+            | 'hover'
+            | 'references'
+            | 'completion'
+            | 'signatureHelp')
+        : 'references';
+      const metadata = symbolTable.getMetadata();
+      const allReferences = symbolTable.getAllReferences();
+      const hasMemberAccessAtCursor = references.some(
+        (reference) =>
+          reference.context === ReferenceContext.FIELD_ACCESS ||
+          (reference.chainNodes?.length ?? 0) >= 2 ||
+          reference.semanticContext?.memberAccess !== undefined,
+      );
+      const stillMissingNames = yield* Effect.promise(() =>
+        Promise.all(
+          missingNames.map(async (name) => ({
+            name,
+            available: await hasCompleteLocalSymbolTable(svc, name),
+          })),
+        ).then((results) =>
+          results
+            .filter((result) => !result.available)
+            .map((result) => result.name),
+        ),
+      );
+      const sObjectIdentifiers = hasMemberAccessAtCursor
+        ? stillMissingNames.flatMap((name) => {
+            const normalizedName = name.toLowerCase();
+            const reference = allReferences.find((candidate) => {
+              const candidateName = candidate.name
+                .split('.')
+                .pop()
+                ?.toLowerCase();
+              return (
+                candidateName === normalizedName &&
+                (candidate.isSObject === true ||
+                  candidate.context === ReferenceContext.SOQL_FROM_TYPE ||
+                  SObjectRegistry.isCustomSObjectName(candidate.name))
+              );
+            });
+            if (!reference) return [];
+            return [
+              {
+                name,
+                identifierType: 'sobject' as const,
+                provenance: {
+                  sourceUri: uri,
+                  ...(metadata.documentVersion !== undefined && {
+                    documentVersion: metadata.documentVersion,
+                  }),
+                  referenceRange: reference.location.identifierRange,
+                  referenceIdentity: referenceIdentity(reference),
+                  ...(reference.resolvedSymbolId && {
+                    resolvedSymbolId: reference.resolvedSymbolId,
+                  }),
+                  ...(reference.resolvedTypeId && {
+                    resolvedTypeId: reference.resolvedTypeId,
+                  }),
+                  parseCompleteness: metadata.parseCompleteness ?? 'unknown',
+                },
+              },
+            ];
+          })
+        : [];
+
+      if (sObjectIdentifiers.length > 0) {
+        const artifactParams = {
+          identifiers: sObjectIdentifiers,
+          origin: {
+            uri,
+            position,
+            requestKind: artifactRequestKind,
+          },
+          mode: 'blocking' as const,
+        };
+        const artifactLoadingEnabled =
+          ApexSettingsManager.getInstance().getSettings().apex
+            .findMissingArtifact.enabled;
+        const rawArtifactResult = artifactLoadingEnabled
+          ? yield* Effect.tryPromise({
+              try: () =>
+                requestCoordinatorAssistancePromiseShared(
+                  'apex/findMissingArtifact',
+                  artifactParams,
+                  true,
+                ),
+              catch: () => undefined,
+            }).pipe(Effect.catchAll(() => Effect.succeed(undefined)))
+          : undefined;
+        const { decodeFindMissingArtifactResult } = yield* Effect.promise(
+          () => import('@salesforce/apex-lsp-compliant-services'),
+        );
+        const artifactResult = decodeFindMissingArtifactResult(
+          rawArtifactResult,
+          artifactParams,
+        );
+        if (artifactResult && 'artifacts' in artifactResult) {
+          for (const artifact of artifactResult.artifacts) {
+            const ownerUri = ownerUriForSObject(artifact.name);
+            const existing = yield* Effect.promise(() =>
+              svc.symbolManager.getSymbolTableForFile(ownerUri),
+            );
+            const version = (existing?.getMetadata().documentVersion ?? 0) + 1;
+            const table = yield* Effect.try({
+              try: () => composeSObjectSymbolTable(artifact.describe, version),
+              catch: (error) => error,
+            }).pipe(
+              Effect.catchAll((error) =>
+                Effect.logWarning(
+                  `[ENRICHMENT] Rejected malformed sObject artifact ${artifact.name}: ${error}`,
+                ).pipe(Effect.as(undefined)),
+              ),
+            );
+            if (!table) {
+              continue;
+            }
+            yield* svc.symbolManager.addSymbolTable(
+              table,
+              ownerUri,
+              version,
+              false,
+            );
+            ingestedCount++;
+          }
+        }
+        // The coordinator installs validated payloads into the authoritative
+        // data owner before replying. Retry that source even when the local
+        // outcome is conservative (for example, a rolling-upgrade decoder
+        // rejects a response shape) so the current request can observe the
+        // authoritative table without waiting for another keystroke.
+        const artifactIngested = yield* Effect.tryPromise({
+          try: () =>
+            resolveMissingNamesViaDataOwner(
+              svc,
+              sObjectIdentifiers.map((identifier) => identifier.name),
+            ),
+          catch: () => 0,
+        }).pipe(Effect.catchAll(() => Effect.succeed(0)));
+        ingestedCount += artifactIngested;
+      }
     }
 
     // The cursor is deliberately compiled before its targeted dependencies are
@@ -1774,7 +1934,10 @@ function loadCursorTargetDependencies(
     // retains the unresolved `property.Beds__c` chain and incorrectly falls
     // through to missing-artifact search. All downstream features consume this
     // parser-owned state; none reconstruct the receiver from document text.
-    if (candidateNames.size > 0 && needsCrossFileResolution) {
+    if (
+      candidateNames.size > 0 &&
+      (needsCrossFileResolution || ingestedCount > 0)
+    ) {
       yield* Effect.promise(() =>
         materializeCursorCrossFileReferences(svc, uri, symbolTable),
       );
@@ -1855,8 +2018,7 @@ export async function resolveMissingNamesViaDataOwner(
   for (const name of names) {
     if (seen.has(name)) continue;
     seen.add(name);
-    const local = await svc.symbolManager.findSymbolByName(name);
-    if (local.length === 0) residual.push(name);
+    if (!(await hasCompleteLocalSymbolTable(svc, name))) residual.push(name);
   }
 
   if (residual.length === 0) return 0;
@@ -1911,6 +2073,36 @@ export async function resolveMissingNamesViaDataOwner(
     );
     return 0;
   }
+}
+
+/**
+ * A name-only hit is not sufficient for cursor-target preparation. sObject
+ * enrichment deliberately installs an incomplete placeholder first, then
+ * replaces it with the composed describe table. Request-pool workers can retain
+ * that placeholder after the data-owner has advanced, so treating it as a
+ * cache hit permanently hides the object's fields from completion.
+ */
+async function hasCompleteLocalSymbolTable(
+  svc: RequestServices,
+  name: string,
+): Promise<boolean> {
+  const symbols = await svc.symbolManager.findSymbolByName(name);
+  for (const symbol of symbols) {
+    if (!symbol.fileUri) {
+      return true;
+    }
+    const table = await svc.symbolManager.getSymbolTableForFile(symbol.fileUri);
+    if (!table) {
+      continue;
+    }
+    if (
+      symbol.kind !== SymbolKind.SObject ||
+      table.getMetadata().parseCompleteness !== 'incomplete'
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -2283,7 +2475,7 @@ export function prepareLspRequestCursor(
     }
 
     const cursorTargetTelemetry = useCursorTargetDependencies
-      ? yield* loadCursorTargetDependencies(svc, uri, position)
+      ? yield* loadCursorTargetDependencies(svc, requestType, uri, position)
       : {
           candidateCount: 0,
           localHitCount: 0,
@@ -4528,6 +4720,51 @@ const untracedHandlers: SerializedWorkerHandlers = {
               ? { 'workspace.session_id': req.sessionId }
               : {},
           },
+        ),
+      ),
+    ),
+
+  InstallSObjectArtifacts: (req) =>
+    guardRole('InstallSObjectArtifacts').pipe(
+      Effect.flatMap(() =>
+        dataOwnerWrite(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            let installed = 0;
+
+            for (const artifact of req.artifacts) {
+              const ownerUri = ownerUriForSObject(artifact.name);
+              const existing = yield* Effect.promise(() =>
+                svc.symbolManager.getSymbolTableForFile(ownerUri),
+              );
+              const version =
+                (existing?.getMetadata().documentVersion ?? 0) + 1;
+              const table = yield* Effect.try({
+                try: () =>
+                  composeSObjectSymbolTable(artifact.describe, version),
+                catch: (error) => ({
+                  _tag: 'InstallSObjectArtifactsError' as const,
+                  message:
+                    error instanceof Error ? error.message : String(error),
+                }),
+              });
+              yield* svc.symbolManager.addSymbolTable(
+                table,
+                ownerUri,
+                version,
+                false,
+              );
+              installed++;
+            }
+
+            if (installed > 0 && req.originUri) {
+              yield* svc.symbolManager.resolveCrossFileReferencesForFile(
+                req.originUri,
+              );
+            }
+
+            return { installed };
+          }),
         ),
       ),
     ),

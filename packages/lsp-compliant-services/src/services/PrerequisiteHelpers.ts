@@ -8,9 +8,46 @@
 
 import {
   DetailLevel,
+  SObjectRegistry,
   SymbolTable,
   ReferenceContext,
+  type SymbolReference,
 } from '@salesforce/apex-lsp-parser-ast';
+import type {
+  IdentifierSpec,
+  MissingArtifactIdentifierType,
+} from '@salesforce/apex-lsp-shared';
+
+type ArtifactEvidence = Pick<SymbolReference, 'name'> &
+  Partial<
+    Pick<SymbolReference, 'context' | 'isSObject'> &
+      Pick<IdentifierSpec, 'identifierType' | 'searchHints'>
+  >;
+
+/**
+ * Classify a missing identifier using only deterministic parser evidence.
+ * Ambiguous names remain Apex classes.
+ */
+export function classifyMissingArtifactIdentifier(
+  evidence: ArtifactEvidence,
+): MissingArtifactIdentifierType {
+  const hasTriggerEvidence =
+    evidence.identifierType === 'trigger' ||
+    evidence.searchHints?.some(
+      (hint) => hint.expectedFileType === 'trigger',
+    ) === true;
+  if (hasTriggerEvidence) {
+    return 'trigger';
+  }
+  if (
+    evidence.isSObject === true ||
+    evidence.context === ReferenceContext.SOQL_FROM_TYPE ||
+    SObjectRegistry.isCustomSObjectName(evidence.name)
+  ) {
+    return 'sobject';
+  }
+  return 'apex-class';
+}
 
 /**
  * Get the numeric order of a detail level for comparison
@@ -71,7 +108,8 @@ export function hasCrossFileResolution(
       (ref.context === ReferenceContext.TYPE_DECLARATION ||
         ref.context === ReferenceContext.CONSTRUCTOR_CALL ||
         ref.context === ReferenceContext.RETURN_TYPE ||
-        ref.context === ReferenceContext.PARAMETER_TYPE),
+        ref.context === ReferenceContext.PARAMETER_TYPE ||
+        ref.context === ReferenceContext.SOQL_FROM_TYPE),
   );
 
   // No policy-based bypass: all unresolved type refs need cross-file resolution.

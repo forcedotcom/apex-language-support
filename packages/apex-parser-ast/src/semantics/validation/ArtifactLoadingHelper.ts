@@ -8,7 +8,7 @@
 
 import { Context, Effect, Layer } from 'effect';
 import type { TypeSymbol } from '../../types/symbol';
-import { SymbolKind } from '../../types/symbol';
+import { inTypeSymbolGroup } from '../../types/symbol';
 import type { ValidationOptions } from './ValidationTier';
 
 // Re-export ISymbolManager interface for type checking
@@ -150,12 +150,7 @@ export const ArtifactLoadingHelperLive: Layer.Layer<
         const symbolsByName = yield* Effect.promise(() =>
           symbolManager.findSymbolByName(typeName),
         );
-        const typeByName = symbolsByName.find(
-          (s) =>
-            s.kind === SymbolKind.Class ||
-            s.kind === SymbolKind.Interface ||
-            s.kind === SymbolKind.Enum,
-        ) as TypeSymbol | undefined;
+        const typeByName = symbolsByName.find(inTypeSymbolGroup);
 
         if (typeByName) {
           return typeByName;
@@ -164,13 +159,8 @@ export const ArtifactLoadingHelperLive: Layer.Layer<
         const symbolByFQN = yield* Effect.promise(() =>
           symbolManager.findSymbolByFQN(typeName),
         );
-        if (
-          symbolByFQN &&
-          (symbolByFQN.kind === SymbolKind.Class ||
-            symbolByFQN.kind === SymbolKind.Interface ||
-            symbolByFQN.kind === SymbolKind.Enum)
-        ) {
-          return symbolByFQN as TypeSymbol;
+        if (inTypeSymbolGroup(symbolByFQN)) {
+          return symbolByFQN;
         }
 
         return undefined;

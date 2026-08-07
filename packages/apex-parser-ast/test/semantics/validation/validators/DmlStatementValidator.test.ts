@@ -15,8 +15,14 @@ import {
   loadFixture,
   runValidator,
   createValidationOptions,
+  compileSourceLayeredWithOptions,
 } from './helpers/validation-test-helpers';
 import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
+import { Effect } from 'effect';
+import {
+  composeSObjectSymbolTable,
+  ownerUriForSObject,
+} from '../../../../src/sobjects/SObjectSymbolTableComposer';
 
 describe('DmlStatementValidator', () => {
   let symbolManager: ApexSymbolManager;
@@ -97,6 +103,50 @@ describe('DmlStatementValidator', () => {
         (error) => error.code === ErrorCodes.INVALID_DML_TYPE,
       ),
     ).toHaveLength(5);
+  });
+
+  it('accepts DML when the resolved type is a native standard sObject', async () => {
+    const accountTable = composeSObjectSymbolTable(
+      {
+        name: 'Account',
+        custom: false,
+        definitionTarget: { uri: 'org://Account' },
+        fields: [],
+      },
+      1,
+    );
+    await Effect.runPromise(
+      symbolManager.addSymbolTable(
+        accountTable,
+        ownerUriForSObject('Account'),
+        1,
+        false,
+      ),
+    );
+    const sourceContent = `
+      public class AccountWriter {
+        public void save(Account record) {
+          insert record;
+        }
+      }
+    `;
+    const { symbolTable, options } = await compileSourceLayeredWithOptions(
+      sourceContent,
+      'file:///test/AccountWriter.cls',
+      symbolManager,
+      compilerService,
+      {
+        tier: ValidationTier.IMMEDIATE,
+        allowArtifactLoading: false,
+      },
+    );
+
+    const result = await runValidator(
+      DmlStatementValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(result.errors).toEqual([]);
   });
 
   it('should pass validation for valid merge with concrete types', async () => {

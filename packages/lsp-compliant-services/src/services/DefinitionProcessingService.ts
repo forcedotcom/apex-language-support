@@ -212,7 +212,7 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
               );
 
             // If resolution succeeded, retry symbol lookup
-            if (resolutionResult === 'resolved') {
+            if (resolutionResult.status === 'resolved') {
               this.logger.debug(
                 () => 'Missing artifact resolved, retrying symbol lookup',
               );
@@ -311,7 +311,7 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
               'definition',
             );
           // If blocking resolution succeeded, retry symbol lookup
-          if (resolutionResult === 'resolved') {
+          if (resolutionResult.status === 'resolved') {
             this.logger.debug(
               () => 'Missing artifact resolved, retrying symbol lookup',
             );

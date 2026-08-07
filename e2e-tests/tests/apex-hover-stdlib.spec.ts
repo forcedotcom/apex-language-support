@@ -29,7 +29,11 @@ test.describe('Apex Hover - Standard Library Types', () => {
   test('should show hover for String as method-call qualifier', async ({
     hoverHelper,
   }) => {
-    const content = await hoverHelper.hoverAtWithResolution(21, 15);
+    const content = await hoverHelper.hoverAtWithResolution(
+      21,
+      15,
+      /class\s+(System\.)?String/,
+    );
     expect(content).toBeTruthy();
     expect(content.length).toBeGreaterThan(0);
     // Must render the stdlib class signature, not just mention the word
@@ -45,7 +49,11 @@ test.describe('Apex Hover - Standard Library Types', () => {
   test('should show hover for String as declared field type', async ({
     hoverHelper,
   }) => {
-    const content = await hoverHelper.hoverAtWithResolution(7, 15);
+    const content = await hoverHelper.hoverAtWithResolution(
+      7,
+      15,
+      /class\s+(System\.)?String/,
+    );
     expect(content).toBeTruthy();
     expect(content.length).toBeGreaterThan(0);
     expect(content).toMatch(/class\s+(System\.)?String/);
@@ -59,7 +67,11 @@ test.describe('Apex Hover - Standard Library Types', () => {
   test('should show hover for String as method return type', async ({
     hoverHelper,
   }) => {
-    const content = await hoverHelper.hoverAtWithResolution(51, 21);
+    const content = await hoverHelper.hoverAtWithResolution(
+      51,
+      21,
+      /class\s+(System\.)?String/,
+    );
     expect(content).toBeTruthy();
     expect(content.length).toBeGreaterThan(0);
     expect(content).toMatch(/class\s+(System\.)?String/);

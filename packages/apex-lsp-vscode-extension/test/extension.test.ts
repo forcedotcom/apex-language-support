@@ -39,6 +39,7 @@ jest.mock('../src/language-server', () => ({
 
 import * as vscode from 'vscode';
 import { activate, deactivate } from '../src/extension';
+import { getOrgArtifactFileSystem } from '../src/services/org-artifact-fs';
 
 // Import mocked functions
 
@@ -48,6 +49,9 @@ describe('Apex Language Server Extension ()', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    jest.mocked(vscode.extensions.getExtension).mockReturnValue({
+      isActive: true,
+    } as vscode.Extension<unknown>);
 
     mockContext = {
       subscriptions: [],
@@ -80,6 +84,20 @@ describe('Apex Language Server Extension ()', () => {
 
     await deactivate();
     expect(true).toBe(true);
+  });
+
+  it('clears org artifacts on deactivation so a restart cannot leak them', async () => {
+    const fileSystem = getOrgArtifactFileSystem();
+    fileSystem.materializeSource({
+      kind: 'apex-class',
+      name: 'OldOrgClass',
+      source: 'global class OldOrgClass {}',
+    });
+    expect(fileSystem.size).toBe(1);
+
+    await deactivate();
+
+    expect(fileSystem.size).toBe(0);
   });
 
   it('sets log level from workspace settings', async () => {

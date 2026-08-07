@@ -8,6 +8,7 @@
 
 import type { ValidationResult, ValidationScope } from './ValidationResult';
 import { isStandardTypeAlias } from './utils/standardTypeIdentity';
+import { SObjectRegistry } from '../../sobjects/SObjectRegistry';
 
 /**
  * Information about a method call parameter
@@ -339,13 +340,7 @@ export class SObjectRecalculateFormulasValidator {
       return true;
     }
 
-    // Custom SObject types (end with __c, __kav, __ka, __x)
-    if (
-      type.endsWith('__c') ||
-      type.endsWith('__kav') ||
-      type.endsWith('__ka') ||
-      type.endsWith('__x')
-    ) {
+    if (SObjectRegistry.isCustomSObjectName(type)) {
       return true;
     }
 

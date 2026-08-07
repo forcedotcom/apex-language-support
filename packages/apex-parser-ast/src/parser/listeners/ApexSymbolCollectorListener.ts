@@ -75,6 +75,10 @@ import {
   GetterContext,
   SetterContext,
   LocalVariableDeclarationContext,
+  FromNameListContext,
+  QueryContext,
+  SoqlLiteralContext,
+  SoqlPrimaryContext,
   InsertStatementContext,
   UpdateStatementContext,
   DeleteStatementContext,
@@ -178,6 +182,7 @@ import { DEFAULT_SALESFORCE_API_VERSION } from '../../constants/constants';
 import { HierarchicalReferenceResolver } from '../../types/hierarchicalReference';
 import { ApexReferenceResolver } from '../references/ApexReferenceResolver';
 import { DetailLevel } from './LayeredSymbolListenerBase';
+import { SObjectRegistry } from '../../sobjects/SObjectRegistry';
 
 interface SemanticError {
   type: 'semantic';
@@ -268,6 +273,7 @@ export class ApexSymbolCollectorListener
     ParserRuleContext,
     SymbolReference
   >();
+  private readonly soqlFromReferenceKeys = new Set<string>();
 
   private readonly detailLevel: DetailLevel;
 
@@ -562,7 +568,55 @@ export class ApexSymbolCollectorListener
             upsertFieldRange,
           },
         };
+        if (index === 0) {
+          this.markDmlReferenceTypeEvidence(reference);
+        }
       }
+    }
+  }
+
+  private markDmlReferenceTypeEvidence(reference: SymbolReference): void {
+    const symbol = this.symbolTable.lookup(
+      reference.name,
+      this.getCurrentScopeSymbol(),
+    );
+    if (
+      !symbol ||
+      (symbol.kind !== SymbolKind.Variable &&
+        symbol.kind !== SymbolKind.Parameter &&
+        symbol.kind !== SymbolKind.Field)
+    ) {
+      return;
+    }
+
+    const variable = symbol as VariableSymbol;
+    const normalizedTypeName = variable.type.name.toLowerCase();
+    const evidenceType =
+      normalizedTypeName === 'list' || normalizedTypeName === 'set'
+        ? variable.type.typeParameters?.[0]
+        : normalizedTypeName === 'map'
+          ? undefined
+          : variable.type;
+    const evidenceName =
+      evidenceType?.originalTypeString?.split('.').pop() ?? evidenceType?.name;
+    if (!evidenceName) {
+      return;
+    }
+
+    const declarationLine = variable.location.identifierRange.startLine;
+    const declarationTypeRef = this.symbolTable
+      .getAllReferences()
+      .filter(
+        (candidate) =>
+          candidate.name.toLowerCase() === evidenceName.toLowerCase() &&
+          candidate.location.identifierRange.startLine === declarationLine &&
+          (candidate.context === ReferenceContext.TYPE_DECLARATION ||
+            candidate.context === ReferenceContext.PARAMETER_TYPE ||
+            candidate.context === ReferenceContext.GENERIC_PARAMETER_TYPE),
+      )
+      .at(-1);
+    if (declarationTypeRef) {
+      declarationTypeRef.isSObject = true;
     }
   }
 
@@ -4569,6 +4623,191 @@ export class ApexSymbolCollectorListener
   }
 
   /**
+   * Capture deterministic sObject type evidence from SOQL FROM clauses.
+   *
+   * A FROM name is always an sObject reference. For a top-level query used as
+   * a local-variable initializer or enhanced-for source, the declaration type
+   * is also deterministic evidence and its existing reference is marked
+   * rather than duplicated.
+   */
+  enterFromNameList(ctx: FromNameListContext): void {
+    try {
+      for (const fieldName of ctx.fieldName_list()) {
+        const name = fieldName
+          .soqlId_list()
+          .map((soqlId) => soqlId.id()?.start?.text)
+          .filter((part): part is string => part !== undefined)
+          .join('.');
+        if (!name) {
+          continue;
+        }
+        const location = this.getLocationForReference(fieldName);
+        const key = `${name.toLowerCase()}:${
+          location.identifierRange.startLine
+        }:${location.identifierRange.startColumn}:${
+          location.identifierRange.endLine
+        }:${location.identifierRange.endColumn}`;
+
+        if (this.soqlFromReferenceKeys.has(key)) {
+          continue;
+        }
+        this.soqlFromReferenceKeys.add(key);
+
+        this.symbolTable.addTypeReference(
+          new EnhancedSymbolReference(
+            name,
+            location,
+            ReferenceContext.SOQL_FROM_TYPE,
+            {
+              parentContext: this.getCurrentMethodName(),
+              isSObject: true,
+            },
+          ),
+        );
+      }
+
+      // A relationship subquery has its own deterministic FROM evidence, but
+      // it does not change the outer declaration's type. Only the root Query
+      // context propagates evidence to the assignment or loop declaration.
+      const query = ctx.parentCtx;
+      if (!query || !isContextType(query, QueryContext)) {
+        return;
+      }
+
+      const declarationTypeRef = this.findQueryDeclarationTypeRef(query);
+      if (declarationTypeRef) {
+        this.markDeclaredQueryTypeAsSObject(declarationTypeRef);
+      }
+      this.markSoqlBackedMapValueType(query);
+    } catch (error) {
+      this.logger.warn(() => `Error capturing SOQL FROM evidence: ${error}`);
+    }
+  }
+
+  private findQueryDeclarationTypeRef(
+    query: QueryContext,
+  ): TypeRefContext | undefined {
+    const literal = query.parentCtx;
+    const soqlPrimary = literal?.parentCtx;
+    const primaryExpression = soqlPrimary?.parentCtx;
+    if (
+      !literal ||
+      !isContextType(literal, SoqlLiteralContext) ||
+      !soqlPrimary ||
+      !isContextType(soqlPrimary, SoqlPrimaryContext) ||
+      !primaryExpression ||
+      !isContextType(primaryExpression, PrimaryExpressionContext)
+    ) {
+      return undefined;
+    }
+
+    const initializerOwner = primaryExpression.parentCtx;
+    if (
+      initializerOwner &&
+      isContextType(initializerOwner, VariableDeclaratorContext)
+    ) {
+      const declarators = initializerOwner.parentCtx;
+      const declaration = declarators?.parentCtx;
+      return declaration &&
+        isContextType(declaration, LocalVariableDeclarationContext)
+        ? declaration.typeRef()
+        : undefined;
+    }
+    return initializerOwner &&
+      isContextType(initializerOwner, EnhancedForControlContext)
+      ? initializerOwner.typeRef()
+      : undefined;
+  }
+
+  private markDeclaredQueryTypeAsSObject(typeRef: TypeRefContext): void {
+    const typeInfo = createTypeInfoFromTypeRefUtil(typeRef);
+    const normalizedName = typeInfo.name.toLowerCase();
+    let evidenceTypeName: string | undefined;
+
+    if (normalizedName === 'list') {
+      const elementType = typeInfo.typeParameters?.[0];
+      evidenceTypeName =
+        elementType?.originalTypeString?.split('.').pop() ?? elementType?.name;
+    } else if (
+      normalizedName !== 'set' &&
+      normalizedName !== 'map' &&
+      !typeInfo.isPrimitive
+    ) {
+      evidenceTypeName =
+        typeInfo.originalTypeString?.split('.').pop() ?? typeInfo.name;
+    }
+
+    if (!evidenceTypeName) {
+      return;
+    }
+
+    const typeRange = this.getLocation(typeRef).symbolRange;
+    for (const reference of this.symbolTable.getAllReferences()) {
+      const range = reference.location.identifierRange;
+      const withinType =
+        range.startLine > typeRange.startLine ||
+        (range.startLine === typeRange.startLine &&
+          range.startColumn >= typeRange.startColumn);
+      const beforeTypeEnd =
+        range.endLine < typeRange.endLine ||
+        (range.endLine === typeRange.endLine &&
+          range.endColumn <= typeRange.endColumn);
+
+      if (
+        withinType &&
+        beforeTypeEnd &&
+        reference.name.toLowerCase() === evidenceTypeName.toLowerCase() &&
+        (reference.context === ReferenceContext.TYPE_DECLARATION ||
+          reference.context === ReferenceContext.PARAMETER_TYPE ||
+          reference.context === ReferenceContext.GENERIC_PARAMETER_TYPE)
+      ) {
+        reference.isSObject = true;
+      }
+    }
+  }
+
+  private markSoqlBackedMapValueType(query: QueryContext): void {
+    let current: ParserRuleContext | undefined = query.parentCtx;
+    while (current && !isContextType(current, NewExpressionContext)) {
+      current = current.parentCtx;
+    }
+    if (!current) {
+      return;
+    }
+
+    const createdName = current.creator()?.createdName();
+    if (
+      !createdName ||
+      getTypeNameFromCreatedName(createdName)?.toLowerCase() !== 'map'
+    ) {
+      return;
+    }
+
+    const newRange = this.getLocation(current).symbolRange;
+    const genericRefs = this.symbolTable
+      .getAllReferences()
+      .filter((reference) => {
+        const range = reference.location.identifierRange;
+        return (
+          reference.context === ReferenceContext.GENERIC_PARAMETER_TYPE &&
+          (range.startLine > newRange.startLine ||
+            (range.startLine === newRange.startLine &&
+              range.startColumn >= newRange.startColumn)) &&
+          (range.endLine < newRange.endLine ||
+            (range.endLine === newRange.endLine &&
+              range.endColumn <= newRange.endColumn))
+        );
+      });
+
+    // Map<K, V>: the final generic reference is the value type. The query is
+    // inside this constructor, so this is deterministic evidence for V only.
+    const valueTypeRef = genericRefs[genericRefs.length - 1];
+    if (valueTypeRef) {
+      valueTypeRef.isSObject = true;
+    }
+  }
+
+  /**
    * Extract type name and location from a TypeRefContext
    * Handles LIST/SET/MAP tokens, qualified names, and regular identifiers
    * Same logic as used in enterTypeRef() for consistent processing
@@ -6252,6 +6491,21 @@ export class ApexSymbolCollectorListener
         ...ctorRef.semanticContext,
         invocation: constructorInvocationSemantic(ctx),
       };
+      const hasNamedFieldInitializer =
+        creator
+          .classCreatorRest?.()
+          ?.arguments()
+          ?.expressionList()
+          ?.expression_list()
+          .some((expression) =>
+            isContextType(expression, AssignExpressionContext),
+          ) ?? false;
+      if (
+        SObjectRegistry.isCustomSObjectName(fullTypeName) ||
+        hasNamedFieldInitializer
+      ) {
+        ctorRef.isSObject = true;
+      }
       this.symbolTable.addTypeReference(ctorRef);
 
       // Check if this constructor call has arguments (classCreatorRest)
@@ -7767,6 +8021,8 @@ export class ApexSymbolCollectorListener
    * Now delegates to ApexReferenceResolver for consistent resolution logic across all listeners
    */
   private correctReferenceContexts(): void {
+    this.markSuffixEvidence();
+
     // Early return if correction is disabled
     if (!this.enableReferenceCorrection) {
       return;
@@ -7793,6 +8049,37 @@ export class ApexSymbolCollectorListener
           `[correctReferenceContexts] Resolved ${result.resolvedCount} same-file ` +
           'reference(s) to their symbol definitions',
       );
+    }
+  }
+
+  private markSuffixEvidence(): void {
+    const typeContexts = new Set<ReferenceContext>([
+      ReferenceContext.CLASS_REFERENCE,
+      ReferenceContext.TYPE_DECLARATION,
+      ReferenceContext.CONSTRUCTOR_CALL,
+      ReferenceContext.PARAMETER_TYPE,
+      ReferenceContext.GENERIC_PARAMETER_TYPE,
+      ReferenceContext.CAST_TYPE_REFERENCE,
+      ReferenceContext.INSTANCEOF_TYPE_REFERENCE,
+      ReferenceContext.RETURN_TYPE,
+      ReferenceContext.SOQL_FROM_TYPE,
+    ]);
+
+    for (const reference of this.symbolTable.getAllReferences()) {
+      if (
+        typeContexts.has(reference.context) &&
+        SObjectRegistry.isCustomSObjectName(reference.name)
+      ) {
+        reference.isSObject = true;
+      }
+      for (const node of reference.chainNodes ?? []) {
+        if (
+          typeContexts.has(node.context) &&
+          SObjectRegistry.isCustomSObjectName(node.name)
+        ) {
+          node.isSObject = true;
+        }
+      }
     }
   }
 

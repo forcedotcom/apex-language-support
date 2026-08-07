@@ -28,6 +28,11 @@ import {
 } from '../../src/types/symbol';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
+import {
+  composeSObjectPlaceholderSymbolTable,
+  composeSObjectSymbolTable,
+  ownerUriForSObject,
+} from '../../src/sobjects/SObjectSymbolTableComposer';
 
 describe('Apex symbol replacement semantics', () => {
   let manager: ApexSymbolManager;
@@ -153,6 +158,45 @@ describe('Apex symbol replacement semantics', () => {
 
     expect(afterFirst.totalReferences).toBeGreaterThan(0);
     expect(afterSecond.totalReferences).toBe(afterFirst.totalReferences);
+  });
+
+  it('replaces an sObject placeholder atomically and rejects stale versions', async () => {
+    const ownerUri = ownerUriForSObject('Invoice__c');
+    const placeholder = composeSObjectPlaceholderSymbolTable('Invoice__c', 1);
+    const full = composeSObjectSymbolTable(
+      {
+        name: 'Invoice__c',
+        custom: true,
+        fields: [
+          {
+            name: 'Amount__c',
+            type: 'currency',
+            definitionTarget: { uri: 'org://Invoice__c/Amount__c' },
+          },
+        ],
+        definitionTarget: { uri: 'org://Invoice__c' },
+      },
+      2,
+    );
+
+    await Effect.runPromise(manager.addSymbolTable(placeholder, ownerUri, 1));
+    await Effect.runPromise(manager.addSymbolTable(full, ownerUri, 2));
+    await Effect.runPromise(manager.addSymbolTable(placeholder, ownerUri, 1));
+
+    const stored = await manager.getSymbolTableForFile(ownerUri);
+    expect(stored?.getMetadata()).toMatchObject({
+      documentVersion: 2,
+      parseCompleteness: 'complete',
+    });
+    expect(stored?.getAllSymbols().map((symbol) => symbol.name)).toEqual([
+      'Invoice__c',
+      'Amount__c',
+    ]);
+    expect(
+      (await manager.findSymbolByName('Invoice__c')).filter(
+        (symbol) => symbol.kind === SymbolKind.SObject,
+      ),
+    ).toHaveLength(1);
   });
 
   it('removeFile clears incoming references to removed file symbols', () => {

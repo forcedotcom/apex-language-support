@@ -409,6 +409,7 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
    */
   it('wakes ALL concurrent awaiters when one write-back resolves the shared latch', async () => {
     const AWAITERS = 12;
+    const READINESS_TIMEOUT_MS = 30_000;
     const uri = 'file:///test/Stampede.cls';
     const clsV1 = `public class Stampede {
         public String go() { return 'x'; }
@@ -424,6 +425,10 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
         enableResourceLoader: true,
         logger,
         logLevel: LOG_LEVEL,
+        // The scenario measures shared-Deferred fan-out, not worker-pool
+        // saturation. Admit every blocking awaiter while reserving one request
+        // slot for the write-back that resolves their latch.
+        dataOwnerConcurrency: AWAITERS + 1,
         compilationPoolSize: COMPILATION_POOL_SIZE,
         compilationConcurrency: 1,
         workerLayerFactory,
@@ -458,15 +463,38 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
           dispatcher.dispatch('documentChange', changeParams(uri, clsV2, 2)),
         ),
       );
-      // Give the store leg a moment to arm the v2 latch before the awaiters peek
-      // (the store is fast; the compile is the slow part they race against).
-      yield* Effect.sleep('40 millis');
+      // Wait until the data owner observably has either armed the v2 latch or
+      // already merged v2. A fixed sleep is not an arming barrier: on a loaded
+      // Windows runner the worker may not even be scheduled within that delay.
+      const armDeadline = Date.now() + READINESS_TIMEOUT_MS;
+      let armState: { ready: boolean; reason?: string } = {
+        ready: false,
+        reason: 'no-compile-pending',
+      };
+      while (
+        armState.reason === 'no-compile-pending' &&
+        Date.now() < armDeadline
+      ) {
+        armState = yield* Effect.promise(() =>
+          dispatcher.awaitSymbolDataReady!(uri, MATCH_LATEST_VERSION, 10),
+        );
+        if (armState.reason === 'no-compile-pending') {
+          yield* Effect.sleep('10 millis');
+        }
+      }
+      if (!armState.ready && armState.reason === 'no-compile-pending') {
+        throw new Error('v2 readiness latch was not armed before the deadline');
+      }
 
       // 3. N concurrent awaiters for the latest armed version (v2). They share
       //    the single v2 Deferred; the v2 write-back must wake them ALL.
       const awaiters = Array.from({ length: AWAITERS }, () =>
         Effect.promise(() =>
-          dispatcher.awaitSymbolDataReady!(uri, MATCH_LATEST_VERSION, 5000),
+          dispatcher.awaitSymbolDataReady!(
+            uri,
+            MATCH_LATEST_VERSION,
+            READINESS_TIMEOUT_MS,
+          ),
         ),
       );
       const results = (yield* Effect.all(awaiters, {
@@ -494,8 +522,8 @@ describe('Worker concurrency + interop (live assistance bus)', () => {
     // The single v2 write-back must wake EVERY awaiter that shared its Deferred.
     // None may be lost (timeout) or left observing a stale v1 ready that isn't
     // current. All must resolve ready against the merged v2 symbols.
-    expect(readyCount).toBe(AWAITERS);
     expect(reasons).toEqual([]);
+    expect(readyCount).toBe(AWAITERS);
   }, 120_000);
 
   /**
