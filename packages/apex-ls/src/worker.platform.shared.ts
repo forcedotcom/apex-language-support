@@ -19,6 +19,7 @@
  */
 
 import * as WorkerRunner from '@effect/platform/WorkerRunner';
+import type { WorkspaceEdit } from 'vscode-languageserver';
 import {
   Cause,
   Effect,
@@ -3429,28 +3430,19 @@ function safelyCaptureResolutionStateAttributes(
 // ---------------------------------------------------------------------------
 
 /**
- * An LSP `WorkspaceEdit` in its simplest shape: a `changes` map from document
- * URI to the text edits to apply. renameLocal only ever touches one file (a
- * local's declaration and usages are all in the same file), so the map has a
- * single key, but the shape generalizes to the cross-file kinds later.
+ * The rename result is a standard LSP `WorkspaceEdit` (re-exported by
+ * `vscode-languageserver`, the protocol type `RenameProcessingService` uses).
+ * renameLocal only ever touches one file — a local's declaration and usages are
+ * all in the same file — so `changes` has a single key, but the shape
+ * generalizes to the cross-file kinds later. Type-only import: erased at
+ * compile time, so no worker-bundle weight is added.
  */
-type WorkspaceEditResult = {
-  changes: Record<
-    string,
-    Array<{
-      range: {
-        start: { line: number; character: number };
-        end: { line: number; character: number };
-      };
-      newText: string;
-    }>
-  >;
-};
+type WorkspaceEditResult = WorkspaceEdit;
 
 /**
- * Error result shape for rename validation failures (W-23631080).
- * The worker returns this when the newName is invalid, and the LCSAdapter
- * handler converts it to an LSP ResponseError.
+ * Error result shape for rename validation failures (W-23631080). The worker
+ * returns this when the newName is invalid, and the LCSAdapter handler converts
+ * it to an LSP ResponseError.
  */
 type RenameErrorResult = {
   error: {
@@ -3462,19 +3454,15 @@ type RenameErrorResult = {
 /**
  * Check whether a local can be renamed (W-23631080 guard).
  *
- * For locals (variables/parameters), this is ALWAYS true — a local from a
+ * For locals (variables/parameters) this is ALWAYS true — a local from a
  * standalone parse of the user's open file is always user-sourced, never stdlib.
- * This guard exists for extension by later rename groups (fields/methods/types),
- * which CAN resolve into the standard library (e.g. `String.valueOf`, a System
- * method) and must reject rename attempts on those.
- *
- * Later groups will check whether the declaration's fileUri falls under
- * `STANDARD_APEX_LIBRARY_URI` — if it does, the symbol is stdlib and cannot be
- * renamed.
+ * The guard exists for extension by later rename groups (fields/methods/types),
+ * which CAN resolve into the standard library (e.g. `String.valueOf`) and must
+ * reject rename attempts on those (check whether the declaration's fileUri falls
+ * under `STANDARD_APEX_LIBRARY_URI`).
  *
  * @param declaration The local's declaring symbol.
- * @returns `true` for locals (always user-sourced), `false` when the symbol is
- *   stdlib (never happens for locals, but extension-ready).
+ * @returns `true` for locals; extension-ready for the stdlib-aware later groups.
  */
 function canBeRenamed(_declaration: any): boolean {
   // For locals, always true. Later groups: check
@@ -3491,20 +3479,18 @@ function canBeRenamed(_declaration: any): boolean {
  * `scanCandidatesForOccurrences` uses — and delegates the scope-aware,
  * shadowing-safe occurrence binding to `findLocalOccurrences`.
  *
- * W-23631080 adds validation: after resolving the local, the newName is validated
+ * W-23631080 adds validation: after resolving the local, the newName is checked
  * against Apex identifier rules. An invalid newName produces a `RenameErrorResult`
  * (NOT null — null means "nothing to rename"), which the LCSAdapter handler
  * converts to an LSP `ResponseError` visible to the client.
  *
- * Returns `null` (LSP: "nothing to rename") when there's no cursor text or the
- * cursor doesn't resolve to a renamable local — a field/method/type cursor falls
- * through to the later rename kinds rather than being mishandled here. Returns
- * `RenameErrorResult` when the cursor resolves to a local but the newName is
- * invalid (reserved word, bad chars, etc.).
+ * Returns `null` when there's no cursor text or the cursor doesn't resolve to a
+ * renamable local — a field/method/type cursor falls through to the later rename
+ * kinds. Returns `RenameErrorResult` when the cursor resolves to a local but the
+ * newName is invalid (reserved word, bad chars, etc.).
  *
  * @param req The rename request (cursor position + newName + live cursor text).
- * @returns A single-file `WorkspaceEdit`, `RenameErrorResult`, or `null` when
- *   nothing local matches.
+ * @returns A single-file `WorkspaceEdit`, `RenameErrorResult`, or `null`.
  */
 async function resolveLocalRename(
   req: RenameReq,
@@ -3522,76 +3508,82 @@ async function resolveLocalRename(
 
   const uri = req.textDocument.uri;
 
-  let table: InstanceType<typeof SymbolTable>;
+  // Parse + occurrence-binding + edit assembly share one guard: any throw here
+  // (a parser edge case, an unexpected symbol shape) must degrade to the same
+  // graceful `null` this function returns for every other failure mode, NOT
+  // escape as an unhandled Effect defect that fails the whole request. The
+  // `error` early-returns below are deliberate validation results, not throws.
   try {
     const t = new SymbolTable();
     const listener = new FullSymbolCollectorListener(t);
-    const result = new CompilerService().compile(req.content, uri, listener, {
+    const compiled = new CompilerService().compile(req.content, uri, listener, {
       collectReferences: true,
       resolveReferences: true,
     });
-    table = result?.result instanceof SymbolTable ? result.result : t;
-  } catch (err) {
+    const table: InstanceType<typeof SymbolTable> =
+      compiled?.result instanceof SymbolTable ? compiled.result : t;
+
+    // LSP (0-based line) → parser (1-based line, 0-based column).
+    const local = findLocalOccurrences(table, uri, {
+      line: req.position.line + 1,
+      character: req.position.character,
+    });
+    // `null` = the cursor isn't on a renamable local (a field/method/type/none),
+    // or the local's occurrences couldn't be bound unambiguously. Either way,
+    // produce no edit. `identifierRanges` is never empty for a non-null result
+    // (the declaration's own range is always the first entry).
+    if (!local) return null;
+
+    // W-23631080: canBeRenamed guard. Always true for locals, present for
+    // extension by later stdlib-aware groups.
+    if (!canBeRenamed(local.declaration)) {
+      return {
+        error: {
+          code: -32600, // InvalidRequest
+          message: `Cannot rename '${local.declaration.name}': symbol is not user-sourced`,
+        },
+      };
+    }
+
+    // W-23631080: validate the newName against Apex identifier rules. An invalid
+    // name produces a RenameErrorResult (converted to an LSP ResponseError by the
+    // LCSAdapter handler), not null — null would hide the error as "nothing to
+    // rename".
+    const validation = validateRenameName(req.newName, local.declaration.kind);
+    if (!validation.ok) {
+      emitWorkerLog(
+        'warn',
+        `[RENAME] invalid newName '${req.newName}' for '${local.declaration.name}': ${validation.message}`,
+      );
+      return {
+        error: {
+          code: -32602, // InvalidParams
+          message: validation.message,
+        },
+      };
+    }
+
+    // Parser coordinates are 1-based line / 0-based column; LSP is 0-based line,
+    // so subtract 1 from each line. Each occurrence becomes a TextEdit replacing
+    // the identifier token with the new name.
+    const edits = local.identifierRanges.map((r) => ({
+      range: {
+        start: { line: r.startLine - 1, character: r.startColumn },
+        end: { line: r.endLine - 1, character: r.endColumn },
+      },
+      newText: req.newName,
+    }));
+
     emitWorkerLog(
-      'warn',
-      `[RENAME] cursor file parse failed for ${uri}: ${err}`,
+      'info',
+      `[RENAME] local '${local.declaration.name}' → '${req.newName}': ` +
+        `${edits.length} edit(s) in ${uri}`,
     );
+    return { changes: { [uri]: edits } };
+  } catch (err) {
+    emitWorkerLog('warn', `[RENAME] local rename failed for ${uri}: ${err}`);
     return null;
   }
-
-  // LSP (0-based line) → parser (1-based line, 0-based column).
-  const local = findLocalOccurrences(table, uri, {
-    line: req.position.line + 1,
-    character: req.position.character,
-  });
-  if (!local || local.identifierRanges.length === 0) return null;
-
-  // W-23631080: canBeRenamed guard. For locals, this is always true (a local is
-  // never stdlib), but the guard is present for extension by later groups.
-  if (!canBeRenamed(local.declaration)) {
-    return {
-      error: {
-        code: -32600, // InvalidRequest
-        message: `Cannot rename '${local.declaration.name}': symbol is not user-sourced`,
-      },
-    };
-  }
-
-  // W-23631080: validate the newName against Apex identifier rules. An invalid
-  // name produces a RenameErrorResult (which the LCSAdapter handler converts to
-  // an LSP ResponseError), not null — returning null would hide the validation
-  // error and make it look like "nothing to rename".
-  const validation = validateRenameName(req.newName, local.declaration.kind);
-  if (!validation.ok) {
-    emitWorkerLog(
-      'warn',
-      `[RENAME] invalid newName '${req.newName}' for '${local.declaration.name}': ${validation.message}`,
-    );
-    return {
-      error: {
-        code: -32602, // InvalidParams
-        message: validation.message,
-      },
-    };
-  }
-
-  // Parser coordinates are 1-based line / 0-based column; LSP is 0-based line,
-  // so subtract 1 from each line. Each occurrence becomes a TextEdit replacing
-  // the identifier token with the new name.
-  const edits = local.identifierRanges.map((r) => ({
-    range: {
-      start: { line: r.startLine - 1, character: r.startColumn },
-      end: { line: r.endLine - 1, character: r.endColumn },
-    },
-    newText: req.newName,
-  }));
-
-  emitWorkerLog(
-    'info',
-    `[RENAME] local '${local.declaration.name}' → '${req.newName}': ` +
-      `${edits.length} edit(s) in ${uri}`,
-  );
-  return { changes: { [uri]: edits } };
 }
 
 /**
@@ -3599,25 +3591,25 @@ async function resolveLocalRename(
  *
  * prepareRename returns the identifier range and placeholder name of the
  * renamable symbol under the cursor, or `null` if the cursor doesn't land on a
- * renamable local. The client uses this to preview the rename UI (e.g. highlight
- * the token) before the user commits the new name.
+ * renamable local. The client uses this to preview the rename UI before the user
+ * commits the new name.
  *
- * This reuses the standalone-parse resolution that resolveLocalRename does:
- * parse the cursor file → findLocalOccurrences. CRITICAL: VS Code requires the
- * returned range to CONTAIN the cursor position — returning a range that doesn't
- * (e.g. always returning the declaration when the cursor is on a usage) causes
- * VS Code to reject prepareRename and break rename entirely.
+ * Reuses resolveLocalRename's standalone-parse resolution (parse cursor file →
+ * findLocalOccurrences). CRITICAL: VS Code requires the returned range to
+ * CONTAIN the cursor — returning a range that doesn't (e.g. always the
+ * declaration when the cursor is on a usage) makes VS Code reject prepareRename
+ * and break rename entirely, so we return whichever occurrence contains it.
  *
  * @param req The position request (cursor position + live cursor text).
- * @returns An object `{ range, placeholder }` where `range` contains the cursor
- *   (whether the cursor is on the declaration or a usage) and `placeholder` is
- *   the current name, or `null` when the cursor doesn't resolve to a renamable local.
+ * @returns `{ range, placeholder }` where `range` contains the cursor, or `null`.
  */
 async function resolvePrepareRenameForLocal(req: PositionReq): Promise<{
-  range: WorkspaceEditResult['changes']['']['0']['range'];
+  range: {
+    start: { line: number; character: number };
+    end: { line: number; character: number };
+  };
   placeholder: string;
 } | null> {
-  // No text → can't parse the cursor file; a local rename is impossible.
   if (typeof req.content !== 'string') return null;
 
   const {
@@ -3629,67 +3621,62 @@ async function resolvePrepareRenameForLocal(req: PositionReq): Promise<{
 
   const uri = req.textDocument.uri;
 
-  let table: InstanceType<typeof SymbolTable>;
   try {
     const t = new SymbolTable();
     const listener = new FullSymbolCollectorListener(t);
-    const result = new CompilerService().compile(req.content, uri, listener, {
+    const compiled = new CompilerService().compile(req.content, uri, listener, {
       collectReferences: true,
       resolveReferences: true,
     });
-    table = result?.result instanceof SymbolTable ? result.result : t;
-  } catch (err) {
-    emitWorkerLog(
-      'warn',
-      `[PREPARE_RENAME] cursor file parse failed for ${uri}: ${err}`,
-    );
-    return null;
-  }
+    const table: InstanceType<typeof SymbolTable> =
+      compiled?.result instanceof SymbolTable ? compiled.result : t;
 
-  // LSP (0-based line) → parser (1-based line, 0-based column).
-  const local = findLocalOccurrences(table, uri, {
-    line: req.position.line + 1,
-    character: req.position.character,
-  });
-  if (!local || local.identifierRanges.length === 0) return null;
+    // LSP (0-based line) → parser (1-based line, 0-based column).
+    const local = findLocalOccurrences(table, uri, {
+      line: req.position.line + 1,
+      character: req.position.character,
+    });
+    if (!local || local.identifierRanges.length === 0) return null;
 
-  // W-23631080: canBeRenamed guard (for locals, always true).
-  if (!canBeRenamed(local.declaration)) {
-    return null;
-  }
+    if (!canBeRenamed(local.declaration)) return null;
 
-  // CRITICAL (W-23631080 review fix): prepareRename MUST return a range that
-  // contains the cursor position, or VS Code rejects it and rename breaks. Find
-  // whichever occurrence (declaration or usage) actually contains the cursor and
-  // return THAT range. identifierRanges are parser coords (1-based line, 0-based
-  // col), req.position is LSP (0-based line, 0-based col) — convert to same space.
-  const cursorLine = req.position.line + 1; // LSP 0-based → parser 1-based
-  const cursorChar = req.position.character; // both 0-based
+    // Return the range CONTAINING the cursor (declaration or usage). Compare in
+    // parser space: identifierRanges are 1-based line / 0-based col; req.position
+    // is LSP 0-based line, 0-based col.
+    const cursorLine = req.position.line + 1;
+    const cursorChar = req.position.character;
 
-  let cursorRange = local.identifierRanges[0]; // fallback to declaration
-  for (const r of local.identifierRanges) {
-    const afterStart =
-      r.startLine < cursorLine ||
-      (r.startLine === cursorLine && r.startColumn <= cursorChar);
-    const beforeEnd =
-      r.endLine > cursorLine ||
-      (r.endLine === cursorLine && r.endColumn >= cursorChar);
-    if (afterStart && beforeEnd) {
-      cursorRange = r;
-      break;
+    let cursorRange = local.identifierRanges[0]; // fallback to declaration
+    for (const r of local.identifierRanges) {
+      const afterStart =
+        r.startLine < cursorLine ||
+        (r.startLine === cursorLine && r.startColumn <= cursorChar);
+      const beforeEnd =
+        r.endLine > cursorLine ||
+        (r.endLine === cursorLine && r.endColumn >= cursorChar);
+      if (afterStart && beforeEnd) {
+        cursorRange = r;
+        break;
+      }
     }
-  }
 
-  return {
-    range: {
-      start: {
-        line: cursorRange.startLine - 1,
-        character: cursorRange.startColumn,
+    return {
+      range: {
+        start: {
+          line: cursorRange.startLine - 1,
+          character: cursorRange.startColumn,
+        },
+        end: {
+          line: cursorRange.endLine - 1,
+          character: cursorRange.endColumn,
+        },
       },
-      end: { line: cursorRange.endLine - 1, character: cursorRange.endColumn },
-    },
-    placeholder: local.declaration.name,
-  };
+      placeholder: local.declaration.name,
+    };
+  } catch (err) {
+    emitWorkerLog('warn', `[PREPARE_RENAME] failed for ${uri}: ${err}`);
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------

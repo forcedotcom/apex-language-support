@@ -196,6 +196,87 @@ describe('findLocalOccurrences (scope-aware renameLocal binding, W-23631077)', (
     expect(result).toBeNull();
   });
 
+  it('returns null on a member access whose leaf name collides with a receiver local', () => {
+    // Regression (W-23631077): a cursor on the member `total` in `acc.total`
+    // must NOT be treated as a local rename. getReferencesAtPosition returns
+    // both the receiver ref (`acc`, VARIABLE_USAGE) and the member ref (`total`,
+    // FIELD_ACCESS) sharing one identifier range; the old
+    // `!name.includes('.')` heuristic picked the FIRST non-dotted ref — the
+    // receiver local `acc` — and silently renamed `acc` instead. A member
+    // access belongs to renameField, so the cursor must fall through with null.
+    const uri = 'file:///t/Member.cls';
+    const code = [
+      'public class Member {', //               line 1
+      '  void go() {', //                        line 2
+      '    Account acc = new Account();', //      line 3  receiver local
+      '    Integer total = 5;', //               line 4  shadowing local
+      '    acc.total = total;', //               line 5  acc.total member = local
+      '  }',
+      '}',
+    ].join('\n');
+
+    // Cursor on the member `total` in `acc.total` (line 5, char 11).
+    const result = findLocalOccurrences(parse(code, uri), uri, {
+      line: 5,
+      character: 11,
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it('returns null on a this-qualified field access even when a same-named local is in scope', () => {
+    // A cursor on `this.total` (FIELD_ACCESS on the class field) must not be
+    // treated as a local rename just because a local `total` shadows the field.
+    const uri = 'file:///t/Collide.cls';
+    const code = [
+      'public class Collide {', //          line 1
+      '  Integer total;', //                line 2  field decl
+      '  void go() {', //                   line 3
+      '    Integer total = 5;', //          line 4  shadowing local decl
+      '    this.total = total + 1;', //     line 5  this.total (field) = local
+      '  }',
+      '}',
+    ].join('\n');
+
+    // Cursor on `total` inside `this.total` (line 5, char 11).
+    const result = findLocalOccurrences(parse(code, uri), uri, {
+      line: 5,
+      character: 11,
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it('binds the shadowing local when the cursor is on the local itself, not the field', () => {
+    // Companion to the collision cases above: the SAME source, but the cursor is
+    // on the bare local usage `total` (RHS of the assignment). That must resolve
+    // to the local declaration (line 4) and its usages — never the field.
+    const uri = 'file:///t/Collide.cls';
+    const code = [
+      'public class Collide {', //          line 1
+      '  Integer total;', //                line 2  field decl
+      '  void go() {', //                   line 3
+      '    Integer total = 5;', //          line 4  shadowing local decl
+      '    this.total = total + 1;', //     line 5  this.total (field) = local
+      '  }',
+      '}',
+    ].join('\n');
+
+    // Cursor on the RHS `total` (the local usage), line 5 char 19.
+    const result = findLocalOccurrences(parse(code, uri), uri, {
+      line: 5,
+      character: 19,
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.declaration.name).toBe('total');
+    // Local decl (line 4) + its usage (line 5) — never the field decl (line 2).
+    const declLines = result!.identifierRanges.map((r) => r.startLine).sort();
+    expect(declLines).toContain(4);
+    expect(declLines).toContain(5);
+    expect(declLines).not.toContain(2);
+  });
+
   it('returns null when the cursor resolves to no local (empty / whitespace)', () => {
     const uri = 'file:///t/Empty.cls';
     const code = ['public class Empty {', '  void go() {}', '}'].join('\n');
