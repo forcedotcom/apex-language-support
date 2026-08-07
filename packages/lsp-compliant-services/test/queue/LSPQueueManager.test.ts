@@ -965,6 +965,53 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         expect(dispatch).toHaveBeenCalledTimes(1);
         expect(result).toEqual({ result: 'no-predicates' });
       });
+
+      it('dispatches rename to the worker even when symbols are not ready (self-loading, W-23631077)', async () => {
+        // Regression (W-23631077): renameLocal recompiles the cursor file
+        // STANDALONE from req.content in the pool worker, so it must be in
+        // SELF_LOADING_REQUEST_TYPES and SKIP the cold-read gate. Before the fix
+        // `rename` was gated like a graph reader: on an open file with a
+        // not-ready verdict the request fell through to the coordinator-local
+        // RenameProcessingService — a `null`-returning stub — so the client
+        // silently applied no edit (deterministic on web cold-open). This asserts
+        // the gate is bypassed: awaitSymbolDataReady is NEVER awaited and the
+        // worker IS dispatched, even though it reports not-ready. The existing
+        // references tests above prove a NON-self-loading type in the same
+        // not-ready scenario does the opposite (awaits, then falls back), so this
+        // pins the self-loading classification specifically.
+        const manager = LSPQueueManager.getInstance();
+        const dispatch = jest
+          .fn()
+          .mockResolvedValue({ changes: { 'file:///R.cls': [] } });
+        const awaitSymbolDataReady = jest
+          .fn()
+          .mockResolvedValue({ ready: false, reason: 'timeout' });
+        manager.setWorkerDispatcher({
+          isAvailable: () => true,
+          canDispatch: () => true,
+          dispatchesToPool: () => true,
+          isFileOpen: () => true,
+          awaitSymbolDataReady,
+          dispatch,
+        });
+
+        const result = await manager.submitRenameRequest({
+          textDocument: { uri: 'file:///R.cls' },
+          position: { line: 0, character: 0 },
+          newName: 'renamed',
+        });
+
+        // Self-loading ⇒ gate never consulted, worker dispatched despite
+        // not-ready — the client gets the worker's WorkspaceEdit, not the null
+        // stub.
+        expect(awaitSymbolDataReady).not.toHaveBeenCalled();
+        expect(dispatch).toHaveBeenCalledTimes(1);
+        expect(dispatch).toHaveBeenCalledWith(
+          'rename',
+          expect.objectContaining({ newName: 'renamed' }),
+        );
+        expect(result).toEqual({ changes: { 'file:///R.cls': [] } });
+      });
     });
 
     it('should submit document symbol request', async () => {
@@ -1277,6 +1324,85 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       expect(result).toEqual({ from: 'local' });
       expect(dispatch).not.toHaveBeenCalled();
       expect(localProcess).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // W-23631076 (Phase 0): the rename pipe is wired end-to-end but both legs are
+  // deliberate no-ops that return `null` (LSP "nothing to rename"). This block
+  // is the queue-level half of the Phase-0 deliverable: `submitRenameRequest`
+  // (exactly what LCSAdapter.onRenameRequest calls) drives the SAME `null`
+  // round-trip through BOTH dispatch legs of submitRequest —
+  //   1. the LIVE production path: pool-routed → the request-pool worker's
+  //      DispatchRename no-op handler;
+  //   2. the local fallback: dispatcher absent/not-routing → the in-process
+  //      GenericRequestHandler → RenameProcessingService.processRename stub.
+  // The worker-topology integration test (RenameThroughWorkerTopology) covers
+  // the pool leg from the dispatcher down; this covers the queue entry above it
+  // and pins that the fallback leg returns `null` too.
+  describe('rename Phase-0 no-op round-trip (W-23631076)', () => {
+    const renameParams = {
+      textDocument: { uri: 'file:///Rename.cls' },
+      position: { line: 0, character: 0 },
+      newName: 'newName',
+    };
+
+    afterEach(() => {
+      LSPQueueManager.getInstance().setWorkerDispatcher(null);
+    });
+
+    it('leg 1 (live path): dispatches rename to the pool and returns null', async () => {
+      const manager = LSPQueueManager.getInstance();
+      // The Phase-0 DispatchRename handler is a no-op returning null; model it
+      // as the dispatcher resolving null for a pool-routed rename.
+      const dispatch = jest.fn().mockResolvedValue(null);
+      const localProcess = jest.fn().mockResolvedValue({ from: 'local' });
+      const serviceRegistry = (manager as any)
+        .serviceRegistry as ServiceRegistry;
+      serviceRegistry.register({
+        requestType: 'rename' as LSPRequestType,
+        priority: Priority.Low,
+        timeout: 100,
+        maxRetries: 0,
+        process: localProcess,
+      });
+      manager.setWorkerDispatcher({
+        isAvailable: () => true,
+        canDispatch: (t: LSPRequestType) => t === 'rename',
+        dispatchesToPool: (t: LSPRequestType) => t === 'rename',
+        dispatch,
+      });
+
+      const result = await manager.submitRenameRequest(renameParams);
+
+      // The request crossed to the pool (not the local handler) and settled null.
+      expect(dispatch).toHaveBeenCalledTimes(1);
+      expect(dispatch).toHaveBeenCalledWith(
+        'rename',
+        expect.objectContaining({ newName: 'newName' }),
+      );
+      expect(localProcess).not.toHaveBeenCalled();
+      expect(result).toBeNull();
+    });
+
+    it('leg 2 (local fallback): routes rename to the in-process handler and returns null', async () => {
+      const manager = LSPQueueManager.getInstance();
+      // No worker dispatcher → submitRequest falls through to the registered
+      // local handler, which stands in for the RenameProcessingService stub.
+      const localProcess = jest.fn().mockResolvedValue(null);
+      const serviceRegistry = (manager as any)
+        .serviceRegistry as ServiceRegistry;
+      serviceRegistry.register({
+        requestType: 'rename' as LSPRequestType,
+        priority: Priority.Low,
+        timeout: 100,
+        maxRetries: 0,
+        process: localProcess,
+      });
+
+      const result = await manager.submitRenameRequest(renameParams);
+
+      expect(localProcess).toHaveBeenCalledTimes(1);
+      expect(result).toBeNull();
     });
   });
 
