@@ -299,9 +299,12 @@ export class ApexEditorPage extends BasePage {
    * and confirms with Enter.
    *
    * Uses the standard VS Code Monaco rename UI: F2 opens a `.rename-box` with
-   * a `.rename-input` text field prefilled with the current symbol name. The
-   * input is selected, so `keyboard.type(newName)` replaces it. Enter confirms
-   * the rename and applies the WorkspaceEdit; Escape cancels.
+   * a `.rename-input` text field prefilled with the current symbol name. We
+   * explicitly focus the input and `fill()` the new name (rather than trusting
+   * the prefill to be selected and `type()`-ing over it): the prefill-selection
+   * timing is unreliable, and a stray `type()` leaks the keystrokes into the
+   * editor — observed as `total`→`totalrenamed` when the input wasn't focused.
+   * Enter confirms the rename and applies the WorkspaceEdit; Escape cancels.
    *
    * Re-presses F2 if the input box does not appear: on the web worker pool the
    * LSP may not have resolved the symbol on the first invocation (a transient
@@ -353,11 +356,16 @@ export class ApexEditorPage extends BasePage {
       await renameInput.waitFor({ state: 'visible', timeout: 3000 });
     }).toPass({ timeout: this.defaultTimeout });
 
-    // OUTSIDE toPass: type the new name, confirm, and wait for the box to
-    // hide. This happens exactly once, after the LSP is known to be ready.
-    // The input is prefilled with the current symbol name and selected.
-    // Type the new name to replace the selection.
-    await this.page.keyboard.type(newName);
+    // OUTSIDE toPass: set the new name, confirm, and wait for the box to hide.
+    // This happens exactly once, after the LSP is known to be ready. Focus the
+    // input and `fill()` it — `fill` sets the value atomically on the focused
+    // element, which is robust against the prefill-selection/focus race that
+    // `keyboard.type()` is subject to (a mis-timed type leaks into the editor).
+    // `.first()` avoids a strict-mode violation from the two `.rename-box`
+    // matches (main widget + candidate-list container).
+    const activeInput = renameInput.first();
+    await activeInput.focus();
+    await activeInput.fill(newName);
 
     // Confirm the rename with Enter. The WorkspaceEdit is applied and the
     // rename box closes.
