@@ -12,6 +12,7 @@ import { ApexSymbolManager } from '@salesforce/apex-lsp-parser-ast';
 import { GeneralCompletionStrategy } from '../../../src/services/strategies/GeneralCompletionStrategy';
 import {
   compileAndRegister,
+  compileInlineAndRegister,
   makeTextDocument,
   makeCompletionContext,
 } from './testHelpers';
@@ -50,13 +51,19 @@ describe('GeneralCompletionStrategy', () => {
       const context = makeCompletionContext(doc, 0, 8, {
         triggerCharacter: '.',
       });
-      expect(strategy.canHandle(context)).toBe(false);
+      expect(strategy.canHandle(context)).toBe(true);
     });
 
     it('should not handle when line ends with dot', () => {
       const doc = makeTextDocument('    obj.', 'file:///test/Test.cls');
       const context = makeCompletionContext(doc, 0, 8);
-      expect(strategy.canHandle(context)).toBe(false);
+      expect(strategy.canHandle(context)).toBe(true);
+    });
+
+    it('should not handle a partially typed member name', () => {
+      const doc = makeTextDocument('    this.may', 'file:///test/Test.cls');
+      const context = makeCompletionContext(doc, 0, 12);
+      expect(strategy.canHandle(context)).toBe(true);
     });
   });
 
@@ -112,6 +119,124 @@ describe('GeneralCompletionStrategy', () => {
         (c) => c.context === 'wildcard completion',
       );
       expect(wildcardCandidates.length).toBe(0);
+    });
+
+    it('uses only the lexer token prefix before a cursor inside an identifier', async () => {
+      const resolveSymbol = jest.spyOn(symbolManager, 'resolveSymbol');
+      const doc = makeTextDocument(
+        '    getStaSuffix',
+        'file:///test/TestClass.cls',
+      );
+      const context = makeCompletionContext(doc, 0, 10, {
+        currentScope: 'TestClass',
+      });
+
+      await Effect.runPromise(strategy.getCompletions(context));
+
+      expect(resolveSymbol).toHaveBeenCalledWith(
+        'getSta',
+        expect.objectContaining({ currentScope: 'TestClass' }),
+      );
+    });
+
+    it.each([
+      ["'getSta'", 5],
+      ["'unterminated getSta", 20],
+      ['// getSta', 9],
+      ['/* getSta */', 9],
+    ])(
+      'does not derive semantic completions from a string or comment token: %s',
+      async (content, character) => {
+        const resolveSymbol = jest.spyOn(symbolManager, 'resolveSymbol');
+        const allSymbols = jest.spyOn(
+          symbolManager,
+          'getAllSymbolsForCompletion',
+        );
+        const doc = makeTextDocument(content, 'file:///test/TestClass.cls');
+        const context = makeCompletionContext(doc, 0, character, {
+          currentScope: 'TestClass',
+        });
+
+        const candidates = await Effect.runPromise(
+          strategy.getCompletions(context),
+        );
+
+        expect(candidates).toEqual([]);
+        expect(resolveSymbol).not.toHaveBeenCalled();
+        expect(allSymbols).not.toHaveBeenCalled();
+      },
+    );
+
+    it('preserves an incomplete identifier prefix in syntactically malformed source', async () => {
+      const resolveSymbol = jest.spyOn(symbolManager, 'resolveSymbol');
+      const content = 'public class Broken { void run() { getSta';
+      const doc = makeTextDocument(content, 'file:///test/Broken.cls');
+      const context = makeCompletionContext(doc, 0, content.length);
+
+      await Effect.runPromise(strategy.getCompletions(context));
+
+      expect(resolveSymbol).toHaveBeenCalledWith('getSta', expect.any(Object));
+    });
+
+    it('does not synthesize a local declaration from document text when semantic state lacks it', async () => {
+      const content = [
+        'public class PropertyConsumer {',
+        '  public void run() {',
+        '    Property__c property = new Property__c();',
+        '    insert property;',
+        '    prop',
+        '  }',
+        '}',
+      ].join('\n');
+      const doc = makeTextDocument(
+        content,
+        'file:///test/PropertyConsumer.cls',
+      );
+      const context = makeCompletionContext(doc, 4, 8, {
+        currentScope: 'PropertyConsumer',
+      });
+
+      const candidates = await Effect.runPromise(
+        strategy.getCompletions(context),
+      );
+
+      expect(
+        candidates.map((candidate) => candidate.symbol.name),
+      ).not.toContain('property');
+    });
+
+    it('returns a prefix-matching local from parser-owned visible symbols', async () => {
+      const uri = 'file:///test/PropertyConsumer.cls';
+      const content = [
+        'public class PropertyConsumer {',
+        '  public void run() {',
+        '    Property__c property = new Property__c();',
+        '    insert property;',
+        '    prop',
+        '  }',
+        '}',
+      ].join('\n');
+      await compileInlineAndRegister(symbolManager, content, uri);
+      const doc = makeTextDocument(content, uri);
+      const context = makeCompletionContext(doc, 4, 8, {
+        currentScope: 'PropertyConsumer',
+      });
+
+      const candidates = await Effect.runPromise(
+        strategy.getCompletions(context),
+      );
+
+      expect(candidates).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            symbol: expect.objectContaining({
+              name: 'property',
+              kind: 'variable',
+            }),
+            context: 'visible symbol',
+          }),
+        ]),
+      );
     });
 
     it('should set relevance to 0.5 for wildcard completions', async () => {

@@ -38,6 +38,7 @@ import {
   ApexSymbolManager,
   CompilerService,
   FullSymbolCollectorListener,
+  SymbolKind,
   VisibilitySymbolListener,
   SymbolTable,
 } from '@salesforce/apex-lsp-parser-ast';
@@ -64,6 +65,7 @@ const SRC = `public class ApexClassExample {
 
 // line index 1 (0-based): "    private String instanceId;"
 const FIELD_LINE = 1;
+const USAGE_LINE = 7;
 
 describe('DefinitionProcessingService - field definition single location', () => {
   const fieldDeclParams = (): DefinitionParams => {
@@ -71,6 +73,14 @@ describe('DefinitionProcessingService - field definition single location', () =>
     return {
       textDocument: { uri: URI },
       position: { line: FIELD_LINE, character: line.indexOf('instanceId') },
+    };
+  };
+
+  const fieldUsageParams = (): DefinitionParams => {
+    const line = SRC.split('\n')[USAGE_LINE];
+    return {
+      textDocument: { uri: URI },
+      position: { line: USAGE_LINE, character: line.indexOf('instanceId') },
     };
   };
 
@@ -134,6 +144,67 @@ describe('DefinitionProcessingService - field definition single location', () =>
 
     expect(result).toBeDefined();
     expect(result!.length).toBe(1);
+    expect(result![0].range.start.line).toBe(FIELD_LINE);
+
+    const usageResult =
+      await definitionService.processDefinition(fieldUsageParams());
+    expect(usageResult).toBeDefined();
+    expect(usageResult).toHaveLength(1);
+    expect(usageResult![0].range.start.line).toBe(FIELD_LINE);
+  });
+
+  it('resolves a this-qualified usage to the field instead of the shadowing parameter', async () => {
+    const symbolManager = new ApexSymbolManager();
+    const compilerService = new CompilerService();
+    const table = new SymbolTable();
+    compilerService.compile(SRC, URI, new FullSymbolCollectorListener(table), {
+      collectReferences: true,
+      resolveReferences: true,
+    });
+    await Effect.runPromise(symbolManager.addSymbolTable(table, URI));
+    const definitionService = new DefinitionProcessingService(
+      getLogger(),
+      symbolManager,
+    );
+
+    const result =
+      await definitionService.processDefinition(fieldUsageParams());
+
+    expect(result).toBeDefined();
+    expect(result).toHaveLength(1);
+    expect(result![0].range.start.line).toBe(FIELD_LINE);
+  });
+
+  it('resolves a this-qualified field independent of symbol insertion order', async () => {
+    const symbolManager = new ApexSymbolManager();
+    const compilerService = new CompilerService();
+    const table = new SymbolTable();
+    compilerService.compile(SRC, URI, new FullSymbolCollectorListener(table), {
+      collectReferences: true,
+      resolveReferences: true,
+    });
+
+    // Worker tables can arrive in a different order after public-api ingestion
+    // and full-detail replacement. Reproduce the order that exposed the bug:
+    // the same-named constructor parameter precedes the class field.
+    table.getAllSymbols().sort((left, right) => {
+      if (left.name !== 'instanceId' || right.name !== 'instanceId') return 0;
+      if (left.kind === SymbolKind.Variable) return -1;
+      if (right.kind === SymbolKind.Variable) return 1;
+      return 0;
+    });
+
+    await Effect.runPromise(symbolManager.addSymbolTable(table, URI));
+    const definitionService = new DefinitionProcessingService(
+      getLogger(),
+      symbolManager,
+    );
+
+    const result =
+      await definitionService.processDefinition(fieldUsageParams());
+
+    expect(result).toBeDefined();
+    expect(result).toHaveLength(1);
     expect(result![0].range.start.line).toBe(FIELD_LINE);
   });
 });

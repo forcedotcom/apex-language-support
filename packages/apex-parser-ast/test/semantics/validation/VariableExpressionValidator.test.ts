@@ -9,7 +9,12 @@
 import { VariableExpressionValidator } from '../../../src/semantics/validation/VariableExpressionValidator';
 import { TypePromotionSystem } from '../../../src/semantics/validation/TypePromotionSystem';
 import type { ValidationScope } from '../../../src/semantics/validation/ValidationResult';
-import type { VariableSymbol } from '../../../src/types/symbol';
+import {
+  SymbolKind,
+  SymbolTable,
+  type SymbolLocation,
+  type VariableSymbol,
+} from '../../../src/types/symbol';
 
 // Mock validation scope for testing
 const createMockScope = (version = 58): ValidationScope => ({
@@ -34,6 +39,53 @@ const createMockVariable = (
   namespace: null,
   location: { line: 1, column: 1 },
 });
+
+const createLocation = (
+  startLine: number,
+  endLine: number,
+): SymbolLocation => ({
+  symbolRange: {
+    startLine,
+    startColumn: 0,
+    endLine,
+    endColumn: 80,
+  },
+  identifierRange: {
+    startLine,
+    startColumn: 0,
+    endLine: startLine,
+    endColumn: 10,
+  },
+});
+
+const addVariable = (
+  symbolTable: SymbolTable,
+  parent: ReturnType<SymbolTable['enterScope']>,
+  name: string,
+  type: VariableSymbol['type'],
+  line: number,
+): VariableSymbol => {
+  const id = `${parent?.id ?? 'root'}:${name}:${line}`;
+  const variable = {
+    ...createMockVariable(name, type),
+    kind: SymbolKind.Variable,
+    id,
+    key: {
+      prefix: 'variable',
+      name,
+      path: [parent?.name ?? 'root', name],
+      unifiedId: id,
+      fileUri: 'file:///VariableScopes.cls',
+      kind: SymbolKind.Variable,
+    },
+    fileUri: 'file:///VariableScopes.cls',
+    parentId: parent?.id ?? null,
+    _isLoaded: true,
+    location: createLocation(line, line),
+  } as VariableSymbol;
+  symbolTable.addSymbol(variable, parent ?? null);
+  return variable;
+};
 
 describe('VariableExpressionValidator', () => {
   describe('validateVariableExpression', () => {
@@ -221,6 +273,123 @@ describe('VariableExpressionValidator', () => {
       );
 
       expect(result.isValid).toBe(true);
+    });
+
+    it('uses the innermost lexical declaration for a shadowed variable', () => {
+      const scope = createMockScope();
+      const symbolTable = new SymbolTable();
+      symbolTable.setFileUri('file:///VariableScopes.cls');
+      const fileScope = symbolTable.enterScope(
+        'file',
+        'file',
+        createLocation(1, 30),
+      );
+      const methodScope = symbolTable.enterScope(
+        'method',
+        'method',
+        createLocation(2, 28),
+        undefined,
+        fileScope,
+      );
+      addVariable(
+        symbolTable,
+        methodScope,
+        'value',
+        TypePromotionSystem.INTEGER,
+        3,
+      );
+      const nestedScope = symbolTable.enterScope(
+        'nested',
+        'if',
+        createLocation(5, 10),
+        undefined,
+        methodScope,
+      );
+      addVariable(
+        symbolTable,
+        nestedScope,
+        'value',
+        TypePromotionSystem.STRING,
+        6,
+      );
+
+      const nestedResult =
+        VariableExpressionValidator.validateVariableExpression(
+          'value',
+          symbolTable,
+          scope,
+          { line: 8, character: 4 },
+        );
+      const methodResult =
+        VariableExpressionValidator.validateVariableExpression(
+          'value',
+          symbolTable,
+          scope,
+          { line: 20, character: 4 },
+        );
+
+      expect(nestedResult.isValid).toBe(true);
+      expect(nestedResult.type).toBe(TypePromotionSystem.STRING);
+      expect(methodResult.isValid).toBe(true);
+      expect(methodResult.type).toBe(TypePromotionSystem.INTEGER);
+    });
+
+    it('rejects a variable declared only in a child or sibling scope', () => {
+      const scope = createMockScope();
+      const symbolTable = new SymbolTable();
+      symbolTable.setFileUri('file:///VariableScopes.cls');
+      const fileScope = symbolTable.enterScope(
+        'file',
+        'file',
+        createLocation(1, 30),
+      );
+      const methodScope = symbolTable.enterScope(
+        'method',
+        'method',
+        createLocation(2, 28),
+        undefined,
+        fileScope,
+      );
+      const nestedScope = symbolTable.enterScope(
+        'nested',
+        'if',
+        createLocation(5, 10),
+        undefined,
+        methodScope,
+      );
+      addVariable(
+        symbolTable,
+        nestedScope,
+        'nestedOnly',
+        TypePromotionSystem.STRING,
+        6,
+      );
+
+      const result = VariableExpressionValidator.validateVariableExpression(
+        'nestedOnly',
+        symbolTable,
+        scope,
+        { line: 20, character: 4 },
+      );
+
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('variable.not.visible');
+    });
+
+    it('preserves uncertainty when a full symbol table lacks a reference position', () => {
+      const scope = createMockScope();
+      const symbolTable = new SymbolTable();
+
+      const result = VariableExpressionValidator.validateVariableVisibility(
+        'value',
+        symbolTable,
+        scope,
+      );
+
+      expect(result.isValid).toBe(true);
+      expect(result.warnings).toContain(
+        'variable.visibility.cannot.be.determined',
+      );
     });
   });
 

@@ -14,8 +14,10 @@ import { Effect } from 'effect';
 import {
   runValidator,
   compileFixtureWithOptions,
+  compileSourceLayeredWithOptions,
 } from './helpers/validation-test-helpers';
 import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
+import { SymbolKind, type ApexSymbol } from '../../../../src/types/symbol';
 
 describe('SwitchStatementValidator', () => {
   let symbolManager: ApexSymbolManager;
@@ -94,7 +96,44 @@ describe('SwitchStatementValidator', () => {
     expect(hasError).toBe(true);
   });
 
+  it('should detect a duplicate literal across multi-value when clauses', async () => {
+    const { symbolTable, options } = await compileFixtureWithOptions(
+      VALIDATOR_CATEGORY,
+      'DuplicateWhenListValue.cls',
+      undefined,
+      symbolManager,
+      compilerService,
+      {
+        tier: ValidationTier.IMMEDIATE,
+        allowArtifactLoading: false,
+      },
+    );
+
+    const result = await runValidator(
+      SwitchStatementValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(
+      result.errors.some(
+        (error: any) => error.code === ErrorCodes.NOT_UNIQUE_WHEN_VALUE_OR_TYPE,
+      ),
+    ).toBe(true);
+  });
+
   it('should detect when type variable already matching switch expression type', async () => {
+    jest
+      .spyOn(symbolManager, 'findSObjectType')
+      .mockImplementation(async (name) =>
+        name.toLowerCase() === 'account'
+          ? ({
+              kind: SymbolKind.Class,
+              name: 'Account',
+              namespace: 'SObject',
+            } as unknown as ApexSymbol)
+          : null,
+      );
+
     const { symbolTable, options } = await compileFixtureWithOptions(
       VALIDATOR_CATEGORY,
       'InvalidAlreadyMatchType.cls',
@@ -290,6 +329,124 @@ describe('SwitchStatementValidator', () => {
       (e: any) => e.code === ErrorCodes.WHEN_CLAUSE_LITERAL_OR_VALID_CONSTANT,
     );
     expect(hasError).toBe(true);
+  });
+
+  it('resolves an unqualified when constant lexically at its expression position', async () => {
+    const source = `
+public class ShadowedWhenConstant {
+    private static final String MATCH = 'constant';
+
+    public void runSwitch() {
+        String value = 'test';
+        String MATCH = 'local';
+        switch on value {
+            when MATCH {}
+            when else {}
+        }
+    }
+}`;
+    const { symbolTable, options } = await compileSourceLayeredWithOptions(
+      source,
+      'file:///test/ShadowedWhenConstant.cls',
+      symbolManager,
+      compilerService,
+      { tier: ValidationTier.THOROUGH, allowArtifactLoading: false },
+    );
+
+    const result = await runValidator(
+      SwitchStatementValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(
+      result.errors.some(
+        (error: any) =>
+          error.code === ErrorCodes.WHEN_CLAUSE_LITERAL_OR_VALID_CONSTANT,
+      ),
+    ).toBe(true);
+  });
+
+  it('resolves a qualified constant by its exact type and namespace FQN', async () => {
+    await compileSourceLayeredWithOptions(
+      `public class WhenConstants {
+          public static final String MATCH = 'first';
+      }`,
+      'file:///test/first/WhenConstants.cls',
+      symbolManager,
+      compilerService,
+      { namespace: 'FirstNs' },
+    );
+    await compileSourceLayeredWithOptions(
+      `public class WhenConstants {
+          public static String MATCH = 'second';
+      }`,
+      'file:///test/second/WhenConstants.cls',
+      symbolManager,
+      compilerService,
+      { namespace: 'SecondNs' },
+    );
+    const source = `
+public class QualifiedWhenConstantSwitch {
+    public void runSwitch() {
+        String value = 'first';
+        switch on value {
+            when FirstNs.WhenConstants.MATCH {}
+            when else {}
+        }
+    }
+}`;
+    const { symbolTable, options } = await compileSourceLayeredWithOptions(
+      source,
+      'file:///test/QualifiedWhenConstantSwitch.cls',
+      symbolManager,
+      compilerService,
+      { tier: ValidationTier.THOROUGH, allowArtifactLoading: false },
+    );
+
+    const result = await runValidator(
+      SwitchStatementValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(
+      result.errors.some(
+        (error: any) =>
+          error.code === ErrorCodes.WHEN_CLAUSE_LITERAL_OR_VALID_CONSTANT ||
+          error.code === ErrorCodes.INVALID_WHEN_FIELD_CONSTANT,
+      ),
+    ).toBe(false);
+  });
+
+  it('preserves uncertainty for an unresolved qualified constant', async () => {
+    const source = `
+public class UnresolvedWhenConstant {
+    public void runSwitch() {
+        String value = 'test';
+        switch on value {
+            when MissingOwner.MATCH {}
+            when else {}
+        }
+    }
+}`;
+    const { symbolTable, options } = await compileSourceLayeredWithOptions(
+      source,
+      'file:///test/UnresolvedWhenConstant.cls',
+      symbolManager,
+      compilerService,
+      { tier: ValidationTier.THOROUGH, allowArtifactLoading: false },
+    );
+
+    const result = await runValidator(
+      SwitchStatementValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(
+      result.errors.some(
+        (error: any) =>
+          error.code === ErrorCodes.WHEN_CLAUSE_LITERAL_OR_VALID_CONSTANT,
+      ),
+    ).toBe(false);
   });
 
   describe('TIER 2: Enum switch validation', () => {

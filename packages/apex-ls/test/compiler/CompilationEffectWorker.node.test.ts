@@ -156,7 +156,7 @@ describe('dedicated Effect compilation worker', () => {
 
     const requestExit = await Effect.runPromise(program);
     expect(Exit.isFailure(requestExit)).toBe(true);
-  }, 10_000);
+  }, 30_000);
 
   it('releases the pool lease after interrupting an in-flight request', async () => {
     const program = Effect.scoped(

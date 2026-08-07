@@ -175,8 +175,28 @@ export interface TypeReference {
 }
 
 /** Per-identifier hints for find missing artifact resolution */
+export interface SemanticArtifactProvenance {
+  /** URI of the semantic snapshot that produced this identifier. */
+  readonly sourceUri: string;
+  /** Document version represented by the symbol table, when known. */
+  readonly documentVersion?: number;
+  /** Exact parser-owned identifier range. */
+  readonly referenceRange: {
+    readonly startLine: number;
+    readonly startColumn: number;
+    readonly endLine: number;
+    readonly endColumn: number;
+  };
+  /** Stable identity derived from reference IDs/context and its exact range. */
+  readonly referenceIdentity: string;
+  readonly resolvedSymbolId?: string;
+  readonly resolvedTypeId?: string;
+  readonly parseCompleteness: 'complete' | 'incomplete' | 'unknown';
+}
+
 export interface IdentifierSpec {
   readonly name: string;
+  readonly provenance: SemanticArtifactProvenance;
   readonly typeReference?: TypeReference;
   readonly searchHints?: SearchHint[];
   readonly resolvedQualifier?: {
@@ -425,6 +445,7 @@ export {
   WireSearchHintSchema,
   WireResolvedQualifierSchema,
   WireParentContextSchema,
+  WireSemanticArtifactProvenanceSchema,
   WireIdentifierSpecSchema,
 } from './wireSchemas';
 export type {
@@ -432,8 +453,13 @@ export type {
   WireSearchHint,
   WireResolvedQualifier,
   WireParentContext,
+  WireSemanticArtifactProvenance,
   WireIdentifierSpec,
 } from './wireSchemas';
+export {
+  createApexOrgArtifactUri,
+  type ApexOrgArtifactKind,
+} from './utils/ApexOrgArtifactUri';
 
 // Worker wire schemas — internal worker IPC contract (Option B)
 export {
@@ -473,6 +499,7 @@ export {
   DispatchSignatureHelp,
   DispatchCodeAction,
   DispatchReferences,
+  DispatchRename,
   DispatchImplementation,
   DispatchDocumentSymbol,
   DispatchCodeLens,

@@ -163,7 +163,11 @@ export class LSPConfigurationManager {
    * @returns The current extended server capabilities with any custom overrides applied
    */
   public getExtendedServerCapabilities(): ExtendedServerCapabilities {
-    return this.capabilitiesManager.getCapabilities();
+    const baseCapabilities = this.capabilitiesManager.getCapabilities();
+    if (this.customCapabilities) {
+      return this.mergeCapabilities(baseCapabilities, this.customCapabilities);
+    }
+    return baseCapabilities;
   }
 
   /**
@@ -357,6 +361,16 @@ export class LSPConfigurationManager {
 
       const apexSettings = settings.apex;
       let hasChanges = false;
+
+      if (apexSettings.custom !== undefined) {
+        this.setCustomCapabilities(
+          apexSettings.custom as Partial<ExtendedServerCapabilities>,
+        );
+        this.settingsManager.updateSettings({
+          apex: { custom: apexSettings.custom },
+        } as unknown as Partial<ApexLanguageServerSettings>);
+        hasChanges = true;
+      }
 
       // Check and set environment settings
       if (apexSettings.environment) {
@@ -661,7 +675,7 @@ export class LSPConfigurationManager {
 
       // Log capabilities after syncCapabilitiesWithSettings has run
       this.syncCapabilitiesWithSettings();
-      const caps = this.capabilitiesManager.getCapabilities();
+      const caps = this.getExtendedServerCapabilities();
       const additionalSchemes =
         currentSettings.apex.environment?.additionalDocumentSchemes?.map(
           (s) => s.scheme,
@@ -731,6 +745,16 @@ export class LSPConfigurationManager {
 
     // Capture previous settings for comparison
     const previousSettings = this.settingsManager.getSettings();
+    const customCapabilities = config.settings?.apex?.custom;
+    if (
+      customCapabilities !== undefined &&
+      customCapabilities !== null &&
+      typeof customCapabilities === 'object'
+    ) {
+      this.setCustomCapabilities(
+        customCapabilities as Partial<ExtendedServerCapabilities>,
+      );
+    }
 
     const result = this.settingsManager.updateFromLSPConfiguration(
       config.settings,

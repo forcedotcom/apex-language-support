@@ -21,15 +21,6 @@ import { CompletionContext } from '../CompletionProcessingService';
 import { CompletionStrategy, CompletionCandidate } from './CompletionStrategy';
 
 /**
- * Pattern matching the line text immediately before the cursor when the user
- * is in the middle of writing an override declaration, mirroring Jorje's
- * `MethodNamesCompletionStrategy.isVirtualMethodOverride` regex:
- *   `^\s*([a-z]+)\s+override\s*$`
- * The leading `[a-z]+` captures the method visibility (public/private/...).
- */
-const OVERRIDE_LINE_PATTERN = /^\s*([a-z]+)\s+override\s*$/;
-
-/**
  * Strategy that suggests overrideable methods inherited from a superclass when
  * the user has typed a visibility followed by `override` (e.g. `public override `).
  * The completion item's insert text is a snippet containing the full method
@@ -44,11 +35,7 @@ export class OverrideCompletionStrategy implements CompletionStrategy {
   ) {}
 
   canHandle(context: CompletionContext): boolean {
-    const lineText = context.document.getText({
-      start: { line: context.position.line, character: 0 },
-      end: context.position,
-    });
-    return OVERRIDE_LINE_PATTERN.test(lineText);
+    return context.overrideCompletion !== undefined;
   }
 
   getCompletions(

@@ -9,6 +9,24 @@
 import type { ValidationResult, ValidationScope } from './ValidationResult';
 import type { ExpressionType } from './TypePromotionSystem';
 import { isPrimitiveType } from '../../utils/primitiveTypes';
+import type {
+  ApexSymbol,
+  TypeSymbol,
+  VariableSymbol,
+} from '../../types/symbol';
+import { SymbolKind } from '../../types/symbol';
+import { isAssignable } from './utils/typeAssignability';
+
+/**
+ * Parser/resolver-owned facts available while validating an SObject-style
+ * constructor. An omitted member list means that member resolution has not
+ * completed; an empty member list means it completed and found no members.
+ */
+export interface ConstructorExpressionSemanticContext {
+  targetSymbol?: TypeSymbol;
+  memberSymbols?: readonly VariableSymbol[];
+  allSymbols?: readonly ApexSymbol[];
+}
 
 /**
  * Validator for constructor expressions (new expressions with field initializers)
@@ -26,6 +44,7 @@ export class ConstructorExpressionValidator {
     targetType: ExpressionType,
     fieldInitializers: Map<string, ExpressionType>,
     scope: ValidationScope,
+    semanticContext?: ConstructorExpressionSemanticContext,
   ): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
@@ -74,6 +93,7 @@ export class ConstructorExpressionValidator {
         const fieldExistenceResult = this.validateFieldExistence(
           targetType,
           fieldName,
+          semanticContext,
         );
         if (!fieldExistenceResult.isValid) {
           for (const error of fieldExistenceResult.errors) {
@@ -83,30 +103,17 @@ export class ConstructorExpressionValidator {
         }
 
         // Check field type compatibility
-        const fieldType = this.getFieldType(targetType, fieldName);
-        if (fieldType) {
+        const fieldSymbol = this.getFieldSymbol(
+          targetType,
+          fieldName,
+          semanticContext,
+        );
+        if (fieldSymbol) {
           const typeCompatibilityResult = this.validateFieldTypeCompatibility(
             fieldName,
-            fieldType,
+            this.toExpressionType(fieldSymbol),
             expressionType,
-          );
-          if (!typeCompatibilityResult.isValid) {
-            for (const error of typeCompatibilityResult.errors) {
-              errors.push(typeof error === 'string' ? error : error.message);
-            }
-          }
-        } else {
-          // If field type is not found, assume it's a String field for test purposes
-          const assumedFieldType: ExpressionType = {
-            kind: 'primitive',
-            name: 'String',
-            isNullable: false,
-            isArray: false,
-          };
-          const typeCompatibilityResult = this.validateFieldTypeCompatibility(
-            fieldName,
-            assumedFieldType,
-            expressionType,
+            semanticContext?.allSymbols,
           );
           if (!typeCompatibilityResult.isValid) {
             for (const error of typeCompatibilityResult.errors) {
@@ -133,13 +140,26 @@ export class ConstructorExpressionValidator {
   static validateFieldExistence(
     targetType: ExpressionType,
     fieldName: string,
+    semanticContext?: ConstructorExpressionSemanticContext,
   ): ValidationResult {
-    // For now, we'll assume all SObject types have standard fields
-    // In a real implementation, this would check against the actual schema
-    const standardFields = this.getStandardFields(targetType.name);
-    const normalizedFieldName = fieldName.toLowerCase();
-    const fieldExists = standardFields.some(
-      (field) => field.toLowerCase() === normalizedFieldName,
+    // No resolved member set means existence is unknown, not invalid.
+    if (
+      !semanticContext?.memberSymbols ||
+      (semanticContext.targetSymbol &&
+        semanticContext.targetSymbol.name.toLowerCase() !==
+          targetType.name.toLowerCase())
+    ) {
+      return {
+        isValid: true,
+        errors: [],
+        warnings: [],
+      };
+    }
+
+    const fieldExists = !!this.getFieldSymbol(
+      targetType,
+      fieldName,
+      semanticContext,
     );
 
     if (!fieldExists) {
@@ -168,36 +188,14 @@ export class ConstructorExpressionValidator {
     fieldName: string,
     fieldType: ExpressionType,
     expressionType: ExpressionType,
+    allSymbols?: readonly ApexSymbol[],
   ): ValidationResult {
-    // Allow null assignment to any type
-    if (expressionType.name === 'null') {
-      return {
-        isValid: true,
-        errors: [],
-        warnings: [],
-      };
-    }
-
-    // Check for exact type match (case-insensitive)
-    if (fieldType.name.toLowerCase() === expressionType.name.toLowerCase()) {
-      return {
-        isValid: true,
-        errors: [],
-        warnings: [],
-      };
-    }
-
-    // Check for numeric type promotion
-    if (this.isNumericTypePromotion(fieldType, expressionType)) {
-      return {
-        isValid: true,
-        errors: [],
-        warnings: [],
-      };
-    }
-
-    // Check for compatible types (String and Object, etc.)
-    if (this.isCompatibleType(fieldType, expressionType)) {
+    void fieldName;
+    if (
+      isAssignable(expressionType.name, fieldType.name, 'assignment', {
+        allSymbols: allSymbols ? [...allSymbols] : undefined,
+      })
+    ) {
       return {
         isValid: true,
         errors: [],
@@ -220,39 +218,16 @@ export class ConstructorExpressionValidator {
   static validateNameValuePairSupport(
     targetType: ExpressionType,
   ): ValidationResult {
-    // Primitive types don't support name-value pair syntax
-    // Normalize type name for case-insensitive comparison
-    // Capitalize first letter and lowercase the rest (e.g., 'string' -> 'String')
-    const normalizedTypeName =
-      targetType.name === 'ID' || targetType.name === 'id'
-        ? 'Id'
-        : targetType.name.charAt(0).toUpperCase() +
-          targetType.name.slice(1).toLowerCase();
-
-    if (isPrimitiveType(normalizedTypeName)) {
-      // Only specific primitives that can be constructed don't support name-value pairs
-      // (void, null, Blob, Id, Object don't support constructors, so they're excluded)
-      const primitivesWithoutNameValuePairs = [
-        'String',
-        'Integer',
-        'Long',
-        'Double',
-        'Decimal',
-        'Boolean',
-        'Date',
-        'DateTime',
-        'Time',
-      ];
-      if (primitivesWithoutNameValuePairs.includes(normalizedTypeName)) {
-        return {
-          isValid: false,
-          errors: ['invalid.name.value.pair.constructor'],
-          warnings: [],
-        };
-      }
+    if (isPrimitiveType(targetType.name)) {
+      return {
+        isValid: false,
+        errors: ['invalid.name.value.pair.constructor'],
+        warnings: [],
+      };
     }
 
-    // SObject types and custom types support name-value pairs
+    // A resolved non-primitive type may support name-value pairs. This legacy
+    // API has no SObject-kind fact, so it cannot reject an unresolved object.
     return {
       isValid: true,
       errors: [],
@@ -260,272 +235,44 @@ export class ConstructorExpressionValidator {
     };
   }
 
-  /**
-   * Get the type of a field in the target type
-   * @param targetType - The type being constructed
-   * @param fieldName - The field name
-   * @returns The field type or undefined if not found
-   */
-  private static getFieldType(
+  private static getFieldSymbol(
     targetType: ExpressionType,
     fieldName: string,
-  ): ExpressionType | undefined {
-    // In a real implementation, this would look up the actual field type
-    // from the schema. For now, we'll return common field types.
-    const fieldTypeMap = this.getFieldTypeMap(targetType.name);
+    semanticContext?: ConstructorExpressionSemanticContext,
+  ): VariableSymbol | undefined {
+    const members = semanticContext?.memberSymbols;
+    if (!members) {
+      return undefined;
+    }
+    if (
+      semanticContext.targetSymbol &&
+      semanticContext.targetSymbol.name.toLowerCase() !==
+        targetType.name.toLowerCase()
+    ) {
+      return undefined;
+    }
+
     const normalizedFieldName = fieldName.toLowerCase();
-
-    for (const [field, type] of fieldTypeMap) {
-      if (field.toLowerCase() === normalizedFieldName) {
-        return type;
-      }
-    }
-
-    return undefined;
-  }
-
-  /**
-   * Get standard fields for a given SObject type
-   * @param typeName - The type name
-   * @returns Array of standard field names
-   */
-  private static getStandardFields(typeName: string): string[] {
-    const fieldMaps: Record<string, string[]> = {
-      Account: [
-        'Name',
-        'Phone',
-        'BillingStreet',
-        'BillingCity',
-        'BillingState',
-        'BillingPostalCode',
-        'BillingCountry',
-      ],
-      Contact: [
-        'FirstName',
-        'LastName',
-        'Email',
-        'Phone',
-        'MailingStreet',
-        'MailingCity',
-        'MailingState',
-        'MailingPostalCode',
-        'MailingCountry',
-      ],
-      Opportunity: ['Name', 'Amount', 'CloseDate', 'StageName', 'Type'],
-      Lead: ['FirstName', 'LastName', 'Company', 'Email', 'Phone', 'Status'],
-      Case: ['Subject', 'Description', 'Priority', 'Status', 'Origin'],
-      CustomObject__c: ['CustomField__c', 'Name'],
-    };
-
-    // For test purposes, also accept any type that ends with '__c' as a custom object
-    if (typeName.endsWith('__c')) {
-      return ['Name', 'CustomField__c'];
-    }
-
-    return fieldMaps[typeName] || [];
-  }
-
-  /**
-   * Get field type mapping for a given SObject type
-   * @param typeName - The type name
-   * @returns Map of field names to their types
-   */
-  private static getFieldTypeMap(
-    typeName: string,
-  ): Map<string, ExpressionType> {
-    const typeMaps: Record<string, Record<string, ExpressionType>> = {
-      Account: {
-        Name: {
-          kind: 'primitive',
-          name: 'String',
-          isNullable: false,
-          isArray: false,
-        },
-        Phone: {
-          kind: 'primitive',
-          name: 'String',
-          isNullable: false,
-          isArray: false,
-        },
-        BillingStreet: {
-          kind: 'primitive',
-          name: 'String',
-          isNullable: false,
-          isArray: false,
-        },
-        BillingCity: {
-          kind: 'primitive',
-          name: 'String',
-          isNullable: false,
-          isArray: false,
-        },
-        BillingState: {
-          kind: 'primitive',
-          name: 'String',
-          isNullable: false,
-          isArray: false,
-        },
-        BillingPostalCode: {
-          kind: 'primitive',
-          name: 'String',
-          isNullable: false,
-          isArray: false,
-        },
-        BillingCountry: {
-          kind: 'primitive',
-          name: 'String',
-          isNullable: false,
-          isArray: false,
-        },
-      },
-      Contact: {
-        FirstName: {
-          kind: 'primitive',
-          name: 'String',
-          isNullable: false,
-          isArray: false,
-        },
-        LastName: {
-          kind: 'primitive',
-          name: 'String',
-          isNullable: false,
-          isArray: false,
-        },
-        Email: {
-          kind: 'primitive',
-          name: 'String',
-          isNullable: false,
-          isArray: false,
-        },
-        Phone: {
-          kind: 'primitive',
-          name: 'String',
-          isNullable: false,
-          isArray: false,
-        },
-        MailingStreet: {
-          kind: 'primitive',
-          name: 'String',
-          isNullable: false,
-          isArray: false,
-        },
-        MailingCity: {
-          kind: 'primitive',
-          name: 'String',
-          isNullable: false,
-          isArray: false,
-        },
-        MailingState: {
-          kind: 'primitive',
-          name: 'String',
-          isNullable: false,
-          isArray: false,
-        },
-        MailingPostalCode: {
-          kind: 'primitive',
-          name: 'String',
-          isNullable: false,
-          isArray: false,
-        },
-        MailingCountry: {
-          kind: 'primitive',
-          name: 'String',
-          isNullable: false,
-          isArray: false,
-        },
-      },
-      CustomObject__c: {
-        CustomField__c: {
-          kind: 'primitive',
-          name: 'String',
-          isNullable: false,
-          isArray: false,
-        },
-        Name: {
-          kind: 'primitive',
-          name: 'String',
-          isNullable: false,
-          isArray: false,
-        },
-      },
-    };
-
-    // For test purposes, also accept any type that ends with '__c' as a custom object
-    if (typeName.endsWith('__c')) {
-      return new Map(
-        Object.entries({
-          CustomField__c: {
-            kind: 'primitive',
-            name: 'String',
-            isNullable: false,
-            isArray: false,
-          },
-          Name: {
-            kind: 'primitive',
-            name: 'String',
-            isNullable: false,
-            isArray: false,
-          },
-        }),
-      );
-    }
-
-    const typeMap = typeMaps[typeName] || {};
-    return new Map(Object.entries(typeMap));
-  }
-
-  /**
-   * Check if numeric type promotion is allowed
-   * @param fieldType - The field type
-   * @param expressionType - The expression type
-   * @returns True if promotion is allowed
-   */
-  private static isNumericTypePromotion(
-    fieldType: ExpressionType,
-    expressionType: ExpressionType,
-  ): boolean {
-    const numericTypes = ['Integer', 'Long', 'Double', 'Decimal'];
-    const fieldTypeIndex = numericTypes.indexOf(fieldType.name);
-    const expressionTypeIndex = numericTypes.indexOf(expressionType.name);
-
-    // Allow promotion if expression type is smaller than field type
-    return (
-      fieldTypeIndex >= 0 &&
-      expressionTypeIndex >= 0 &&
-      expressionTypeIndex <= fieldTypeIndex
+    return members.find(
+      (member) =>
+        (member.kind === SymbolKind.Field ||
+          member.kind === SymbolKind.Property) &&
+        (!semanticContext.targetSymbol ||
+          member.parentId === semanticContext.targetSymbol.id) &&
+        member.name.toLowerCase() === normalizedFieldName,
     );
   }
 
-  /**
-   * Check if types are compatible for assignment
-   * @param fieldType - The field type
-   * @param expressionType - The expression type
-   * @returns True if types are compatible
-   */
-  private static isCompatibleType(
-    fieldType: ExpressionType,
-    expressionType: ExpressionType,
-  ): boolean {
-    // Object can accept any type
-    if (fieldType.name === 'Object') {
-      return true;
-    }
-
-    // String can accept String and Object
-    if (fieldType.name === 'String' && expressionType.name === 'Object') {
-      return true;
-    }
-
-    // Allow assignment to parent types (basic inheritance check)
-    const inheritanceMap: Record<string, string[]> = {
-      Contact: ['SObject'],
-      Account: ['SObject'],
-      Opportunity: ['SObject'],
-      Lead: ['SObject'],
-      Case: ['SObject'],
+  private static toExpressionType(field: VariableSymbol): ExpressionType {
+    return {
+      kind: field.type.isCollection
+        ? 'collection'
+        : field.type.isPrimitive
+          ? 'primitive'
+          : 'object',
+      name: field.type.name,
+      isNullable: true,
+      isArray: field.type.isArray,
     };
-
-    const parentTypes = inheritanceMap[fieldType.name] || [];
-    return parentTypes.includes(expressionType.name);
   }
 }

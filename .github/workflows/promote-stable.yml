@@ -17,10 +17,6 @@ on:
           - 'false'
           - 'true'
 
-concurrency:
-  group: promote-stable
-  cancel-in-progress: false
-
 permissions:
   contents: write
   packages: write

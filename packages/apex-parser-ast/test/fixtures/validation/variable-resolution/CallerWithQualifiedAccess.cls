@@ -6,6 +6,6 @@ public class CallerWithQualifiedAccess {
         String value = obj.publicField;
         
         // This should work - accessing field on object of correct type
-        obj.publicField = "test";
+        obj.publicField = 'test';
     }
 }

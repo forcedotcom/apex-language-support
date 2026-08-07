@@ -84,19 +84,111 @@ describe('CompletionProcessingService', () => {
   });
 
   describe('processCompletion', () => {
+    it('returns all members on the first dot request after a current-version edit', async () => {
+      const propertyUri = 'file:///test/Property__c.cls';
+      const propertySource = [
+        'public class Property__c {',
+        '  public Decimal Beds__c;',
+        '  public String Address__c;',
+        '}',
+      ].join('\n');
+      const propertyTable = new SymbolTable();
+      new CompilerService().compile(
+        propertySource,
+        propertyUri,
+        new FullSymbolCollectorListener(propertyTable),
+        {},
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(propertyTable, propertyUri, 1),
+      );
+
+      const uri = 'file:///test/ActiveEditCompletion.cls';
+      const initialSource = [
+        'public class ActiveEditCompletion {',
+        '  void run() {',
+        '    Property__c property = new Property__c();',
+        '  }',
+        '}',
+      ].join('\n');
+      const initialTable = new SymbolTable();
+      new CompilerService().compile(
+        initialSource,
+        uri,
+        new FullSymbolCollectorListener(initialTable),
+        {},
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(initialTable, uri, 1),
+      );
+
+      const editedSource = [
+        'public class ActiveEditCompletion {',
+        '  void run() {',
+        '    Property__c property = new Property__c();',
+        '    property.',
+        '  }',
+        '}',
+      ].join('\n');
+      const editedTable = new SymbolTable();
+      new CompilerService().compile(
+        editedSource,
+        uri,
+        new FullSymbolCollectorListener(editedTable),
+        {},
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(editedTable, uri, 2, true),
+      );
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(uri),
+      );
+
+      const editedDocument = TextDocument.create(uri, 'apex', 2, editedSource);
+      mockStorage.getDocument.mockResolvedValue(editedDocument);
+
+      const result = await service.processCompletion({
+        textDocument: { uri },
+        position: { line: 3, character: 13 },
+        context: { triggerKind: 2, triggerCharacter: '.' },
+      });
+      const labels = result.map((item) => item.label);
+
+      expect(labels).toEqual(expect.arrayContaining(['Beds__c', 'Address__c']));
+    });
+
     it('should return completion items for valid request', async () => {
+      const uri = 'file:///test/ValidCompletion.cls';
+      const source = [
+        'public class ValidCompletion {',
+        '  public static String staticValue;',
+        '  public void run() {',
+        '    ValidCompletion.',
+        '  }',
+        '}',
+      ].join('\n');
+      const table = new SymbolTable();
+      new CompilerService().compile(
+        source,
+        uri,
+        new FullSymbolCollectorListener(table),
+        {},
+      );
+      await Effect.runPromise(symbolManager.addSymbolTable(table, uri, 1));
+      const document = TextDocument.create(uri, 'apex', 1, source);
       const params: CompletionParams = {
-        textDocument: { uri: 'file:///test/TestClass.cls' },
-        position: { line: 5, character: 10 },
+        textDocument: { uri },
+        position: { line: 3, character: 20 },
+        context: { triggerKind: 2, triggerCharacter: '.' },
       };
 
-      mockStorage.getDocument.mockResolvedValue(mockDocument);
+      mockStorage.getDocument.mockResolvedValue(document);
 
       const result = await service.processCompletion(params);
 
       expect(result).toBeDefined();
       expect(Array.isArray(result)).toBe(true);
-      expect(result.length).toBeGreaterThan(0);
+      expect(result.map((item) => item.label)).toContain('staticValue');
     });
 
     it('should handle document not found', async () => {
@@ -153,17 +245,24 @@ describe('CompletionProcessingService', () => {
     });
 
     it('processCompletionWithReadiness reports complete (and empty) inside a string literal', async () => {
-      const inStringDoc = TextDocument.create(
-        'file:///test/InString.cls',
-        'apex',
-        1,
-        "    String x = 'foo.bar.",
-      );
+      const uri = 'file:///test/InString.cls';
+      const content =
+        "public class InString { void run() { String x = 'foo.bar'; } }";
+      const inStringDoc = TextDocument.create(uri, 'apex', 1, content);
       mockStorage.getDocument.mockResolvedValue(inStringDoc);
 
+      const table = new SymbolTable();
+      new CompilerService().compile(
+        content,
+        uri,
+        new FullSymbolCollectorListener(table),
+        {},
+      );
+      await Effect.runPromise(symbolManager.addSymbolTable(table, uri));
+
       const params: CompletionParams = {
-        textDocument: { uri: 'file:///test/InString.cls' },
-        position: { line: 0, character: 24 },
+        textDocument: { uri },
+        position: { line: 0, character: content.indexOf('foo.bar') + 4 },
       };
 
       const result = await service.processCompletionWithReadiness(params);
@@ -431,68 +530,95 @@ describe('CompletionProcessingService', () => {
     });
   });
 
-  describe('isInStringLiteral', () => {
-    function makeDoc(lineText: string): TextDocument {
-      return {
-        getText: (range: any) => {
-          if (range) {
-            return lineText.substring(0, range.end.character);
-          }
-          return lineText;
-        },
-      } as any;
+  describe('parser-owned string literal context', () => {
+    async function register(content: string, uri: string): Promise<void> {
+      const table = new SymbolTable();
+      new CompilerService().compile(
+        content,
+        uri,
+        new FullSymbolCollectorListener(table),
+        {},
+      );
+      await Effect.runPromise(symbolManager.addSymbolTable(table, uri));
     }
 
-    it('should return true when cursor is inside a string literal', () => {
-      const doc = makeDoc("String s = 'hello world';");
-      const result = service.isInStringLiteral(doc, { line: 0, character: 16 });
-      expect(result).toBe(true);
+    it('recognizes a cursor inside a parsed string literal', async () => {
+      const uri = 'file:///test/StringLiteralCompletion.cls';
+      const content =
+        "public class StringLiteralCompletion { void run() { String value = 'hello world'; } }";
+      await register(content, uri);
+
+      await expect(
+        (service as any).isInParserRecordedStringLiteral(uri, {
+          line: 0,
+          character: content.indexOf('hello') + 2,
+        }),
+      ).resolves.toBe(true);
     });
 
-    it('should return false when cursor is outside a string literal', () => {
-      const doc = makeDoc("String s = 'hello';");
-      const result = service.isInStringLiteral(doc, { line: 0, character: 7 });
-      expect(result).toBe(false);
+    it('does not infer string context from quotes in comments', async () => {
+      const uri = 'file:///test/CommentCompletion.cls';
+      const content = [
+        'public class CommentCompletion {',
+        "  // 'text that is not a literal reference'",
+        '  void run() {}',
+        '}',
+      ].join('\n');
+      await register(content, uri);
+
+      await expect(
+        (service as any).isInParserRecordedStringLiteral(uri, {
+          line: 1,
+          character: 10,
+        }),
+      ).resolves.toBe(false);
     });
 
-    it('should return false when cursor is after closing quote', () => {
-      const doc = makeDoc("String s = 'hello';");
-      const result = service.isInStringLiteral(doc, { line: 0, character: 19 });
-      expect(result).toBe(false);
+    it('preserves uncertainty for an unterminated string the parser did not record', async () => {
+      const uri = 'file:///test/IncompleteStringCompletion.cls';
+      const content =
+        "public class IncompleteStringCompletion { void run() { String value = 'hello; } }";
+      await register(content, uri);
+
+      await expect(
+        (service as any).isInParserRecordedStringLiteral(uri, {
+          line: 0,
+          character: content.indexOf('hello') + 2,
+        }),
+      ).resolves.toBe(false);
+    });
+  });
+
+  it('does not manufacture semantic context from preceding document text', () => {
+    const content = [
+      'public class ContextTest {',
+      "  // private static String variable = 'misleading';",
+      '  void run() {',
+      '    Con',
+      '  }',
+      '}',
+    ].join('\n');
+    const document = TextDocument.create(
+      'file:///test/ContextTest.cls',
+      'apex',
+      1,
+      content,
+    );
+    const context = (service as any).analyzeCompletionContext(document, {
+      textDocument: { uri: document.uri },
+      position: { line: 3, character: 7 },
     });
 
-    it('should handle escaped quotes correctly', () => {
-      const doc = makeDoc("String s = 'he\\'llo';");
-      // cursor after the escaped quote, still inside the string
-      const result = service.isInStringLiteral(doc, { line: 0, character: 17 });
-      expect(result).toBe(true);
-    });
-
-    it('should return false for empty line', () => {
-      const doc = makeDoc('');
-      const result = service.isInStringLiteral(doc, { line: 0, character: 0 });
-      expect(result).toBe(false);
-    });
-
-    it('should return false for line without quotes', () => {
-      const doc = makeDoc('Integer x = 42;');
-      const result = service.isInStringLiteral(doc, { line: 0, character: 10 });
-      expect(result).toBe(false);
-    });
-
-    it('should handle multiple strings on same line', () => {
-      const doc = makeDoc("String a = 'one' + 'two';");
-      // Between the two strings (after first closing quote)
-      const result = service.isInStringLiteral(doc, { line: 0, character: 17 });
-      expect(result).toBe(false);
-    });
-
-    it('should return true inside second string on same line', () => {
-      const doc = makeDoc("String a = 'one' + 'two';");
-      // Inside 'two'
-      const result = service.isInStringLiteral(doc, { line: 0, character: 21 });
-      expect(result).toBe(true);
-    });
+    expect(context).toEqual(
+      expect.objectContaining({
+        currentScope: '',
+        importStatements: [],
+        namespaceContext: '',
+        expectedType: undefined,
+        isStatic: false,
+        accessModifier: 'public',
+      }),
+    );
   });
 
   describe('buildMethodSnippet', () => {

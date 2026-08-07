@@ -41,7 +41,24 @@ function makeRequest(
     _tag: 'WorkerAssistanceRequest',
     correlationId: `test-${Date.now()}`,
     method: 'apex/findMissingArtifact',
-    params: { identifiers: [{ name: 'Foo' }] },
+    params: {
+      identifiers: [
+        {
+          name: 'Foo',
+          provenance: {
+            sourceUri: 'file:///Caller.cls',
+            referenceRange: {
+              startLine: 1,
+              startColumn: 0,
+              endLine: 1,
+              endColumn: 3,
+            },
+            referenceIdentity: 'ref:Foo:1:0:1:3',
+            parseCompleteness: 'complete',
+          },
+        },
+      ],
+    },
     blocking: true,
     ...overrides,
   };

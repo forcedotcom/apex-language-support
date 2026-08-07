@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { SymbolLocation } from './symbol';
+import { Range, SymbolLocation } from './symbol';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
 /**
@@ -31,7 +31,79 @@ export enum ReferenceContext {
   LITERAL = 15, // For literal values (Integer, Long, Decimal, String, Boolean, Null)
   INHERITANCE = 16, // For a class's `extends` superclass (subclass → superclass edge)
   INTERFACE_IMPLEMENTATION = 17, // For `implements` / interface `extends` (implementor → interface edge)
+  KEYWORD_USAGE = 18,
 }
+
+export type MemberAccessSemanticContext = {
+  kind: 'member-access';
+  receiverRange: Range;
+  operatorRange: Range;
+  memberRange?: Range;
+  incomplete: boolean;
+};
+
+/** Parser-owned shape for a collection element used as an expression receiver. */
+export type IndexedAccessSemanticContext = {
+  kind: 'indexed-access';
+  receiverRange: Range;
+  indexRange: Range;
+  accessRange: Range;
+};
+
+export type DmlSemanticContext = {
+  kind: 'dml';
+  operation: 'insert' | 'update' | 'delete' | 'undelete' | 'upsert' | 'merge';
+  operandRole: 'target' | 'master' | 'duplicate';
+  statementRange: Range;
+  operandRange: Range;
+  isOperandRoot: boolean;
+  upsertFieldRange?: Range;
+};
+
+export type InvocationSemanticContext = {
+  kind: 'invocation';
+  callRange: Range;
+  argumentRanges: Range[];
+  separatorRanges: Range[];
+  resultTarget?: {
+    kind: 'declared-variable' | 'assignment';
+    targetRange: Range;
+    targetIdentifier?: string;
+    expectedType?: string;
+    expectedTypeShape?: SemanticTypeShape;
+  };
+};
+
+/** Compact parser-owned structure used for semantic type comparisons. */
+export type SemanticTypeShape = {
+  name: string;
+  isArray: boolean;
+  isCollection: boolean;
+  typeParameters?: SemanticTypeShape[];
+  keyType?: SemanticTypeShape;
+};
+
+export type OverrideCompletionSemanticContext = {
+  kind: 'override-completion';
+  keywordRange: Range;
+};
+
+export type SymbolReferenceSemanticContext = {
+  memberAccess?: MemberAccessSemanticContext;
+  indexedAccess?: IndexedAccessSemanticContext;
+  dml?: DmlSemanticContext;
+  invocation?: InvocationSemanticContext;
+  overrideCompletion?: OverrideCompletionSemanticContext;
+};
+
+/** Parser-classified root shape of one positional call-site argument. */
+export type CallArgumentSemantic =
+  | {
+      kind: 'literal';
+      literalType: NonNullable<SymbolReference['literalType']>;
+    }
+  | { kind: 'identifier'; name: string }
+  | { kind: 'unresolved' };
 
 /**
  * Enhanced SymbolReference interface
@@ -65,6 +137,8 @@ export interface SymbolReference {
   access?: 'read' | 'write' | 'readwrite';
   /** Optional: indicates static access when known from parsing */
   isStatic?: boolean;
+  /** Parser-owned structural context orthogonal to the reference kind. */
+  semanticContext?: SymbolReferenceSemanticContext;
   /** Optional: literal value for LITERAL context (string, number, boolean, or null) */
   literalValue?: string | number | boolean | null;
   /** Optional: literal type for LITERAL context */
@@ -83,17 +157,8 @@ export interface SymbolReference {
    * name-only keying, preserving today's behavior for non-overloaded methods).
    */
   argumentTypes?: string[];
-  /**
-   * Optional: raw source text of each positional call-site argument for a
-   * METHOD_CALL / CONSTRUCTOR_CALL reference, in order (e.g. `['"hi"', 'x']`
-   * for `f("hi", x)`). Captured syntactically at parse time as the *input* to
-   * semantic argument-type resolution: the argument-expression AST does not
-   * survive the listener walk, so the text is lifted onto the reference here so
-   * the semantic phase can resolve each argument to a type and populate
-   * {@link argumentTypes}. Not a signature key itself — once {@link argumentTypes}
-   * is derived this is no longer consulted. Undefined for non-call references.
-   */
-  argumentExpressions?: string[];
+  /** Parser-owned root facts for positional call arguments, in source order. */
+  argumentSemantics?: CallArgumentSemantic[];
   /**
    * Optional: number of call-site arguments for a METHOD_CALL / CONSTRUCTOR_CALL
    * reference (the call's own arity, e.g. `2` for `f('x', y)`). Unlike
@@ -144,6 +209,7 @@ export interface SymbolReferenceOptions {
   parentContext?: string;
   access?: 'read' | 'write' | 'readwrite';
   isStatic?: boolean;
+  semanticContext?: SymbolReferenceSemanticContext;
   literalValue?: string | number | boolean | null;
   literalType?: 'Integer' | 'Long' | 'Decimal' | 'String' | 'Boolean' | 'Null';
   chainNodes?: SymbolReference[];
@@ -156,6 +222,7 @@ export interface SymbolReferenceOptions {
   argumentTypes?: string[];
   /** Call-site arity (see {@link SymbolReference.argumentCount}). */
   argumentCount?: number;
+  argumentSemantics?: CallArgumentSemantic[];
 }
 
 /**
@@ -168,6 +235,7 @@ export class EnhancedSymbolReference implements SymbolReference {
   public parentContext?: string;
   public access?: 'read' | 'write' | 'readwrite';
   public isStatic?: boolean;
+  public semanticContext?: SymbolReferenceSemanticContext;
   public literalValue?: string | number | boolean | null;
   public literalType?:
     'Integer' | 'Long' | 'Decimal' | 'String' | 'Boolean' | 'Null';
@@ -186,13 +254,8 @@ export class EnhancedSymbolReference implements SymbolReference {
    * argument list is counted.
    */
   public argumentCount?: number;
-  /**
-   * Raw call-site argument source texts (see
-   * {@link SymbolReference.argumentExpressions}). Stamped by the parser listener
-   * after construction, alongside {@link argumentCount}; consumed by semantic
-   * resolution to populate {@link argumentTypes}.
-   */
-  public argumentExpressions?: string[];
+  /** Parser-owned call argument facts consumed by semantic resolution. */
+  public argumentSemantics?: CallArgumentSemantic[];
 
   constructor(
     public name: string,
@@ -204,6 +267,7 @@ export class EnhancedSymbolReference implements SymbolReference {
     this.parentContext = options.parentContext;
     this.access = options.access;
     this.isStatic = options.isStatic;
+    this.semanticContext = options.semanticContext;
     this.literalValue = options.literalValue;
     this.literalType = options.literalType;
     this.chainNodes = options.chainNodes;
@@ -214,6 +278,7 @@ export class EnhancedSymbolReference implements SymbolReference {
     this.accessValidationState = options.accessValidationState;
     this.argumentTypes = options.argumentTypes;
     this.argumentCount = options.argumentCount;
+    this.argumentSemantics = options.argumentSemantics;
   }
 
   // Custom JSON serialization to avoid circular references
@@ -226,6 +291,7 @@ export class EnhancedSymbolReference implements SymbolReference {
       parentContext: this.parentContext,
       access: this.access,
       isStatic: this.isStatic,
+      semanticContext: this.semanticContext,
       literalValue: this.literalValue,
       literalType: this.literalType,
       chainNodes: this.chainNodes,
@@ -236,7 +302,7 @@ export class EnhancedSymbolReference implements SymbolReference {
       accessValidationState: this.accessValidationState,
       argumentTypes: this.argumentTypes,
       argumentCount: this.argumentCount,
-      argumentExpressions: this.argumentExpressions,
+      argumentSemantics: this.argumentSemantics,
     };
 
     // Add chained expression info without circular references

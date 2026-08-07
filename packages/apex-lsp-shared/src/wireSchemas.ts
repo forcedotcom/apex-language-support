@@ -90,9 +90,25 @@ export type WireParentContext = Schema.Schema.Type<
   typeof WireParentContextSchema
 >;
 
+export const WireSemanticArtifactProvenanceSchema = Schema.Struct({
+  sourceUri: Schema.String,
+  documentVersion: Schema.optional(Schema.Number),
+  referenceRange: RangeSchema,
+  referenceIdentity: Schema.String,
+  resolvedSymbolId: Schema.optional(Schema.String),
+  resolvedTypeId: Schema.optional(Schema.String),
+  parseCompleteness: Schema.Literal('complete', 'incomplete', 'unknown'),
+});
+export type WireSemanticArtifactProvenance = Schema.Schema.Type<
+  typeof WireSemanticArtifactProvenanceSchema
+>;
+
 /** Wire-safe form of IdentifierSpec — all plain-data fields, safe for postMessage. */
 export const WireIdentifierSpecSchema = Schema.Struct({
   name: Schema.String,
+  // Optional on the wire for rolling upgrades. The semantic boundary rejects
+  // identifiers without provenance before they can trigger artifact loading.
+  provenance: Schema.optional(WireSemanticArtifactProvenanceSchema),
   typeReference: Schema.optional(WireTypeReferenceSchema),
   searchHints: Schema.optional(Schema.Array(WireSearchHintSchema)),
   resolvedQualifier: Schema.optional(WireResolvedQualifierSchema),

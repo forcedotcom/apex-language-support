@@ -1,7 +1,7 @@
 @isTest
 public class TestMethodWithParams {
     @isTest
-    public static void testMethod(String param) {
+    public static void verifiesParams(String param) {
         // Test methods cannot have parameters
     }
 }

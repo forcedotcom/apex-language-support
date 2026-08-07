@@ -269,9 +269,7 @@ public class TestClass {
 
       expect(classSymbol?.annotations).toBeDefined();
       expect(classSymbol?.annotations?.length).toBe(1);
-      expect(classSymbol?.annotations?.[0].name).toBe(
-        "RestResource(urlMapping='/api/records')",
-      );
+      expect(classSymbol?.annotations?.[0].name).toBe('RestResource');
       expect(classSymbol?.annotations?.[0].parameters).toBeDefined();
       expect(classSymbol?.annotations?.[0].parameters?.[0].name).toBe(
         'urlMapping',
