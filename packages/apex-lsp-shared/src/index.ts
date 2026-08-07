@@ -500,6 +500,7 @@ export {
   DispatchCodeAction,
   DispatchReferences,
   DispatchRename,
+  DispatchPrepareRename,
   DispatchImplementation,
   DispatchDocumentSymbol,
   DispatchCodeLens,

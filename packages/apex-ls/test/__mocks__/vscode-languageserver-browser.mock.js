@@ -50,4 +50,19 @@ module.exports = {
     onDidSave: jest.fn(),
   })),
   TextDocument: jest.fn(),
+  // ResponseError is a VALUE (constructor), not just a type — production code
+  // (LCSAdapter.onRenameRequest, W-23631080) does `throw new ResponseError(...)`.
+  // The real module exports it as a class; the mock must too, or any suite that
+  // activates this mock turns `new ResponseError()` into a "not a constructor"
+  // TypeError. Minimal shape: code + message, matching vscode-jsonrpc.
+  ResponseError: class ResponseError extends Error {
+    constructor(code, message, data) {
+      super(message);
+      this.code = code;
+      this.message = message;
+      if (data !== undefined) {
+        this.data = data;
+      }
+    }
+  },
 };

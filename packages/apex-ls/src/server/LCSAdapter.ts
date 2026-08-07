@@ -22,7 +22,9 @@ import {
   ReferenceParams,
   Location,
   RenameParams,
+  PrepareRenameParams,
   WorkspaceEdit,
+  Range,
   DocumentDiagnosticParams,
   DocumentDiagnosticReport,
   DocumentDiagnosticReportKind,
@@ -39,6 +41,7 @@ import {
   CompletionParams,
   type CompletionItem,
   type CompletionList,
+  ResponseError,
 } from 'vscode-languageserver/browser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { HashMap } from 'data-structure-typed';
@@ -769,8 +772,12 @@ export class LCSAdapter {
         async (
           params: RenameParams,
           token: CancellationToken,
-        ): Promise<WorkspaceEdit | null> =>
-          this.handleLspRequest(
+        ): Promise<WorkspaceEdit | null> => {
+          // W-23631080: the worker can return a RenameErrorResult shape when the
+          // newName is invalid (reserved word, bad chars, etc.). Check for that
+          // error shape and convert it to a ResponseError so the client sees the
+          // validation failure, rather than masking it as "nothing to rename".
+          const result = await this.handleLspRequest(
             LSP_SPAN_NAMES.RENAME,
             'textDocument/rename',
             params,
@@ -779,9 +786,70 @@ export class LCSAdapter {
             {
               'document.position': `${params.position.line}:${params.position.character}`,
             },
-          ),
+          );
+
+          // If the result carries an error shape (validation failure), throw a
+          // ResponseError so the client receives the validation message.
+          if (result && typeof result === 'object' && 'error' in result) {
+            const errShape = result as {
+              error?: { code?: number; message?: string };
+            };
+            if (
+              errShape.error &&
+              typeof errShape.error.code === 'number' &&
+              typeof errShape.error.message === 'string'
+            ) {
+              throw new ResponseError(
+                errShape.error.code,
+                errShape.error.message,
+              );
+            }
+          }
+
+          return result;
+        },
       );
       this.logger.debug('✅ Rename handler registered');
+
+      // W-23631080: prepareRename handler. Only registered when renameProvider is
+      // enabled and prepareProvider is true. Returns the identifier range +
+      // placeholder of the renamable symbol under the cursor, or null when the
+      // cursor doesn't land on a renamable symbol.
+      if (
+        typeof capabilities.renameProvider === 'object' &&
+        capabilities.renameProvider.prepareProvider
+      ) {
+        this.connection.onPrepareRename(
+          async (
+            params: PrepareRenameParams,
+            token: CancellationToken,
+          ): Promise<
+            | Range
+            | { range: Range; placeholder: string }
+            | { defaultBehavior: boolean }
+            | null
+          > =>
+            this.handleLspRequest(
+              LSP_SPAN_NAMES.RENAME, // Reuse RENAME span name (prepareRename is a rename-family request)
+              'textDocument/prepareRename',
+              params,
+              (p) =>
+                LSPQueueManager.getInstance().submitPrepareRenameRequest(
+                  p,
+                  token,
+                ),
+              null,
+              {
+                'document.position': `${params.position.line}:${params.position.character}`,
+              },
+            ),
+        );
+        this.logger.debug('✅ prepareRename handler registered');
+      } else {
+        this.logger.debug(
+          '⚠️ prepareRename handler not registered (prepareProvider not enabled)',
+        );
+      }
     } else {
       this.logger.debug(
         '⚠️ Rename handler not registered (capability disabled)',

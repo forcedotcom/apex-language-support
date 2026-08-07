@@ -244,12 +244,13 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
   definitionProvider: true,
   implementationProvider: true,
   referencesProvider: true,
-  // Rename dispatch is wired end-to-end but returns a no-op (Phase 0,
-  // W-23631069). Advertise renameProvider WITHOUT prepareProvider: turning on
-  // prepareProvider would make prepareSupport-honoring clients call
-  // textDocument/prepareRename, which has no handler until Phase 4 — flip it on
-  // only once onPrepareRename exists.
-  renameProvider: true,
+  // W-23631080: renameLocal validation + prepareRename support. prepareProvider
+  // is now true, and the onPrepareRename handler (LCSAdapter) resolves the
+  // identifier range + placeholder for locals. Later groups (fields/methods/types)
+  // will extend both prepareRename and the rename validation.
+  renameProvider: {
+    prepareProvider: true,
+  },
   codeActionProvider: {
     codeActionKinds: [CodeActionKind.QuickFix, CodeActionKind.RefactorExtract],
   },

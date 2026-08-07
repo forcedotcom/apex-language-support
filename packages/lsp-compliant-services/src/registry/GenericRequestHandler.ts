@@ -71,6 +71,7 @@ export class GenericRequestHandler<
       codeAction: 'processCodeAction',
       signatureHelp: 'processSignatureHelp',
       rename: 'processRename',
+      prepareRename: 'processPrepareRename',
       foldingRange: 'processFoldingRange',
       codeLens: 'processCodeLens',
       documentOpen: 'processDocumentOpen',
