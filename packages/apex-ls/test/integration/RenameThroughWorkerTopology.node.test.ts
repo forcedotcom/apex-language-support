@@ -7,19 +7,21 @@
  */
 
 /**
- * textDocument/rename through the live worker topology (W-23631069 / Phase 0).
+ * textDocument/rename through the live worker topology.
  *
- * Phase 0 wires the rename pipe end-to-end but the pool-side handler is a
- * deliberate NO-OP: it returns `null` (LSP "nothing to rename"). This test is
- * the Phase-0 deliverable — prove the full path works across the worker
- * boundary before any occurrence-resolution / WorkspaceEdit logic lands:
+ * Two deliverables are covered here as the epic progresses:
+ *   - Phase 0 (W-23631069): the rename pipe is wired end-to-end across the
+ *     worker boundary — `coordinator.dispatch('rename')` → request-pool worker
+ *     `DispatchRename` handler → back to the coordinator. A cursor that doesn't
+ *     resolve to a renamable local still settles with `null` (LSP "nothing to
+ *     rename"), never a throw or a hang.
+ *   - renameLocal (W-23631077): a cursor on a local variable / parameter comes
+ *     back as a `WorkspaceEdit` whose `changes` rename the declaration and every
+ *     scope-bound usage in the one file, produced on the pool via the standalone
+ *     parse + scope-aware binding.
  *
- *   coordinator.dispatch('rename') → request-pool worker DispatchRename handler
- *   → back to the coordinator as `null`.
- *
- * Mirrors ReferencesThroughWorkerTopology.node.test.ts: rename now routes to the
- * request pool (DISPATCH_ROUTING rename: 'requestPool'), so `dispatch('rename')`
- * must settle with `null` rather than throw "coordinator-only" or hang.
+ * Mirrors ReferencesThroughWorkerTopology.node.test.ts: rename routes to the
+ * request pool (DISPATCH_ROUTING rename: 'requestPool').
  */
 
 import * as path from 'path';
@@ -67,8 +69,25 @@ const UTIL_SRC = `public class RenameTarget {
     }
 }`;
 
+// A class with a local variable `total` (declared + used twice) alongside a
+// same-named local `total` in a SIBLING method — the shadowing trap renameLocal
+// must not fall into. Renaming compute()'s `total` must leave other()'s alone.
+const LOCAL_URI = 'file:///test/RenameLocal.cls';
+const LOCAL_SRC = `public class RenameLocal {
+    public Integer compute() {
+        Integer total = 0;
+        total = total + 1;
+        return total;
+    }
+    public Integer other() {
+        Integer total = 99;
+        return total;
+    }
+}`;
+
 const SOURCES: Record<string, string> = {
   [UTIL_URI]: UTIL_SRC,
+  [LOCAL_URI]: LOCAL_SRC,
 };
 
 const stubConnection = {
@@ -168,9 +187,83 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       `[rename-topology] canDispatch=${canDispatch} result=${JSON.stringify(result)}`,
     );
 
-    // The pipe is live (rename is pool-dispatchable) and the no-op handler
-    // returns null across the boundary — no throw, no hang.
+    // The pipe is live (rename is pool-dispatchable) and a method cursor (not
+    // yet a supported rename kind) returns null across the boundary — no throw,
+    // no hang.
     expect(canDispatch).toBe(true);
     expect(result).toBeNull();
+  }, 120_000);
+
+  it('renames a local to a WorkspaceEdit, leaving a sibling-scope local untouched (W-23631077)', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        (uri) => SOURCES[uri],
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: LOCAL_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => LOCAL_SRC,
+          },
+          textDocument: { uri: LOCAL_URI },
+          text: LOCAL_SRC,
+        }),
+      );
+
+      // Cursor on compute()'s `total` usage in `return total;` (LSP line 4,
+      // char 15). compute()'s `total` is declared line 2 and used on lines 3-4;
+      // other()'s unrelated `total` lives on lines 7-8 and must NOT be renamed.
+      const result = yield* Effect.promise(() =>
+        dispatcher.dispatch('rename', {
+          textDocument: { uri: LOCAL_URI },
+          position: { line: 4, character: 15 },
+          newName: 'renamed',
+        }),
+      );
+
+      return { result };
+    }).pipe(Effect.scoped);
+
+    const { result } = await Effect.runPromise(program);
+    logger.debug(`[rename-topology:local] ${JSON.stringify(result)}`);
+
+    // A real WorkspaceEdit came back, scoped to the one file.
+    const edit = result as {
+      changes?: Record<
+        string,
+        Array<{
+          range: { start: { line: number; character: number } };
+          newText: string;
+        }>
+      >;
+    } | null;
+    expect(edit?.changes).toBeDefined();
+    expect(Object.keys(edit!.changes!)).toEqual([LOCAL_URI]);
+
+    const edits = edit!.changes![LOCAL_URI];
+    // Declaration (line 2) + three usage tokens (line 3 twice, line 4 once).
+    expect(edits.length).toBe(4);
+    edits.forEach((e) => expect(e.newText).toBe('renamed'));
+
+    const lines = edits.map((e) => e.range.start.line).sort((a, b) => a - b);
+    expect(lines).toEqual([2, 3, 3, 4]);
+    // The crux: other()'s same-named `total` (lines 7-8) is never touched.
+    expect(edits.some((e) => e.range.start.line >= 7)).toBe(false);
   }, 120_000);
 });
