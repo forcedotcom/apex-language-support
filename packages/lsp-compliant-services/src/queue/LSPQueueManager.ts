@@ -160,6 +160,17 @@ const SELF_LOADING_REQUEST_TYPES = new Set<LSPRequestType>([
   'signatureHelp',
   'codeAction',
   'documentSymbol',
+  // renameLocal (W-23631077) recompiles the cursor file STANDALONE from
+  // req.content in the pool worker (resolveLocalRename), so like the others it
+  // does not depend on the dataOwner graph being current. Without this entry
+  // the cold-read gate fires on every open-file rename and, on a not-ready
+  // verdict, drops the request to the coordinator-local RenameProcessingService
+  // — still a `null`-returning stub — so the client silently applies no edit
+  // (deterministic on web cold-open). NOTE: revisit when cross-file rename
+  // kinds land (renameField/Method) — those DO read the dataOwner graph and may
+  // need the gate; this self-loading classification is correct only while
+  // rename is single-file/local.
+  'rename',
 ]);
 
 /**
