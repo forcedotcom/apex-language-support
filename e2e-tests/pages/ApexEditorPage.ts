@@ -337,14 +337,16 @@ export class ApexEditorPage extends BasePage {
       '.rename-box .rename-input, .monaco-editor .rename-box input',
     );
     await expect(async () => {
-      // Dismiss any lingering rename widget from a prior attempt. Monaco
-      // renders TWO `.rename-box` elements (the main widget + a candidate
-      // list container), so scope to the widget with the input to avoid
-      // Playwright strict mode violation.
-      const renameWidget = this.page.locator('.monaco-editor.rename-box');
-      if (await renameWidget.isVisible()) {
+      // Dismiss any lingering rename widget from a prior attempt. Monaco renders
+      // TWO `.rename-box` elements (the main widget + a candidate-list
+      // container), so key the check off the rename INPUT — the single,
+      // unambiguous element inside the active widget (same `renameInput.first()`
+      // locator used below) — rather than a second `.rename-box` selector that
+      // could either multi-match (strict-mode violation) or miss.
+      const lingeringInput = renameInput.first();
+      if (await lingeringInput.isVisible()) {
         await this.page.keyboard.press('Escape');
-        await renameWidget
+        await lingeringInput
           .waitFor({ state: 'hidden', timeout: 1000 })
           .catch(() => {});
       }

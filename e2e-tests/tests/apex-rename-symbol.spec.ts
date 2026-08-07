@@ -45,11 +45,12 @@ test.describe('Apex Rename Symbol', () => {
     });
 
     await test.step('Position on the local variable `total` in compute()', async () => {
-      // The fixture is terse (23 lines, fits in viewport), but position
-      // explicitly on the declaration for clarity. positionCursorOnWord('total')
-      // finds the first occurrence, which is the declaration on line 7. Rename
-      // works from any occurrence (declaration or usage), but starting at the
-      // declaration documents the intent.
+      // The fixture is terse (23 lines, fits in viewport). goToPosition(7, 1)
+      // moves to line 7 — `total = total + 1;`, a USAGE of the local (the
+      // declaration `Integer total = 0;` is line 6) — then
+      // positionCursorOnWord('total') places the cursor on that line's `total`
+      // token. Rename works from any occurrence (declaration or usage); driving
+      // it from a usage is the common editor case.
       await apexEditor.goToPosition(7, 1);
       await apexEditor.positionCursorOnWord('total');
     });
