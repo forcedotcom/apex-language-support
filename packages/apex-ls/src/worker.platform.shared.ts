@@ -3464,7 +3464,7 @@ type RenameErrorResult = {
  * @param declaration The local's declaring symbol.
  * @returns `true` for locals; extension-ready for the stdlib-aware later groups.
  */
-function canBeRenamed(_declaration: any): boolean {
+function canBeRenamed(_declaration: ApexSymbol): boolean {
   // For locals, always true. Later groups: check
   // `declaration.location?.uri.startsWith(STANDARD_APEX_LIBRARY_URI)` → false.
   return true;
