@@ -98,10 +98,15 @@ export class ApexEditorPage extends BasePage {
    * auto-retry it. Cross-file goto tests should gate on THIS before the first
    * cross-file F12.
    *
+   * Uses the STRICT variant: a timeout throws (after capturing the status-bar
+   * state) rather than resolving, so a cross-file test fails/retries instead of
+   * issuing F12 against an incomplete workspace — the race this gate exists to
+   * eliminate.
+   *
    * @param timeout - Max wait in ms (defaults to 45s desktop / 30s web)
    */
   async waitForWorkspaceReady(timeout?: number): Promise<void> {
-    await waitForWorkspaceIngestion(this.page, timeout);
+    await waitForWorkspaceIngestion(this.page, { timeout, strict: true });
   }
 
   /**

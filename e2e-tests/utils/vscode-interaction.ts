@@ -150,12 +150,19 @@ export const activateExtension = async (page: Page): Promise<void> => {
  * workspace ingestion completes, which means cross-file symbol resolution is available.
  *
  * @param page - Playwright page instance
- * @param timeout - Maximum wait time in milliseconds (default: 45s desktop, 30s web)
+ * @param options - `timeout` (default: 45s desktop, 30s web) and `strict`.
+ *   When `strict` is false (default), a timeout is logged as a warning and the
+ *   call resolves — best-effort readiness for callers (e.g. same-file flows via
+ *   `waitForLSPInitialization`) that can still make progress. When `strict` is
+ *   true, a timeout THROWS after capturing the status-bar text, so a caller that
+ *   requires full ingestion (cross-file navigation) fails/retries instead of
+ *   racing ahead against an incomplete workspace.
  */
 export const waitForWorkspaceIngestion = async (
   page: Page,
-  timeout?: number,
+  options: { timeout?: number; strict?: boolean } = {},
 ): Promise<void> => {
+  const { timeout, strict = false } = options;
   const isDesktopMode = isDesktop();
   const defaultTimeout = timeout ?? (isDesktopMode ? 45_000 : 30_000);
 
@@ -164,8 +171,8 @@ export const waitForWorkspaceIngestion = async (
   // and various loading messages during ingestion (with $(sync~spin) icon).
   // We wait for the status bar to show the ready message or at least
   // NOT contain loading/spinning indicators.
-  await page
-    .waitForFunction(
+  try {
+    await page.waitForFunction(
       () => {
         const statusBar = document.querySelector(
           '[id="workbench.parts.statusbar"]',
@@ -200,19 +207,23 @@ export const waitForWorkspaceIngestion = async (
         );
       },
       { timeout: defaultTimeout },
-    )
-    .catch(async () => {
-      // If timeout, capture actual status bar state for debugging
-      const statusBarText = await page.evaluate(() => {
-        const statusBar = document.querySelector(
-          '[id="workbench.parts.statusbar"]',
-        );
-        return statusBar?.textContent || 'STATUS BAR NOT FOUND';
-      });
-      console.warn(
-        `⚠️  Workspace ingestion wait timed out after ${defaultTimeout}ms. Status bar: "${statusBarText}"`,
+    );
+  } catch {
+    // Capture the actual status-bar state for diagnostics in both modes.
+    const statusBarText = await page.evaluate(() => {
+      const statusBar = document.querySelector(
+        '[id="workbench.parts.statusbar"]',
       );
+      return statusBar?.textContent || 'STATUS BAR NOT FOUND';
     });
+    const message = `Workspace ingestion wait timed out after ${defaultTimeout}ms. Status bar: "${statusBarText}"`;
+    if (strict) {
+      // Cross-file callers must NOT proceed against an incomplete workspace —
+      // surface the timeout so the test fails/retries instead of racing.
+      throw new Error(message);
+    }
+    console.warn(`⚠️  ${message}`);
+  }
 };
 
 /**
