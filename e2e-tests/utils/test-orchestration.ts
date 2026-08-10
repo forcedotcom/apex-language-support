@@ -10,6 +10,7 @@ import type { Page } from '@playwright/test';
 import { setupTestWorkspace } from './setup';
 import {
   startVSCodeWeb,
+  waitForSalesforceServicesActivation,
   verifyWorkspaceFiles,
   activateExtension,
   waitForLSPInitialization,
@@ -66,6 +67,7 @@ export const setupFullTestSession = async (
 
   // Execute core test steps
   await startVSCodeWeb(page);
+  await waitForSalesforceServicesActivation(page);
   await verifyWorkspaceFiles(page);
   await activateExtension(page);
   await waitForLSPInitialization(page);

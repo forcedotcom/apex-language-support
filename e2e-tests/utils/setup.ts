@@ -25,12 +25,10 @@ interface SetupOptions {
  * VS Code workspace settings for optimal standard library loading.
  * These settings ensure:
  * - Logging level is "error" to avoid performance impact from verbose logging
- * - Worker logging is also "error" for the same reason
  * - Server mode is "development" for testing
  */
 const WORKSPACE_SETTINGS = {
   'apex.logLevel': 'error',
-  'apex.worker.logLevel': 'error',
   'apex.environment.serverMode': 'development',
 };
 

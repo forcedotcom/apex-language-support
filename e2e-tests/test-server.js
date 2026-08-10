@@ -114,7 +114,6 @@ async function startTestServer() {
         JSON.stringify(
           {
             'apex.logLevel': 'error',
-            'apex.worker.logLevel': 'error',
             'apex.environment.serverMode': 'development',
           },
           null,

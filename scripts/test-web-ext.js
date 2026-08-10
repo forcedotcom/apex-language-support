@@ -13,7 +13,7 @@
  *   --devtools        : Open browser devtools during tests
  *   --headless        : Run in headless mode (browser hidden)
  *   --prod            : Run with apex.environment.serverMode=production
- *   --log-level=<lvl> : Override apex.logLevel and apex.worker.logLevel (e.g. debug, info, error)
+ *   --log-level=<lvl> : Override apex.logLevel (e.g. debug, info, error)
  *   --no-memfs        : Disable memfs: URI scheme (use local folderPath instead of memfs provider)
  *   --with-services   : Install salesforcedx-vscode-services extension from Marketplace
  *   --clone-url=<url> : Clone a remote git repo as the workspace (uses a temp dir, cleaned up after)
