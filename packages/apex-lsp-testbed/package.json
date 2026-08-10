@@ -200,7 +200,7 @@
   },
   "dependencies": {
     "@salesforce/apex-lsp-client": "*",
-    "data-structure-typed": "^2.6.2"
+    "data-structure-typed": "^2.6.4"
   },
   "devDependencies": {
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
