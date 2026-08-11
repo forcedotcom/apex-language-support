@@ -10,8 +10,11 @@ import { execFileSync } from 'child_process';
 import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { pathToFileURL } from 'url';
 
 const scriptsDir = join(__dirname, '../../scripts');
+const scriptUrl = (filename: string): string =>
+  pathToFileURL(join(scriptsDir, filename)).href;
 
 const runModule = (source: string, args: string[] = []): string =>
   execFileSync(
@@ -23,15 +26,15 @@ const runModule = (source: string, args: string[] = []): string =>
 describe('API stub scripts', () => {
   test('generator scripts use the canonical target namespace set', () => {
     const output = runModule(`
-      import { TARGET_NAMESPACES } from ${JSON.stringify(
-        join(scriptsDir, 'api-stub-config.mjs'),
-      )};
-      import { targetNamespaces as generationTargets } from ${JSON.stringify(
-        join(scriptsDir, 'generate-api-stubs.mjs'),
-      )};
-      import { targetNamespaces as indexTargets } from ${JSON.stringify(
-        join(scriptsDir, 'generate-non-bundled-index.mjs'),
-      )};
+       import { TARGET_NAMESPACES } from ${JSON.stringify(
+         scriptUrl('api-stub-config.mjs'),
+       )};
+       import { targetNamespaces as generationTargets } from ${JSON.stringify(
+         scriptUrl('generate-api-stubs.mjs'),
+       )};
+       import { targetNamespaces as indexTargets } from ${JSON.stringify(
+         scriptUrl('generate-non-bundled-index.mjs'),
+       )};
       console.log(JSON.stringify({
         sameGenerationSet: TARGET_NAMESPACES === generationTargets,
         sameIndexSet: TARGET_NAMESPACES === indexTargets,
@@ -50,9 +53,9 @@ describe('API stub scripts', () => {
 
     const output = runModule(
       `
-        import { validateCapture } from ${JSON.stringify(
-          join(scriptsDir, 'generate-api-stubs.mjs'),
-        )};
+         import { validateCapture } from ${JSON.stringify(
+           scriptUrl('generate-api-stubs.mjs'),
+         )};
         const metadata = JSON.parse(process.argv[1]);
         try {
           validateCapture(metadata, process.argv[2], new Set(['System', 'Database']));
@@ -91,9 +94,9 @@ describe('API stub scripts', () => {
 
     runModule(
       `
-        import { cleanNamespaceDirectory } from ${JSON.stringify(
-          join(scriptsDir, 'generate-api-stubs.mjs'),
-        )};
+         import { cleanNamespaceDirectory } from ${JSON.stringify(
+           scriptUrl('generate-api-stubs.mjs'),
+         )};
         cleanNamespaceDirectory(process.argv[1], 'System');
       `,
       [root],
@@ -121,9 +124,9 @@ describe('API stub scripts', () => {
     const checksum = (): string =>
       runModule(
         `
-          import { calculateSourceChecksum } from ${JSON.stringify(
-            join(scriptsDir, 'generate-stdlib-cache.mjs'),
-          )};
+           import { calculateSourceChecksum } from ${JSON.stringify(
+             scriptUrl('generate-stdlib-cache.mjs'),
+           )};
           console.log(calculateSourceChecksum(
             process.argv[1],
             process.argv[2],
