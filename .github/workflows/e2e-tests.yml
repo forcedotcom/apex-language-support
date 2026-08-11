@@ -38,6 +38,7 @@ jobs:
           - apex-extract-constant.spec.ts
           - apex-extract-variable.spec.ts
           - apex-goto-definition.spec.ts
+          - apex-goto-definition-advanced.spec.ts
           - apex-hover.spec.ts
           - apex-hover-stdlib.spec.ts
           - apex-lsp-integration.spec.ts
@@ -280,6 +281,7 @@ jobs:
             "apex-extract-constant.spec.ts"
             "apex-extract-variable.spec.ts"
             "apex-goto-definition.spec.ts"
+            "apex-goto-definition-advanced.spec.ts"
             "apex-hover.spec.ts"
             "apex-hover-stdlib.spec.ts"
             "apex-lsp-integration.spec.ts"
