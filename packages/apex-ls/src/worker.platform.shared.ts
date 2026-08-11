@@ -74,6 +74,7 @@ import {
   isAllowedTag,
   QueryGraphData,
   DataOwnerQuerySymbolByName,
+  CheckMemberConflicts,
   FindOccurrenceCandidates,
   WIRE_PROTOCOL_VERSION,
   ApexCapabilitiesManager,
@@ -144,6 +145,7 @@ export const AllWorkerRequests = Schema.Union(
   DrainDeferredReferences,
   QueryGraphData,
   DataOwnerQuerySymbolByName,
+  CheckMemberConflicts,
   FindOccurrenceCandidates,
   CompileDocument,
   ResourceLoaderGetSymbolTable,
@@ -4398,6 +4400,43 @@ export function withWorkerRequestTracing<A, E>(
 
 const compilationHandlers = createCompilationWorkerHandlers();
 
+/**
+ * Walk the type family (ancestors and descendants) for a given type.
+ * Returns all transitive supertypes and subtypes, filtered to type symbols.
+ * Reusable helper for hierarchy-aware rename validation — will be extended
+ * in WI 5.2 (renameMethod) to handle interfaces + implementors.
+ *
+ * @param svc Data-owner services with symbolManager access
+ * @param definingType The type whose family to walk
+ * @returns Object with ancestors and descendants arrays
+ */
+function walkTypeFamily(
+  svc: DataOwnerServices,
+  definingType: ApexSymbol,
+): Effect.Effect<
+  { ancestors: ApexSymbol[]; descendants: ApexSymbol[] },
+  never,
+  never
+> {
+  return Effect.gen(function* () {
+    const { inTypeSymbolGroup } = yield* Effect.promise(
+      () => import('@salesforce/apex-lsp-parser-ast'),
+    );
+
+    const allAncestors = yield* Effect.promise(() =>
+      svc.symbolManager.findSupertypes(definingType),
+    );
+    const ancestors = allAncestors.filter(inTypeSymbolGroup);
+
+    const allDescendants = yield* Effect.promise(() =>
+      svc.symbolManager.findSubtypes(definingType),
+    );
+    const descendants = allDescendants.filter(inTypeSymbolGroup);
+
+    return { ancestors, descendants };
+  });
+}
+
 const untracedHandlers: SerializedWorkerHandlers = {
   InitializeCompilationWorker: (req) =>
     guardRole('InitializeCompilationWorker').pipe(
@@ -4948,6 +4987,191 @@ const untracedHandlers: SerializedWorkerHandlers = {
                 `scanned ${all.length} docs, ${candidates.length} candidates`,
             );
             return { candidates };
+          }),
+        ),
+      ),
+    ),
+
+  CheckMemberConflicts: (req) =>
+    guardRole('CheckMemberConflicts').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+
+            // Guard: descendant/ancestor conflict detection requires the complete
+            // inheritance cone, which only exists after endWorkspaceLoadSession
+            // resolves supertype edges (ApexSymbolManager.ts:1285-1320). If a
+            // session is still active, the graph is incomplete and findSubtypes/
+            // findSupertypes will return partial results, risking false negatives.
+            if (svc.symbolManager.isWorkspaceLoadSessionActive()) {
+              return yield* Effect.fail({
+                _tag: 'CheckMemberConflictsError' as const,
+                message:
+                  'Workspace load session still active; hierarchy graph not yet complete for conflict detection',
+              });
+            }
+
+            const { SymbolKind, SymbolVisibility, inTypeSymbolGroup } =
+              yield* Effect.promise(
+                () => import('@salesforce/apex-lsp-parser-ast'),
+              );
+
+            // Resolve the defining type by FQN
+            const definingType = yield* Effect.promise(() =>
+              svc.symbolManager.findSymbolByFQN(req.definingTypeFqn),
+            );
+
+            if (!definingType || !inTypeSymbolGroup(definingType)) {
+              return yield* Effect.fail({
+                _tag: 'CheckMemberConflictsError' as const,
+                message: `Type not found or not a type symbol: ${req.definingTypeFqn}`,
+              });
+            }
+
+            const newNameLower = req.newName.toLowerCase();
+            const memberKinds =
+              req.memberKind === 'field'
+                ? [SymbolKind.Field, SymbolKind.Property]
+                : [SymbolKind.Method];
+
+            // Helper: check if a member name matches (case-insensitive)
+            const memberNameMatches = (
+              memberName: string,
+              targetName: string,
+            ): boolean => memberName.toLowerCase() === targetName;
+
+            // Helper: check if a symbol is private or default-visibility.
+            // In Apex, Default visibility (no access modifier) is effectively
+            // private for inheritance purposes — a default-visibility member is
+            // NOT visible to subclasses. jorje's !has(PRIVATE) only treats
+            // explicitly-visible (public/protected/global) members as conflicting.
+            // NOTE: The caller (4.2 renameField) must also treat Default visibility
+            // as private when computing isRenamedMemberPrivate for the descendant
+            // conflict gate.
+            const isPrivate = (symbol: ApexSymbol): boolean =>
+              symbol.modifiers.visibility === SymbolVisibility.Private ||
+              symbol.modifiers.visibility === SymbolVisibility.Default;
+
+            // Helper: check type for member with newName (as an Effect generator)
+            // NOTE: For methods, this does name-based matching only.
+            // Signature-equivalence refinement is deferred to WI 5.3 when
+            // renameMethod consumes this query with full signature checking.
+            const hasMemberNamed = (
+              type: ApexSymbol,
+              name: string,
+              kinds: (typeof SymbolKind)[keyof typeof SymbolKind][],
+              excludePrivate: boolean,
+            ) =>
+              Effect.gen(function* () {
+                const typeTable = yield* Effect.promise(() =>
+                  svc.symbolManager.getSymbolTableForFile(type.fileUri),
+                );
+                if (!typeTable) return false;
+
+                // Members are children of the type's BLOCK scope, not the type itself.
+                // Find the block symbol (it's a child of the type with kind === 'block')
+                const blockSymbol = typeTable
+                  .getSymbolsInScope(type.id)
+                  .find((s) => s.kind === SymbolKind.Block);
+                if (!blockSymbol) {
+                  // No block scope means no members
+                  return false;
+                }
+
+                const members = typeTable.getSymbolsInScope(blockSymbol.id);
+                return members.some((m) => {
+                  if (!kinds.includes(m.kind)) return false;
+                  if (!memberNameMatches(m.name, name)) return false;
+                  if (excludePrivate && isPrivate(m)) return false;
+                  return true;
+                });
+              });
+
+            // 1. Check same-type conflict (no private filter)
+            const sameTypeConflict = yield* hasMemberNamed(
+              definingType,
+              newNameLower,
+              memberKinds,
+              false,
+            );
+            if (sameTypeConflict) {
+              emitWorkerLog(
+                'info',
+                `[RENAME] CheckMemberConflicts: conflict in same type ${req.definingTypeFqn}`,
+              );
+              return {
+                conflict: true,
+                conflictingTypeFqn: req.definingTypeFqn,
+                reason: 'same-type' as const,
+              };
+            }
+
+            // 2. Check ancestor conflict (exclude private members in ancestors)
+            const { ancestors, descendants } = yield* walkTypeFamily(
+              svc,
+              definingType,
+            );
+
+            for (const ancestor of ancestors) {
+              const ancestorConflict = yield* hasMemberNamed(
+                ancestor,
+                newNameLower,
+                memberKinds,
+                true, // Exclude private members
+              );
+              if (ancestorConflict) {
+                const ancestorFqn =
+                  ancestor.fqn ||
+                  (yield* Effect.promise(() =>
+                    svc.symbolManager.constructFQN(ancestor),
+                  ));
+                emitWorkerLog(
+                  'info',
+                  `[RENAME] CheckMemberConflicts: conflict in ancestor ${ancestorFqn}`,
+                );
+                return {
+                  conflict: true,
+                  conflictingTypeFqn: ancestorFqn,
+                  reason: 'ancestor' as const,
+                };
+              }
+            }
+
+            // 3. Check descendant conflict (only if renamed member is NOT private)
+            if (!req.isRenamedMemberPrivate) {
+              for (const descendant of descendants) {
+                const descendantConflict = yield* hasMemberNamed(
+                  descendant,
+                  newNameLower,
+                  memberKinds,
+                  false, // NO private filter on descendant members
+                );
+                if (descendantConflict) {
+                  const descendantFqn =
+                    descendant.fqn ||
+                    (yield* Effect.promise(() =>
+                      svc.symbolManager.constructFQN(descendant),
+                    ));
+                  emitWorkerLog(
+                    'info',
+                    `[RENAME] CheckMemberConflicts: conflict in descendant ${descendantFqn}`,
+                  );
+                  return {
+                    conflict: true,
+                    conflictingTypeFqn: descendantFqn,
+                    reason: 'descendant' as const,
+                  };
+                }
+              }
+            }
+
+            // No conflict found
+            emitWorkerLog(
+              'info',
+              `[RENAME] CheckMemberConflicts: no conflict for ${req.definingTypeFqn}.${req.newName}`,
+            );
+            return { conflict: false };
           }),
         ),
       ),
