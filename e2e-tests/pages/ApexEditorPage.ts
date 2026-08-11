@@ -319,6 +319,91 @@ export class ApexEditorPage extends BasePage {
   }
 
   /**
+   * Rename the symbol at the current cursor position using the F2 keyboard
+   * shortcut. Waits for the rename input box to appear, types the new name,
+   * and confirms with Enter.
+   *
+   * Uses the standard VS Code Monaco rename UI: F2 opens a `.rename-box` with
+   * a `.rename-input` text field prefilled with the current symbol name. We
+   * explicitly focus the input and `fill()` the new name (rather than trusting
+   * the prefill to be selected and `type()`-ing over it): the prefill-selection
+   * timing is unreliable, and a stray `type()` leaks the keystrokes into the
+   * editor — observed as `total`→`totalrenamed` when the input wasn't focused.
+   * Enter confirms the rename and applies the WorkspaceEdit; Escape cancels.
+   *
+   * Re-presses F2 if the input box does not appear: on the web worker pool the
+   * LSP may not have resolved the symbol on the first invocation (a transient
+   * no-op), so a single F2 can race pool warm-up. The retry targets ONLY the
+   * "press F2 + wait for input visible" part; type/Enter/wait-hidden are
+   * outside toPass to avoid double-rename if the WorkspaceEdit is slow.
+   *
+   * @param newName - The new name for the symbol
+   */
+  async rename(newName: string): Promise<void> {
+    const { expect } = await import('@playwright/test');
+
+    // Ensure the Find widget is fully closed before pressing F2. If
+    // positionCursorOnWord left the widget open, F2 lands in the Find input
+    // rather than triggering rename. Escape closes the widget and returns
+    // focus + cursor to the editor at the found position (same hazard
+    // guarded against in goToDefinition / openCodeActions / findReferences).
+    const findWidget = this.page.locator('.editor-widget.find-widget');
+    if (await findWidget.isVisible()) {
+      await this.page.keyboard.press('Escape');
+      await findWidget
+        .waitFor({ state: 'hidden', timeout: 3000 })
+        .catch(() => {});
+    }
+
+    // ONLY the "press F2 + wait for rename input visible" part is inside
+    // toPass, targeting the LSP-ready race without risking a double-apply if
+    // the WorkspaceEdit is slow to commit.
+    const renameInput = this.page.locator(
+      '.rename-box .rename-input, .monaco-editor .rename-box input',
+    );
+    await expect(async () => {
+      // Dismiss any lingering rename widget from a prior attempt. Monaco renders
+      // TWO `.rename-box` elements (the main widget + a candidate-list
+      // container), so key the check off the rename INPUT — the single,
+      // unambiguous element inside the active widget (same `renameInput.first()`
+      // locator used below) — rather than a second `.rename-box` selector that
+      // could either multi-match (strict-mode violation) or miss.
+      const lingeringInput = renameInput.first();
+      if (await lingeringInput.isVisible()) {
+        await this.page.keyboard.press('Escape');
+        await lingeringInput
+          .waitFor({ state: 'hidden', timeout: 1000 })
+          .catch(() => {});
+      }
+
+      await this.page.keyboard.press('F2');
+
+      // Wait for the rename input to appear. Monaco renders the input inside
+      // a `.rename-box` widget; the input itself is `.rename-input`.
+      await renameInput.waitFor({ state: 'visible', timeout: 3000 });
+    }).toPass({ timeout: this.defaultTimeout });
+
+    // OUTSIDE toPass: set the new name, confirm, and wait for the box to hide.
+    // This happens exactly once, after the LSP is known to be ready. Focus the
+    // input and `fill()` it — `fill` sets the value atomically on the focused
+    // element, which is robust against the prefill-selection/focus race that
+    // `keyboard.type()` is subject to (a mis-timed type leaks into the editor).
+    // `.first()` avoids a strict-mode violation from the two `.rename-box`
+    // matches (main widget + candidate-list container).
+    const activeInput = renameInput.first();
+    await activeInput.focus();
+    await activeInput.fill(newName);
+
+    // Confirm the rename with Enter. The WorkspaceEdit is applied and the
+    // rename box closes.
+    await this.page.keyboard.press('Enter');
+
+    // Wait for the rename input to be hidden (not .rename-box, which has
+    // multiple matches). The input uniquely identifies the active widget.
+    await renameInput.waitFor({ state: 'hidden', timeout: 5000 });
+  }
+
+  /**
    * Select a range in the editor by positioning at a start line/column and
    * extending the selection a number of characters to the right.
    *
