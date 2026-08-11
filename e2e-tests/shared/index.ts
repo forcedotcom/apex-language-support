@@ -74,6 +74,7 @@ export {
   waitForOutputChannelText,
   outputChannelContains,
   captureOutputChannelDetails,
+  readOutputChannelText,
 } from './pages/outputChannel';
 
 export { saveScreenshot } from './screenshotUtils';

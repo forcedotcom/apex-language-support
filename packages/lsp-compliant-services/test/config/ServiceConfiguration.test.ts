@@ -9,6 +9,14 @@
 import { DEFAULT_SERVICE_CONFIG } from '../../src/config/ServiceConfiguration';
 
 describe('DEFAULT_SERVICE_CONFIG', () => {
+  it('gives distributed completion the progressive handler budget', () => {
+    const completion = DEFAULT_SERVICE_CONFIG.find(
+      ({ requestType }) => requestType === 'completion',
+    );
+
+    expect(completion?.timeout).toBe(2000);
+  });
+
   it('gives distributed definition processing enough time to complete', () => {
     const definition = DEFAULT_SERVICE_CONFIG.find(
       ({ requestType }) => requestType === 'definition',

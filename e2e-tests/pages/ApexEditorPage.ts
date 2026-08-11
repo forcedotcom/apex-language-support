@@ -159,18 +159,18 @@ export class ApexEditorPage extends BasePage {
    * Waits for peek widget or editor to update, then closes peek if open.
    *
    * @param expectedLines - Optional 1-indexed line(s) the cursor should reach.
-   *   When provided, F12 is RE-PRESSED (the request re-issued) within a bounded
-   *   loop until the cursor lands on one of these lines. This matters in the web
-   *   worker pool: a definition issued while the pool is still ingesting the
-   *   cursor file at full detail returns null, and VS Code does NOT auto-retry a
-   *   null definition — so a single F12 on a slow runner never navigates even
-   *   though a moment later it would succeed. Re-pressing mirrors what a real
-   *   user does and makes the outcome deterministic. Omit it to keep the legacy
-   *   single-press behavior (callers that assert non-navigation, cross-file
-   *   peeks, etc.).
+   *   When provided, F12 is re-pressed within a bounded loop only while the
+   *   cursor remains at its original position. This recovers when a definition
+   *   request races web-pool ingest and returns null without sending a second
+   *   request from a destination reached by an earlier response. Omit it to keep
+   *   the legacy single-press behavior (callers that assert non-navigation,
+   *   cross-file peeks, etc.).
    */
   async goToDefinition(expectedLines?: number | number[]): Promise<void> {
-    const pressF12AndSettle = async (): Promise<void> => {
+    const pressF12AndSettle = async (previousPosition?: {
+      line: number;
+      column: number;
+    }): Promise<{ line: number; column: number }> => {
       // Ensure the Find widget is fully closed before pressing F12. If
       // positionCursorOnWord left the widget open, F12 lands in the Find input
       // rather than triggering go-to-definition. Escape closes the widget and
@@ -209,6 +209,22 @@ export class ApexEditorPage extends BasePage {
       await this.activeEditorContent
         .waitFor({ state: 'visible', timeout: this.defaultTimeout })
         .catch(() => {});
+
+      if (previousPosition) {
+        // The editor remains visible while the asynchronous definition request
+        // is in flight. Wait for observable navigation before deciding whether
+        // to retry; otherwise rapid F12 presses can act on the destination of a
+        // preceding request and navigate again to an unrelated symbol.
+        const { expect } = await import('@playwright/test');
+        await expect(async () => {
+          const position = await this.getCursorPosition();
+          expect(position).not.toEqual(previousPosition);
+        })
+          .toPass({ timeout: 2000, intervals: [100, 200, 400] })
+          .catch(() => {});
+      }
+
+      return this.getCursorPosition();
     };
 
     if (expectedLines === undefined) {
@@ -216,18 +232,33 @@ export class ApexEditorPage extends BasePage {
       return;
     }
 
-    // Re-issue the definition request until the cursor reaches an expected
-    // line or the bound elapses. Each iteration re-presses F12 so a request
-    // that raced pool warm-up (returned null) is retried, not just re-checked.
-    const { expect } = await import('@playwright/test');
+    // Re-issue only requests that produced no navigation. Once the cursor
+    // moves, another F12 would target the destination rather than reissuing the
+    // original request and can mask an incorrect definition result.
     const validLines = Array.isArray(expectedLines)
       ? expectedLines
       : [expectedLines];
-    await expect(async () => {
-      await pressF12AndSettle();
-      const { line } = await this.getCursorPosition();
-      expect(validLines).toContain(line);
-    }).toPass({ timeout: this.defaultTimeout });
+    const originalPosition = await this.getCursorPosition();
+    const deadline = Date.now() + this.defaultTimeout;
+
+    while (Date.now() < deadline) {
+      const position = await pressF12AndSettle(originalPosition);
+      if (validLines.includes(position.line)) return;
+
+      if (
+        position.line !== originalPosition.line ||
+        position.column !== originalPosition.column
+      ) {
+        throw new Error(
+          `Go-to-definition navigated to line ${position.line}, ` +
+            `expected ${validLines.join(' or ')}`,
+        );
+      }
+    }
+
+    throw new Error(
+      `Go-to-definition did not navigate to line ${validLines.join(' or ')}`,
+    );
   }
 
   /**
@@ -444,9 +475,12 @@ export class ApexEditorPage extends BasePage {
    * can race the pool warm-up. The widget is left OPEN on success so callers
    * can select an action; dismiss it with Escape when done.
    *
+   * @param expectedTitleFragment - When provided, keep polling until an action
+   *   with this title fragment is present. VS Code can render built-in actions
+   *   such as "Modify" before the language server response arrives.
    * @returns The trimmed titles of the offered code actions.
    */
-  async openCodeActions(): Promise<string[]> {
+  async openCodeActions(expectedTitleFragment?: string): Promise<string[]> {
     const { expect } = await import('@playwright/test');
     // Monaco keeps more than one `.action-widget` in the DOM (e.g. a hidden
     // template alongside the live one), so an unscoped locator trips
@@ -488,6 +522,12 @@ export class ApexEditorPage extends BasePage {
       expect(found.length, 'Expected at least one code action').toBeGreaterThan(
         0,
       );
+      if (expectedTitleFragment) {
+        expect(
+          found.some((title) => title.includes(expectedTitleFragment)),
+          `Expected code action "${expectedTitleFragment}" but got: ${found.join(', ')}`,
+        ).toBe(true);
+      }
       titles = found;
     }).toPass({ timeout: this.defaultTimeout });
 

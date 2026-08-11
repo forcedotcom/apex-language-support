@@ -30,6 +30,8 @@ import {
   getDocumentSelectorsFromSettings,
   type ApexLanguageServerSettings,
 } from '@salesforce/apex-lsp-shared';
+import { getOrgArtifactSourceDocumentSelectors } from './services/org-artifact-fs';
+import type { TextDocumentFilter } from 'vscode-languageserver-protocol';
 
 /**
  * Determines debug options based on VS Code configuration
@@ -311,11 +313,17 @@ export const createClientOptions = (
   const rawChannel = getWorkerServerOutputChannel();
   let hoverSequence = 0;
   const inFlightSupersede = new Map<number, () => void>();
+  // The shared selector builder returns only text-document filters for this
+  // capability, although its protocol type also permits notebook filters.
+  const baseSelectors = getDocumentSelectorsFromSettings(
+    'all',
+    initializationOptions,
+  ) as TextDocumentFilter[];
   return {
-    documentSelector: getDocumentSelectorsFromSettings(
-      'all',
-      initializationOptions,
-    ),
+    documentSelector: [
+      ...baseSelectors,
+      ...getOrgArtifactSourceDocumentSelectors(),
+    ],
     synchronize: {
       configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
     },

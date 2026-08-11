@@ -18,6 +18,7 @@ import {
   DispatchImplementation,
   WorkspaceBatchCompileOnDataOwner,
   WorkspaceBatchIngest,
+  InstallSObjectArtifacts,
 } from '@salesforce/apex-lsp-shared';
 import { makeWorkerDispatcher } from '../../src/server/WorkerCoordinator';
 import type { WorkerTopology } from '../../src/server/WorkerCoordinator';
@@ -128,6 +129,36 @@ describe('WorkerCoordinator.queryDataOwner — switch coverage', () => {
       'file:///workspace/A.cls',
     );
     expect((sent[0] as ResolveDependentUris).symbolName).toBe('Foo');
+  });
+
+  it('forwards validated sObject artifacts to the data owner', async () => {
+    const logger = createSpyLogger();
+    const { topology, sent } = makeFakeTopology();
+    const dispatcher = makeWorkerDispatcher(topology, logger);
+    const artifacts = [
+      {
+        identifierType: 'sobject' as const,
+        name: 'Property__c',
+        describe: {
+          name: 'Property__c',
+          custom: true,
+          fields: [],
+          definitionTarget: { uri: 'org://Property__c' },
+        },
+      },
+    ];
+
+    await dispatcher.queryDataOwner('InstallSObjectArtifacts', {
+      artifacts,
+      originUri: 'file:///Consumer.cls',
+    });
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toBeInstanceOf(InstallSObjectArtifacts);
+    expect((sent[0] as InstallSObjectArtifacts).artifacts).toEqual(artifacts);
+    expect((sent[0] as InstallSObjectArtifacts).originUri).toBe(
+      'file:///Consumer.cls',
+    );
   });
 
   it('forwards ResolveDependentUris with omitted symbolName (any-symbol mode)', async () => {

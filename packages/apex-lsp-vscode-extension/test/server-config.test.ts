@@ -593,6 +593,33 @@ describe('Server Config Module', () => {
       });
     });
 
+    it('synchronizes temporary Apex sources but excludes sObject renderings', () => {
+      const clientOptions = createClientOptions({});
+      const orgSelectors = (
+        clientOptions.documentSelector as vscode.DocumentSelector
+      ).filter(
+        (selector): selector is vscode.DocumentFilter =>
+          typeof selector !== 'string' &&
+          selector.scheme === 'apex-org-artifact',
+      );
+
+      expect(orgSelectors).toEqual([
+        {
+          scheme: 'apex-org-artifact',
+          language: 'apex',
+          pattern: '**/*.cls',
+        },
+        {
+          scheme: 'apex-org-artifact',
+          language: 'apex',
+          pattern: '**/*.trigger',
+        },
+      ]);
+      expect(orgSelectors).not.toContainEqual(
+        expect.objectContaining({ pattern: '**/*.sobject.json' }),
+      );
+    });
+
     it('should support both file and apexlib schemes for comprehensive Apex support', () => {
       const initializationOptions = {
         enableDocumentSymbols: true,

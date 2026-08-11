@@ -33,6 +33,7 @@ import type { DetailLevel } from './DocumentStateCache';
 import { getDiagnosticRefreshService } from './DiagnosticRefreshService';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 import {
+  classifyMissingArtifactIdentifier,
   getLayerOrderIndex,
   hasCrossFileResolution,
 } from './PrerequisiteHelpers';
@@ -41,6 +42,7 @@ import {
   createMissingArtifactResolutionService,
   type MissingArtifactResolutionService,
 } from './MissingArtifactResolutionService';
+import { SObjectEnrichmentService } from './SObjectEnrichmentService';
 
 const coordinatedRequestTypes = new Set<
   LSPRequestType | 'workspace-load' | 'file-open-single'
@@ -117,8 +119,10 @@ function symbolRefToIdentifierSpec(
       }),
   };
   const searchHints = contextToSearchHints(ref);
+  const identifierType = classifyMissingArtifactIdentifier(ref);
   return {
     name: ref.name,
+    identifierType,
     provenance: {
       sourceUri,
       ...(metadata.documentVersion !== undefined && {
@@ -131,7 +135,7 @@ function symbolRefToIdentifierSpec(
       parseCompleteness: metadata.parseCompleteness ?? 'unknown',
     },
     typeReference: typeRef,
-    searchHints,
+    ...(searchHints.length > 0 && { searchHints }),
     ...(isChainedSymbolReference(ref) &&
       ref.chainNodes &&
       ref.chainNodes.length >= 2 && {
@@ -145,6 +149,9 @@ function symbolRefToIdentifierSpec(
 }
 
 function contextToSearchHints(ref: SymbolReference): SearchHint[] {
+  if (classifyMissingArtifactIdentifier(ref) === 'sobject') {
+    return [];
+  }
   if (
     ref.context === ReferenceContext.TYPE_DECLARATION ||
     ref.context === ReferenceContext.CONSTRUCTOR_CALL
@@ -213,6 +220,7 @@ function dedupeByReferenceIdentity(specs: IdentifierSpec[]): IdentifierSpec[] {
  */
 export class PrerequisiteOrchestrationService {
   private readonly artifactResolutionService: MissingArtifactResolutionService;
+  private readonly sObjectEnrichmentService: SObjectEnrichmentService;
   private readonly inFlightRegistry = getInFlightPrerequisiteRegistry();
 
   constructor(
@@ -222,6 +230,12 @@ export class PrerequisiteOrchestrationService {
   ) {
     this.artifactResolutionService =
       createMissingArtifactResolutionService(logger);
+    this.sObjectEnrichmentService = new SObjectEnrichmentService(
+      logger,
+      symbolManager,
+      this.artifactResolutionService,
+      { isCoordinator: () => true },
+    );
   }
 
   /**
@@ -587,7 +601,8 @@ export class PrerequisiteOrchestrationService {
         (r.context === ReferenceContext.TYPE_DECLARATION ||
           r.context === ReferenceContext.CONSTRUCTOR_CALL ||
           r.context === ReferenceContext.RETURN_TYPE ||
-          r.context === ReferenceContext.PARAMETER_TYPE),
+          r.context === ReferenceContext.PARAMETER_TYPE ||
+          r.context === ReferenceContext.SOQL_FROM_TYPE),
     );
 
     // Exclude stdlib types from artifact loading: findMissingArtifact is for org/user
@@ -627,7 +642,7 @@ export class PrerequisiteOrchestrationService {
     try {
       if (isStrictBlockingRequest) {
         const blockingResult =
-          await this.artifactResolutionService.resolveBlocking({
+          await this.sObjectEnrichmentService.resolveBlocking({
             identifiers: identifierSpecs,
             origin: {
               uri: fileUri,
@@ -636,7 +651,7 @@ export class PrerequisiteOrchestrationService {
             mode: 'blocking',
             timeoutMsHint: 2000,
           });
-        if (blockingResult === 'resolved') {
+        if (blockingResult.status === 'resolved') {
           const settings = ApexSettingsManager.getInstance().getSettings();
           const pollMs =
             settings.apex.findMissingArtifact?.indexingBarrierPollMs ?? 100;
@@ -663,7 +678,7 @@ export class PrerequisiteOrchestrationService {
         }
       } else {
         // Keep non-strict paths backgrounded to avoid startup contention.
-        await this.artifactResolutionService.resolveInBackground({
+        await this.sObjectEnrichmentService.resolveInBackground({
           identifiers: identifierSpecs,
           origin: {
             uri: fileUri,

@@ -92,6 +92,7 @@ import {
   isWorkspaceLoaded,
   isWorkspaceLoading,
   getDiagnosticRefreshService,
+  decodeFindMissingArtifactResult,
 } from '@salesforce/apex-lsp-compliant-services';
 
 import {
@@ -1054,7 +1055,7 @@ export class LCSAdapter {
         params: FindMissingArtifactParams,
       ): Promise<FindMissingArtifactResult> => {
         try {
-          return await this.runWithSpanAndRecord(
+          const result = await this.runWithSpanAndRecord(
             LSP_SPAN_NAMES.FIND_MISSING_ARTIFACT,
             () =>
               LSPQueueManager.getInstance().submitFindMissingArtifactRequest(
@@ -1068,6 +1069,11 @@ export class LCSAdapter {
               'apex.origin.requestKind': params.origin.requestKind,
               'apex.mode': params.mode,
             },
+          );
+          return (
+            decodeFindMissingArtifactResult(result, params) ?? {
+              notFound: true,
+            }
           );
         } catch (error) {
           this.logger.error(
@@ -2872,6 +2878,12 @@ export class LCSAdapter {
           connection: this.connection,
           logger: this.logger,
           getResourceLoaderProxy: () => this.resourceLoaderProxy,
+          installSObjectArtifacts: async (artifacts, originUri) => {
+            await dispatcher.queryDataOwner('InstallSObjectArtifacts', {
+              artifacts,
+              originUri,
+            });
+          },
         }),
         this.logger,
         async (method, params) => dispatcher.queryDataOwner(method, params),

@@ -33,8 +33,7 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover on class name shows class information.
    */
   test('should show hover for class name', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('ApexClassExample');
-    const content = await hoverHelper.getHoverContent();
+    const content = await hoverHelper.hoverOnWordWithRetry('ApexClassExample');
     expect(content.length).toBeGreaterThan(0);
     expect(content).toContain('ApexClassExample');
     expect(content).toContain('Modifiers:');
@@ -55,8 +54,8 @@ test.describe('Apex Hover Functionality', () => {
     await apexEditor.openFile('ApexClassExample.cls');
     await apexEditor.waitForLanguageServerReady();
     // DEFAULT_STATUS usage at line 94: `acc.Type = DEFAULT_STATUS;`
-    // hoverAtWithResolution performs a double-hover with a 3 s warm-up gap.
-    const content = await hoverHelper.hoverAtWithResolution(94, 35);
+    // Reissue the hover request until the language server returns resolved content.
+    const content = await hoverHelper.hoverAtWithResolution(94, 35, 'String');
     expect(content).toBeTruthy();
     expect(content).toContain('String');
   });
@@ -68,7 +67,7 @@ test.describe('Apex Hover Functionality', () => {
     // Hover on instanceId at its usage site (line 24: this.instanceId = ...)
     // Field declarations near the top of the file don't reliably produce
     // hover tooltips in desktop mode, but references in method bodies do.
-    const content = await hoverHelper.hoverAtWithResolution(24, 14);
+    const content = await hoverHelper.hoverAtWithResolution(24, 14, 'String');
     expect(content).toBeTruthy();
     expect(content).toContain('String');
   });
@@ -77,8 +76,7 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover on method name shows method signature.
    */
   test('should show hover for method name', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('sayHello');
-    const content = await hoverHelper.getHoverContent();
+    const content = await hoverHelper.hoverOnWordWithRetry('sayHello');
     expect(content).toContain('void');
     expect(content).toContain('sayHello');
   });
@@ -87,8 +85,7 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover on inner class shows type information.
    */
   test('should show hover for inner class', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('Configuration');
-    const content = await hoverHelper.getHoverContent();
+    const content = await hoverHelper.hoverOnWordWithRetry('Configuration');
     expect(content).toBeTruthy();
     expect(content).toContain('Configuration');
     expect(content).toMatch(/class\b/i);
@@ -98,13 +95,10 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover on inner enum shows enum information.
    */
   test('should show hover for inner enum', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('StatusType');
-    let content = await hoverHelper.getHoverContent();
-    if (!content) {
-      // Retry once to handle LSP hover timing flakiness in desktop mode
-      await hoverHelper.hoverOnWord('StatusType');
-      content = await hoverHelper.getHoverContent();
-    }
+    const content = await hoverHelper.hoverOnWordWithRetry(
+      'StatusType',
+      /StatusType/,
+    );
     expect(content).toBeTruthy();
     expect(content).toContain('StatusType');
     expect(content).toMatch(/enum\b/i);
@@ -114,8 +108,10 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover contains type information for typed symbols.
    */
   test('should show type information in hover', async ({ hoverHelper }) => {
-    // Hover on instanceId at its usage site (line 24: this.instanceId = ...)
-    const content = await hoverHelper.hoverAtWithResolution(24, 14);
+    const content = await hoverHelper.hoverOnWordWithRetry(
+      'getCurrentUserName',
+      'String',
+    );
     // Verify actual type name appears, not just any keyword
     expect(content).toContain('String');
   });
@@ -137,8 +133,7 @@ test.describe('Apex Hover Functionality', () => {
    */
   test('should be able to dismiss hover', async ({ hoverHelper }) => {
     await test.step('Trigger hover', async () => {
-      await hoverHelper.hoverOnWord('ApexClassExample');
-      await hoverHelper.waitForHover();
+      await hoverHelper.hoverOnWordWithRetry('ApexClassExample');
     });
 
     await test.step('Dismiss hover', async () => {
@@ -155,8 +150,9 @@ test.describe('Apex Hover Functionality', () => {
   test('should show parameter types in method hover', async ({
     hoverHelper,
   }) => {
-    await hoverHelper.hoverOnWord('add');
-    const content = await hoverHelper.getHoverContent();
+    // Target the declaration directly. A case-insensitive editor search for
+    // `add` can select the preceding Javadoc word "Adds" instead.
+    const content = await hoverHelper.hoverAtWithResolution(42, 27, /Integer/);
     expect(content).toMatch(/Integer/);
     expect(content).toMatch(/add/);
   });
@@ -167,13 +163,10 @@ test.describe('Apex Hover Functionality', () => {
   test('should show generic type for List variable', async ({
     hoverHelper,
   }) => {
-    await hoverHelper.hoverOnWord('accounts');
-    let content = await hoverHelper.getHoverContent();
-    if (!content) {
-      // Retry once to handle LSP hover timing flakiness in desktop mode
-      await hoverHelper.hoverOnWord('accounts');
-      content = await hoverHelper.getHoverContent();
-    }
+    const content = await hoverHelper.hoverOnWordWithRetry(
+      'accounts',
+      /List|Account/,
+    );
     expect(content).toBeTruthy();
     expect(content).toMatch(/List|Account/);
   });
@@ -184,8 +177,11 @@ test.describe('Apex Hover Functionality', () => {
   test('should show generic types for Map variable', async ({
     hoverHelper,
   }) => {
-    await hoverHelper.hoverOnWord('accountMap');
-    const content = await hoverHelper.getHoverContent();
+    const content = await hoverHelper.hoverAtWithResolution(
+      79,
+      26,
+      /Map|Account/,
+    );
     expect(content).toBeTruthy();
     expect(content).toMatch(/Map|Account/);
   });
@@ -194,18 +190,15 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Multiple hovers can be triggered sequentially.
    */
   test('should handle multiple sequential hovers', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('ApexClassExample');
-    const content1 = await hoverHelper.getHoverContent();
+    const content1 = await hoverHelper.hoverOnWordWithRetry('ApexClassExample');
     expect(content1).toContain('ApexClassExample');
 
     await hoverHelper.dismissHover();
-    await hoverHelper.hoverOnWord('Configuration');
-    const content2 = await hoverHelper.getHoverContent();
+    const content2 = await hoverHelper.hoverOnWordWithRetry('Configuration');
     expect(content2).toContain('Configuration');
 
     await hoverHelper.dismissHover();
-    await hoverHelper.hoverOnWord('StatusType');
-    const content3 = await hoverHelper.getHoverContent();
+    const content3 = await hoverHelper.hoverOnWordWithRetry('StatusType');
     expect(content3).toContain('StatusType');
   });
 
@@ -213,13 +206,10 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover on constructor shows constructor signature.
    */
   test('should show hover for constructor', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('ApexClassExample()');
-    let content = await hoverHelper.getHoverContent();
-    if (!content) {
-      // Retry once to handle LSP hover timing flakiness in desktop mode
-      await hoverHelper.hoverOnWord('ApexClassExample()');
-      content = await hoverHelper.getHoverContent();
-    }
+    const content = await hoverHelper.hoverOnWordWithRetry(
+      'ApexClassExample()',
+      'ApexClassExample',
+    );
     expect(content).toBeTruthy();
     expect(content).toContain('ApexClassExample');
   });
@@ -228,8 +218,7 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover provides content (not empty).
    */
   test('should provide non-empty hover content', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('ApexClassExample');
-    const content = await hoverHelper.getHoverContent();
+    const content = await hoverHelper.hoverOnWordWithRetry('ApexClassExample');
     expect(content.length).toBeGreaterThan(0);
     expect(content.trim()).not.toBe('');
     expect(content).toContain('ApexClassExample');
@@ -239,8 +228,10 @@ test.describe('Apex Hover Functionality', () => {
    * Test: Hover on private method shows method information.
    */
   test('should show hover for private method', async ({ hoverHelper }) => {
-    await hoverHelper.hoverOnWord('validateAccounts');
-    const content = await hoverHelper.getHoverContent();
+    const content = await hoverHelper.hoverOnWordWithRetry(
+      'validateAccounts',
+      /void/,
+    );
     expect(content).toContain('void');
     expect(content).toContain('validateAccounts');
   });
@@ -251,15 +242,17 @@ test.describe('Apex Hover Functionality', () => {
   test('should differentiate between symbol types in hover', async ({
     hoverHelper,
   }) => {
-    await hoverHelper.hoverOnWord('ApexClassExample');
-    const classHover = await hoverHelper.getHoverContent();
+    const classHover =
+      await hoverHelper.hoverOnWordWithRetry('ApexClassExample');
     expect(classHover).toContain('ApexClassExample');
     expect(classHover).toContain('Modifiers:');
 
     await hoverHelper.dismissHover();
 
-    await hoverHelper.hoverOnWord('sayHello');
-    const methodHover = await hoverHelper.getHoverContent();
+    const methodHover = await hoverHelper.hoverOnWordWithRetry(
+      'sayHello',
+      /void/,
+    );
     expect(methodHover).toMatch(/void/);
 
     expect(classHover).not.toBe(methodHover);
@@ -271,8 +264,7 @@ test.describe('Apex Hover Functionality', () => {
   test('should be able to capture hover screenshot', async ({
     hoverHelper,
   }) => {
-    await hoverHelper.hoverOnWord('ApexClassExample');
-    const content = await hoverHelper.getHoverContent();
+    const content = await hoverHelper.hoverOnWordWithRetry('ApexClassExample');
     expect(content.length).toBeGreaterThan(0);
 
     await hoverHelper.captureHoverScreenshot('test-hover');
@@ -296,12 +288,18 @@ test.describe('Apex Hover - Cross-File Workspace Types', () => {
     hoverHelper,
   }) => {
     await test.step('Open the caller file', async () => {
+      await apexEditor.openFile('CrossFileUtility.cls');
+      await apexEditor.waitForLanguageServerReady();
       await apexEditor.openFile('CrossFileCaller.cls');
       await apexEditor.waitForLanguageServerReady();
     });
 
     await test.step('Hover on cross-file class reference', async () => {
-      const content = await hoverHelper.hoverAtWithResolution(11, 27);
+      const content = await hoverHelper.hoverAtWithResolution(
+        11,
+        27,
+        'CrossFileUtility',
+      );
       expect(content).toBeTruthy();
       expect(content.length).toBeGreaterThan(0);
     });
@@ -316,12 +314,18 @@ test.describe('Apex Hover - Cross-File Workspace Types', () => {
     hoverHelper,
   }) => {
     await test.step('Open the caller file', async () => {
+      await apexEditor.openFile('CrossFileUtility.cls');
+      await apexEditor.waitForLanguageServerReady();
       await apexEditor.openFile('CrossFileCaller.cls');
       await apexEditor.waitForLanguageServerReady();
     });
 
     await test.step('Hover on cross-file static method reference', async () => {
-      const content = await hoverHelper.hoverAtWithResolution(11, 44);
+      const content = await hoverHelper.hoverAtWithResolution(
+        11,
+        44,
+        'formatName',
+      );
       expect(content).toBeTruthy();
       expect(content.length).toBeGreaterThan(0);
     });
@@ -336,12 +340,18 @@ test.describe('Apex Hover - Cross-File Workspace Types', () => {
     hoverHelper,
   }) => {
     await test.step('Open the child class file', async () => {
+      await apexEditor.openFile('CrossFileBaseClass.cls');
+      await apexEditor.waitForLanguageServerReady();
       await apexEditor.openFile('CrossFileChildClass.cls');
       await apexEditor.waitForLanguageServerReady();
     });
 
     await test.step('Hover on cross-file base class reference', async () => {
-      const content = await hoverHelper.hoverAtWithResolution(6, 42);
+      const content = await hoverHelper.hoverAtWithResolution(
+        6,
+        42,
+        'CrossFileBaseClass',
+      );
       expect(content).toBeTruthy();
       expect(content.length).toBeGreaterThan(0);
     });

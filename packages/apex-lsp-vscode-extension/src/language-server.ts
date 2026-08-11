@@ -22,6 +22,7 @@ import {
 import type {
   InitializeParams,
   MessageSignature,
+  TextDocumentFilter,
 } from 'vscode-languageserver-protocol';
 import type { BaseLanguageClient } from 'vscode-languageclient';
 import { Trace } from 'vscode-languageclient';
@@ -65,8 +66,21 @@ import {
   getSpanCollectorUrl,
 } from './observability/extensionTracing';
 import { EXCLUDE_GLOB } from './workspace-loader';
+import { getOrgArtifactSourceDocumentSelectors } from './services/org-artifact-fs';
 
 export { detectEnvironment };
+
+export function createWebDocumentSelector(
+  initializationOptions: ApexLanguageServerSettings,
+): TextDocumentFilter[] {
+  // The shared selector builder returns only text-document filters for this
+  // capability, although its protocol type also permits notebook filters.
+  const baseSelectors = getDocumentSelectorsFromSettings(
+    'all',
+    initializationOptions,
+  ) as TextDocumentFilter[];
+  return [...baseSelectors, ...getOrgArtifactSourceDocumentSelectors()];
+}
 
 /**
  * Global language client instance
@@ -461,10 +475,7 @@ async function createWebLanguageClient(
   let languageClient: any;
   try {
     // Get document selectors from settings (using 'all' capability to get all schemes)
-    const documentSelector = getDocumentSelectorsFromSettings(
-      'all',
-      initOptions,
-    );
+    const documentSelector = createWebDocumentSelector(initOptions);
 
     languageClient = new LanguageClient(
       'apex-language-server',
@@ -854,21 +865,28 @@ async function createWebLanguageClient(
 
   // Register handler for server-to-client apex/findMissingArtifact requests
   Client.onRequest('apex/findMissingArtifact', async (params: any) => {
+    const identifiers = Array.isArray(params.identifiers)
+      ? (params.identifiers as Array<{ name?: unknown }>)
+          .map((identifier) => String(identifier.name ?? '<unnamed>'))
+          .join(', ')
+      : '<none>';
     logToOutputChannel(
-      `📨 Received apex/findMissingArtifact request for: ${params.identifier}`,
+      `📨 Received apex/findMissingArtifact request for: ${identifiers}`,
       'debug',
     );
 
     try {
       const result = await handleFindMissingArtifact(params, context);
       logToOutputChannel(
-        `✅ Resolved missing artifact: ${params.identifier}`,
+        'notFound' in result
+          ? `❌ Could not resolve missing artifact: ${identifiers}`
+          : `✅ Resolved missing artifact: ${identifiers}`,
         'debug',
       );
       return result;
     } catch (error) {
       logToOutputChannel(
-        `❌ Failed to resolve missing artifact ${params.identifier}: ${formattedError(error)}`,
+        `❌ Failed to resolve missing artifact ${identifiers}: ${formattedError(error)}`,
         'error',
       );
       return { notFound: true };
@@ -1320,21 +1338,28 @@ async function createDesktopLanguageClient(
 
   // Register handler for server-to-client apex/findMissingArtifact requests
   Client.onRequest('apex/findMissingArtifact', async (params: any) => {
+    const identifiers = Array.isArray(params.identifiers)
+      ? (params.identifiers as Array<{ name?: unknown }>)
+          .map((identifier) => String(identifier.name ?? '<unnamed>'))
+          .join(', ')
+      : '<none>';
     logToOutputChannel(
-      `📨 Received apex/findMissingArtifact request for: ${params.identifier}`,
+      `📨 Received apex/findMissingArtifact request for: ${identifiers}`,
       'debug',
     );
 
     try {
       const result = await handleFindMissingArtifact(params, context);
       logToOutputChannel(
-        `✅ Resolved missing artifact: ${params.identifier}`,
+        'notFound' in result
+          ? `❌ Could not resolve missing artifact: ${identifiers}`
+          : `✅ Resolved missing artifact: ${identifiers}`,
         'debug',
       );
       return result;
     } catch (error) {
       logToOutputChannel(
-        `❌ Failed to resolve missing artifact ${params.identifier}: ${formattedError(error)}`,
+        `❌ Failed to resolve missing artifact ${identifiers}: ${formattedError(error)}`,
         'error',
       );
       return { notFound: true };

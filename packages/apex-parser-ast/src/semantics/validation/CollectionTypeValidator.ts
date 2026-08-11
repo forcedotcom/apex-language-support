@@ -9,6 +9,7 @@
 import type { ValidationResult } from './ValidationResult';
 import type { TypeInfo } from './TypeValidator';
 import { SymbolVisibility } from '../../types/symbol';
+import { SObjectRegistry } from '../../sobjects/SObjectRegistry';
 
 /**
  * Context for collection type validation
@@ -342,23 +343,7 @@ export class CollectionTypeValidator {
    * Check if an SObject type name is valid
    */
   private static isValidSObjectTypeName(typeName: string): boolean {
-    // Check if it's a custom SObject (ends with __c)
-    if (typeName.endsWith('__c')) {
-      return true;
-    }
-
-    // Check if it's a custom SObject (ends with __kav for Knowledge Article Versions)
-    if (typeName.endsWith('__kav')) {
-      return true;
-    }
-
-    // Check if it's a custom SObject (ends with __ka for Knowledge Articles)
-    if (typeName.endsWith('__ka')) {
-      return true;
-    }
-
-    // Check if it's a custom SObject (ends with __x for External Objects)
-    if (typeName.endsWith('__x')) {
+    if (SObjectRegistry.isCustomSObjectName(typeName)) {
       return true;
     }
 

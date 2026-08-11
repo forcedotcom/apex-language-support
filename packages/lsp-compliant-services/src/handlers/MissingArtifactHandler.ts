@@ -15,7 +15,7 @@ import type {
   FindMissingArtifactParams,
   FindMissingArtifactResult,
 } from '@salesforce/apex-lsp-shared';
-import type { BlockingResult } from '../services/MissingArtifactResolutionService';
+import { decodeFindMissingArtifactResult } from '../services/MissingArtifactResolutionService';
 import { LSPQueueManager } from '../queue';
 import { sanitizeMissingArtifactParams } from '../utils/missingArtifactProvenance';
 
@@ -100,15 +100,14 @@ export class MissingArtifactHandler {
           () => `Sending blocking request to client for: ${names}`,
         );
 
-        const result =
-          await this.connection.sendRequest<FindMissingArtifactResult>(
-            'apex/findMissingArtifact',
-            params,
-          );
+        const result = await this.connection.sendRequest<unknown>(
+          'apex/findMissingArtifact',
+          params,
+        );
 
         this.logger.debug(() => `Client response received for: ${names}`);
 
-        return result;
+        return this.decodeClientResult(result, params);
       }
 
       this.logger.debug(
@@ -131,7 +130,7 @@ export class MissingArtifactHandler {
         () => `Queue-based blocking resolution completed for: ${names}`,
       );
 
-      return this.mapBlockingResultToResponse(result as BlockingResult, params);
+      return this.decodeClientResult(result, params);
     } catch (error) {
       const names = params.identifiers.map((s) => s.name).join(', ');
       this.logger.error(
@@ -180,34 +179,19 @@ export class MissingArtifactHandler {
     return { notFound: true };
   }
 
-  /**
-   * Map blocking result to response format
-   */
-  private mapBlockingResultToResponse(
-    result: BlockingResult,
+  private decodeClientResult(
+    result: unknown,
     params: FindMissingArtifactParams,
   ): FindMissingArtifactResult {
     const names = params.identifiers.map((s) => s.name).join(', ');
-    switch (result) {
-      case 'resolved':
-        return {
-          opened: params.identifiers.map((s) => `${s.name}.cls`),
-        };
-      case 'not-found':
-        return { notFound: true };
-      case 'timeout':
-        this.logger.warn(() => `Resolution timed out for: ${names}`);
-        return { notFound: true };
-      case 'cancelled':
-        this.logger.debug(() => `Resolution cancelled for: ${names}`);
-        return { notFound: true };
-      case 'unsupported':
-        this.logger.debug(() => `Resolution not supported for: ${names}`);
-        return { notFound: true };
-      default:
-        this.logger.warn(() => `Unknown result type '${result}' for: ${names}`);
-        return { notFound: true };
+    const decoded = decodeFindMissingArtifactResult(result, params);
+    if (!decoded) {
+      this.logger.warn(
+        () => `Rejected invalid or mismatched client result for: ${names}`,
+      );
+      return { notFound: true };
     }
+    return decoded;
   }
 
   /**

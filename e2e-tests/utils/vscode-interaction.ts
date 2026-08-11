@@ -6,14 +6,19 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { SELECTORS } from './constants';
 import {
   waitForVSCodeWorkbench,
   closeWelcomeTabs,
   isDesktop,
 } from '../shared/utils/helpers';
-import { waitForCommandToBeAvailable } from '../shared/pages/commands';
+import {
+  executeCommandWithCommandPalette,
+  waitForCommandToBeAvailable,
+} from '../shared/pages/commands';
+import { TAB_CLOSE_BUTTON } from '../shared/utils/locators';
+import { expandWorkspaceFolders } from '../shared/utils/fileHelpers';
 
 import type { ConsoleError, NetworkError } from './constants';
 
@@ -45,6 +50,56 @@ export const startVSCodeWeb = async (page: Page): Promise<void> => {
 };
 
 /**
+ * Verifies that Salesforce Services completed activation.
+ *
+ * Installing the extension is insufficient: VS Code can leave an extension
+ * indefinitely in the "Activating..." state. The Running Extensions editor is
+ * the only black-box signal available to the web E2E browser for distinguishing
+ * that state from a completed activation.
+ */
+export const waitForSalesforceServicesActivation = async (
+  page: Page,
+  timeout = 30_000,
+): Promise<void> => {
+  await executeCommandWithCommandPalette(
+    page,
+    'Developer: Show Running Extensions',
+  );
+
+  const runningExtensions = page.locator('.runtime-extensions-editor');
+  await runningExtensions.waitFor({ state: 'visible', timeout: 10_000 });
+
+  const servicesExtension = runningExtensions
+    .locator('.monaco-list-row')
+    .filter({ hasText: 'Salesforce Services' })
+    .first();
+
+  await expect(
+    servicesExtension,
+    'Salesforce Services should be present in Running Extensions',
+  ).toBeVisible({ timeout: 10_000 });
+
+  await expect(async () => {
+    const status = (await servicesExtension.innerText()).trim();
+    if (!/(?:Startup )?Activation:\s*\d+(?:\.\d+)?ms/.test(status)) {
+      throw new Error(
+        `Salesforce Services has not completed activation. Running Extensions reports: "${status}"`,
+      );
+    }
+  }, 'Waiting for Salesforce Services to finish activating').toPass({
+    timeout,
+  });
+
+  const runningExtensionsTab = page
+    .getByRole('tab', { name: /Running Extensions/i })
+    .first();
+  const closeButton = runningExtensionsTab.locator(TAB_CLOSE_BUTTON);
+  await page.keyboard.press('Escape');
+  await closeButton.click({ timeout: 5000, force: true });
+  await runningExtensionsTab.waitFor({ state: 'detached', timeout: 5000 });
+};
+
+/**
  * Verifies workspace files are loaded.
  *
  * @param page - Playwright page instance
@@ -53,6 +108,7 @@ export const startVSCodeWeb = async (page: Page): Promise<void> => {
 export const verifyWorkspaceFiles = async (page: Page): Promise<number> => {
   const explorer = page.locator(SELECTORS.EXPLORER);
   await explorer.waitFor({ state: 'visible', timeout: 30_000 });
+  await expandWorkspaceFolders(page);
 
   // Wait for the file system to stabilize in CI environments
   if (process.env.CI) {

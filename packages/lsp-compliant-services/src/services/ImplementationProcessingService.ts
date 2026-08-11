@@ -212,7 +212,7 @@ export class ImplementationProcessingService implements IImplementationProcessor
             'definition', // Use 'definition' as fallback since 'implementation' may not be supported
           );
 
-        if (resolutionResult === 'resolved') {
+        if (resolutionResult.status === 'resolved') {
           symbol = await this.symbolManager.getSymbolAtPosition(
             params.textDocument.uri,
             parserPosition,

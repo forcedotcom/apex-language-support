@@ -10,6 +10,6 @@ import { createWebConfig } from './shared/config/createWebConfig';
 export default createWebConfig({
   testDir: './tests',
   baseURL: 'http://localhost:3000',
-  webServerCommand: 'node test-server.js',
+  webServerCommand: 'node test-server.js --with-services',
   port: 3000,
 });

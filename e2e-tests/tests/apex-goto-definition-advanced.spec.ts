@@ -7,6 +7,10 @@
  */
 
 import { test, expect } from '../fixtures/apexFixtures';
+import { readOutputChannelText } from '../shared/pages/outputChannel';
+
+const CLIENT_OUTPUT_CHANNEL = 'Apex Language Server Extension (Client)';
+const WORKER_OUTPUT_CHANNEL = 'Apex Language Server Extension (Worker/Server)';
 
 // Advanced + cross-file go-to-definition scenarios. Split out of
 // apex-goto-definition.spec.ts: the basic suite is already 20 tests, and these
@@ -31,6 +35,7 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
    */
   test('should navigate to base class from derived class', async ({
     apexEditor,
+    page,
   }) => {
     await test.step('Open inheritance test file', async () => {
       await apexEditor.openFile('AccountHandler.cls');
@@ -42,7 +47,23 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
     await test.step('Navigate from derived class to base', async () => {
       await apexEditor.positionCursorOnWord('BaseHandler');
       await apexEditor.goToDefinition();
-      await apexEditor.waitForNavigation('AccountHandler.cls', 12000);
+      let navigationError: unknown;
+      try {
+        await apexEditor.waitForNavigation('AccountHandler.cls', 12000);
+      } catch (error) {
+        navigationError = error;
+      }
+
+      if (process.env.E2E_APEX_DIAGNOSTICS === '1') {
+        console.log(
+          `[APEX E2E DIAGNOSTICS: client]\n${await readOutputChannelText(page, CLIENT_OUTPUT_CHANNEL)}`,
+        );
+        console.log(
+          `[APEX E2E DIAGNOSTICS: worker]\n${await readOutputChannelText(page, WORKER_OUTPUT_CHANNEL)}`,
+        );
+      }
+
+      if (navigationError) throw navigationError;
 
       const content = await apexEditor.findAndGetViewportContent(
         'abstract class BaseHandler',
@@ -174,7 +195,7 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
       // The Apex LSP uses "missing artifact resolution" to lazily load cross-file
       // types. hoverAtWithResolution triggers this: first hover fires the resolver,
       // waits 3s for the background load, then re-hovers to confirm resolution.
-      await hoverHelper.hoverAtWithResolution(11, 27);
+      await hoverHelper.hoverAtWithResolution(11, 27, 'CrossFileUtility');
     });
 
     await test.step('Position on cross-file class reference and go-to-definition', async () => {
@@ -206,7 +227,7 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
     });
 
     await test.step('Warm up cross-file LSP resolution via hover', async () => {
-      await hoverHelper.hoverAtWithResolution(11, 27);
+      await hoverHelper.hoverAtWithResolution(11, 27, 'CrossFileUtility');
     });
 
     await test.step('Position on cross-file method call and go-to-definition', async () => {
@@ -236,7 +257,7 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
     });
 
     await test.step('Warm up cross-file LSP resolution via hover', async () => {
-      await hoverHelper.hoverAtWithResolution(6, 42);
+      await hoverHelper.hoverAtWithResolution(6, 42, 'CrossFileBaseClass');
     });
 
     await test.step('Position on cross-file base class reference and go-to-definition', async () => {
@@ -268,7 +289,7 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
     await test.step('Warm up cross-file LSP resolution via hover', async () => {
       // Hover at base class reference to trigger missing artifact resolution
       // for CrossFileBaseClass.cls, which is needed for getBaseName to resolve.
-      await hoverHelper.hoverAtWithResolution(6, 42);
+      await hoverHelper.hoverAtWithResolution(6, 42, 'CrossFileBaseClass');
     });
 
     await test.step('Call getBaseName to reference inherited method across files', async () => {

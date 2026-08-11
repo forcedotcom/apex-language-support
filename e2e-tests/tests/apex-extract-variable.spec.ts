@@ -55,7 +55,7 @@ test.describe('Apex Extract Variable Code Action', () => {
     });
 
     await test.step('Invoke Refactor and assert Extract local variable is offered', async () => {
-      const titles = await apexEditor.openCodeActions();
+      const titles = await apexEditor.openCodeActions('Extract local variable');
       expect(
         titles.some((t) => t.includes('Extract local variable')),
         `Expected an "Extract local variable" action but got: ${titles.join(', ')}`,
@@ -102,7 +102,7 @@ test.describe('Apex Extract Variable Code Action', () => {
     });
 
     await test.step('Invoke Refactor and assert Extract local variable is offered', async () => {
-      const titles = await apexEditor.openCodeActions();
+      const titles = await apexEditor.openCodeActions('Extract local variable');
       expect(
         titles.some((t) => t.includes('Extract local variable')),
         `Expected an "Extract local variable" action but got: ${titles.join(', ')}`,
@@ -138,7 +138,7 @@ test.describe('Apex Extract Variable Code Action', () => {
     });
 
     await test.step('Invoke Refactor and assert Extract local variable is offered', async () => {
-      const titles = await apexEditor.openCodeActions();
+      const titles = await apexEditor.openCodeActions('Extract local variable');
       expect(
         titles.some((t) => t.includes('Extract local variable')),
         `Expected an "Extract local variable" action but got: ${titles.join(', ')}`,

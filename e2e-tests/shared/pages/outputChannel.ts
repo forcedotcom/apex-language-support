@@ -69,6 +69,16 @@ const getAllOutputText = async (page: Page): Promise<string> => {
   return (text ?? '').replaceAll('\u00A0', ' ');
 };
 
+/** Select an output channel and return the currently rendered log text. */
+export const readOutputChannelText = async (
+  page: Page,
+  channelName: string,
+): Promise<string> => {
+  await ensureOutputPanelOpen(page);
+  await selectOutputChannel(page, channelName);
+  return getAllOutputText(page);
+};
+
 const waitForOutputContent = async (
   page: Page,
   timeout: number,

@@ -16,7 +16,12 @@ import {
   VariableSymbol,
   ScopeSymbol,
   SymbolLocation,
+  SymbolKindValues,
 } from '../../src/types/symbol';
+import {
+  EnhancedSymbolReference,
+  ReferenceContext,
+} from '../../src/types/symbolReference';
 import {
   inTypeSymbolGroup,
   hasIdMethod,
@@ -49,6 +54,56 @@ describe('hasIdMethod', () => {
     } as ParserRuleContext & { id: any };
 
     expect(hasIdMethod(mockContext)).toBe(false);
+  });
+});
+
+describe('sObject symbol substrate', () => {
+  const sobject = {
+    id: 'account-id',
+    name: 'Account',
+    kind: SymbolKind.SObject,
+    location: {} as SymbolLocation,
+    fileUri: 'apex-internal-sobject:/Account',
+    parentId: null,
+    key: {} as any,
+    _isLoaded: true,
+    modifiers: {} as any,
+    interfaces: [],
+    definitionTarget: { uri: 'sf-org-data:/Account' },
+  } as TypeSymbol;
+
+  it('appends the stable numeric kind and includes sObjects in the type group', () => {
+    expect(SymbolKindValues[SymbolKind.Block]).toBe(11);
+    expect(SymbolKindValues[SymbolKind.SObject]).toBe(12);
+    expect(inTypeSymbolGroup(sobject)).toBe(true);
+  });
+
+  it('appends SOQL_FROM_TYPE and serializes sObject evidence', () => {
+    expect(ReferenceContext.INTERFACE_IMPLEMENTATION).toBe(17);
+    expect(ReferenceContext.KEYWORD_USAGE).toBe(18);
+    expect(ReferenceContext.SOQL_FROM_TYPE).toBe(19);
+
+    const reference = new EnhancedSymbolReference(
+      'Account',
+      {} as SymbolLocation,
+      ReferenceContext.SOQL_FROM_TYPE,
+      { isSObject: true },
+    );
+
+    expect(reference.toJSON()).toEqual(
+      expect.objectContaining({ name: 'Account', isSObject: true }),
+    );
+  });
+
+  it('preserves definition targets through symbol-table rehydration', () => {
+    const table = SymbolTable.fromSerializedData({
+      symbols: [sobject],
+      fileUri: sobject.fileUri,
+    });
+
+    expect(table.getAllSymbols()[0].definitionTarget).toEqual({
+      uri: 'sf-org-data:/Account',
+    });
   });
 });
 

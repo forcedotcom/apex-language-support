@@ -25,6 +25,7 @@ import {
   QuerySymbolSubset,
   AwaitSymbolReadiness,
   UpdateSymbolSubset,
+  InstallSObjectArtifacts,
   ResolveDepUris,
   ResolveDependentUris,
   FindOccurrenceCandidates,
@@ -60,6 +61,7 @@ import {
   type LspRequestMessage,
   type ResourceLoaderRequest,
   type WorkerRole,
+  type MissingArtifactPayload,
 } from '@salesforce/apex-lsp-shared';
 import type {
   WorkerDispatchStrategy,
@@ -1095,6 +1097,18 @@ function createDispatcher(
               enrichedSymbolTable: pus.enrichedSymbolTable,
               enrichedDetailLevel: pus.enrichedDetailLevel,
               sourceWorkerId: pus.sourceWorkerId,
+            }),
+          );
+        }
+        case 'InstallSObjectArtifacts': {
+          const pis = params as {
+            artifacts: MissingArtifactPayload[];
+            originUri?: string;
+          };
+          return sendTracedToDataOwner(
+            new InstallSObjectArtifacts({
+              artifacts: pis.artifacts,
+              originUri: pis.originUri,
             }),
           );
         }
