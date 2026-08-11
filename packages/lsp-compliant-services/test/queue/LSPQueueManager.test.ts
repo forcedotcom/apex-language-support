@@ -1012,6 +1012,53 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         );
         expect(result).toEqual({ changes: { 'file:///R.cls': [] } });
       });
+
+      it('dispatches prepareRename to the worker when symbols not ready (self-loading, W-23631080)', async () => {
+        // Regression (W-23631080): prepareRename recompiles the cursor file
+        // STANDALONE from req.content in the pool worker
+        // (resolvePrepareRenameForLocal), so like rename it must be in
+        // SELF_LOADING_REQUEST_TYPES and SKIP the cold-read gate. VS Code fires
+        // prepareRename BEFORE the rename UI opens (prepareProvider advertised),
+        // so on a not-ready verdict a gated prepareRename would fall to the
+        // coordinator-local registry — which has NO prepareRename handler — and
+        // surface "No handler registered for request type: prepareRename",
+        // making F2 fail on cold-open. This asserts the gate is bypassed:
+        // awaitSymbolDataReady is NEVER awaited and the worker IS dispatched,
+        // even though it reports not-ready.
+        const manager = LSPQueueManager.getInstance();
+        const dispatch = jest
+          .fn()
+          .mockResolvedValue({ range: {}, placeholder: 'total' });
+        const awaitSymbolDataReady = jest
+          .fn()
+          .mockResolvedValue({ ready: false, reason: 'timeout' });
+        manager.setWorkerDispatcher({
+          isAvailable: () => true,
+          canDispatch: () => true,
+          dispatchesToPool: () => true,
+          isFileOpen: () => true,
+          awaitSymbolDataReady,
+          dispatch,
+        });
+
+        const result = await manager.submitPrepareRenameRequest({
+          textDocument: { uri: 'file:///R.cls' },
+          position: { line: 0, character: 0 },
+        });
+
+        // Self-loading ⇒ gate never consulted, worker dispatched despite
+        // not-ready — the client gets the worker's prepare info, not the
+        // "No handler registered" failure from the coordinator-local registry.
+        expect(awaitSymbolDataReady).not.toHaveBeenCalled();
+        expect(dispatch).toHaveBeenCalledTimes(1);
+        expect(dispatch).toHaveBeenCalledWith(
+          'prepareRename',
+          expect.objectContaining({
+            textDocument: { uri: 'file:///R.cls' },
+          }),
+        );
+        expect(result).toEqual({ range: {}, placeholder: 'total' });
+      });
     });
 
     it('should submit document symbol request', async () => {

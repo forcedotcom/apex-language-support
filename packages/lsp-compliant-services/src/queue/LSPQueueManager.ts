@@ -171,6 +171,16 @@ const SELF_LOADING_REQUEST_TYPES = new Set<LSPRequestType>([
   // need the gate; this self-loading classification is correct only while
   // rename is single-file/local.
   'rename',
+  // prepareRename (W-23631080) mirrors rename exactly: DispatchPrepareRename
+  // recompiles the cursor file STANDALONE from req.content
+  // (resolvePrepareRenameForLocal), so it does not read the dataOwner graph.
+  // It MUST self-load too — VS Code fires prepareRename BEFORE the rename UI
+  // opens (prepareProvider is advertised), so if the cold-read gate dropped it
+  // on a not-ready verdict it would fall to the coordinator-local registry,
+  // which has NO prepareRename handler, surfacing "No handler registered for
+  // request type: prepareRename" and making F2 fail on the exact cold-open
+  // scenario `rename` was fixed to support.
+  'prepareRename',
 ]);
 
 /**
