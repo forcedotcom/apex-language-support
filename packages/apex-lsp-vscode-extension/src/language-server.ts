@@ -865,21 +865,28 @@ async function createWebLanguageClient(
 
   // Register handler for server-to-client apex/findMissingArtifact requests
   Client.onRequest('apex/findMissingArtifact', async (params: any) => {
+    const identifiers = Array.isArray(params.identifiers)
+      ? (params.identifiers as Array<{ name?: unknown }>)
+          .map((identifier) => String(identifier.name ?? '<unnamed>'))
+          .join(', ')
+      : '<none>';
     logToOutputChannel(
-      `📨 Received apex/findMissingArtifact request for: ${params.identifier}`,
+      `📨 Received apex/findMissingArtifact request for: ${identifiers}`,
       'debug',
     );
 
     try {
       const result = await handleFindMissingArtifact(params, context);
       logToOutputChannel(
-        `✅ Resolved missing artifact: ${params.identifier}`,
+        'notFound' in result
+          ? `❌ Could not resolve missing artifact: ${identifiers}`
+          : `✅ Resolved missing artifact: ${identifiers}`,
         'debug',
       );
       return result;
     } catch (error) {
       logToOutputChannel(
-        `❌ Failed to resolve missing artifact ${params.identifier}: ${formattedError(error)}`,
+        `❌ Failed to resolve missing artifact ${identifiers}: ${formattedError(error)}`,
         'error',
       );
       return { notFound: true };
@@ -1331,21 +1338,28 @@ async function createDesktopLanguageClient(
 
   // Register handler for server-to-client apex/findMissingArtifact requests
   Client.onRequest('apex/findMissingArtifact', async (params: any) => {
+    const identifiers = Array.isArray(params.identifiers)
+      ? (params.identifiers as Array<{ name?: unknown }>)
+          .map((identifier) => String(identifier.name ?? '<unnamed>'))
+          .join(', ')
+      : '<none>';
     logToOutputChannel(
-      `📨 Received apex/findMissingArtifact request for: ${params.identifier}`,
+      `📨 Received apex/findMissingArtifact request for: ${identifiers}`,
       'debug',
     );
 
     try {
       const result = await handleFindMissingArtifact(params, context);
       logToOutputChannel(
-        `✅ Resolved missing artifact: ${params.identifier}`,
+        'notFound' in result
+          ? `❌ Could not resolve missing artifact: ${identifiers}`
+          : `✅ Resolved missing artifact: ${identifiers}`,
         'debug',
       );
       return result;
     } catch (error) {
       logToOutputChannel(
-        `❌ Failed to resolve missing artifact ${params.identifier}: ${formattedError(error)}`,
+        `❌ Failed to resolve missing artifact ${identifiers}: ${formattedError(error)}`,
         'error',
       );
       return { notFound: true };

@@ -18,6 +18,7 @@ import {
   waitForCommandToBeAvailable,
 } from '../shared/pages/commands';
 import { TAB_CLOSE_BUTTON } from '../shared/utils/locators';
+import { expandWorkspaceFolders } from '../shared/utils/fileHelpers';
 
 import type { ConsoleError, NetworkError } from './constants';
 
@@ -107,6 +108,7 @@ export const waitForSalesforceServicesActivation = async (
 export const verifyWorkspaceFiles = async (page: Page): Promise<number> => {
   const explorer = page.locator(SELECTORS.EXPLORER);
   await explorer.waitFor({ state: 'visible', timeout: 30_000 });
+  await expandWorkspaceFolders(page);
 
   // Wait for the file system to stabilize in CI environments
   if (process.env.CI) {

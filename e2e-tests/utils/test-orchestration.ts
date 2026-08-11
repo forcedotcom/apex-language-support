@@ -67,7 +67,20 @@ export const setupFullTestSession = async (
 
   // Execute core test steps
   await startVSCodeWeb(page);
-  await waitForSalesforceServicesActivation(page);
+  try {
+    await waitForSalesforceServicesActivation(page);
+  } catch (error) {
+    if (process.env.E2E_APEX_DIAGNOSTICS === '1') {
+      console.error(
+        `Salesforce Services activation diagnostics:\n${JSON.stringify(
+          { consoleErrors, networkErrors },
+          null,
+          2,
+        )}`,
+      );
+    }
+    throw error;
+  }
   await verifyWorkspaceFiles(page);
   await activateExtension(page);
   await waitForLSPInitialization(page);

@@ -72,35 +72,35 @@ async function startTestServer() {
 
     fs.mkdirSync(workspacePath, { recursive: true });
 
-    // Populate workspace from test-data/apex-samples. This is the source of truth for
-    // .cls fixtures; test-workspace is gitignored and may not exist on a fresh checkout.
-    const testDataSamplesDir = path.resolve(__dirname, './test-data/apex-samples');
-    if (fs.existsSync(testDataSamplesDir)) {
-      console.log(`📋 Copying apex samples from ${testDataSamplesDir} to ${workspacePath}`);
-      const sampleFiles = fs.readdirSync(testDataSamplesDir);
-      for (const file of sampleFiles) {
+    // Populate the workspace from a complete DX project fixture. ComponentSet
+    // discovery requires the standard source layout and .cls-meta.xml files;
+    // loose root-level classes are not complete metadata components.
+    const testDataProjectDir = path.resolve(
+      __dirname,
+      './test-data/apex-samples',
+    );
+    if (fs.existsSync(testDataProjectDir)) {
+      console.log(
+        `📋 Copying Apex DX project from ${testDataProjectDir} to ${workspacePath}`,
+      );
+      for (const file of fs.readdirSync(workspacePath)) {
         if (file.endsWith('.cls')) {
-          fs.copyFileSync(
-            path.join(testDataSamplesDir, file),
-            path.join(workspacePath, file),
-          );
+          fs.rmSync(path.join(workspacePath, file), { force: true });
         }
       }
-      console.log('✅ Apex sample files copied successfully');
-    } else {
-      console.warn('⚠️ test-data/apex-samples not found — workspace will be empty');
-    }
 
-    // Ensure sfdx-project.json exists so the Apex LSP recognises all .cls files
-    const sfdxProjectPath = path.join(workspacePath, 'sfdx-project.json');
-    if (!fs.existsSync(sfdxProjectPath)) {
-      fs.writeFileSync(
-        sfdxProjectPath,
-        JSON.stringify(
-          { packageDirectories: [{ path: '.', default: true }], namespace: '', sourceApiVersion: '62.0' },
-          null,
-          2,
-        ),
+      fs.rmSync(path.join(workspacePath, 'force-app'), {
+        recursive: true,
+        force: true,
+      });
+      fs.cpSync(testDataProjectDir, workspacePath, {
+        recursive: true,
+        force: true,
+      });
+      console.log('✅ Apex DX project copied successfully');
+    } else {
+      console.warn(
+        '⚠️ test-data/apex-samples not found — workspace will be empty',
       );
     }
 
@@ -113,8 +113,12 @@ async function startTestServer() {
         settingsPath,
         JSON.stringify(
           {
-            'apex.logLevel': 'error',
+            'apex.logLevel':
+              process.env.E2E_APEX_DIAGNOSTICS === '1' ? 'debug' : 'error',
             'apex.environment.serverMode': 'development',
+            ...(process.env.E2E_APEX_DIAGNOSTICS === '1' && {
+              'apex.trace.server': 'verbose',
+            }),
           },
           null,
           2,
@@ -164,9 +168,7 @@ async function startTestServer() {
       coi: true, // Cross-origin isolation for SharedArrayBuffer support
       ...(process.argv.includes('--with-services')
         ? {
-            extensionIds: [
-              { id: 'salesforce.salesforcedx-vscode-services' },
-            ],
+            extensionIds: [{ id: 'salesforce.salesforcedx-vscode-services' }],
           }
         : {}),
       // Don't run any tests, just keep server running
