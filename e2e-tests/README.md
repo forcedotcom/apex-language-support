@@ -485,7 +485,12 @@ Tests run automatically in GitHub Actions on:
 **Configuration:** `.github/workflows/e2e-tests.yml`
 
 **Features:**
-- Retry logic (2 retries in CI)
+- Retry logic in CI: **1 retry for Web**, **2 retries for Desktop**. Web is
+  capped at 1 because several Web specs run `mode: 'serial'` and re-run the
+  ENTIRE file on each retry, so 2 retries meant up to 3× the whole-suite
+  wall-clock — enough for the largest suite to exceed the 20-min job timeout
+  and get cancelled. The sequential `--last-failed` step below still gives
+  genuinely-failed tests a second, isolated pass.
 - Sequential retry with `--last-failed` when parallel run fails
 - `E2E_SEQUENTIAL` and `E2E_NO_RETRIES` env vars for workflow control
 - Headless execution
