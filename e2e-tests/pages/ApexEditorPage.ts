@@ -13,7 +13,10 @@ import {
   getModifierShortcut,
   goToLineInEditor,
 } from '../shared/utils/helpers';
-import { waitForLSPInitialization } from '../utils/vscode-interaction';
+import {
+  waitForLSPInitialization,
+  waitForWorkspaceIngestion,
+} from '../utils/vscode-interaction';
 
 /**
  * Page object for Apex editor interactions.
@@ -82,6 +85,28 @@ export class ApexEditorPage extends BasePage {
    */
   async waitForLanguageServerReady(): Promise<void> {
     await waitForLSPInitialization(this.page);
+  }
+
+  /**
+   * Wait for full workspace ingestion to complete (status bar reaches the
+   * "Apex-LS-TS Server Ready" state), which is when cross-file symbol
+   * resolution becomes available.
+   *
+   * `waitForLanguageServerReady()` only gates on LSP init + editor readiness,
+   * which is enough for same-file navigation but races cross-file resolution:
+   * a definition request issued mid-ingest returns null and VS Code does not
+   * auto-retry it. Cross-file goto tests should gate on THIS before the first
+   * cross-file F12.
+   *
+   * Uses the STRICT variant: a timeout throws (after capturing the status-bar
+   * state) rather than resolving, so a cross-file test fails/retries instead of
+   * issuing F12 against an incomplete workspace — the race this gate exists to
+   * eliminate.
+   *
+   * @param timeout - Max wait in ms (defaults to 45s desktop / 30s web)
+   */
+  async waitForWorkspaceReady(timeout?: number): Promise<void> {
+    await waitForWorkspaceIngestion(this.page, { timeout, strict: true });
   }
 
   /**
