@@ -520,6 +520,7 @@ export const LSP_REQUEST_TYPES = [
   'codeAction',
   'signatureHelp',
   'rename',
+  'prepareRename',
   'codeLens',
   'foldingRange',
   'documentOpen',
@@ -778,6 +779,22 @@ export class DispatchRename extends Schema.TaggedRequest<DispatchRename>()(
       // as DispatchReferences: the stateless request-pool worker has no document
       // in local storage unless we pass the text, so cursor→symbol resolution
       // (and therefore the whole rename) would otherwise miss.
+      content: Schema.optional(Schema.String),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
+    },
+  },
+) {}
+
+export class DispatchPrepareRename extends Schema.TaggedRequest<DispatchPrepareRename>()(
+  'DispatchPrepareRename',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: {
+      textDocument: WireTextDocumentId,
+      position: WirePosition,
+      // Live (possibly unsaved) document text for the same reason as DispatchRename.
       content: Schema.optional(Schema.String),
       /** W3C traceparent for distributed tracing (optional) */
       traceContext: Schema.optional(Schema.String),
@@ -1197,6 +1214,7 @@ export const LspRequestTags = [
   'DispatchCodeAction',
   'DispatchReferences',
   'DispatchRename',
+  'DispatchPrepareRename',
   'DispatchImplementation',
   'DispatchDocumentSymbol',
   'DispatchCodeLens',
@@ -1277,6 +1295,7 @@ export type LspRequestMessage =
   | DispatchCodeAction
   | DispatchReferences
   | DispatchRename
+  | DispatchPrepareRename
   | DispatchImplementation
   | DispatchDocumentSymbol
   | DispatchCodeLens

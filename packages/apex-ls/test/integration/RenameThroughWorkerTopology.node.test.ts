@@ -266,4 +266,287 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
     // The crux: other()'s same-named `total` (lines 7-8) is never touched.
     expect(edits.some((e) => e.range.start.line >= 7)).toBe(false);
   }, 120_000);
+
+  it('rejects an invalid newName with an error result (W-23631080 validation)', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        (uri) => SOURCES[uri],
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: LOCAL_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => LOCAL_SRC,
+          },
+          textDocument: { uri: LOCAL_URI },
+          text: LOCAL_SRC,
+        }),
+      );
+
+      // Cursor on compute()'s `total` usage (line 4, char 15), but try to rename
+      // to a reserved word. The worker should return an error result, not null.
+      const result = yield* Effect.promise(() =>
+        dispatcher.dispatch('rename', {
+          textDocument: { uri: LOCAL_URI },
+          position: { line: 4, character: 15 },
+          newName: 'class', // reserved keyword
+        }),
+      );
+
+      return { result };
+    }).pipe(Effect.scoped);
+
+    const { result } = await Effect.runPromise(program);
+
+    // W-23631080: invalid newName produces a RenameErrorResult shape, not null.
+    // The LCSAdapter handler converts this to a ResponseError at the connection
+    // layer, but in this direct dispatcher test we see the raw error shape.
+    expect(result).not.toBeNull();
+    expect(result).toHaveProperty('error');
+    const errResult = result as { error: { code: number; message: string } };
+    expect(errResult.error).toHaveProperty('code');
+    expect(errResult.error).toHaveProperty('message');
+    expect(errResult.error.message).toContain('keyword');
+  }, 120_000);
+
+  it('returns prepareRename info for a local variable (W-23631080)', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        (uri) => SOURCES[uri],
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: LOCAL_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => LOCAL_SRC,
+          },
+          textDocument: { uri: LOCAL_URI },
+          text: LOCAL_SRC,
+        }),
+      );
+
+      // Cursor on compute()'s `total` USAGE (line 4, char 15). prepareRename
+      // MUST return the range containing the cursor (the usage on line 4), NOT
+      // the declaration — VS Code requires the returned range to contain the
+      // cursor position or it rejects prepareRename.
+      const result = yield* Effect.promise(() =>
+        dispatcher.dispatch('prepareRename', {
+          textDocument: { uri: LOCAL_URI },
+          position: { line: 4, character: 15 },
+        }),
+      );
+
+      return { result };
+    }).pipe(Effect.scoped);
+
+    const { result } = await Effect.runPromise(program);
+    logger.debug(`[prepare-rename:local-usage] ${JSON.stringify(result)}`);
+
+    // W-23631080 review fix: prepareRename returns the range that CONTAINS
+    // THE CURSOR, not necessarily the declaration. Cursor is on line 4 usage,
+    // so the range must be on line 4.
+    expect(result).not.toBeNull();
+    expect(result).toHaveProperty('range');
+    expect(result).toHaveProperty('placeholder');
+    const prepareInfo = result as {
+      range: { start: { line: number; character: number } };
+      placeholder: string;
+    };
+    expect(prepareInfo.range.start.line).toBe(4); // cursor-containing range
+    expect(prepareInfo.placeholder).toBe('total');
+  }, 120_000);
+
+  it('returns cursor-containing range from prepareRename when cursor on declaration (W-23631080)', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        (uri) => SOURCES[uri],
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: LOCAL_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => LOCAL_SRC,
+          },
+          textDocument: { uri: LOCAL_URI },
+          text: LOCAL_SRC,
+        }),
+      );
+
+      // Cursor on compute()'s `total` DECLARATION (line 2, char 16). prepareRename
+      // should return the declaration range (which contains the cursor).
+      const result = yield* Effect.promise(() =>
+        dispatcher.dispatch('prepareRename', {
+          textDocument: { uri: LOCAL_URI },
+          position: { line: 2, character: 16 },
+        }),
+      );
+
+      return { result };
+    }).pipe(Effect.scoped);
+
+    const { result } = await Effect.runPromise(program);
+    logger.debug(
+      `[prepare-rename:local-declaration] ${JSON.stringify(result)}`,
+    );
+
+    // Cursor on declaration → range should be the declaration's range (line 2).
+    expect(result).not.toBeNull();
+    expect(result).toHaveProperty('range');
+    const prepareInfo = result as {
+      range: { start: { line: number; character: number } };
+      placeholder: string;
+    };
+    expect(prepareInfo.range.start.line).toBe(2);
+    expect(prepareInfo.placeholder).toBe('total');
+  }, 120_000);
+
+  it('returns null from prepareRename for a non-local cursor (W-23631080)', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        (uri) => SOURCES[uri],
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: LOCAL_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => LOCAL_SRC,
+          },
+          textDocument: { uri: LOCAL_URI },
+          text: LOCAL_SRC,
+        }),
+      );
+
+      // Cursor on the method name `compute` (line 1, char 20), which is NOT a
+      // local — prepareRename should return null (not renamable as local).
+      const result = yield* Effect.promise(() =>
+        dispatcher.dispatch('prepareRename', {
+          textDocument: { uri: LOCAL_URI },
+          position: { line: 1, character: 20 },
+        }),
+      );
+
+      return { result };
+    }).pipe(Effect.scoped);
+
+    const { result } = await Effect.runPromise(program);
+
+    // prepareRename returns null when the cursor isn't on a renamable local.
+    expect(result).toBeNull();
+  }, 120_000);
+
+  it('returns null from prepareRename when the cursor is one past the identifier end', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        (uri) => SOURCES[uri],
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: LOCAL_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => LOCAL_SRC,
+          },
+          textDocument: { uri: LOCAL_URI },
+          text: LOCAL_SRC,
+        }),
+      );
+
+      // Declaration line `        Integer total = 0;` (LSP line 2): `total`
+      // occupies chars 16-20, so the half-open identifier range ends at
+      // exclusive column 21 (the space before `=`). A cursor at char 21 sits
+      // AFTER the identifier and must NOT resolve — this is the off-by-one the
+      // `endColumn > cursorChar` (not `>=`) fix guards against.
+      const result = yield* Effect.promise(() =>
+        dispatcher.dispatch('prepareRename', {
+          textDocument: { uri: LOCAL_URI },
+          position: { line: 2, character: 21 },
+        }),
+      );
+
+      return { result };
+    }).pipe(Effect.scoped);
+
+    const { result } = await Effect.runPromise(program);
+
+    expect(result).toBeNull();
+  }, 120_000);
 });
