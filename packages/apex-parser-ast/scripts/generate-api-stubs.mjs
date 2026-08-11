@@ -24,12 +24,12 @@ import {
   writeFileSync,
   readFileSync,
   readdirSync,
-  rmSync,
+  unlinkSync,
 } from 'fs';
 import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { createHash } from 'crypto';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { generateApexStubs } from './apexStubGenerator.js';
+import { TARGET_NAMESPACES } from './api-stub-config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, '..');
@@ -41,66 +41,12 @@ const BUILTINS_DIR = join(projectRoot, 'src', 'resources', 'builtins');
 const METADATA_FILE = join(INPUT_DIR, 'fetch-metadata.json');
 const GENERATION_METADATA_FILE = join(INPUT_DIR, 'generation-metadata.json');
 
-// Embedded namespaces - only these generate .cls files
-// All other namespaces go into non-bundled-types.json (type awareness only)
-const TARGET_NAMESPACES = new Set([
-  'ApexPages',
-  'AppLauncher',
-  'Approval',
-  'Auth',
-  'Cache',
-  'Canvas',
-  'ChatterAnswers',
-  'CommerceBuyGrp',
-  'CommerceExtension',
-  'CommercePayments',
-  'CommerceTax',
-  'Compression',
-  'DataSource',
-  'DataWeave',
-  'Database',
-  'Datacloud',
-  'Dom',
-  'EventBus',
-  'Flow',
-  'FormulaEval',
-  'Functions',
-  'Invocable',
-  'IsvPartners',
-  'KbManagement',
-  'LxScheduler',
-  'Messaging',
-  'Metadata',
-  'Pref_center',
-  'Process',
-  'QuickAction',
-  'Reports',
-  'RichMessaging',
-  'Schema',
-  'Search',
-  'Sfc',
-  'Sfdc_Checkout',
-  'Sfdc_Enablement',
-  'Sfdc_Surveys',
-  'Site',
-  'Slack',
-  'Support',
-  'System',
-  'TerritoryMgmt',
-  'TxnSecurity',
-  'UserProvisioning',
-  'VisualEditor',
-  'Wave',
-  'embeddedai',
-  'flowuiruntime',
-  'fsccashflow',
-  'industriesNlpSvc',
-  'ise_bots_apex',
-  'setup_flow_performance',
-]);
+export const targetNamespaces = TARGET_NAMESPACES;
+const SAFE_PATH_COMPONENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 // List of builtin classes that should NOT be overwritten
-// These are hand-crafted and live in src/resources/builtins/
+// These are hand-crafted overrides. Most live in src/resources/builtins/;
+// several System overrides remain in StandardApexLibrary/System.
 // W-23491682: List/Map/Set returned with generic parameters from API,
 // but hand-crafted versions are needed for correct symbol resolution
 // Url.cls: API returns "Url" but hand-crafted uses "URL" casing (case-insensitive FS issue)
@@ -135,7 +81,12 @@ const BUILTIN_NAMESPACED_CLASSES = new Map([
  */
 function shouldSkipFile(filename, namespace) {
   // Skip if it's a System namespace builtin
-  if (namespace === 'System' && BUILTIN_CLASSES.has(filename)) {
+  if (
+    namespace === 'System' &&
+    [...BUILTIN_CLASSES].some(
+      (builtin) => builtin.toLowerCase() === filename.toLowerCase(),
+    )
+  ) {
     return true;
   }
 
@@ -162,23 +113,64 @@ function loadFetchMetadata() {
   return JSON.parse(content);
 }
 
+export function validateCapture(metadata, inputDir, targetNamespaces = TARGET_NAMESPACES) {
+  const invalidNamespaces = [];
+
+  for (const namespace of targetNamespaces) {
+    const info = metadata.namespaces?.[namespace];
+    if (!SAFE_PATH_COMPONENT.test(namespace)) {
+      invalidNamespaces.push(`${namespace} (invalid namespace)`);
+    } else if (!info) {
+      invalidNamespaces.push(`${namespace} (missing metadata)`);
+    } else if (info.error) {
+      invalidNamespaces.push(`${namespace} (${info.error})`);
+    } else if (!info.filename || !existsSync(join(inputDir, info.filename))) {
+      invalidNamespaces.push(`${namespace} (missing input file)`);
+    }
+  }
+
+  if (invalidNamespaces.length > 0) {
+    throw new Error(
+      `Capture is incomplete; refusing destructive regeneration: ${invalidNamespaces.join(', ')}`,
+    );
+  }
+}
+
+export function cleanNamespaceDirectory(outputDir, namespace) {
+  const namespaceDir = join(outputDir, namespace);
+  if (!existsSync(namespaceDir)) return 0;
+
+  let removed = 0;
+  for (const entry of readdirSync(namespaceDir, { withFileTypes: true })) {
+    if (entry.isFile() && !shouldSkipFile(entry.name, namespace)) {
+      unlinkSync(join(namespaceDir, entry.name));
+      removed++;
+    }
+  }
+  return removed;
+}
+
+function loadNamespaceStubs(namespace, jsonFilePath) {
+  const jsonData = JSON.parse(readFileSync(jsonFilePath, 'utf8'));
+  if (!Array.isArray(jsonData.typeStubs) || jsonData.typeStubs.length === 0) {
+    throw new Error(`No type stubs found in ${jsonFilePath}`);
+  }
+
+  return generateApexStubs(jsonData)
+    .filter((stub) => !shouldSkipFile(stub.filename, namespace))
+    .map((stub) => {
+      if (!SAFE_PATH_COMPONENT.test(stub.filename.replace(/\.cls$/, ''))) {
+        throw new Error(`Invalid generated filename: ${stub.filename}`);
+      }
+      return stub;
+    });
+}
+
 /**
  * Generate .cls files for a namespace
  */
-function generateNamespace(namespace, jsonFilePath) {
+function generateNamespace(namespace, stubs) {
   console.log(`\n   Namespace: ${namespace}`);
-
-  // Load JSON
-  const jsonContent = readFileSync(jsonFilePath, 'utf8');
-  const jsonData = JSON.parse(jsonContent);
-
-  if (!jsonData.typeStubs || jsonData.typeStubs.length === 0) {
-    console.log(`   ⚠️  No type stubs found in ${jsonFilePath}`);
-    return { generated: 0, skipped: 0 };
-  }
-
-  // Generate stubs
-  const stubs = generateApexStubs(jsonData);
 
   // Create namespace directory
   const namespaceDir = join(OUTPUT_DIR, namespace);
@@ -187,25 +179,16 @@ function generateNamespace(namespace, jsonFilePath) {
   }
 
   let generated = 0;
-  let skipped = 0;
-
   // Write .cls files
   for (const stub of stubs) {
-    // Check if this is a builtin that should be skipped
-    if (shouldSkipFile(stub.filename, namespace)) {
-      console.log(`   ⊘ Skipping builtin: ${stub.filename}`);
-      skipped++;
-      continue;
-    }
-
     const outputPath = join(namespaceDir, stub.filename);
     writeFileSync(outputPath, stub.source, 'utf8');
     generated++;
   }
 
-  console.log(`   ✓ Generated ${generated} files (skipped ${skipped} builtins)`);
+  console.log(`   ✓ Generated ${generated} files`);
 
-  return { generated, skipped };
+  return { generated };
 }
 
 /**
@@ -221,22 +204,28 @@ async function main() {
   // Load fetch metadata
   console.log('\n1. Loading fetch metadata...');
   const fetchMetadata = loadFetchMetadata();
+  validateCapture(fetchMetadata, INPUT_DIR);
   console.log(`   Fetched at: ${fetchMetadata.fetchedAt}`);
   console.log(`   Total types: ${fetchMetadata.totalTypes}`);
   console.log(`   Namespaces: ${Object.keys(fetchMetadata.namespaces).length}`);
 
-  // Clean existing namespace directories (all of them)
+  const generatedStubs = new Map();
+  for (const namespace of TARGET_NAMESPACES) {
+    const info = fetchMetadata.namespaces[namespace];
+    generatedStubs.set(
+      namespace,
+      loadNamespaceStubs(namespace, join(INPUT_DIR, info.filename)),
+    );
+  }
+
+  // Clean generated files only from namespaces this capture replaces.
   console.log('\n2. Cleaning existing namespace directories...');
   if (existsSync(OUTPUT_DIR)) {
-    const existingDirs = readdirSync(OUTPUT_DIR, { withFileTypes: true })
-      .filter(dirent => dirent.isDirectory())
-      .map(dirent => dirent.name);
-
-    for (const namespace of existingDirs) {
-      const nsDir = join(OUTPUT_DIR, namespace);
-      rmSync(nsDir, { recursive: true, force: true });
+    let removed = 0;
+    for (const namespace of TARGET_NAMESPACES) {
+      removed += cleanNamespaceDirectory(OUTPUT_DIR, namespace);
     }
-    console.log(`   ✓ Removed ${existingDirs.length} namespace directories`);
+    console.log(`   ✓ Removed ${removed} generated files`);
   } else {
     console.log(`   ⊘ Output directory does not exist yet`);
   }
@@ -257,41 +246,15 @@ async function main() {
   let totalSkipped = 0;
   let totalExcluded = 0;
 
-  for (const [namespace, info] of Object.entries(fetchMetadata.namespaces)) {
-    // Skip namespaces not in TARGET_NAMESPACES (embedded set)
-    if (!TARGET_NAMESPACES.has(namespace)) {
-      totalExcluded++;
-      continue;
-    }
-
-    if (info.error) {
-      console.log(`\n   Namespace: ${namespace}`);
-      console.log(`   ⚠️  Skipping due to fetch error: ${info.error}`);
-      continue;
-    }
-
-    const jsonFilePath = join(INPUT_DIR, info.filename);
-    if (!existsSync(jsonFilePath)) {
-      console.log(`\n   Namespace: ${namespace}`);
-      console.log(`   ⚠️  JSON file not found: ${jsonFilePath}`);
-      continue;
-    }
-
-    try {
-      const result = generateNamespace(namespace, jsonFilePath);
-      generationMetadata.namespaces[namespace] = {
-        generated: result.generated,
-        skipped: result.skipped,
-      };
-      totalGenerated += result.generated;
-      totalSkipped += result.skipped;
-    } catch (error) {
-      console.error(`   ❌ Failed to generate namespace ${namespace}: ${error.message}`);
-      generationMetadata.namespaces[namespace] = {
-        error: error.message,
-      };
-    }
+  for (const [namespace, stubs] of generatedStubs) {
+    const result = generateNamespace(namespace, stubs);
+    generationMetadata.namespaces[namespace] = { generated: result.generated };
+    totalGenerated += result.generated;
   }
+
+  totalExcluded = Object.keys(fetchMetadata.namespaces).filter(
+    (namespace) => !TARGET_NAMESPACES.has(namespace),
+  ).length;
 
   generationMetadata.totalGenerated = totalGenerated;
   generationMetadata.totalSkipped = totalSkipped;
@@ -315,7 +278,9 @@ async function main() {
   console.log(`   Output: ${OUTPUT_DIR}`);
 }
 
-main().catch((error) => {
-  console.error('\n❌ Generation failed:', error);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error('\n❌ Generation failed:', error);
+    process.exit(1);
+  });
+}

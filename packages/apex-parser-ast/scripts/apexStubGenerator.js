@@ -52,11 +52,25 @@ function demangleMethodName(mangledName) {
         // e.g., "List$$lSObject$$r_0String" -> "List<SObject>"
         // The part after $$r_N is parameter type info, not part of return type
         
-        // Find where the return type ends (at _0, _1 etc. or end of string)
-        const paramMarkerMatch = typeInfo.match(/^(.+?\$\$r)(_\d+.*)?$/);
-        
-        if (paramMarkerMatch) {
-            const returnTypePart = paramMarkerMatch[1];
+        let depth = 0;
+        let returnTypeEnd = -1;
+        for (let index = 0; index < typeInfo.length - 2; index++) {
+            const token = typeInfo.slice(index, index + 3);
+            if (token === '$$l') {
+                depth++;
+                index += 2;
+            } else if (token === '$$r') {
+                depth--;
+                index += 2;
+                if (depth === 0) {
+                    returnTypeEnd = index + 1;
+                    break;
+                }
+            }
+        }
+
+        if (returnTypeEnd !== -1) {
+            const returnTypePart = typeInfo.slice(0, returnTypeEnd);
             const demangled = demangleType(returnTypePart);
             return { cleanName, genericReturnType: demangled };
         }
@@ -299,9 +313,10 @@ function generateTypeBody(typeStub, indent = '') {
     }
     
     // Extract class name (handle trigger naming like "__sfdc_trigger.AccountTrigger")
-    const className = typeStub.name.includes('.') 
+    const rawClassName = typeStub.name.includes('.')
         ? typeStub.name.split('.').pop() 
         : typeStub.name;
+    const className = cleanGenericTypeName(rawClassName);
     
     let declaration = `${indent}${modStr}${keyword} ${className}`;
     
@@ -437,8 +452,20 @@ function generateTrigger(typeStub) {
  * @returns {string} Clean type name without generic parameters
  */
 function cleanGenericTypeName(name) {
-    // Remove generic type parameters: "List<T>" -> "List", "Map<K,V>" -> "Map"
-    return name.replace(/<[^>]+>/g, '');
+    let depth = 0;
+    let result = '';
+
+    for (const character of name) {
+        if (character === '<') {
+            depth++;
+        } else if (character === '>') {
+            if (depth > 0) depth--;
+        } else if (depth === 0) {
+            result += character;
+        }
+    }
+
+    return result;
 }
 
 /**

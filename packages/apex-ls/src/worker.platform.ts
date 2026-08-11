@@ -238,6 +238,7 @@ let fqnIndex: Map<string, string> | null = null;
       const base64 = dataUrl.split(',')[1];
       const buffer = Uint8Array.from(Buffer.from(base64, 'base64'));
       fqnIndex = loadFqnIndexFromGzip(buffer);
+      setFqnIndex(fqnIndex);
     }
   } catch {
     // Expected in unbundled/dev builds; fall through to IPC
@@ -367,7 +368,6 @@ setWorkerId(workerId);
 setAssistanceTransport(requestCoordinatorAssistancePromise);
 setResourceLoaderLayerFactory(makeResourceLoaderRemoteLayer);
 setWarmRemoteStdlibNamespaceCache(warmRemoteStdlibNamespaceCache);
-setFqnIndex(fqnIndex);
 setWorkerTracingHooks({
   initialize: initWorkerTracing,
   provide: <A, E, R>(effect: Effect.Effect<A, E, R>) =>

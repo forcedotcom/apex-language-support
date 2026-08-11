@@ -26,11 +26,11 @@
 import {
   existsSync,
   readFileSync,
-  readdirSync,
   writeFileSync,
 } from 'fs';
-import { join, dirname, basename } from 'path';
-import { fileURLToPath } from 'url';
+import { join, dirname } from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
+import { TARGET_NAMESPACES } from './api-stub-config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, '..');
@@ -40,64 +40,7 @@ const INPUT_DIR = join(projectRoot, 'build', 'api-stubs');
 const OUTPUT_FILE = join(projectRoot, 'src', 'resources', 'non-bundled-types.json');
 const METADATA_FILE = join(INPUT_DIR, 'fetch-metadata.json');
 
-// TARGET_NAMESPACES: bundled namespaces that generate .cls files
-// Duplicated from fetch-api-stubs.mjs and generate-stdlib-cache.mjs
-// These are excluded from the non-bundled index
-const TARGET_NAMESPACES = [
-  'System',
-  'Database',
-  'Schema',
-  'ApexPages',
-  'Auth',
-  'Cache',
-  'Canvas',
-  'ChatterAnswers',
-  'DataSource',
-  'Dom',
-  'Flow',
-  'KbManagement',
-  'Messaging',
-  'Process',
-  'QuickAction',
-  'Reports',
-  'Search',
-  'Site',
-  'Support',
-  'UserProvisioning',
-  'Approval',
-  'EventBus',
-  'Metadata',
-  'TerritoryMgmt',
-  'TxnSecurity',
-  'AppLauncher',
-  'AuraEnabled',
-  'Datacloud',
-  'FeatureManagement',
-  'LxScheduler',
-  'Slack',
-  'Wave',
-  'Workflow',
-  'NetworksConnect',
-  'PredictionService',
-  'Sage',
-  'SObjectType',
-  'TimeZone',
-  'Trigger',
-  'UserInfo',
-  'Limits',
-  'Version',
-  'PageReference',
-  'SelectOption',
-  'Test',
-  'Type',
-  'Organization',
-  'Pattern',
-  'Matcher',
-  'Crypto',
-  'EncodingUtil',
-  'Math',
-  'JSON',
-];
+export const targetNamespaces = TARGET_NAMESPACES;
 
 /**
  * Extract minimal type information from API stub JSON
@@ -142,53 +85,50 @@ function main() {
     }
   }
 
-  // Read all JSON files
+  if (!metadata?.namespaces) {
+    throw new Error('Fetch metadata is required to generate the non-bundled index');
+  }
+
   console.log('\n1. Scanning API stub files...');
-  const files = readdirSync(INPUT_DIR).filter(
-    (f) => f.endsWith('.json') && f !== 'fetch-metadata.json' && f !== 'generation-metadata.json'
+  const captures = Object.entries(metadata.namespaces).filter(
+    ([namespace]) => !TARGET_NAMESPACES.has(namespace),
   );
-  console.log(`   Found ${files.length} namespace files`);
+  console.log(`   Found ${captures.length} non-bundled namespace files`);
 
   // Process non-bundled namespaces
   console.log('\n2. Extracting type information...');
   const namespaces = {};
   let totalTypes = 0;
-  let skippedNamespaces = 0;
+  const skippedNamespaces = Object.keys(metadata.namespaces).length - captures.length;
 
-  for (const file of files) {
-    const namespace = basename(file, '.json');
-
-    // Skip if in TARGET_NAMESPACES (bundled)
-    if (TARGET_NAMESPACES.includes(namespace)) {
-      skippedNamespaces++;
-      continue;
+  for (const [namespace, info] of captures) {
+    if (info.error || !info.filename) {
+      throw new Error(`Capture is incomplete for ${namespace}`);
     }
 
-    try {
-      const jsonPath = join(INPUT_DIR, file);
-      const jsonContent = readFileSync(jsonPath, 'utf8');
-      const data = JSON.parse(jsonContent);
+    const jsonPath = join(INPUT_DIR, info.filename);
+    if (!existsSync(jsonPath)) {
+      throw new Error(`Missing input file: ${info.filename}`);
+    }
+    const jsonContent = readFileSync(jsonPath, 'utf8');
+    const data = JSON.parse(jsonContent);
 
-      if (!data.typeStubs || !Array.isArray(data.typeStubs)) {
-        console.warn(`   ⚠️  Skipping ${namespace}: no typeStubs array`);
-        continue;
-      }
+    if (!Array.isArray(data.typeStubs)) {
+      throw new Error(`No typeStubs array for ${namespace}`);
+    }
 
-      const types = [];
-      for (const stub of data.typeStubs) {
-        const typeInfo = extractTypeInfo(stub);
-        if (typeInfo) {
-          types.push(typeInfo);
-        }
+    const types = [];
+    for (const stub of data.typeStubs) {
+      const typeInfo = extractTypeInfo(stub);
+      if (typeInfo) {
+        types.push(typeInfo);
       }
+    }
 
-      if (types.length > 0) {
-        namespaces[namespace] = types;
-        totalTypes += types.length;
-        console.log(`   ✓ ${namespace}: ${types.length} types`);
-      }
-    } catch (error) {
-      console.error(`   ❌ Failed to process ${namespace}: ${error.message}`);
+    if (types.length > 0) {
+      namespaces[namespace] = types;
+      totalTypes += types.length;
+      console.log(`   ✓ ${namespace}: ${types.length} types`);
     }
   }
 
@@ -217,4 +157,6 @@ function main() {
   console.log(`   File size: ${(JSON.stringify(output).length / 1024).toFixed(1)} KB`);
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

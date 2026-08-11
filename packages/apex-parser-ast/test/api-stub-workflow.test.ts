@@ -208,6 +208,63 @@ describe('API Stub Workflow Integration', () => {
       expect(result.result).toBeDefined();
       expect(result.result).not.toBeNull();
     });
+
+    test('handles nested encoded generic return types correctly', () => {
+      const apiResponse = {
+        typeStubs: [
+          {
+            name: 'NestedGenericClass',
+            kind: 'CLASS',
+            modifiers: ['public'],
+            methods: [
+              {
+                name: 'getMapping_rMap$$lString$$cList$$lInteger$$r$$r',
+                returnType: { name: 'Map' },
+                modifiers: ['public'],
+                parameters: [],
+              },
+            ],
+          },
+        ],
+      };
+
+      const [stub] = generateApexStubs(apiResponse);
+
+      expect(stub.source).toContain(
+        'public Map<String, List<Integer>> getMapping()',
+      );
+
+      const listener = new ApexSymbolCollectorListener();
+      const compiler = new CompilerService('System');
+      const result = compiler.compile(
+        stub.source,
+        'apexlib://test/NestedGenericClass.cls',
+        listener,
+        {
+          projectNamespace: 'System',
+          includeComments: false,
+        },
+      );
+
+      expect(result.errors).toHaveLength(0);
+      expect(result.result).toBeDefined();
+    });
+
+    test('removes balanced generic parameters from declarations and filenames', () => {
+      const [stub] = generateApexStubs({
+        typeStubs: [
+          {
+            name: 'Envelope<Map<String,List<Integer>>>',
+            kind: 'CLASS',
+            modifiers: ['public'],
+          },
+        ],
+      });
+
+      expect(stub.filename).toBe('Envelope.cls');
+      expect(stub.source).toContain('public class Envelope {');
+      expect(stub.source).not.toContain('class Envelope<');
+    });
   });
 
   describe('Namespace handling', () => {

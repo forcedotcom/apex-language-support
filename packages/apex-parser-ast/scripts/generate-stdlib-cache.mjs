@@ -29,7 +29,7 @@ import {
   writeFileSync,
 } from 'fs';
 import { dirname, join, basename } from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { gzipSync } from 'fflate';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -38,6 +38,7 @@ const projectRoot = join(__dirname, '..');
 // Configuration
 const SOURCE_DIR = join(projectRoot, 'src', 'resources', 'StandardApexLibrary');
 const BUILTINS_DIR = join(projectRoot, 'src', 'resources', 'builtins');
+const NON_BUNDLED_INDEX_FILE = join(projectRoot, 'src', 'resources', 'non-bundled-types.json');
 const OUTPUT_DIR = join(projectRoot, 'resources');
 
 // Output file names (no version - library is updated manually by external processes)
@@ -67,68 +68,10 @@ const BUILTIN_NAMESPACED_CLASSES = new Map([
   ['DescribeSObjectResult.cls','Schema'],   // hand-crafted: correct Map/List return types on getters
 ]);
 
-// Target namespaces for full stub generation (.cls files)
-// All other namespaces fetched from API are included in TypeRegistry as "api-only" entries
-const TARGET_NAMESPACES = [
-  'ApexPages',
-  'AppLauncher',
-  'Approval',
-  'Auth',
-  'Cache',
-  'Canvas',
-  'ChatterAnswers',
-  'CommerceBuyGrp',
-  'CommerceExtension',
-  'CommercePayments',
-  'CommerceTax',
-  'Compression',
-  'DataSource',
-  'DataWeave',
-  'Database',
-  'Datacloud',
-  'Dom',
-  'EventBus',
-  'Flow',
-  'FormulaEval',
-  'Functions',
-  'Invocable',
-  'IsvPartners',
-  'KbManagement',
-  'LxScheduler',
-  'Messaging',
-  'Metadata',
-  'Pref_center',
-  'Process',
-  'QuickAction',
-  'Reports',
-  'RichMessaging',
-  'Schema',
-  'Search',
-  'Sfc',
-  'Sfdc_Checkout',
-  'Sfdc_Enablement',
-  'Sfdc_Surveys',
-  'Site',
-  'Slack',
-  'Support',
-  'System',
-  'TerritoryMgmt',
-  'TxnSecurity',
-  'UserProvisioning',
-  'VisualEditor',
-  'Wave',
-  'embeddedai',
-  'flowuiruntime',
-  'fsccashflow',
-  'industriesNlpSvc',
-  'ise_bots_apex',
-  'setup_flow_performance',
-];
-
 /**
  * Calculate SHA256 checksum of all source files
  */
-function calculateSourceChecksum(sourceDir, builtinsDir) {
+export function calculateSourceChecksum(sourceDir, builtinsDir, nonBundledIndexFile) {
   const hash = createHash('sha256');
   const files = [];
 
@@ -177,6 +120,11 @@ function calculateSourceChecksum(sourceDir, builtinsDir) {
     const content = readFileSync(file.fullPath, 'utf8');
     hash.update(file.path);
     hash.update(content);
+  }
+
+  if (nonBundledIndexFile && existsSync(nonBundledIndexFile)) {
+    hash.update('non-bundled-types.json');
+    hash.update(readFileSync(nonBundledIndexFile, 'utf8'));
   }
 
   return hash.digest('hex');
@@ -479,30 +427,6 @@ async function generateFqnIndex(namespaceData, sourceChecksum) {
     }
   }
 
-  // Also collect types from non-bundled namespaces (API-only)
-  const nonBundledIndexPath = join(projectRoot, 'src', 'resources', 'non-bundled-types.json');
-  if (existsSync(nonBundledIndexPath)) {
-    try {
-      const indexContent = readFileSync(nonBundledIndexPath, 'utf8');
-      const index = JSON.parse(indexContent);
-
-      for (const [namespace, types] of Object.entries(index.namespaces)) {
-        for (const type of types) {
-          const name = type.name;
-          const canonicalFqn = `${namespace}.${name}`;
-          allTypes.push({
-            namespace,
-            className: name,
-            symbolName: name,
-            fqn: canonicalFqn
-          });
-        }
-      }
-    } catch (error) {
-      // Silently skip - already logged in generateTypeRegistry
-    }
-  }
-
   // Second pass: build index with System-wins tiebreak
   for (const type of allTypes) {
     const qualifiedKey = `${type.namespace}.${type.symbolName}`.toLowerCase();
@@ -565,7 +489,11 @@ async function main() {
 
   // Calculate source checksum
   console.log('\n1. Calculating source checksum...');
-  const sourceChecksum = calculateSourceChecksum(SOURCE_DIR, BUILTINS_DIR);
+  const sourceChecksum = calculateSourceChecksum(
+    SOURCE_DIR,
+    BUILTINS_DIR,
+    NON_BUNDLED_INDEX_FILE,
+  );
   console.log(`   Checksum: ${sourceChecksum.substring(0, 16)}...`);
 
   // Check if regeneration is needed
@@ -788,7 +716,9 @@ async function main() {
   console.log(`   FQN index MD5: ${fqnIndexMD5}`);
 }
 
-main().catch((error) => {
-  console.error('❌ Generation failed:', error);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error('❌ Generation failed:', error);
+    process.exit(1);
+  });
+}

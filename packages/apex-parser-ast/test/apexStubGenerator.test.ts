@@ -718,10 +718,10 @@ describe('apexStubGenerator', () => {
       expect(result[0].filename).toBe('List.cls');
       expect(result[1].filename).toBe('Map.cls');
       expect(result[2].filename).toBe('Set.cls');
-      // Source code should preserve the original name
-      expect(result[0].source).toContain('global class List<T>');
-      expect(result[1].source).toContain('global class Map<K,V>');
-      expect(result[2].source).toContain('global class Set<T>');
+      // Apex does not support generic type declarations.
+      expect(result[0].source).toContain('global class List {');
+      expect(result[1].source).toContain('global class Map {');
+      expect(result[2].source).toContain('global class Set {');
     });
   });
 

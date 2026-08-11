@@ -5345,12 +5345,16 @@ const untracedHandlers: SerializedWorkerHandlers = {
               // Qualified input: namespace.class
               const qualifiedKey = pathParts.join('.').toLowerCase();
               const fqn = _fqnIndex.get(qualifiedKey) ?? null;
-              return fqn !== null ? { found: true, fqn } : { found: false };
+              if (fqn !== null) {
+                return { found: true, fqn };
+              }
             } else {
               // Unqualified input: class only
               const unqualifiedKey = pathParts[0].toLowerCase();
               const fqn = _fqnIndex.get(unqualifiedKey) ?? null;
-              return fqn !== null ? { found: true, fqn } : { found: false };
+              if (fqn !== null) {
+                return { found: true, fqn };
+              }
             }
           }
 

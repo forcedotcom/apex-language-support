@@ -46,7 +46,6 @@ import {
   existsSync,
   mkdirSync,
   writeFileSync,
-  readFileSync,
 } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -58,64 +57,6 @@ const projectRoot = join(__dirname, '..');
 // Configuration
 const OUTPUT_DIR = join(projectRoot, 'build', 'api-stubs');
 const METADATA_FILE = join(OUTPUT_DIR, 'fetch-metadata.json');
-
-// Fixed list of namespaces to fetch from API
-// Based on existing StandardApexLibrary namespaces, excluding ConnectApi
-const TARGET_NAMESPACES = [
-  'ApexPages',
-  'AppLauncher',
-  'Approval',
-  'Auth',
-  'Cache',
-  'Canvas',
-  'ChatterAnswers',
-  'CommerceBuyGrp',
-  'CommerceExtension',
-  'CommercePayments',
-  'CommerceTax',
-  'Compression',
-  'DataSource',
-  'DataWeave',
-  'Database',
-  'Datacloud',
-  'Dom',
-  'EventBus',
-  'Flow',
-  'FormulaEval',
-  'Functions',
-  'Invocable',
-  'IsvPartners',
-  'KbManagement',
-  'LxScheduler',
-  'Messaging',
-  'Metadata',
-  'Pref_center',
-  'Process',
-  'QuickAction',
-  'Reports',
-  'RichMessaging',
-  'Schema',
-  'Search',
-  'Sfc',
-  'Sfdc_Checkout',
-  'Sfdc_Enablement',
-  'Sfdc_Surveys',
-  'Site',
-  'Slack',
-  'Support',
-  'System',
-  'TerritoryMgmt',
-  'TxnSecurity',
-  'UserProvisioning',
-  'VisualEditor',
-  'Wave',
-  'embeddedai',
-  'flowuiruntime',
-  'fsccashflow',
-  'industriesNlpSvc',
-  'ise_bots_apex',
-  'setup_flow_performance',
-];
 
 /**
  * Parse command line arguments
