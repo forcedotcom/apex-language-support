@@ -1047,6 +1047,43 @@ export class FindOccurrenceCandidates extends Schema.TaggedRequest<FindOccurrenc
 ) {}
 
 // ---------------------------------------------------------------------------
+// CheckMemberConflicts — data-owner hierarchy-aware member-name conflict check
+// for rename validation. Given a defining type FQN and a new name, walks the
+// type family (same-type, ancestors, descendants) and returns a verdict on
+// whether the rename would conflict with an existing member per jorje rules.
+// ---------------------------------------------------------------------------
+
+export class CheckMemberConflicts extends Schema.TaggedRequest<CheckMemberConflicts>()(
+  'CheckMemberConflicts',
+  {
+    success: Schema.Struct({
+      conflict: Schema.Boolean,
+      conflictingTypeFqn: Schema.optional(Schema.String),
+      reason: Schema.optional(
+        Schema.Union(
+          Schema.Literal('same-type'),
+          Schema.Literal('ancestor'),
+          Schema.Literal('descendant'),
+        ),
+      ),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('CheckMemberConflictsError'),
+      message: Schema.String,
+    }),
+    payload: {
+      definingTypeFqn: Schema.String,
+      newName: Schema.String,
+      memberKind: Schema.Union(
+        Schema.Literal('field'),
+        Schema.Literal('method'),
+      ),
+      isRenamedMemberPrivate: Schema.Boolean,
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // EnsureWorkspaceLoaded — worker → coordinator (over the assistance bus) to
 // ask the coordinator to send a workspace-load notification to the LSP
 // client. Fire-and-forget at the LSP layer (the notification carries no
@@ -1217,6 +1254,7 @@ export const DataOwnerTags = [
   'InstallSObjectArtifacts',
   'ResolveDepUris',
   'ResolveDependentUris',
+  'CheckMemberConflicts',
   'FindOccurrenceCandidates',
   'WorkspaceBatchIngest',
   'WorkspaceBatchCompileOnDataOwner',
@@ -1301,6 +1339,7 @@ export type DataOwnerRequest =
   | InstallSObjectArtifacts
   | ResolveDepUris
   | ResolveDependentUris
+  | CheckMemberConflicts
   | FindOccurrenceCandidates
   | WorkspaceBatchIngest
   | WorkspaceBatchCompileOnDataOwner
