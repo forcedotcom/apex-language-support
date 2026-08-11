@@ -1,0 +1,16 @@
+{
+  "name": "services-workspace-seeder",
+  "displayName": "Services Workspace Seeder (Test)",
+  "description": "Seeds the Salesforce Services memfs workspace for Apex E2E tests",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "browser": "./src/extension.js"
+}

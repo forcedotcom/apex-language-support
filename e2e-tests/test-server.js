@@ -26,6 +26,10 @@ async function startTestServer() {
           'apex-e2e-workspace',
         )
       : path.resolve(__dirname, './test-workspace');
+    const workspaceSeederPath = path.resolve(
+      __dirname,
+      './test-extensions/services-workspace-seeder',
+    );
 
     // Verify paths exist
     if (!fs.existsSync(extensionDevelopmentPath)) {
@@ -67,6 +71,12 @@ async function startTestServer() {
     if (!fs.existsSync(extensionWebJsPath)) {
       console.warn(
         `⚠️ Extension web file not found: ${extensionWebJsPath}. Web functionality may be limited.`,
+      );
+    }
+
+    if (!fs.existsSync(workspaceSeederPath)) {
+      throw new Error(
+        `Services workspace seeder extension not found: ${workspaceSeederPath}`,
       );
     }
 
@@ -156,10 +166,37 @@ async function startTestServer() {
       );
     });
 
+    // Salesforce Services owns the memfs: provider used by its Web runtime.
+    // Package the host-side fixture into a test-only extension so it can seed
+    // that provider through vscode.workspace.fs before the Apex extension's
+    // onStartupFinished activation runs.
+    const workspaceManifest = {};
+    const collectWorkspaceFiles = (directory, prefix = '') => {
+      for (const entry of fs.readdirSync(directory)) {
+        const filePath = path.join(directory, entry);
+        const relativePath = prefix ? `${prefix}/${entry}` : entry;
+        const stats = fs.statSync(filePath);
+        if (stats.isDirectory()) {
+          collectWorkspaceFiles(filePath, relativePath);
+        } else if (stats.isFile()) {
+          workspaceManifest[relativePath] = fs.readFileSync(filePath, 'utf8');
+        }
+      }
+    };
+    collectWorkspaceFiles(workspacePath);
+    fs.writeFileSync(
+      path.join(workspaceSeederPath, 'workspace-files.json'),
+      JSON.stringify(workspaceManifest),
+    );
+    console.log(
+      `✅ Packaged ${Object.keys(workspaceManifest).length} files for the Services memfs workspace`,
+    );
+
     // Start the web server (this will keep running)
     await runTests({
       extensionDevelopmentPath,
-      folderPath: workspacePath,
+      folderUri: 'memfs:/dx-project',
+      extensionPaths: [workspaceSeederPath],
       headless: true, // Always headless - Playwright will open its own browser window
       browserType: 'chromium',
       ...vscodeWebBuildOptions,

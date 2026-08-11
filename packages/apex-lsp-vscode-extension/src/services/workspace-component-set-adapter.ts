@@ -387,9 +387,28 @@ function numberProperty(
 }
 
 function sourcePathToUri(sourcePath: string): vscode.Uri {
-  return /^[a-z][a-z0-9+.-]*:/i.test(sourcePath)
-    ? vscode.Uri.parse(sourcePath)
-    : vscode.Uri.file(sourcePath);
+  if (/^[a-z][a-z0-9+.-]*:/i.test(sourcePath)) {
+    return vscode.Uri.parse(sourcePath);
+  }
+
+  const fileUri = vscode.Uri.file(sourcePath);
+  const sourceUriPath = normalizeUriPath(sourcePath);
+  for (const folder of vscode.workspace.workspaceFolders ?? []) {
+    if (folder.uri.scheme === 'file') continue;
+    const workspaceUriPath = normalizeUriPath(folder.uri.path);
+    if (
+      sourceUriPath === workspaceUriPath ||
+      sourceUriPath.startsWith(`${workspaceUriPath}/`)
+    ) {
+      return folder.uri.with({ path: sourceUriPath });
+    }
+  }
+  return fileUri;
+}
+
+function normalizeUriPath(value: string): string {
+  const normalized = value.replaceAll('\\', '/').replace(/\/+$/, '');
+  return normalized || '/';
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

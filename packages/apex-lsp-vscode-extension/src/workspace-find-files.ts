@@ -12,16 +12,16 @@ import * as vscode from 'vscode';
  * vscode-test-web registers a FileSearchProvider but it uses a lazy
  * in-memory cache that is empty until files are accessed — findFiles
  * always returns 0 for it in practice. Use walkDirectory instead.
- * memfs has no provider at all; anchoring RelativePattern to it stalls
- * the search service indefinitely.
+ * Anchoring RelativePattern to memfs stalls the search service indefinitely;
+ * its filesystem provider is handled by direct traversal below.
  */
 const SEARCH_PROVIDER_SCHEMES = new Set(['file', 'vscode-vfs']);
 
 /**
  * Schemes whose filesystem provider supports workspace.fs APIs.
- * Used for the directory-traversal fallback when findFiles won't work.
+ * Used for directory traversal when findFiles is unavailable or unreliable.
  */
-const FS_PROVIDER_SCHEMES = new Set(['vscode-test-web']);
+const FS_PROVIDER_SCHEMES = new Set(['vscode-test-web', 'memfs']);
 
 /** Directories to skip during filesystem traversal. */
 const SKIP_DIRS = new Set([
@@ -101,8 +101,10 @@ async function walkDirectory(
  * - `vscode-test-web`: use workspace.fs.readDirectory traversal because
  *   the search provider's in-memory cache is lazy and returns 0 until
  *   files are accessed; direct fs traversal reads from the HTTP server.
- * - `memfs` and unknown schemes: skipped (no FS or search provider, or
- *   anchoring RelativePattern to memfs stalls the search service).
+ * - `memfs`: use the same traversal against the Salesforce Services Web
+ *   filesystem provider. Anchoring RelativePattern to memfs stalls VS Code's
+ *   search service, while workspace.fs reads are supported.
+ * - Unknown schemes: fall back to bare findFiles.
  */
 export async function findFilesAcrossWorkspaceFolders(
   pattern: string,
