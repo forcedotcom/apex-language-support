@@ -45,14 +45,8 @@ test.describe('Apex Rename Symbol', () => {
     });
 
     await test.step('Position on the local variable `total` in compute()', async () => {
-      // The fixture is terse (23 lines, fits in viewport). goToPosition(7, 1)
-      // moves to line 7 — `total = total + 1;`, a USAGE of the local (the
-      // declaration `Integer total = 0;` is line 6) — then
-      // positionCursorOnWord('total') places the cursor on that line's `total`
-      // token. Rename works from any occurrence (declaration or usage); driving
-      // it from a usage is the common editor case.
-      await apexEditor.goToPosition(7, 1);
-      await apexEditor.positionCursorOnWord('total');
+      // Position directly on the first `total` usage (line 7, column 9).
+      await apexEditor.goToPosition(7, 9);
     });
 
     await test.step('Rename `total` to `renamed`', async () => {
@@ -128,10 +122,9 @@ test.describe('Apex Rename Symbol', () => {
     });
 
     await test.step('Position on the parameter `value` in addValue()', async () => {
-      // positionCursorOnWord('value') alone finds the first (and only) 'value'
-      // in the fixture, which is the parameter in addValue(). No explicit
-      // goToPosition needed — the word is unique.
-      await apexEditor.positionCursorOnWord('value');
+      // Position directly on `value` in the parameter declaration (line 19,
+      // column 37).
+      await apexEditor.goToPosition(19, 37);
     });
 
     await test.step('Rename `value` to `inputParam`', async () => {
