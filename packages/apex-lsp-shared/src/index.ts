@@ -194,9 +194,56 @@ export interface SemanticArtifactProvenance {
   readonly parseCompleteness: 'complete' | 'incomplete' | 'unknown';
 }
 
+export type MissingArtifactIdentifierType =
+  'sobject' | 'apex-class' | 'trigger';
+
+export interface DefinitionTarget {
+  readonly uri: string;
+  readonly range?: {
+    readonly start: { readonly line: number; readonly character: number };
+    readonly end: { readonly line: number; readonly character: number };
+  };
+}
+
+export interface SObjectDescribeField {
+  readonly name: string;
+  readonly label?: string;
+  readonly type: string;
+  readonly referenceTo?: readonly string[];
+  readonly relationshipName?: string;
+  readonly nillable?: boolean;
+  readonly createable?: boolean;
+  readonly updateable?: boolean;
+  readonly calculated?: boolean;
+  readonly length?: number;
+  readonly precision?: number;
+  readonly scale?: number;
+  readonly definitionTarget: DefinitionTarget;
+}
+
+export interface SObjectDescribe {
+  readonly name: string;
+  readonly label?: string;
+  readonly labelPlural?: string;
+  readonly custom: boolean;
+  readonly queryable?: boolean;
+  readonly createable?: boolean;
+  readonly updateable?: boolean;
+  readonly deletable?: boolean;
+  readonly fields: readonly SObjectDescribeField[];
+  readonly definitionTarget: DefinitionTarget;
+}
+
+export interface MissingArtifactPayload {
+  readonly identifierType: 'sobject';
+  readonly name: string;
+  readonly describe: SObjectDescribe;
+}
+
 export interface IdentifierSpec {
   readonly name: string;
   readonly provenance: SemanticArtifactProvenance;
+  readonly identifierType?: MissingArtifactIdentifierType;
   readonly typeReference?: TypeReference;
   readonly searchHints?: SearchHint[];
   readonly resolvedQualifier?: {
@@ -239,7 +286,10 @@ export interface FindMissingArtifactParams {
 }
 
 export type FindMissingArtifactResult =
-  { opened: string[] } | { notFound: true } | { accepted: true };
+  | { opened: string[] }
+  | { artifacts: MissingArtifactPayload[]; opened?: string[] }
+  | { notFound: true }
+  | { accepted: true };
 
 /**
  * Result type for findApexTests command
@@ -441,14 +491,26 @@ export type WorkDoneProgress =
 
 // Wire schemas for IdentifierSpec — safe for postMessage / structured clone
 export {
+  DefinitionTargetSchema,
+  SObjectDescribeFieldSchema,
+  SObjectDescribeSchema,
+  MissingArtifactPayloadSchema,
+  FindMissingArtifactResultSchema,
   WireTypeReferenceSchema,
   WireSearchHintSchema,
   WireResolvedQualifierSchema,
   WireParentContextSchema,
   WireSemanticArtifactProvenanceSchema,
   WireIdentifierSpecSchema,
+  MAX_SOBJECT_WIRE_BYTES,
+  isWithinSObjectWireLimit,
 } from './wireSchemas';
 export type {
+  WireDefinitionTarget,
+  WireSObjectDescribeField,
+  WireSObjectDescribe,
+  WireMissingArtifactPayload,
+  WireFindMissingArtifactResult,
   WireTypeReference,
   WireSearchHint,
   WireResolvedQualifier,
@@ -472,6 +534,7 @@ export {
   QuerySymbolSubset,
   AwaitSymbolReadiness,
   UpdateSymbolSubset,
+  InstallSObjectArtifacts,
   ResolveDepUris,
   ResolveDependentUris,
   FindOccurrenceCandidates,
@@ -500,6 +563,7 @@ export {
   DispatchCodeAction,
   DispatchReferences,
   DispatchRename,
+  DispatchPrepareRename,
   DispatchImplementation,
   DispatchDocumentSymbol,
   DispatchCodeLens,
@@ -541,6 +605,7 @@ export type {
   QuerySymbolSubsetSuccess,
   AwaitSymbolReadinessSuccess,
   UpdateSymbolSubsetSuccess,
+  InstallSObjectArtifactsSuccess,
   WorkerAssistanceSuccess,
   WorkspaceBatchIngestSuccess,
   ResourceLoaderGetSymbolTableSuccess,

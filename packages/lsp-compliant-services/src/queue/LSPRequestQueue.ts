@@ -24,6 +24,7 @@ export type LSPRequestType =
   | 'codeAction'
   | 'signatureHelp'
   | 'rename'
+  | 'prepareRename'
   | 'foldingRange'
   | 'codeLens'
   | 'documentOpen'

@@ -22,6 +22,7 @@
  */
 
 import { Schema } from 'effect';
+import { MissingArtifactPayloadSchema } from './wireSchemas';
 
 // ---------------------------------------------------------------------------
 // Worker roles
@@ -520,6 +521,7 @@ export const LSP_REQUEST_TYPES = [
   'codeAction',
   'signatureHelp',
   'rename',
+  'prepareRename',
   'codeLens',
   'foldingRange',
   'documentOpen',
@@ -785,6 +787,22 @@ export class DispatchRename extends Schema.TaggedRequest<DispatchRename>()(
   },
 ) {}
 
+export class DispatchPrepareRename extends Schema.TaggedRequest<DispatchPrepareRename>()(
+  'DispatchPrepareRename',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: {
+      textDocument: WireTextDocumentId,
+      position: WirePosition,
+      // Live (possibly unsaved) document text for the same reason as DispatchRename.
+      content: Schema.optional(Schema.String),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
+    },
+  },
+) {}
+
 export class DispatchImplementation extends Schema.TaggedRequest<DispatchImplementation>()(
   'DispatchImplementation',
   {
@@ -918,6 +936,34 @@ export class UpdateSymbolSubset extends Schema.TaggedRequest<UpdateSymbolSubset>
 
 export type UpdateSymbolSubsetSuccess = Schema.Schema.Type<
   (typeof UpdateSymbolSubset)['success']
+>;
+
+// ---------------------------------------------------------------------------
+// InstallSObjectArtifacts — coordinator commits validated org metadata to the
+// authoritative data-owner graph.
+// ---------------------------------------------------------------------------
+
+export class InstallSObjectArtifacts extends Schema.TaggedRequest<InstallSObjectArtifacts>()(
+  'InstallSObjectArtifacts',
+  {
+    success: Schema.Struct({
+      installed: Schema.Number,
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('InstallSObjectArtifactsError'),
+      message: Schema.String,
+    }),
+    payload: {
+      artifacts: Schema.Array(MissingArtifactPayloadSchema),
+      originUri: Schema.optional(Schema.String),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
+    },
+  },
+) {}
+
+export type InstallSObjectArtifactsSuccess = Schema.Schema.Type<
+  (typeof InstallSObjectArtifacts)['success']
 >;
 
 // ---------------------------------------------------------------------------
@@ -1168,6 +1214,7 @@ export const DataOwnerTags = [
   'QuerySymbolSubset',
   'AwaitSymbolReadiness',
   'UpdateSymbolSubset',
+  'InstallSObjectArtifacts',
   'ResolveDepUris',
   'ResolveDependentUris',
   'FindOccurrenceCandidates',
@@ -1197,6 +1244,7 @@ export const LspRequestTags = [
   'DispatchCodeAction',
   'DispatchReferences',
   'DispatchRename',
+  'DispatchPrepareRename',
   'DispatchImplementation',
   'DispatchDocumentSymbol',
   'DispatchCodeLens',
@@ -1250,6 +1298,7 @@ export type DataOwnerRequest =
   | QuerySymbolSubset
   | AwaitSymbolReadiness
   | UpdateSymbolSubset
+  | InstallSObjectArtifacts
   | ResolveDepUris
   | ResolveDependentUris
   | FindOccurrenceCandidates
@@ -1277,6 +1326,7 @@ export type LspRequestMessage =
   | DispatchCodeAction
   | DispatchReferences
   | DispatchRename
+  | DispatchPrepareRename
   | DispatchImplementation
   | DispatchDocumentSymbol
   | DispatchCodeLens

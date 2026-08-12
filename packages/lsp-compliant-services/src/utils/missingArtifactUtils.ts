@@ -15,9 +15,12 @@ import {
 } from '@salesforce/apex-lsp-parser-ast';
 
 import {
+  type BlockingResult,
   MissingArtifactResolutionService,
   createMissingArtifactResolutionService,
 } from '../services/MissingArtifactResolutionService';
+import { SObjectEnrichmentService } from '../services/SObjectEnrichmentService';
+import { classifyMissingArtifactIdentifier } from '../services/PrerequisiteHelpers';
 import { transformLspToParserPosition } from './positionUtils';
 /**
  * Utility functions for handling missing artifact resolution
@@ -27,6 +30,7 @@ export class MissingArtifactUtils {
   private readonly logger: LoggerInterface;
   private readonly symbolManager: ISymbolManager;
   private missingArtifactService?: MissingArtifactResolutionService;
+  private sObjectEnrichmentService?: SObjectEnrichmentService;
 
   constructor(
     logger: LoggerInterface,
@@ -61,6 +65,21 @@ export class MissingArtifactUtils {
     return this.missingArtifactService;
   }
 
+  private getSObjectEnrichmentService(): SObjectEnrichmentService | undefined {
+    if (!this.sObjectEnrichmentService) {
+      const artifactResolutionService = this.getMissingArtifactService();
+      if (!artifactResolutionService) {
+        return undefined;
+      }
+      this.sObjectEnrichmentService = new SObjectEnrichmentService(
+        this.logger,
+        this.symbolManager,
+        artifactResolutionService,
+      );
+    }
+    return this.sObjectEnrichmentService;
+  }
+
   /**
    * Try to resolve a missing artifact in the background
    * @param uri The document URI
@@ -72,7 +91,7 @@ export class MissingArtifactUtils {
     position: any,
     requestKind: 'hover' | 'definition' | 'completion' | 'references',
   ): Promise<void> {
-    const service = this.getMissingArtifactService();
+    const service = this.getSObjectEnrichmentService();
     if (!service) {
       this.logger.debug(
         () => 'Missing artifact resolution service not available',
@@ -117,10 +136,16 @@ export class MissingArtifactUtils {
         ? `${reference.qualifier}.${reference.name}`
         : reference.name;
       const provenance = await this.createSemanticProvenance(uri, reference);
-      service.resolveInBackground({
+      const identifierType = classifyMissingArtifactIdentifier({
+        ...reference,
+        name: identifierName,
+        searchHints,
+      });
+      await service.resolveInBackground({
         identifiers: [
           {
             name: identifierName,
+            identifierType,
             provenance,
             typeReference: reference,
             ...(parentContext && { parentContext }),
@@ -157,15 +182,13 @@ export class MissingArtifactUtils {
     uri: string,
     position: any,
     requestKind: 'hover' | 'definition' | 'completion' | 'references',
-  ): Promise<
-    'resolved' | 'not-found' | 'timeout' | 'cancelled' | 'unsupported'
-  > {
-    const service = this.getMissingArtifactService();
+  ): Promise<BlockingResult> {
+    const service = this.getSObjectEnrichmentService();
     if (!service) {
       this.logger.debug(
         () => 'Missing artifact resolution service not available',
       );
-      return 'not-found';
+      return { status: 'not-found' };
     }
 
     try {
@@ -173,7 +196,7 @@ export class MissingArtifactUtils {
       const reference = await this.extractReferenceAtPosition(uri, position);
       if (!reference) {
         this.logger.debug(() => 'Could not extract reference from position');
-        return 'not-found';
+        return { status: 'not-found' };
       }
 
       // Build parent context for better search hints
@@ -196,11 +219,17 @@ export class MissingArtifactUtils {
         ? `${reference.qualifier}.${reference.name}`
         : reference.name;
       const provenance = await this.createSemanticProvenance(uri, reference);
+      const identifierType = classifyMissingArtifactIdentifier({
+        ...reference,
+        name: identifierName,
+        searchHints,
+      });
       const result = await service.resolveBlocking({
         identifiers: [
           {
             name: identifierName,
             provenance,
+            identifierType,
             typeReference: reference,
             ...(parentContext && { parentContext }),
             ...(searchHints?.length && { searchHints }),
@@ -218,13 +247,13 @@ export class MissingArtifactUtils {
 
       this.logger.debug(
         () =>
-          `Blocking resolution completed for ${reference.name} in ${requestKind} request: ${result}`,
+          `Blocking resolution completed for ${reference.name} in ${requestKind} request: ${result.status}`,
       );
 
       return result;
     } catch (error) {
       this.logger.error(() => `Error in blocking resolution: ${error}`);
-      return 'not-found';
+      return { status: 'not-found' };
     }
   }
 

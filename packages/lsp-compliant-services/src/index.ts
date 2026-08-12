@@ -94,6 +94,7 @@ export * from './services/WorkspaceSymbolProcessingService';
 export * from './services/WorkspaceLoadCoordinator';
 export * from './services/DiagnosticRefreshService';
 export * from './services/MissingArtifactResolutionService';
+export * from './services/SObjectEnrichmentService';
 export * from './services/IndexingObserver';
 export * from './services/SymbolManagerExtensions';
 export * from './services/CodeLensProcessingService';

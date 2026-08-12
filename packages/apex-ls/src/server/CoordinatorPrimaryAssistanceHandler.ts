@@ -19,12 +19,14 @@
 import { Effect } from 'effect';
 import type { Connection } from 'vscode-languageserver/browser';
 import {
+  decodeFindMissingArtifactResult,
   ensureWorkspaceLoaded,
   LSPQueueManager,
 } from '@salesforce/apex-lsp-compliant-services';
 import type {
   FindMissingArtifactParams,
   LoggerInterface,
+  MissingArtifactPayload,
 } from '@salesforce/apex-lsp-shared';
 import type { AssistanceHandler } from './CoordinatorAssistanceMediator';
 import type { ResourceLoaderProxy } from './ResourceLoaderProxy';
@@ -37,6 +39,11 @@ export interface PrimaryAssistanceHandlerDeps {
   /** Optional resource-loader proxy. When absent, `resourceLoader:*`
    *  branches return safe empties matching the pre-extraction behaviour. */
   readonly getResourceLoaderProxy: () => ResourceLoaderProxy | undefined;
+  /** Commit validated sObject metadata to the authoritative data-owner graph. */
+  readonly installSObjectArtifacts?: (
+    artifacts: readonly MissingArtifactPayload[],
+    originUri: string,
+  ) => Promise<void>;
 }
 
 /**
@@ -56,12 +63,26 @@ export interface PrimaryAssistanceHandlerDeps {
 export const createPrimaryAssistanceHandler = (
   deps: PrimaryAssistanceHandlerDeps,
 ): AssistanceHandler => {
-  const { connection, logger, getResourceLoaderProxy } = deps;
+  const {
+    connection,
+    logger,
+    getResourceLoaderProxy,
+    installSObjectArtifacts,
+  } = deps;
   return async (method, params) => {
     if (method === 'apex/findMissingArtifact') {
-      return LSPQueueManager.getInstance().submitFindMissingArtifactRequest(
-        params as FindMissingArtifactParams,
-      );
+      const request = params as FindMissingArtifactParams;
+      const result =
+        await LSPQueueManager.getInstance().submitFindMissingArtifactRequest(
+          request,
+        );
+      const decoded = decodeFindMissingArtifactResult(result, request) ?? {
+        notFound: true,
+      };
+      if ('artifacts' in decoded && installSObjectArtifacts) {
+        await installSObjectArtifacts(decoded.artifacts, request.origin.uri);
+      }
+      return decoded;
     }
     if (method === 'coordinator:EnsureWorkspaceLoaded') {
       // Workers (enrichment / data-owner) have no LSP Connection of

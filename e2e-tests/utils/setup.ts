@@ -25,13 +25,14 @@ interface SetupOptions {
  * VS Code workspace settings for optimal standard library loading.
  * These settings ensure:
  * - Logging level is "error" to avoid performance impact from verbose logging
- * - Worker logging is also "error" for the same reason
  * - Server mode is "development" for testing
  */
 const WORKSPACE_SETTINGS = {
-  'apex.logLevel': 'error',
-  'apex.worker.logLevel': 'error',
+  'apex.logLevel': process.env.E2E_APEX_DIAGNOSTICS === '1' ? 'debug' : 'error',
   'apex.environment.serverMode': 'development',
+  ...(process.env.E2E_APEX_DIAGNOSTICS === '1' && {
+    'apex.trace.server': 'verbose',
+  }),
 };
 
 /**
@@ -65,45 +66,58 @@ export async function setupTestWorkspace(
   const settingsPath = path.join(vscodeDir, 'settings.json');
   fs.writeFileSync(settingsPath, JSON.stringify(WORKSPACE_SETTINGS, null, 2));
 
-  // Create sfdx-project.json so the Apex LSP recognises all .cls files as one project
-  const sfdxProjectPath = path.join(workspacePath, 'sfdx-project.json');
-  if (!fs.existsSync(sfdxProjectPath)) {
-    fs.writeFileSync(
-      sfdxProjectPath,
-      JSON.stringify(
-        {
-          packageDirectories: [{ path: '.', default: true }],
-          namespace: '',
-          sourceApiVersion: '62.0',
-        },
-        null,
-        2,
-      ),
-    );
-  }
-
-  // Create sample files
-  sampleFiles.forEach((sampleFile) => {
-    const filePath = path.join(workspacePath, sampleFile.filename);
-    fs.writeFileSync(filePath, sampleFile.content);
-  });
-
-  // Copy test-data Apex samples (AccountHandler.cls, BaseHandler.cls, AccountProcessor.cls, ComplexClass.cls, etc.)
-  // for goto-definition and other tests that need multi-file scenarios
-  const testDataSamplesDir = path.resolve(
+  // Copy the complete DX fixture, including sfdx-project.json, the standard
+  // force-app layout, and every .cls-meta.xml companion. ComponentSet-based
+  // workspace discovery intentionally consumes metadata components rather
+  // than treating loose .cls files as a project.
+  const testDataProjectDir = path.resolve(
     __dirname,
     '../test-data/apex-samples',
   );
-  if (fs.existsSync(testDataSamplesDir)) {
-    const apexSampleFiles = fs.readdirSync(testDataSamplesDir);
-    for (const file of apexSampleFiles) {
+  if (fs.existsSync(testDataProjectDir)) {
+    // Remove the previous flat-fixture shape from persistent local workspaces
+    // so tests cannot accidentally pass against stale root-level classes.
+    for (const file of fs.readdirSync(workspacePath)) {
       if (file.endsWith('.cls')) {
-        const src = path.join(testDataSamplesDir, file);
-        const dest = path.join(workspacePath, file);
-        fs.copyFileSync(src, dest);
+        fs.rmSync(path.join(workspacePath, file), { force: true });
       }
     }
+
+    fs.rmSync(path.join(workspacePath, 'force-app'), {
+      recursive: true,
+      force: true,
+    });
+    fs.cpSync(testDataProjectDir, workspacePath, {
+      recursive: true,
+      force: true,
+    });
   }
+
+  // Custom Apex classes belong to the DX package too and receive the same
+  // complete metadata shape as the repository-owned fixtures.
+  const workspaceClassesDir = path.join(
+    workspacePath,
+    'force-app/main/default/classes',
+  );
+  sampleFiles.forEach((sampleFile) => {
+    const isApexClass = path.extname(sampleFile.filename) === '.cls';
+    const filePath = isApexClass
+      ? path.join(workspaceClassesDir, path.basename(sampleFile.filename))
+      : path.join(workspacePath, sampleFile.filename);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, sampleFile.content);
+
+    if (isApexClass) {
+      fs.writeFileSync(
+        `${filePath}-meta.xml`,
+        '<?xml version="1.0" encoding="UTF-8"?>\n' +
+          '<ApexClass xmlns="http://soap.sforce.com/2006/04/metadata">\n' +
+          '    <apiVersion>62.0</apiVersion>\n' +
+          '    <status>Active</status>\n' +
+          '</ApexClass>\n',
+      );
+    }
+  });
 
   return workspacePath;
 }

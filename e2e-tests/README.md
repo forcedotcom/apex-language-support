@@ -11,13 +11,13 @@ This package provides comprehensive end-to-end testing for the Apex Language Ser
 
 ### Test Coverage Summary
 
-| Feature | Status |
-|---------|--------|
+| Feature                                | Status  |
+| -------------------------------------- | ------- |
 | Extension Activation & LCS Integration | Covered |
-| Outline View (Document Symbols) | Covered |
-| Hover Functionality | Covered |
-| Go-to-Definition Navigation | Covered |
-| LSP Integration & Stability | Covered |
+| Outline View (Document Symbols)        | Covered |
+| Hover Functionality                    | Covered |
+| Go-to-Definition Navigation            | Covered |
+| LSP Integration & Stability            | Covered |
 
 ---
 
@@ -26,12 +26,14 @@ This package provides comprehensive end-to-end testing for the Apex Language Ser
 The e2e test suite ensures the Apex Language Server Extension works correctly in real-world browser environments by testing:
 
 ### Core Functionality
+
 - ✅ **Extension Activation** - Extension activates when Apex files are opened
 - ✅ **LCS Integration** - LSP-Compliant-Services are properly integrated
 - ✅ **Language Server** - LSP worker starts and initializes correctly
 - ✅ **Worker Bundle** - Bundle size validates LCS inclusion
 
 ### LSP Features
+
 - ✅ **Document Symbols** - Outline view shows Apex class structure
 - ✅ **Hover Provider** - Hover displays type information and signatures
 - ✅ **Go-to-Definition** - Navigate to symbol definitions
@@ -39,6 +41,7 @@ The e2e test suite ensures the Apex Language Server Extension works correctly in
 - ✅ **Performance** - Operations complete within acceptable timeframes
 
 ### Stability
+
 - ✅ **No Crashes** - Extension doesn't cause VS Code failures
 - ✅ **Error Monitoring** - All console/network errors are categorized
 - ✅ **Extended Usage** - Maintains stability over time
@@ -93,13 +96,14 @@ e2e-tests/
 │   ├── test-reporting.ts                # Result reporting
 │   └── setup.ts                         # Workspace setup
 ├── test-data/                      # Sample Apex files
-│   └── apex-samples/
-│       ├── ComplexClass.cls              # Complex nested structures
-│       ├── AccountHandler.cls            # Derived handler class (extends BaseHandler)
-│       ├── BaseHandler.cls               # Base abstract handler class
-│       ├── AccountProcessor.cls          # AccountProcessor implements DataProcessor
-│       ├── DataProcessor.cls             # DataProcessor interface
-│       └── ContactProcessor.cls         # ContactProcessor implements DataProcessor
+│   └── apex-samples/                # Complete Salesforce DX project fixture
+│       ├── sfdx-project.json
+│       └── force-app/main/default/classes/
+│           ├── ComplexClass.cls
+│           ├── ComplexClass.cls-meta.xml
+│           ├── AccountHandler.cls
+│           ├── AccountHandler.cls-meta.xml
+│           └── ...
 ├── playwright.config.ts            # Default config (re-exports web)
 ├── playwright.config.web.ts        # Web-only configuration
 ├── playwright.config.desktop.ts    # Desktop (Electron) configuration
@@ -175,6 +179,7 @@ npx playwright test --config=playwright.config.desktop.ts --project=desktop-elec
 ```
 
 **Desktop vs Web:**
+
 - **Web Mode**: Tests browser-based VS Code Web with standard web APIs
 - **Desktop Mode**: Tests actual VS Code Desktop (Electron) with the extension loaded; uses `createDesktopTest` fixture for Electron launch, video recording, and clipboard permissions
 
@@ -183,9 +188,11 @@ npx playwright test --config=playwright.config.desktop.ts --project=desktop-elec
 ## Test Files
 
 ### 1. [apex-extension-core.spec.ts](tests/apex-extension-core.spec.ts)
+
 **Focus:** Core extension activation and LCS integration
 
 **Tests (8):**
+
 - Extension startup and activation
 - LCS (LSP-Compliant-Services) integration validation
 - Worker bundle validation
@@ -196,15 +203,18 @@ npx playwright test --config=playwright.config.desktop.ts --project=desktop-elec
 - Workbench loading
 
 **Key Validations:**
+
 - `lcsIntegrationActive === true`
 - `bundleSize` meets LCS threshold
 - No critical errors in console
 - Editor is responsive
 
 ### 2. [apex-outline.spec.ts](tests/apex-outline.spec.ts)
+
 **Focus:** Outline view symbol parsing and display
 
 **Tests (11):**
+
 - Outline population with LCS type parsing
 - Main class detection
 - Inner class detection
@@ -216,15 +226,18 @@ npx playwright test --config=playwright.config.desktop.ts --project=desktop-elec
 - Complex class structures
 
 **Key Features:**
+
 - Uses `OutlineViewPage` page object
 - Tests nested type parsing (inner classes, enums)
 - Validates symbol hierarchy
 - Screenshot capture for debugging
 
 ### 3. [apex-hover.spec.ts](tests/apex-hover.spec.ts)
+
 **Focus:** Hover functionality for Apex symbols
 
 **Tests (19):**
+
 - Hover on classes, methods, variables
 - Static vs instance members
 - Inner types (classes, enums)
@@ -237,15 +250,18 @@ npx playwright test --config=playwright.config.desktop.ts --project=desktop-elec
 - Screenshot capture
 
 **Key Features:**
+
 - Uses `HoverPage` page object
 - Tests all symbol types
 - Validates hover content
 - Performance testing (< 2s)
 
 ### 4. [apex-goto-definition.spec.ts](tests/apex-goto-definition.spec.ts)
+
 **Focus:** Navigate to symbol definitions
 
 **Tests (25):**
+
 - Navigate to classes, methods, fields
 - Inner class/enum navigation
 - Constructor navigation
@@ -258,15 +274,18 @@ npx playwright test --config=playwright.config.desktop.ts --project=desktop-elec
 - Complex class structures
 
 **Key Features:**
+
 - Uses `ApexEditorPage` page object
 - Tests all definition types
 - Advanced scenarios with test data files
 - Cross-file navigation (inheritance, interfaces)
 
 ### 5. [apex-lsp-integration.spec.ts](tests/apex-lsp-integration.spec.ts)
+
 **Focus:** General LSP lifecycle and stability
 
 **Tests (16):**
+
 - LSP initialization
 - File edit handling
 - Rapid operations
@@ -280,6 +299,7 @@ npx playwright test --config=playwright.config.desktop.ts --project=desktop-elec
 - Worker thread validation
 
 **Key Features:**
+
 - Tests LSP lifecycle
 - Error recovery validation
 - Performance metrics
@@ -294,23 +314,27 @@ npx playwright test --config=playwright.config.desktop.ts --project=desktop-elec
 Page objects encapsulate UI interactions and provide clean APIs for tests.
 
 **Benefits:**
+
 - Hide implementation details
 - Reusable across tests
 - Easy to maintain
 - Type-safe
 
 **Available Page Objects:**
+
 - `BasePage` - Common VS Code interactions
 - `ApexEditorPage` - Editor operations
 - `OutlineViewPage` - Outline view operations
 - `HoverPage` - Hover functionality
 
 **Shared Page Utilities** (in `shared/pages/`):
+
 - `commands.ts` - Command palette (`executeCommandWithCommandPalette`, `verifyCommandExists`, `verifyCommandDoesNotExist`)
 - `contextMenu.ts` - Editor/explorer context menus (`executeEditorContextMenuCommand`, `executeExplorerContextMenuCommand`)
 - `outputChannel.ts` - Output panel (`ensureOutputPanelOpen`, `selectOutputChannel`, `clearOutputChannel`, `waitForOutputChannelText`)
 
 **Example:**
+
 ```typescript
 import { test, expect } from '../fixtures/apexFixtures';
 
@@ -327,12 +351,14 @@ test('example', async ({ apexEditor, outlineView }) => {
 Fixtures provide automatic setup and teardown for tests.
 
 **Benefits:**
+
 - Automatic environment setup
 - Dependency injection
 - Clean test code
 - Reusable patterns
 
 **Available Fixtures:**
+
 - `apexEditor` - ApexEditorPage instance
 - `outlineView` - OutlineViewPage instance
 - `hoverHelper` - HoverPage instance
@@ -341,13 +367,15 @@ Fixtures provide automatic setup and teardown for tests.
 - `networkErrors` - Captured network errors
 
 **Desktop Fixtures** (for Electron tests):
+
 - `createDesktopTest()` - Factory that provides `page`, `workspaceDir`, `electronApp`; supports video renaming, clipboard permissions, DEBUG_MODE pause
 
 **Example:**
+
 ```typescript
 test('example', async ({
-  apexEditor,      // Fixture provides page object
-  consoleErrors,   // Fixture captures errors
+  apexEditor, // Fixture provides page object
+  consoleErrors, // Fixture captures errors
 }) => {
   // Test environment already set up!
   await apexEditor.openFile('MyClass.cls');
@@ -360,6 +388,7 @@ test('example', async ({
 Utility functions for common operations.
 
 **Key Utilities:**
+
 - Error handling and validation
 - LSP testing helpers
 - Outline view helpers
@@ -367,6 +396,7 @@ Utility functions for common operations.
 - Test reporting and configuration
 
 **Example:**
+
 ```typescript
 import { performStrictValidation } from '../utils/test-helpers';
 
@@ -387,6 +417,7 @@ expect(validation.consoleValidation.allErrorsAllowed).toBe(true);
 5. **Add descriptive assertions**
 
 **Example:**
+
 ```typescript
 import { test, expect } from '../fixtures/apexFixtures';
 
@@ -409,6 +440,7 @@ test('should do something', async ({ apexEditor, outlineView }) => {
 ### Best Practices
 
 **DO:**
+
 - ✅ Use page objects for all UI interactions
 - ✅ Use fixtures for setup/teardown
 - ✅ Use `test.step()` for clear reporting
@@ -417,6 +449,7 @@ test('should do something', async ({ apexEditor, outlineView }) => {
 - ✅ Use descriptive test names ("should...")
 
 **DON'T:**
+
 - ❌ Use `page.locator()` directly in tests
 - ❌ Import from `@playwright/test`
 - ❌ Put assertions in page objects
@@ -430,6 +463,7 @@ test('should do something', async ({ apexEditor, outlineView }) => {
 3. Reference in tests by filename
 
 **Example:**
+
 ```typescript
 test('complex test', async ({ apexEditor }) => {
   await apexEditor.openFile('my-test-file.cls');
@@ -444,6 +478,7 @@ test('complex test', async ({ apexEditor }) => {
 ### Debug Mode
 
 Run tests with browser UI visible:
+
 ```bash
 npm run test:e2e:debug
 ```
@@ -451,6 +486,7 @@ npm run test:e2e:debug
 ### Visual Mode
 
 Interactive test development:
+
 ```bash
 npm run test:e2e:visual
 ```
@@ -468,6 +504,7 @@ View with: `npx playwright show-trace trace.zip`
 ### Console Logs
 
 Tests include comprehensive logging:
+
 - ✅ Success indicators
 - ⚠️ Warning indicators
 - 📋 Information logs
@@ -478,6 +515,7 @@ Tests include comprehensive logging:
 ## CI/CD Integration
 
 Tests run automatically in GitHub Actions on:
+
 - Push to `main`
 - Pull requests to `main`
 - Manual workflow dispatch
@@ -485,7 +523,13 @@ Tests run automatically in GitHub Actions on:
 **Configuration:** `.github/workflows/e2e-tests.yml`
 
 **Features:**
-- Retry logic (2 retries in CI)
+
+- Retry logic in CI: **1 retry for Web**, **2 retries for Desktop**. Web is
+  capped at 1 because several Web specs run `mode: 'serial'` and re-run the
+  ENTIRE file on each retry, so 2 retries meant up to 3× the whole-suite
+  wall-clock — enough for the largest suite to exceed the 20-min job timeout
+  and get cancelled. The sequential `--last-failed` step below still gives
+  genuinely-failed tests a second, isolated pass.
 - Sequential retry with `--last-failed` when parallel run fails
 - `E2E_SEQUENTIAL` and `E2E_NO_RETRIES` env vars for workflow control
 - Headless execution
@@ -502,11 +546,13 @@ Tests run automatically in GitHub Actions on:
 ### HTML Report
 
 After test run:
+
 ```bash
 npx playwright show-report
 ```
 
 View comprehensive HTML report with:
+
 - Test results
 - Screenshots
 - Traces
@@ -515,6 +561,7 @@ View comprehensive HTML report with:
 ### Console Output
 
 Tests provide real-time console output with:
+
 - Test progress
 - Step-by-step execution
 - Pass/fail indicators
@@ -587,11 +634,11 @@ The test suite is designed to grow with the extension while maintaining reliabil
 
 ### Growth Over Time
 
-| Metric | Original | Current |
-|--------|----------|---------|
-| Test Files | 1 | 5 |
-| Total Tests | 3 | See latest CI summary |
-| Coverage Focus | Core smoke | Core feature suites |
+| Metric         | Original   | Current               |
+| -------------- | ---------- | --------------------- |
+| Test Files     | 1          | 5                     |
+| Total Tests    | 3          | See latest CI summary |
+| Coverage Focus | Core smoke | Core feature suites   |
 
 ### Current Status
 
@@ -607,6 +654,7 @@ The test suite is designed to grow with the extension while maintaining reliabil
 ## Success Criteria
 
 All tests passing indicates:
+
 - ✅ Extension activates correctly
 - ✅ LCS is properly integrated
 - ✅ Outline view shows Apex symbols

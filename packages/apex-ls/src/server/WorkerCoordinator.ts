@@ -25,6 +25,7 @@ import {
   QuerySymbolSubset,
   AwaitSymbolReadiness,
   UpdateSymbolSubset,
+  InstallSObjectArtifacts,
   ResolveDepUris,
   ResolveDependentUris,
   FindOccurrenceCandidates,
@@ -43,6 +44,7 @@ import {
   DispatchCodeAction,
   DispatchReferences,
   DispatchRename,
+  DispatchPrepareRename,
   DispatchImplementation,
   DispatchDocumentSymbol,
   DispatchCodeLens,
@@ -59,6 +61,7 @@ import {
   type LspRequestMessage,
   type ResourceLoaderRequest,
   type WorkerRole,
+  type MissingArtifactPayload,
 } from '@salesforce/apex-lsp-shared';
 import type {
   WorkerDispatchStrategy,
@@ -756,6 +759,10 @@ const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
   // occurrences (like references), so it runs on the enrichment pool — not the
   // coordinator, whose local store only holds opened files.
   rename: 'requestPool',
+  // W-23631080: prepareRename runs on the request pool, like rename — it needs
+  // the live document text to parse the cursor file standalone and resolve the
+  // local under the cursor.
+  prepareRename: 'requestPool',
   resolve: 'coordinatorOnly',
   signatureHelp: 'requestPool',
   // workspaceSymbol stays coordinator-only: it is workspace-wide, not
@@ -1093,6 +1100,18 @@ function createDispatcher(
             }),
           );
         }
+        case 'InstallSObjectArtifacts': {
+          const pis = params as {
+            artifacts: MissingArtifactPayload[];
+            originUri?: string;
+          };
+          return sendTracedToDataOwner(
+            new InstallSObjectArtifacts({
+              artifacts: pis.artifacts,
+              originUri: pis.originUri,
+            }),
+          );
+        }
         case 'ResolveDepUris': {
           const prd = params as { classNames?: string[] };
           return sendTracedToDataOwner(
@@ -1404,6 +1423,16 @@ function buildLspRequestMessage(
         // symbol via its local document, so carry the live text or the rename
         // scan finds nothing on the pool.
         content: getDocumentContent?.(rn.textDocument.uri),
+      });
+    }
+    case 'prepareRename': {
+      // W-23631080: prepareRename dispatches to the pool worker just like rename,
+      // carrying the live document text so the worker can parse the cursor file
+      // standalone and resolve the local under the cursor.
+      return new DispatchPrepareRename({
+        textDocument: { uri: p.textDocument.uri },
+        position: (p as PositionBasedParams).position,
+        content: getDocumentContent?.(p.textDocument.uri),
       });
     }
     case 'implementation':

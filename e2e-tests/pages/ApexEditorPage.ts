@@ -13,7 +13,10 @@ import {
   getModifierShortcut,
   goToLineInEditor,
 } from '../shared/utils/helpers';
-import { waitForLSPInitialization } from '../utils/vscode-interaction';
+import {
+  waitForLSPInitialization,
+  waitForWorkspaceIngestion,
+} from '../utils/vscode-interaction';
 
 /**
  * Page object for Apex editor interactions.
@@ -85,6 +88,28 @@ export class ApexEditorPage extends BasePage {
   }
 
   /**
+   * Wait for full workspace ingestion to complete (status bar reaches the
+   * "Apex-LS-TS Server Ready" state), which is when cross-file symbol
+   * resolution becomes available.
+   *
+   * `waitForLanguageServerReady()` only gates on LSP init + editor readiness,
+   * which is enough for same-file navigation but races cross-file resolution:
+   * a definition request issued mid-ingest returns null and VS Code does not
+   * auto-retry it. Cross-file goto tests should gate on THIS before the first
+   * cross-file F12.
+   *
+   * Uses the STRICT variant: a timeout throws (after capturing the status-bar
+   * state) rather than resolving, so a cross-file test fails/retries instead of
+   * issuing F12 against an incomplete workspace — the race this gate exists to
+   * eliminate.
+   *
+   * @param timeout - Max wait in ms (defaults to 45s desktop / 30s web)
+   */
+  async waitForWorkspaceReady(timeout?: number): Promise<void> {
+    await waitForWorkspaceIngestion(this.page, { timeout, strict: true });
+  }
+
+  /**
    * Wait for the active editor tab to change away from the given file.
    * Use after goToDefinition() for cross-file navigation to ensure the LSP
    * response has arrived and VS Code has opened the target file before
@@ -134,18 +159,18 @@ export class ApexEditorPage extends BasePage {
    * Waits for peek widget or editor to update, then closes peek if open.
    *
    * @param expectedLines - Optional 1-indexed line(s) the cursor should reach.
-   *   When provided, F12 is RE-PRESSED (the request re-issued) within a bounded
-   *   loop until the cursor lands on one of these lines. This matters in the web
-   *   worker pool: a definition issued while the pool is still ingesting the
-   *   cursor file at full detail returns null, and VS Code does NOT auto-retry a
-   *   null definition — so a single F12 on a slow runner never navigates even
-   *   though a moment later it would succeed. Re-pressing mirrors what a real
-   *   user does and makes the outcome deterministic. Omit it to keep the legacy
-   *   single-press behavior (callers that assert non-navigation, cross-file
-   *   peeks, etc.).
+   *   When provided, F12 is re-pressed within a bounded loop only while the
+   *   cursor remains at its original position. This recovers when a definition
+   *   request races web-pool ingest and returns null without sending a second
+   *   request from a destination reached by an earlier response. Omit it to keep
+   *   the legacy single-press behavior (callers that assert non-navigation,
+   *   cross-file peeks, etc.).
    */
   async goToDefinition(expectedLines?: number | number[]): Promise<void> {
-    const pressF12AndSettle = async (): Promise<void> => {
+    const pressF12AndSettle = async (previousPosition?: {
+      line: number;
+      column: number;
+    }): Promise<{ line: number; column: number }> => {
       // Ensure the Find widget is fully closed before pressing F12. If
       // positionCursorOnWord left the widget open, F12 lands in the Find input
       // rather than triggering go-to-definition. Escape closes the widget and
@@ -184,6 +209,22 @@ export class ApexEditorPage extends BasePage {
       await this.activeEditorContent
         .waitFor({ state: 'visible', timeout: this.defaultTimeout })
         .catch(() => {});
+
+      if (previousPosition) {
+        // The editor remains visible while the asynchronous definition request
+        // is in flight. Wait for observable navigation before deciding whether
+        // to retry; otherwise rapid F12 presses can act on the destination of a
+        // preceding request and navigate again to an unrelated symbol.
+        const { expect } = await import('@playwright/test');
+        await expect(async () => {
+          const position = await this.getCursorPosition();
+          expect(position).not.toEqual(previousPosition);
+        })
+          .toPass({ timeout: 2000, intervals: [100, 200, 400] })
+          .catch(() => {});
+      }
+
+      return this.getCursorPosition();
     };
 
     if (expectedLines === undefined) {
@@ -191,18 +232,33 @@ export class ApexEditorPage extends BasePage {
       return;
     }
 
-    // Re-issue the definition request until the cursor reaches an expected
-    // line or the bound elapses. Each iteration re-presses F12 so a request
-    // that raced pool warm-up (returned null) is retried, not just re-checked.
-    const { expect } = await import('@playwright/test');
+    // Re-issue only requests that produced no navigation. Once the cursor
+    // moves, another F12 would target the destination rather than reissuing the
+    // original request and can mask an incorrect definition result.
     const validLines = Array.isArray(expectedLines)
       ? expectedLines
       : [expectedLines];
-    await expect(async () => {
-      await pressF12AndSettle();
-      const { line } = await this.getCursorPosition();
-      expect(validLines).toContain(line);
-    }).toPass({ timeout: this.defaultTimeout });
+    const originalPosition = await this.getCursorPosition();
+    const deadline = Date.now() + this.defaultTimeout;
+
+    while (Date.now() < deadline) {
+      const position = await pressF12AndSettle(originalPosition);
+      if (validLines.includes(position.line)) return;
+
+      if (
+        position.line !== originalPosition.line ||
+        position.column !== originalPosition.column
+      ) {
+        throw new Error(
+          `Go-to-definition navigated to line ${position.line}, ` +
+            `expected ${validLines.join(' or ')}`,
+        );
+      }
+    }
+
+    throw new Error(
+      `Go-to-definition did not navigate to line ${validLines.join(' or ')}`,
+    );
   }
 
   /**
@@ -294,6 +350,91 @@ export class ApexEditorPage extends BasePage {
   }
 
   /**
+   * Rename the symbol at the current cursor position using the F2 keyboard
+   * shortcut. Waits for the rename input box to appear, types the new name,
+   * and confirms with Enter.
+   *
+   * Uses the standard VS Code Monaco rename UI: F2 opens a `.rename-box` with
+   * a `.rename-input` text field prefilled with the current symbol name. We
+   * explicitly focus the input and `fill()` the new name (rather than trusting
+   * the prefill to be selected and `type()`-ing over it): the prefill-selection
+   * timing is unreliable, and a stray `type()` leaks the keystrokes into the
+   * editor — observed as `total`→`totalrenamed` when the input wasn't focused.
+   * Enter confirms the rename and applies the WorkspaceEdit; Escape cancels.
+   *
+   * Re-presses F2 if the input box does not appear: on the web worker pool the
+   * LSP may not have resolved the symbol on the first invocation (a transient
+   * no-op), so a single F2 can race pool warm-up. The retry targets ONLY the
+   * "press F2 + wait for input visible" part; type/Enter/wait-hidden are
+   * outside toPass to avoid double-rename if the WorkspaceEdit is slow.
+   *
+   * @param newName - The new name for the symbol
+   */
+  async rename(newName: string): Promise<void> {
+    const { expect } = await import('@playwright/test');
+
+    // Ensure the Find widget is fully closed before pressing F2. If
+    // positionCursorOnWord left the widget open, F2 lands in the Find input
+    // rather than triggering rename. Escape closes the widget and returns
+    // focus + cursor to the editor at the found position (same hazard
+    // guarded against in goToDefinition / openCodeActions / findReferences).
+    const findWidget = this.page.locator('.editor-widget.find-widget');
+    if (await findWidget.isVisible()) {
+      await this.page.keyboard.press('Escape');
+      await findWidget
+        .waitFor({ state: 'hidden', timeout: 3000 })
+        .catch(() => {});
+    }
+
+    // ONLY the "press F2 + wait for rename input visible" part is inside
+    // toPass, targeting the LSP-ready race without risking a double-apply if
+    // the WorkspaceEdit is slow to commit.
+    const renameInput = this.page.locator(
+      '.rename-box .rename-input, .monaco-editor .rename-box input',
+    );
+    await expect(async () => {
+      // Dismiss any lingering rename widget from a prior attempt. Monaco renders
+      // TWO `.rename-box` elements (the main widget + a candidate-list
+      // container), so key the check off the rename INPUT — the single,
+      // unambiguous element inside the active widget (same `renameInput.first()`
+      // locator used below) — rather than a second `.rename-box` selector that
+      // could either multi-match (strict-mode violation) or miss.
+      const lingeringInput = renameInput.first();
+      if (await lingeringInput.isVisible()) {
+        await this.page.keyboard.press('Escape');
+        await lingeringInput
+          .waitFor({ state: 'hidden', timeout: 1000 })
+          .catch(() => {});
+      }
+
+      await this.page.keyboard.press('F2');
+
+      // Wait for the rename input to appear. Monaco renders the input inside
+      // a `.rename-box` widget; the input itself is `.rename-input`.
+      await renameInput.waitFor({ state: 'visible', timeout: 3000 });
+    }).toPass({ timeout: this.defaultTimeout });
+
+    // OUTSIDE toPass: set the new name, confirm, and wait for the box to hide.
+    // This happens exactly once, after the LSP is known to be ready. Focus the
+    // input and `fill()` it — `fill` sets the value atomically on the focused
+    // element, which is robust against the prefill-selection/focus race that
+    // `keyboard.type()` is subject to (a mis-timed type leaks into the editor).
+    // `.first()` avoids a strict-mode violation from the two `.rename-box`
+    // matches (main widget + candidate-list container).
+    const activeInput = renameInput.first();
+    await activeInput.focus();
+    await activeInput.fill(newName);
+
+    // Confirm the rename with Enter. The WorkspaceEdit is applied and the
+    // rename box closes.
+    await this.page.keyboard.press('Enter');
+
+    // Wait for the rename input to be hidden (not .rename-box, which has
+    // multiple matches). The input uniquely identifies the active widget.
+    await renameInput.waitFor({ state: 'hidden', timeout: 5000 });
+  }
+
+  /**
    * Select a range in the editor by positioning at a start line/column and
    * extending the selection a number of characters to the right.
    *
@@ -334,9 +475,12 @@ export class ApexEditorPage extends BasePage {
    * can race the pool warm-up. The widget is left OPEN on success so callers
    * can select an action; dismiss it with Escape when done.
    *
+   * @param expectedTitleFragment - When provided, keep polling until an action
+   *   with this title fragment is present. VS Code can render built-in actions
+   *   such as "Modify" before the language server response arrives.
    * @returns The trimmed titles of the offered code actions.
    */
-  async openCodeActions(): Promise<string[]> {
+  async openCodeActions(expectedTitleFragment?: string): Promise<string[]> {
     const { expect } = await import('@playwright/test');
     // Monaco keeps more than one `.action-widget` in the DOM (e.g. a hidden
     // template alongside the live one), so an unscoped locator trips
@@ -378,6 +522,12 @@ export class ApexEditorPage extends BasePage {
       expect(found.length, 'Expected at least one code action').toBeGreaterThan(
         0,
       );
+      if (expectedTitleFragment) {
+        expect(
+          found.some((title) => title.includes(expectedTitleFragment)),
+          `Expected code action "${expectedTitleFragment}" but got: ${found.join(', ')}`,
+        ).toBe(true);
+      }
       titles = found;
     }).toPass({ timeout: this.defaultTimeout });
 

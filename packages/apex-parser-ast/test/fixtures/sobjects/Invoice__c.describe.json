@@ -1,0 +1,39 @@
+{
+  "name": "Invoice__c",
+  "label": "Invoice",
+  "labelPlural": "Invoices",
+  "custom": true,
+  "queryable": true,
+  "definitionTarget": {
+    "uri": "sf-org-data://objects/Invoice__c/Invoice__c.object-meta.xml"
+  },
+  "fields": [
+    {
+      "name": "Name",
+      "type": "string",
+      "definitionTarget": {
+        "uri": "file:///workspace/objects/Invoice__c/fields/Name.field-meta.xml"
+      }
+    },
+    {
+      "name": "Account__c",
+      "type": "reference",
+      "referenceTo": ["Account"],
+      "relationshipName": "Account__r",
+      "definitionTarget": {
+        "uri": "file:///workspace/objects/Invoice__c/fields/Account__c.field-meta.xml",
+        "range": {
+          "start": { "line": 3, "character": 2 },
+          "end": { "line": 3, "character": 12 }
+        }
+      }
+    },
+    {
+      "name": "ExternalScore__c",
+      "type": "futurePlatformScalar",
+      "definitionTarget": {
+        "uri": "sf-org-data://objects/Invoice__c/fields/ExternalScore__c.field-meta.xml"
+      }
+    }
+  ]
+}

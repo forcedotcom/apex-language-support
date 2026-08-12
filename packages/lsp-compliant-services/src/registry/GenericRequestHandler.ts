@@ -59,7 +59,12 @@ export class GenericRequestHandler<
    * Get the method name to call on the service based on request type
    */
   private getMethodName(requestType: LSPRequestType): string {
-    const methodMap: Record<LSPRequestType, string> = {
+    // Partial: not every LSPRequestType has a local service method here. In
+    // particular `prepareRename` is served ONLY through the worker-pool
+    // topology (WorkerCoordinator → DispatchPrepareRename) and has no local
+    // service handler — omitting it avoids implying a `processPrepareRename`
+    // that no service registers. Unmapped types fall through to `'process'`.
+    const methodMap: Partial<Record<LSPRequestType, string>> = {
       hover: 'processHover',
       completion: 'processCompletion',
       definition: 'processDefinition',

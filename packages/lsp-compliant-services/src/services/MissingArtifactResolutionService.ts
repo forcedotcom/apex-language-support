@@ -10,9 +10,15 @@ import {
   LoggerInterface,
   LSPConfigurationManager,
   ApexSettingsManager,
+  FindMissingArtifactResultSchema,
   Priority,
 } from '@salesforce/apex-lsp-shared';
-import type { FindMissingArtifactParams } from '@salesforce/apex-lsp-shared';
+import type {
+  FindMissingArtifactParams,
+  FindMissingArtifactResult,
+  MissingArtifactPayload,
+} from '@salesforce/apex-lsp-shared';
+import { Schema } from 'effect';
 import { LSPQueueManager } from '../queue';
 import type { Connection } from 'vscode-languageserver';
 import { sanitizeMissingArtifactParams } from '../utils/missingArtifactProvenance';
@@ -21,7 +27,83 @@ import { sanitizeMissingArtifactParams } from '../utils/missingArtifactProvenanc
  * Result types for blocking resolution
  */
 export type BlockingResult =
-  'resolved' | 'not-found' | 'timeout' | 'cancelled' | 'unsupported';
+  | {
+      readonly status: 'resolved';
+      readonly artifacts?: MissingArtifactPayload[];
+      readonly opened?: string[];
+    }
+  | {
+      readonly status: 'not-found' | 'timeout' | 'cancelled' | 'unsupported';
+    };
+
+const blockingStatus = (
+  status: Exclude<BlockingResult['status'], 'resolved'>,
+): BlockingResult => ({ status });
+
+/**
+ * Decode a client response and verify that artifact payloads belong to the
+ * identifiers in the request. Invalid or mismatched data never crosses into
+ * coordinator enrichment.
+ */
+export function decodeFindMissingArtifactResult(
+  result: unknown,
+  params: FindMissingArtifactParams,
+): FindMissingArtifactResult | undefined {
+  if (!result || typeof result !== 'object' || Array.isArray(result)) {
+    return undefined;
+  }
+  const candidate = result as Record<string, unknown>;
+  const hasArtifacts = Object.prototype.hasOwnProperty.call(
+    candidate,
+    'artifacts',
+  );
+  const hasOpened = Object.prototype.hasOwnProperty.call(candidate, 'opened');
+  const hasNotFound = Object.prototype.hasOwnProperty.call(
+    candidate,
+    'notFound',
+  );
+  const hasAccepted = Object.prototype.hasOwnProperty.call(
+    candidate,
+    'accepted',
+  );
+  const validShape =
+    (hasArtifacts && !hasNotFound && !hasAccepted) ||
+    (!hasArtifacts && hasOpened && !hasNotFound && !hasAccepted) ||
+    (!hasArtifacts && !hasOpened && hasNotFound && !hasAccepted) ||
+    (!hasArtifacts && !hasOpened && !hasNotFound && hasAccepted);
+  if (!validShape) {
+    return undefined;
+  }
+
+  let decoded: FindMissingArtifactResult;
+  try {
+    decoded = Schema.decodeUnknownSync(FindMissingArtifactResultSchema)(
+      result,
+    ) as FindMissingArtifactResult;
+  } catch {
+    return undefined;
+  }
+
+  if (!('artifacts' in decoded)) {
+    return decoded;
+  }
+
+  const requestedSObjects = new Set(
+    params.identifiers
+      .filter((identifier) => identifier.identifierType === 'sobject')
+      .map((identifier) => identifier.name.trim().toLowerCase()),
+  );
+  const artifactsMatchRequest = decoded.artifacts.every((artifact) => {
+    const normalizedName = artifact.name.trim().toLowerCase();
+    return (
+      artifact.identifierType === 'sobject' &&
+      requestedSObjects.has(normalizedName) &&
+      artifact.describe.name.trim().toLowerCase() === normalizedName
+    );
+  });
+
+  return artifactsMatchRequest ? decoded : undefined;
+}
 
 /**
  * Configuration for missing artifact resolution
@@ -114,9 +196,11 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
         params.identifiers
           .map((identifier) => {
             const provenance = identifier.provenance;
-            if (!provenance) return '';
+            const name = identifier.name.trim().toLowerCase();
+            if (!name || !provenance) return '';
             return [
-              identifier.name.trim().toLowerCase(),
+              identifier.identifierType ?? 'apex-class',
+              name,
               provenance.sourceUri,
               provenance.documentVersion ?? 'unknown',
               provenance.referenceIdentity,
@@ -163,7 +247,7 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
       now - recentTimeout <
         EnhancedMissingArtifactResolutionService.BLOCKING_TIMEOUT_COOLDOWN_MS
     ) {
-      return 'timeout';
+      return blockingStatus('timeout');
     }
     this.logger.debug(
       () => `Starting blocking resolution for identifiers: ${names}`,
@@ -175,7 +259,7 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
       this.logger.debug(
         () => 'Missing artifact resolution is disabled in settings',
       );
-      return 'unsupported';
+      return blockingStatus('unsupported');
     }
 
     // Sanitize once and reuse for every sink (proxy + queue). Both terminate in
@@ -188,7 +272,7 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
         () =>
           'Rejecting missing-artifact request without complete semantic provenance',
       );
-      return 'not-found';
+      return blockingStatus('not-found');
     }
     const timeoutMs = params.timeoutMsHint || this.config.blockingWaitTimeoutMs;
 
@@ -219,9 +303,12 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
           );
           // Reaching here means the proxy resolved without throwing, so any
           // prior timeout cooldown for this key is stale — clear it.
-          // (mapResultToBlockingResult only yields 'resolved'/'not-found';
+          // (mapResultToBlockingResult only yields resolved/not-found outcomes;
           // timeouts surface as a thrown error handled by the catch below.)
-          const mappedProxy = this.mapResultToBlockingResult(proxyResult);
+          const mappedProxy = this.mapResultToBlockingResult(
+            proxyResult,
+            safeParams,
+          );
           EnhancedMissingArtifactResolutionService.recentBlockingTimeouts.delete(
             key,
           );
@@ -229,7 +316,7 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
             this.logger.debug(
               () =>
                 `[REQ-HARDEN] missingArtifact blocking end (proxy) kind=${requestKind} ` +
-                `result=${mappedProxy} durationMs=${Date.now() - startedAt}`,
+                `result=${mappedProxy.status} durationMs=${Date.now() - startedAt}`,
             );
           }
           return mappedProxy;
@@ -253,8 +340,8 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
         // Map the result to BlockingResult. Reaching here means the queue
         // resolved without throwing, so clear any stale timeout cooldown for
         // this key. (mapResultToBlockingResult only yields
-        // 'resolved'/'not-found'; queue timeouts throw and are handled below.)
-        const mapped = this.mapResultToBlockingResult(result);
+        // resolved/not-found outcomes; queue timeouts throw and are handled below.)
+        const mapped = this.mapResultToBlockingResult(result, safeParams);
         EnhancedMissingArtifactResolutionService.recentBlockingTimeouts.delete(
           key,
         );
@@ -262,7 +349,7 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
           this.logger.debug(
             () =>
               `[REQ-HARDEN] missingArtifact blocking end kind=${requestKind} ` +
-              `result=${mapped} durationMs=${Date.now() - startedAt}`,
+              `result=${mapped.status} durationMs=${Date.now() - startedAt}`,
           );
         }
         return mapped;
@@ -284,7 +371,7 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
                 `durationMs=${Date.now() - startedAt}`,
             );
           }
-          return 'timeout';
+          return blockingStatus('timeout');
         }
 
         if (shouldObserve) {
@@ -294,7 +381,7 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
               `durationMs=${Date.now() - startedAt}`,
           );
         }
-        return 'not-found';
+        return blockingStatus('not-found');
       } finally {
         EnhancedMissingArtifactResolutionService.inFlightBlockingRequests.delete(
           key,
@@ -441,30 +528,36 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
   /**
    * Map the queue result to BlockingResult
    */
-  private mapResultToBlockingResult(result: any): BlockingResult {
-    if (!result) {
-      return 'not-found';
+  private mapResultToBlockingResult(
+    result: unknown,
+    params: FindMissingArtifactParams,
+  ): BlockingResult {
+    const decoded = decodeFindMissingArtifactResult(result, params);
+    if (!decoded) {
+      return blockingStatus('not-found');
     }
 
-    // Check if the result indicates success
-    if (
-      result.opened &&
-      Array.isArray(result.opened) &&
-      result.opened.length > 0
-    ) {
-      return 'resolved';
+    const hasOpened =
+      'opened' in decoded &&
+      Array.isArray(decoded.opened) &&
+      decoded.opened.length > 0;
+    const hasApexRequest = params.identifiers.some(
+      (identifier) => identifier.identifierType !== 'sobject',
+    );
+    const artifacts =
+      'artifacts' in decoded && decoded.artifacts.length > 0
+        ? decoded.artifacts
+        : undefined;
+
+    if (artifacts || (hasOpened && hasApexRequest)) {
+      return {
+        status: 'resolved',
+        ...(artifacts && { artifacts }),
+        ...(hasOpened && { opened: decoded.opened }),
+      };
     }
 
-    if (result.accepted) {
-      return 'resolved'; // Background resolution accepted
-    }
-
-    if (result.notFound) {
-      return 'not-found';
-    }
-
-    // Default to not found
-    return 'not-found';
+    return blockingStatus('not-found');
   }
 
   /**

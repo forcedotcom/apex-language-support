@@ -274,6 +274,29 @@ Configure automatic discovery and loading of missing type definitions.
 
 Enable automatic finding and loading of missing artifacts when go-to-definition or hover encounters an unknown type.
 
+Resolution checks the workspace first. If no workspace artifact matches, the
+desktop extension uses the currently published Salesforce services API to
+describe sObjects and query Apex class or trigger source from the active org.
+Org results are exposed through a temporary, read-only
+`apex-org-artifact:` virtual file system; they are not written into the
+workspace.
+
+For sObjects, the language server consumes the native describe payload and
+builds a native symbol table. It does not compile generated faux `.cls` files.
+If there is no active org, authorization fails, source is protected, or the
+services extension is unavailable, resolution degrades to the existing
+suppressed/not-found behavior without retrying in a loop. Cached virtual
+documents are cleared in place when the target org changes and when the
+extension deactivates. Switching orgs never restarts the language server. A
+serialized sObject describe larger than 5 MiB is rejected before it crosses the
+worker boundary.
+
+This services-based lookup is an interim provider. When `sf-org-data` exposes
+the planned APIs, only the client-side materialization provider should change;
+the wire payload, virtual file system, and native parser symbol-table boundary
+remain stable. Pulling a resolved org class into the workspace is intentionally
+left as a separate future feature.
+
 #### `apex.findMissingArtifact.blockingWaitTimeoutMs`
 
 **Type**: `number` (milliseconds)  

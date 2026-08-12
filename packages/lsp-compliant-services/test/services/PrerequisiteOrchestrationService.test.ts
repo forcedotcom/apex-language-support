@@ -11,6 +11,10 @@ import {
   ReferenceContext,
 } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
+import {
+  ownerUriForSObject,
+  ReferenceContext as ParserReferenceContext,
+} from '@salesforce/apex-lsp-parser-ast';
 import { PrerequisiteOrchestrationService } from '../../src/services/PrerequisiteOrchestrationService';
 import { getDocumentStateCache } from '../../src/services/DocumentStateCache';
 import { reset as resetWorkspaceLoadState } from '../../src/services/WorkspaceLoadCoordinator';
@@ -113,7 +117,10 @@ describe('PrerequisiteOrchestrationService', () => {
     const layerEnrichmentService = {
       enrichFiles: jest.fn().mockResolvedValue(undefined),
     };
-    mockMissingArtifactService.resolveBlocking.mockResolvedValue('resolved');
+    mockMissingArtifactService.resolveBlocking.mockResolvedValue({
+      status: 'resolved',
+      opened: ['file:///Missing.cls'],
+    });
 
     const service = new PrerequisiteOrchestrationService(
       logger,
@@ -181,7 +188,10 @@ describe('PrerequisiteOrchestrationService', () => {
     const layerEnrichmentService = {
       enrichFiles: jest.fn().mockResolvedValue(undefined),
     };
-    mockMissingArtifactService.resolveBlocking.mockResolvedValue('resolved');
+    mockMissingArtifactService.resolveBlocking.mockResolvedValue({
+      status: 'resolved',
+      opened: ['file:///Missing.cls'],
+    });
 
     const service = new PrerequisiteOrchestrationService(
       logger,
@@ -291,7 +301,10 @@ describe('PrerequisiteOrchestrationService', () => {
       symbolManager as never,
       { enrichFiles: jest.fn() } as never,
     );
-    mockMissingArtifactService.resolveBlocking.mockResolvedValue('resolved');
+    mockMissingArtifactService.resolveBlocking.mockResolvedValue({
+      status: 'resolved',
+      opened: ['file:///Missing.cls'],
+    });
 
     await (service as any).handleMissingArtifactsAfterCrossFileResolution(
       uri,
@@ -321,6 +334,102 @@ describe('PrerequisiteOrchestrationService', () => {
     expect(resolveCrossFileReferencesForFile).toHaveBeenCalledTimes(1);
     expect(receiver.resolvedTypeId).toBe('type:Property__c');
     expect(member.resolvedSymbolId).toBe('field:Property__c.Beds__c');
+  });
+
+  it('classifies SOQL evidence and enriches through the existing unresolved scan', async () => {
+    const unresolvedRef = {
+      name: 'Account',
+      resolvedSymbolId: undefined,
+      context: ParserReferenceContext.SOQL_FROM_TYPE,
+      isSObject: true,
+      location: {
+        symbolRange: {
+          startLine: 1,
+          startColumn: 20,
+          endLine: 1,
+          endColumn: 27,
+        },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 20,
+          endLine: 1,
+          endColumn: 27,
+        },
+      },
+    };
+    const consumerTable = {
+      getAllReferences: jest.fn().mockReturnValue([unresolvedRef]),
+      getMetadata: jest.fn().mockReturnValue({
+        documentVersion: 1,
+        parseCompleteness: 'complete',
+      }),
+    };
+    const tables = new Map<string, any>([[uri, consumerTable]]);
+    const symbolManager = {
+      getDetailLevelForFile: jest.fn().mockReturnValue('full'),
+      getSymbolTableForFile: jest.fn(async (fileUri: string) =>
+        tables.get(fileUri),
+      ),
+      addSymbolTable: jest.fn((table: any, fileUri: string) =>
+        Effect.sync(() => {
+          tables.set(fileUri, table);
+        }),
+      ),
+      resolveCrossFileReferencesForFile: jest
+        .fn()
+        .mockReturnValue(Effect.succeed(undefined)),
+      isStandardLibraryType: jest.fn().mockReturnValue(false),
+      findSymbolByName: jest.fn(async (name: string) => {
+        const table = tables.get(ownerUriForSObject(name));
+        return table?.getRoots() ?? [];
+      }),
+    };
+    const layerEnrichmentService = {
+      enrichFiles: jest.fn().mockResolvedValue(undefined),
+    };
+    const accountArtifact = {
+      identifierType: 'sobject' as const,
+      name: 'Account',
+      describe: {
+        name: 'Account',
+        custom: false,
+        fields: [
+          {
+            name: 'Name',
+            type: 'string',
+            definitionTarget: { uri: 'org://Account/Name' },
+          },
+        ],
+        definitionTarget: { uri: 'org://Account' },
+      },
+    };
+    mockMissingArtifactService.resolveBlocking.mockResolvedValue({
+      status: 'resolved',
+      artifacts: [accountArtifact],
+    });
+    const service = new PrerequisiteOrchestrationService(
+      logger,
+      symbolManager as never,
+      layerEnrichmentService as never,
+    );
+
+    await service.runDefinitionOnDemandStrictness(uri);
+
+    expect(mockMissingArtifactService.resolveBlocking).toHaveBeenCalledWith(
+      expect.objectContaining({
+        identifiers: [
+          expect.objectContaining({
+            name: 'Account',
+            identifierType: 'sobject',
+          }),
+        ],
+      }),
+    );
+    const accountTable = tables.get(ownerUriForSObject('Account'));
+    expect(accountTable.getMetadata().parseCompleteness).toBe('complete');
+    expect(
+      accountTable.getAllSymbols().map((symbol: any) => symbol.name),
+    ).toEqual(['Account', 'Name']);
   });
 
   it('deduplicates concurrent prerequisite requests for the same file and version', async () => {

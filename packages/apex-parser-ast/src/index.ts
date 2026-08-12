@@ -50,6 +50,10 @@ export * from './types/classInfo';
 export * from './types/ISymbolManager';
 export * from './types/graph';
 
+// Export canonical sObject name classification
+export * from './sobjects/SObjectRegistry';
+export * from './sobjects/SObjectSymbolTableComposer';
+
 // Export namespace resolution types and components
 export * from './namespace/NamespaceUtils';
 export * from './utils/BuiltInTypeTables';
@@ -159,6 +163,10 @@ export {
   type LocalOccurrences,
 } from './symbols/ops/findLocalOccurrences';
 export {
+  validateRenameName,
+  type ValidateRenameNameResult,
+} from './symbols/ops/validateRenameName';
+export {
   analyzeDependencies as analyzeDependenciesOp,
   detectCircularDependencies as detectCircularDependenciesOp,
   getGraphData as getGraphDataOp,
@@ -235,6 +243,7 @@ export type {
   ValidationWarningInfo,
   ValidationScope,
 } from './semantics/validation/ValidationResult';
+export { IdentifierValidator } from './semantics/validation/IdentifierValidator';
 export {
   ValidatorRegistry,
   ValidatorRegistryLive,

@@ -123,26 +123,48 @@ export const openFileByName = async (
     // of whether they have been opened before in this session.
     const explorerView = page.locator('[id="workbench.view.explorer"]');
     await explorerView.waitFor({ state: 'visible', timeout: 10_000 });
+    await expandWorkspaceFolders(page);
 
-    const fileRow = explorerView
-      .locator('.monaco-list-row')
-      .filter({ hasText: fileName });
+    // Use an exact label match so Foo.cls never binds to Foo.cls-meta.xml.
+    const fileLabel = explorerView.getByText(fileName, { exact: true });
 
-    const rowCount = await fileRow.count();
-    if (rowCount === 0) {
+    const labelCount = await fileLabel.count();
+    if (labelCount === 0) {
       throw new Error(
         `File "${fileName}" not found in Explorer sidebar. ` +
           'Ensure the file exists in the workspace.',
       );
     }
 
-    await fileRow.first().click();
+    await fileLabel.first().click();
   }
 
   await page.locator(EDITOR_WITH_URI).first().waitFor({
     state: 'visible',
     timeout: 10_000,
   });
+};
+
+/** Expand nested workspace folders so files in a standard DX layout are visible. */
+export const expandWorkspaceFolders = async (page: Page): Promise<void> => {
+  const explorerView = page.locator('[id="workbench.view.explorer"]');
+  await explorerView.waitFor({ state: 'visible', timeout: 10_000 });
+
+  // Expand only the fixture's source path. Desktop workspaces also contain a
+  // generated .vscode-test-user-data tree; expanding arbitrary folders can
+  // disappear into that tree without ever exposing the Apex sources.
+  for (const folderName of ['force-app', 'main', 'default', 'classes']) {
+    const folderLabel = explorerView
+      .getByText(folderName, { exact: true })
+      .first();
+    await folderLabel.waitFor({ state: 'visible', timeout: 10_000 });
+    const folder = folderLabel.locator(
+      'xpath=ancestor::*[@role="treeitem"][1]',
+    );
+    if ((await folder.getAttribute('aria-expanded')) === 'false') {
+      await folder.locator('.monaco-tl-twistie').first().click();
+    }
+  }
 };
 
 /** Edit the currently open file by adding a comment at the top */
