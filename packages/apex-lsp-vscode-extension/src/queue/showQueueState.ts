@@ -8,7 +8,7 @@
 import * as vscode from 'vscode';
 import { formattedError } from '@salesforce/apex-lsp-shared';
 import { getQueueStateWebviewContent } from '../webviews/queueStateView';
-import { getClient, getLanguageClient } from '../language-server';
+import { getClient } from '../language-server';
 import { logToOutputChannel } from '../logging';
 
 /**
@@ -53,7 +53,7 @@ export async function showQueueState(
   let queueStateData: QueueStateData | null = null;
 
   try {
-    const response = await client.sendRequest('apex/queueState', {
+    const response = await client.queueState({
       includeRequestTypeBreakdown: true,
       includeUtilization: true,
       includeActiveTasks: true,
@@ -109,68 +109,63 @@ export async function showQueueState(
   // Track if panel is disposed
   let isPanelDisposed = false;
 
-  // Get the underlying LanguageClient to access onNotification that returns Disposable
-  const languageClient = getLanguageClient();
   let notificationDisposable: vscode.Disposable | undefined;
 
-  if (languageClient) {
+  if (client) {
     // Register notification handler for queue state changes (real-time updates from scheduler loop)
     // Use underlying LanguageClient.onNotification which returns a Disposable
-    notificationDisposable = languageClient.onNotification(
-      'apex/queueStateChanged',
-      (params: any) => {
-        logToOutputChannel(
-          `[QueueState] Received queue state notification: ${JSON.stringify({
-            queueSizes: params.metrics?.queueSizes,
-            started: params.metrics?.tasksStarted,
-            completed: params.metrics?.tasksCompleted,
-          })}`,
-          'debug',
+    notificationDisposable = client.onQueueStateChanged((params) => {
+      logToOutputChannel(
+        `[QueueState] Received queue state notification: ${JSON.stringify({
+          queueSizes: params.metrics?.queueSizes,
+          started: params.metrics?.tasksStarted,
+          completed: params.metrics?.tasksCompleted,
+        })}`,
+        'debug',
+      );
+      // Check if panel is still valid before posting
+      if (!isPanelDisposed && panel) {
+        console.log(
+          '[QueueState] Received queue state notification, forwarding to webview',
+          params,
         );
-        // Check if panel is still valid before posting
-        if (!isPanelDisposed && panel) {
-          console.log(
-            '[QueueState] Received queue state notification, forwarding to webview',
-            params,
-          );
-          try {
-            panel.webview.postMessage({
-              type: 'queueStateData',
-              data: {
-                metrics: params.metrics,
-                metadata: params.metadata || {
-                  timestamp: Date.now(),
-                  processingTime: 0,
-                },
+        try {
+          panel.webview.postMessage({
+            type: 'queueStateData',
+            data: {
+              metrics: params.metrics,
+              metadata: params.metadata || {
+                timestamp: Date.now(),
+                processingTime: 0,
               },
-            });
-            logToOutputChannel(
-              '[QueueState] Successfully posted message to webview',
-              'debug',
-            );
-          } catch (error) {
-            console.error(
-              '[QueueState] Error posting message to webview:',
-              error,
-            );
-            logToOutputChannel(
-              `[QueueState] Error posting message to webview: ${formattedError(error)}`,
-              'error',
-            );
-            // If posting fails, panel might be disposed
-            isPanelDisposed = true;
-          }
-        } else {
-          console.log(
-            '[QueueState] Panel disposed, ignoring queue state notification',
-          );
+            },
+          });
           logToOutputChannel(
-            '[QueueState] Panel disposed, ignoring queue state notification',
+            '[QueueState] Successfully posted message to webview',
             'debug',
           );
+        } catch (error) {
+          console.error(
+            '[QueueState] Error posting message to webview:',
+            error,
+          );
+          logToOutputChannel(
+            `[QueueState] Error posting message to webview: ${formattedError(error)}`,
+            'error',
+          );
+          // If posting fails, panel might be disposed
+          isPanelDisposed = true;
         }
-      },
-    );
+      } else {
+        console.log(
+          '[QueueState] Panel disposed, ignoring queue state notification',
+        );
+        logToOutputChannel(
+          '[QueueState] Panel disposed, ignoring queue state notification',
+          'debug',
+        );
+      }
+    });
     console.log('[QueueState] Notification handler registered');
     logToOutputChannel(
       '[QueueState] Notification handler registered for apex/queueStateChanged',
@@ -195,7 +190,7 @@ export async function showQueueState(
       case 'refresh':
         // Manual refresh requested
         try {
-          const response = await client!.sendRequest('apex/queueState', {
+          const response = await client.queueState({
             includeRequestTypeBreakdown: true,
             includeUtilization: true,
             includeActiveTasks: true,

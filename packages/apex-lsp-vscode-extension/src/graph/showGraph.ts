@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import { getGraphWebviewContent } from '../webviews/graphView';
 import { getClient } from '../language-server';
 import { formattedError } from '@salesforce/apex-lsp-shared';
+import type { GraphDataShape } from '@salesforce/apex-lsp-shared';
 
 /**
  * Interface for graph node data
@@ -16,7 +17,7 @@ import { formattedError } from '@salesforce/apex-lsp-shared';
 interface GraphNode {
   id: string;
   label: string;
-  type: 'class' | 'method' | 'property' | 'namespace';
+  type: 'class' | 'method' | 'property' | 'namespace' | 'block';
   namespace?: string;
   filePath?: string;
   line?: number;
@@ -41,6 +42,80 @@ interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
 }
+
+// Wire values defined by apex-parser-ast ReferenceType and carried by GraphEdgeShape.
+const protocolReferenceType = {
+  methodCall: 1,
+  inheritance: 4,
+  interfaceImplementation: 5,
+  constructorCall: 6,
+  staticAccess: 7,
+  instanceAccess: 8,
+  importReference: 9,
+  namespaceReference: 10,
+} as const;
+
+const mapSymbolKind = (kind: string): GraphNode['type'] => {
+  switch (kind) {
+    case 'block':
+      return 'block';
+    case 'method':
+    case 'constructor':
+      return 'method';
+    case 'property':
+    case 'field':
+    case 'variable':
+    case 'parameter':
+      return 'property';
+    default:
+      return 'class';
+  }
+};
+
+const mapReferenceType = (
+  type: GraphDataShape['edges'][number]['type'],
+): GraphEdge['type'] => {
+  switch (type) {
+    case protocolReferenceType.methodCall:
+    case protocolReferenceType.constructorCall:
+    case protocolReferenceType.staticAccess:
+    case protocolReferenceType.instanceAccess:
+      return 'calls';
+    case protocolReferenceType.inheritance:
+      return 'inherits';
+    case protocolReferenceType.interfaceImplementation:
+      return 'implements';
+    case protocolReferenceType.importReference:
+    case protocolReferenceType.namespaceReference:
+      return 'contains';
+    default:
+      return 'references';
+  }
+};
+
+export const convertProtocolGraphData = (
+  responseData: GraphDataShape,
+): GraphData => ({
+  nodes: responseData.nodes.map((node) => ({
+    id: node.id,
+    label: node.name,
+    type: mapSymbolKind(node.kind),
+    namespace: node.namespace ?? undefined,
+    filePath: node.fileUri,
+    line: node.location.symbolRange.startLine,
+  })),
+  edges: responseData.edges.map((edge) => ({
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    type: mapReferenceType(edge.type),
+  })),
+});
+
+export const graphNodeNavigationUri = (filePath: string): vscode.Uri =>
+  /^[A-Za-z][A-Za-z\d+.-]*:/.test(filePath) && !/^[A-Za-z]:[\\/]/.test(filePath)
+    ? vscode.Uri.parse(filePath)
+    : vscode.Uri.file(filePath);
 
 /**
  * Save graph data to workspace .graph folder with timestamped filename
@@ -458,7 +533,12 @@ export async function showGraph(context: vscode.ExtensionContext) {
 
   try {
     // Try to get data from language server, include diagnostics when viewing Apex file
-    const requestParams: Record<string, unknown> = {
+    const requestParams: {
+      type: 'file' | 'all';
+      includeMetadata: boolean;
+      includeDiagnostics: boolean;
+      fileUri?: string;
+    } = {
       type: useFile ? 'file' : 'all',
       includeMetadata: true,
       includeDiagnostics: !!useFile,
@@ -467,15 +547,12 @@ export async function showGraph(context: vscode.ExtensionContext) {
       requestParams.fileUri = fileUri;
     }
 
-    const response = await client.sendRequest('apex/graphData', requestParams);
+    const response = await client.graphData(requestParams);
     console.log('Successfully loaded graph data from language server');
 
     // Extract the actual graph data from the response
-    const responseData = response.data || response;
-    graphData = {
-      nodes: responseData.nodes ?? [],
-      edges: responseData.edges ?? [],
-    };
+    const responseData = response.data;
+    graphData = convertProtocolGraphData(responseData);
     if (response.diagnostics) {
       graphData.diagnostics = response.diagnostics;
     }
@@ -523,7 +600,7 @@ export async function showGraph(context: vscode.ExtensionContext) {
       // Try to open the file if it has a filePath
       if (msg.node.filePath) {
         try {
-          const uri = vscode.Uri.file(msg.node.filePath);
+          const uri = graphNodeNavigationUri(msg.node.filePath);
           const document = await vscode.workspace.openTextDocument(uri);
           const editor = await vscode.window.showTextDocument(document);
 

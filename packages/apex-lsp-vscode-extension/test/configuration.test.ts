@@ -51,7 +51,8 @@ jest.mock('../src/logging', () => ({
 
 describe('Configuration Module', () => {
   let mockContext: vscode.ExtensionContext;
-  let mockClient: LanguageClient;
+  let mockClient: LanguageClient & { notify: jest.Mock };
+  let mockRawClient: LanguageClient;
   let mockGetConfiguration: jest.Mock;
 
   beforeEach(() => {
@@ -61,7 +62,9 @@ describe('Configuration Module', () => {
     // Create mock client
     mockClient = {
       sendNotification: jest.fn(),
-    } as unknown as LanguageClient;
+      notify: jest.fn(),
+    } as unknown as LanguageClient & { notify: jest.Mock };
+    mockRawClient = { setTrace: jest.fn() } as unknown as LanguageClient;
 
     // Create mock context
     mockContext = {
@@ -389,14 +392,21 @@ describe('Configuration Module', () => {
 
   describe('registerConfigurationChangeListener', () => {
     it('should register configuration change listener', () => {
-      registerConfigurationChangeListener(mockClient, mockContext);
+      const listener = registerConfigurationChangeListener(
+        mockClient,
+        mockRawClient,
+      );
 
       expect(vscode.workspace.onDidChangeConfiguration).toHaveBeenCalled();
-      expect(mockContext.subscriptions).toHaveLength(1);
+      expect(listener).toBe(
+        (vscode.workspace.onDidChangeConfiguration as jest.Mock).mock.results[0]
+          .value,
+      );
+      expect(mockContext.subscriptions).toHaveLength(0);
     });
 
     it('should send configuration update notification when apex config changes', () => {
-      registerConfigurationChangeListener(mockClient, mockContext);
+      registerConfigurationChangeListener(mockClient, mockRawClient);
 
       // Get the registered listener
       const listener = (vscode.workspace.onDidChangeConfiguration as jest.Mock)
@@ -448,7 +458,7 @@ describe('Configuration Module', () => {
       // Call the listener
       listener(mockEvent);
 
-      expect(mockClient.sendNotification).toHaveBeenCalledWith(
+      expect(mockClient.notify).toHaveBeenCalledWith(
         'workspace/didChangeConfiguration',
         {
           settings: testSettings,
@@ -457,7 +467,7 @@ describe('Configuration Module', () => {
     });
 
     it('should not send notification when apex config is not affected', () => {
-      registerConfigurationChangeListener(mockClient, mockContext);
+      registerConfigurationChangeListener(mockClient, mockRawClient);
 
       // Get the registered listener
       const listener = (vscode.workspace.onDidChangeConfiguration as jest.Mock)
@@ -471,7 +481,7 @@ describe('Configuration Module', () => {
       // Call the listener
       listener(mockEvent);
 
-      expect(mockClient.sendNotification).not.toHaveBeenCalled();
+      expect(mockClient.notify).not.toHaveBeenCalled();
     });
   });
 });

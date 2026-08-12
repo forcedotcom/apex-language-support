@@ -32,6 +32,7 @@ import {
 } from '@salesforce/apex-lsp-shared';
 import { getOrgArtifactSourceDocumentSelectors } from './services/org-artifact-fs';
 import type { TextDocumentFilter } from 'vscode-languageserver-protocol';
+import { createHoverMiddleware } from './hoverMiddleware';
 
 /**
  * Determines debug options based on VS Code configuration
@@ -311,8 +312,6 @@ export const createClientOptions = (
   initializationOptions: ApexLanguageServerSettings,
 ): LanguageClientOptions => {
   const rawChannel = getWorkerServerOutputChannel();
-  let hoverSequence = 0;
-  const inFlightSupersede = new Map<number, () => void>();
   // The shared selector builder returns only text-document filters for this
   // capability, although its protocol type also permits notebook filters.
   const baseSelectors = getDocumentSelectorsFromSettings(
@@ -333,52 +332,44 @@ export const createClientOptions = (
       closed: () => handleClientClosed(),
     },
     middleware: {
-      provideHover: async (document, position, token, next) => {
-        const requestSeq = ++hoverSequence;
-        for (const [seq, resolveSupersede] of inFlightSupersede.entries()) {
-          if (seq < requestSeq) {
-            resolveSupersede();
-            inFlightSupersede.delete(seq);
-          }
+      ...createHoverMiddleware(),
+      sendRequest: async (type, params, token, next) => {
+        const method = typeof type === 'string' ? type : type.method;
+        if (method !== 'textDocument/hover') {
+          return next(type, params, token);
         }
-        const nextPromise = Promise.resolve(
-          next(document, position, token),
-        ).then(
-          (value) => ({ source: 'next' as const, value }),
-          (error) => {
-            throw error;
-          },
+        const requestStartTime = Date.now();
+        const hoverParams = params as
+          | {
+              textDocument?: { uri?: string };
+              position?: { line?: number; character?: number };
+            }
+          | undefined;
+        const uri = hoverParams?.textDocument?.uri ?? 'unknown';
+        const line = hoverParams?.position?.line ?? '?';
+        const character = hoverParams?.position?.character ?? '?';
+        logToOutputChannel(
+          `🔍 [CLIENT] Hover request initiated: ${uri} at ${line}:${character} [time: ${requestStartTime}]`,
+          'debug',
         );
-        const cancellationPromise = new Promise<{
-          source: 'cancel';
-          value: null;
-        }>((resolve) => {
-          if (token.isCancellationRequested) {
-            resolve({ source: 'cancel', value: null });
-            return;
-          }
-          token.onCancellationRequested(() =>
-            resolve({ source: 'cancel', value: null }),
+        try {
+          const result = await next(type, params, token);
+          const totalTime = Date.now() - requestStartTime;
+          logToOutputChannel(
+            `✅ [CLIENT] Hover request completed: ${uri} ` +
+              `total=${totalTime}ms, result=${result ? 'success' : 'null'}`,
+            'debug',
           );
-        });
-        const supersedePromise = new Promise<{
-          source: 'supersede';
-          value: null;
-        }>((resolve) => {
-          inFlightSupersede.set(requestSeq, () =>
-            resolve({ source: 'supersede', value: null }),
+          return result;
+        } catch (error) {
+          const totalTime = Date.now() - requestStartTime;
+          logToOutputChannel(
+            `❌ [CLIENT] Hover request failed after ${totalTime}ms: ` +
+              `${uri} - ${formattedError(error)}`,
+            'error',
           );
-        });
-        const raceResult = await Promise.race([
-          nextPromise,
-          cancellationPromise,
-          supersedePromise,
-        ]);
-        inFlightSupersede.delete(requestSeq);
-        if (raceResult.value === null) {
-          void nextPromise.catch(() => {});
+          throw error;
         }
-        return raceResult.value;
       },
     },
     initializationOptions,

@@ -15,12 +15,11 @@ import {
   type ProgressToken,
   type WorkDoneProgress,
   type SendWorkspaceBatchParams,
-  type SendWorkspaceBatchResult,
-  type ProcessWorkspaceBatchesResult,
   type WorkspaceFileBatch,
   type WorkspaceLoadReason,
 } from '@salesforce/apex-lsp-shared';
 import { getWorkspaceSettings } from './configuration';
+import type { ApexClientCore } from '@salesforce/apex-lsp-client';
 import {
   createFileBatches,
   compressBatch,
@@ -78,12 +77,12 @@ const readFileContent = (uri: vscode.Uri) =>
  * Send progress notification to the language client
  */
 function sendProgressNotification(
-  languageClient: any,
+  languageClient: Pick<ApexClientCore, 'notify'>,
   token: ProgressToken,
   progress: WorkDoneProgress,
 ): void {
   try {
-    languageClient.sendNotification('$/progress', { token, value: progress });
+    languageClient.notify('$/progress', { token, value: progress });
   } catch (error) {
     logToOutputChannel(
       `Failed to send progress notification: ${formattedError(error)}`,
@@ -101,10 +100,11 @@ function sendProgressNotification(
  * @returns Promise that resolves when loading is complete
  */
 export async function loadWorkspaceForServer(
-  languageClient: any,
+  languageClient: ApexClientCore,
   workDoneToken: ProgressToken | undefined,
   documentSelector: any[],
   reason?: WorkspaceLoadReason,
+  signal?: AbortSignal,
 ): Promise<void> {
   // Note: State management is now handled by WorkspaceState service
   // This function is kept for internal use by the service only
@@ -119,6 +119,11 @@ export async function loadWorkspaceForServer(
   // Get settings from configuration
   const settings = getWorkspaceSettings();
   const sessionId = createWorkspaceLoadSessionId();
+  const throwIfAborted = (): void => {
+    if (signal?.aborted) {
+      throw new DOMException('Workspace load was cancelled', 'AbortError');
+    }
+  };
   const maxConcurrency = settings.apex.loadWorkspace.maxConcurrency;
   const excludeGlob = getExcludeGlob(
     settings.apex.loadWorkspace.includeSfdxToolsCustomObjects ?? false,
@@ -161,6 +166,7 @@ export async function loadWorkspaceForServer(
         Effect.gen(function* () {
           const discovered: vscode.Uri[] = [];
           for (const pattern of filePatterns) {
+            throwIfAborted();
             const uris = yield* Effect.tryPromise({
               try: () =>
                 findFilesAcrossWorkspaceFolders(
@@ -173,6 +179,7 @@ export async function loadWorkspaceForServer(
                   `Failed to find workspace files with pattern ${pattern}: ${String(formattedError(e))}`,
                 ),
             });
+            throwIfAborted();
             discovered.push(...uris);
           }
           yield* Effect.annotateCurrentSpan(
@@ -220,6 +227,7 @@ export async function loadWorkspaceForServer(
         }),
       ),
     );
+    throwIfAborted();
 
     // Filter out any failed reads (they return void on error)
     const validFiles: FileData[] = fileDataArray.filter(
@@ -287,11 +295,13 @@ export async function loadWorkspaceForServer(
               },
             })(
               Effect.gen(function* () {
+                throwIfAborted();
                 // Compress batch
                 const compressed = yield* compressBatch(batch);
 
                 // Encode for transport
                 const encodedData = yield* encodeBatchForTransport(compressed);
+                throwIfAborted();
 
                 // Update progress during compression (LSP only — status bar phase message set above)
                 const compressionProgress =
@@ -358,8 +368,10 @@ export async function loadWorkspaceForServer(
               },
             })(
               Effect.gen(function* () {
+                throwIfAborted();
                 // Yield before sending to allow event loop to process hover requests
                 yield* Effect.yieldNow();
+                throwIfAborted();
 
                 const tracedBatchParams =
                   yield* injectTraceContextFromCurrentEffectSpan(
@@ -370,15 +382,13 @@ export async function loadWorkspaceForServer(
                 // Send as request - server stores and returns immediately
                 const result = yield* Effect.tryPromise({
                   try: () =>
-                    languageClient.sendRequest(
-                      'apex/sendWorkspaceBatch',
-                      tracedBatchParams,
-                    ) as Promise<SendWorkspaceBatchResult>,
+                    languageClient.sendWorkspaceBatch(tracedBatchParams),
                   catch: (err: unknown) =>
                     new Error(
                       `Failed to send batch ${batchParams.batchIndex + 1}: ${String(formattedError(err))}`,
                     ),
                 });
+                throwIfAborted();
 
                 if (!result.success) {
                   logToOutputChannel(
@@ -438,10 +448,7 @@ export async function loadWorkspaceForServer(
             });
           return yield* Effect.tryPromise({
             try: () =>
-              languageClient.sendRequest(
-                'apex/processWorkspaceBatches',
-                tracedProcessParams,
-              ) as Promise<ProcessWorkspaceBatchesResult>,
+              languageClient.processWorkspaceBatches(tracedProcessParams),
             catch: (err: unknown) =>
               new Error(
                 `Failed to trigger batch processing: ${String(formattedError(err))}`,
@@ -450,6 +457,7 @@ export async function loadWorkspaceForServer(
         }),
       ),
     );
+    throwIfAborted();
 
     if (!processResult.success) {
       logToOutputChannel(
@@ -495,6 +503,9 @@ export async function loadWorkspaceForServer(
       loadEffect as Effect.Effect<void, never, never>,
     );
   } catch (error) {
+    if (signal?.aborted) {
+      return;
+    }
     logToOutputChannel(
       `Error during workspace loading: ${formattedError(error)}`,
       'error',

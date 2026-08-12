@@ -7,7 +7,7 @@
  */
 
 import * as vscode from 'vscode';
-import type { ClientInterface } from '@salesforce/apex-lsp-shared';
+import type { ApexClientCore } from '@salesforce/apex-lsp-client';
 import type {
   LanguageServerClient,
   EditorContext,
@@ -15,18 +15,20 @@ import type {
 } from '@salesforce/apex-lsp-compliant-services';
 
 /**
- * Adapter that bridges ClientInterface to platform-agnostic LanguageServerClient interface
+ * Adapter that bridges ApexClientCore to platform-agnostic LanguageServerClient interface
  * This allows ApexLib to communicate with the language server without VS Code dependencies
  */
 export class VSCodeLanguageClientAdapter implements LanguageServerClient {
-  constructor(private readonly client: ClientInterface) {}
+  constructor(
+    private readonly client: Pick<ApexClientCore, 'request' | 'notify'>,
+  ) {}
 
   async sendRequest<T = any>(method: string, params?: any): Promise<T> {
-    return this.client.sendRequest<T>(method, params);
+    return this.client.request<T>(method, params);
   }
 
   sendNotification(method: string, params?: any): void {
-    this.client.sendNotification(method, params);
+    this.client.notify(method, params);
   }
 }
 
@@ -35,7 +37,9 @@ export class VSCodeLanguageClientAdapter implements LanguageServerClient {
  * This allows ApexLib to register protocol handlers without VS Code dependencies
  */
 export class VSCodeEditorContextAdapter implements EditorContext {
-  constructor(private readonly context: vscode.ExtensionContext) {}
+  readonly disposables: vscode.Disposable[] = [];
+
+  constructor(_context: vscode.ExtensionContext) {}
 
   /**
    * Registers a text document content provider for a custom URI scheme
@@ -58,8 +62,7 @@ export class VSCodeEditorContextAdapter implements EditorContext {
       vscodeProvider,
     );
 
-    // Add to context subscriptions for automatic cleanup
-    this.context.subscriptions.push(disposable);
+    this.disposables.push(disposable);
 
     return disposable;
   }
@@ -68,6 +71,8 @@ export class VSCodeEditorContextAdapter implements EditorContext {
    * Creates a file system watcher for the given pattern
    */
   createFileSystemWatcher(pattern: string): vscode.FileSystemWatcher {
-    return vscode.workspace.createFileSystemWatcher(pattern);
+    const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+    this.disposables.push(watcher);
+    return watcher;
   }
 }

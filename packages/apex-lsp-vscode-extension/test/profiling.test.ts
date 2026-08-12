@@ -88,7 +88,15 @@ describe('Profiling Status Bar', () => {
 
     mockClient = {
       isDisposed: jest.fn().mockReturnValue(false),
-      languageClient: mockLanguageClient,
+      profilingStatus: jest.fn((params) =>
+        mockLanguageClient.sendRequest('apex/profiling/status', params),
+      ),
+      profilingStart: jest.fn((params) =>
+        mockLanguageClient.sendRequest('apex/profiling/start', params),
+      ),
+      profilingStop: jest.fn((params) =>
+        mockLanguageClient.sendRequest('apex/profiling/stop', params),
+      ),
     };
 
     const { getClient } = require('../src/language-server');

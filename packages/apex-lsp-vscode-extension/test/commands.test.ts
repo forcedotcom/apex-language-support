@@ -272,6 +272,15 @@ describe('Commands Module', () => {
       mockClient = {
         isDisposed: jest.fn().mockReturnValue(false),
         languageClient: mockLanguageClient,
+        profilingStart: jest.fn((params) =>
+          mockLanguageClient.sendRequest('apex/profiling/start', params),
+        ),
+        profilingStop: jest.fn((params) =>
+          mockLanguageClient.sendRequest('apex/profiling/stop', params),
+        ),
+        profilingStatus: jest.fn((params) =>
+          mockLanguageClient.sendRequest('apex/profiling/status', params),
+        ),
       };
 
       // Mock getClient from language-server module

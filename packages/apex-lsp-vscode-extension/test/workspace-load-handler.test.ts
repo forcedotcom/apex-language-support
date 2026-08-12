@@ -6,11 +6,9 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Effect, Layer, Ref } from 'effect';
-import type {
-  ClientInterface,
-  LoadWorkspaceParams,
-} from '@salesforce/apex-lsp-shared';
+import { Effect, Exit, Layer, Ref, Scope } from 'effect';
+import type { LoadWorkspaceParams } from '@salesforce/apex-lsp-shared';
+import type { ApexClientCore } from '@salesforce/apex-lsp-client';
 import {
   WorkspaceState,
   WorkspaceStateLive,
@@ -18,6 +16,7 @@ import {
   startWorkspaceLoad,
   handleLoadWorkspace,
   resetWorkspaceLoadingState,
+  makeWorkspaceLoadScope,
 } from '../src/workspace-load-handler';
 import * as workspaceLoaderModule from '../src/workspace-loader';
 
@@ -50,7 +49,7 @@ jest.mock('../src/configuration', () => ({
 }));
 
 describe('Workspace Load Handler', () => {
-  let mockLanguageClient: ClientInterface;
+  let mockLanguageClient: ApexClientCore;
   let mockLoadWorkspaceForServer: jest.Mock;
 
   beforeEach(async () => {
@@ -63,15 +62,9 @@ describe('Workspace Load Handler', () => {
 
     // Mock language client
     mockLanguageClient = {
-      languageClient: {} as any,
-      sendNotification: jest.fn(),
-      sendRequest: jest.fn(),
-      initialize: jest.fn(),
-      onNotification: jest.fn(),
-      onRequest: jest.fn(),
-      isDisposed: jest.fn(() => false),
-      dispose: jest.fn(),
-    } as unknown as ClientInterface;
+      workspaceLoadComplete: jest.fn(),
+      workspaceLoadFailed: jest.fn(),
+    } as unknown as ApexClientCore;
 
     // Mock loadWorkspaceForServer
     mockLoadWorkspaceForServer =
@@ -270,6 +263,7 @@ describe('Workspace Load Handler', () => {
         undefined,
         customSelector,
         undefined,
+        expect.any(AbortSignal),
       );
     });
 
@@ -288,6 +282,7 @@ describe('Workspace Load Handler', () => {
         token,
         expect.any(Array),
         undefined,
+        expect.any(AbortSignal),
       );
     });
 
@@ -313,6 +308,7 @@ describe('Workspace Load Handler', () => {
         undefined,
         expect.any(Array),
         'implementation',
+        expect.any(AbortSignal),
       );
     });
   });
@@ -334,6 +330,7 @@ describe('Workspace Load Handler', () => {
         'test-token',
         expect.any(Array),
         undefined,
+        expect.any(AbortSignal),
       );
     });
 
@@ -353,6 +350,7 @@ describe('Workspace Load Handler', () => {
         undefined,
         expect.any(Array),
         undefined,
+        expect.any(AbortSignal),
       );
     });
 
@@ -482,6 +480,176 @@ describe('Workspace Load Handler', () => {
       expect(result.isLoading).toBe(false);
       expect(result.hasLoaded).toBe(true);
       expect(result.hasFailed).toBe(false);
+    });
+
+    it('interrupts an active client-scoped load and resets loading state on stop', async () => {
+      let resolveLoad: (() => void) | undefined;
+      mockLoadWorkspaceForServer.mockImplementation(
+        (_client, _token, _selector, _reason, signal: AbortSignal) =>
+          new Promise<void>((resolve) => {
+            resolveLoad = resolve;
+            signal.addEventListener('abort', () => resolve());
+          }),
+      );
+      const scope = await Effect.runPromise(makeWorkspaceLoadScope);
+
+      await Effect.runPromise(
+        Effect.provide(
+          startWorkspaceLoad(
+            mockLanguageClient,
+            undefined,
+            undefined,
+            undefined,
+            scope,
+          ),
+          Layer.mergeAll(WorkspaceStateLive, WorkspaceLoaderServiceLive),
+        ),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await Effect.runPromise(Scope.close(scope, Exit.void));
+
+      const state = await Effect.runPromise(
+        Effect.provide(
+          Effect.gen(function* () {
+            const workspaceState = yield* WorkspaceState;
+            return {
+              isLoading: yield* Ref.get(workspaceState.isLoading),
+              hasLoaded: yield* Ref.get(workspaceState.hasLoaded),
+            };
+          }),
+          WorkspaceStateLive,
+        ),
+      );
+      expect(state).toEqual({ isLoading: false, hasLoaded: false });
+      expect(mockLanguageClient.workspaceLoadComplete).not.toHaveBeenCalled();
+      expect(mockLoadWorkspaceForServer.mock.calls[0][4].aborted).toBe(true);
+      resolveLoad?.();
+    });
+
+    it('loads again after a successful client load is torn down and replaced', async () => {
+      const firstScope = await Effect.runPromise(makeWorkspaceLoadScope);
+      await Effect.runPromise(
+        Effect.provide(
+          startWorkspaceLoad(
+            mockLanguageClient,
+            undefined,
+            undefined,
+            undefined,
+            firstScope,
+          ),
+          Layer.mergeAll(WorkspaceStateLive, WorkspaceLoaderServiceLive),
+        ),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(mockLanguageClient.workspaceLoadComplete).toHaveBeenCalledTimes(1);
+
+      await Effect.runPromise(Scope.close(firstScope, Exit.void));
+
+      const secondClient = {
+        workspaceLoadComplete: jest.fn(),
+        workspaceLoadFailed: jest.fn(),
+      } as unknown as ApexClientCore;
+      const secondScope = await Effect.runPromise(makeWorkspaceLoadScope);
+      const restartResult = await Effect.runPromise(
+        Effect.provide(
+          startWorkspaceLoad(
+            secondClient,
+            undefined,
+            undefined,
+            undefined,
+            secondScope,
+          ),
+          Layer.mergeAll(WorkspaceStateLive, WorkspaceLoaderServiceLive),
+        ),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(restartResult).toEqual({ accepted: true });
+      expect(mockLoadWorkspaceForServer).toHaveBeenCalledTimes(2);
+      expect(secondClient.workspaceLoadComplete).toHaveBeenCalledTimes(1);
+      await Effect.runPromise(Scope.close(secondScope, Exit.void));
+    });
+
+    it('ignores completion from load work that settles after client teardown', async () => {
+      let resolveLoad: (() => void) | undefined;
+      mockLoadWorkspaceForServer.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveLoad = resolve;
+          }),
+      );
+      const scope = await Effect.runPromise(makeWorkspaceLoadScope);
+
+      await Effect.runPromise(
+        Effect.provide(
+          startWorkspaceLoad(
+            mockLanguageClient,
+            undefined,
+            undefined,
+            undefined,
+            scope,
+          ),
+          Layer.mergeAll(WorkspaceStateLive, WorkspaceLoaderServiceLive),
+        ),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await Effect.runPromise(Scope.close(scope, Exit.void));
+      resolveLoad?.();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      const state = await Effect.runPromise(
+        Effect.provide(
+          Effect.gen(function* () {
+            const workspaceState = yield* WorkspaceState;
+            return {
+              isLoading: yield* Ref.get(workspaceState.isLoading),
+              hasLoaded: yield* Ref.get(workspaceState.hasLoaded),
+              hasFailed: yield* Ref.get(workspaceState.hasFailed),
+            };
+          }),
+          WorkspaceStateLive,
+        ),
+      );
+      expect(state).toEqual({
+        isLoading: false,
+        hasLoaded: false,
+        hasFailed: false,
+      });
+      expect(mockLanguageClient.workspaceLoadComplete).not.toHaveBeenCalled();
+      expect(mockLanguageClient.workspaceLoadFailed).not.toHaveBeenCalled();
+    });
+
+    it('resets loading state when the completion notification rejects after disposal', async () => {
+      mockLanguageClient.workspaceLoadComplete = jest
+        .fn()
+        .mockRejectedValue(new Error('disposed'));
+      const scope = await Effect.runPromise(makeWorkspaceLoadScope);
+
+      await Effect.runPromise(
+        Effect.provide(
+          startWorkspaceLoad(
+            mockLanguageClient,
+            undefined,
+            undefined,
+            undefined,
+            scope,
+          ),
+          Layer.mergeAll(WorkspaceStateLive, WorkspaceLoaderServiceLive),
+        ),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      const isLoading = await Effect.runPromise(
+        Effect.provide(
+          Effect.gen(function* () {
+            const workspaceState = yield* WorkspaceState;
+            return yield* Ref.get(workspaceState.isLoading);
+          }),
+          WorkspaceStateLive,
+        ),
+      );
+      expect(isLoading).toBe(false);
+      await Effect.runPromise(Scope.close(scope, Exit.void));
     });
 
     it.skip('should handle loading -> failed transition on error', async () => {

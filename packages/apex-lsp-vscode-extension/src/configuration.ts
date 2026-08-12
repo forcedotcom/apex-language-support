@@ -22,6 +22,8 @@ import {
   mergeWithDefaults,
 } from '@salesforce/apex-lsp-shared';
 import { detectEnvironment } from './utils/serverUtils';
+import type { ApexClientCore } from '@salesforce/apex-lsp-client';
+import type { BaseLanguageClient } from 'vscode-languageclient';
 
 /**
  * Creates a clean, serializable notification object for workspace/didChangeConfiguration
@@ -106,15 +108,11 @@ export const getTraceServerConfig = (): string => {
 /**
  * Registers a listener for configuration changes and notifies the server
  * @param client The client (any client with sendNotification method and optional languageClient)
- * @param context The extension context
  */
 export const registerConfigurationChangeListener = (
-  client: {
-    sendNotification: (method: string, params?: any) => void;
-    languageClient?: { setTrace: (value: any) => Promise<void> };
-  },
-  context: vscode.ExtensionContext,
-): void => {
+  client: Pick<ApexClientCore, 'notify'>,
+  rawClient: Pick<BaseLanguageClient, 'setTrace'>,
+): vscode.Disposable => {
   // Track last known settings to produce before/after change diffs
   let previousSettings = getWorkspaceSettings();
 
@@ -158,8 +156,7 @@ export const registerConfigurationChangeListener = (
         if (
           event.affectsConfiguration(
             `${EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION}.trace.server`,
-          ) &&
-          client.languageClient
+          )
         ) {
           try {
             const traceConfig = getTraceServerConfig();
@@ -171,7 +168,7 @@ export const registerConfigurationChangeListener = (
                 : traceConfig === 'messages'
                   ? Trace.Messages
                   : Trace.Off;
-            await client.languageClient.setTrace(traceLevel);
+            await rawClient.setTrace(traceLevel);
             logToOutputChannel(
               `🔍 Trace level updated to: ${traceConfig}`,
               'info',
@@ -190,7 +187,7 @@ export const registerConfigurationChangeListener = (
             'Sending configuration change notification',
             'debug',
           );
-          client.sendNotification(
+          client.notify(
             'workspace/didChangeConfiguration',
             createSerializableNotification(settings),
           );
@@ -220,8 +217,7 @@ export const registerConfigurationChangeListener = (
     },
   );
 
-  // Store the listener in the context so it gets disposed properly
-  context.subscriptions.push(configListener);
+  return configListener;
 };
 
 /**
@@ -230,7 +226,7 @@ export const registerConfigurationChangeListener = (
  * @param client The client (any client with sendNotification method)
  */
 export const sendInitialConfiguration = (client: {
-  sendNotification: (method: string, params?: any) => void;
+  notify: (method: string, params?: unknown) => void;
 }): void => {
   const settings = getWorkspaceSettings();
   logToOutputChannel(
@@ -255,7 +251,7 @@ export const sendInitialConfiguration = (client: {
   // Send initial configuration to the server
   try {
     logToOutputChannel('Sending initial configuration notification', 'debug');
-    client.sendNotification(
+    client.notify(
       'workspace/didChangeConfiguration',
       createSerializableNotification(settings),
     );
