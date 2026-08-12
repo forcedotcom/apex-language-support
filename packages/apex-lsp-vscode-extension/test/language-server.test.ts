@@ -487,7 +487,7 @@ describe('createWebDocumentSelector', () => {
     ]);
   });
 
-  it('uses hover cancellation and supersede middleware in web clients', async () => {
+  it('uses shared hover middleware in web clients', async () => {
     const options = createWebClientOptions(DEFAULT_APEX_SETTINGS);
     const provideHover = options.middleware!.provideHover! as unknown as (
       document: unknown,
@@ -529,5 +529,27 @@ describe('createWebDocumentSelector', () => {
         () => new Promise(() => {}),
       ),
     ).resolves.toBeNull();
+
+    const sendRequest = options.middleware!.sendRequest!;
+    const next = jest.fn().mockResolvedValue({ contents: 'hover result' });
+    await expect(
+      sendRequest(
+        'textDocument/hover',
+        {
+          textDocument: { uri: 'file:///Test.cls' },
+          position: { line: 2, character: 4 },
+        },
+        undefined,
+        next,
+      ),
+    ).resolves.toEqual({ contents: 'hover result' });
+
+    const { logToOutputChannel } = jest.requireMock('../src/logging');
+    expect(logToOutputChannel).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'Hover request initiated: file:///Test.cls at 2:4',
+      ),
+      'debug',
+    );
   });
 });

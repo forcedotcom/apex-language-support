@@ -61,7 +61,7 @@ import { requireSalesforceServicesInDevelopment } from './services/salesforce-se
 const handleRestart = async (
   context: vscode.ExtensionContext,
 ): Promise<void> => {
-  await restartLanguageServer(context, handleRestart);
+  await restartLanguageServer(context);
 };
 
 /**
@@ -69,7 +69,7 @@ const handleRestart = async (
  * @param context The extension context
  */
 const handleStart = async (context: vscode.ExtensionContext): Promise<void> => {
-  await startLanguageServer(context, handleRestart);
+  await startLanguageServer(context);
 };
 
 /**

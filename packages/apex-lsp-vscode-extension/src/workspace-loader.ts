@@ -7,6 +7,7 @@
  */
 import { Effect, Duration } from 'effect';
 import * as vscode from 'vscode';
+import type { DocumentSelector } from 'vscode-languageserver-protocol';
 import { findFilesAcrossWorkspaceFolders } from './workspace-find-files';
 import { logToOutputChannel } from './logging';
 import {
@@ -102,7 +103,7 @@ function sendProgressNotification(
 export async function loadWorkspaceForServer(
   languageClient: ApexClientCore,
   workDoneToken: ProgressToken | undefined,
-  documentSelector: any[],
+  documentSelector: DocumentSelector,
   reason?: WorkspaceLoadReason,
   signal?: AbortSignal,
 ): Promise<void> {
@@ -531,12 +532,18 @@ export async function loadWorkspaceForServer(
  * @returns Array of file patterns
  */
 export function deriveFilePatternsFromDocumentSelector(
-  documentSelector: any[],
+  documentSelector: DocumentSelector,
 ): string[] {
   const patterns: string[] = [];
 
   for (const selector of documentSelector) {
-    if (selector.scheme === 'file' && selector.language === 'apex') {
+    if (
+      typeof selector === 'object' &&
+      'scheme' in selector &&
+      'language' in selector &&
+      selector.scheme === 'file' &&
+      selector.language === 'apex'
+    ) {
       // Map to file extensions based on existing fileEvents watcher
       patterns.push('**/*.cls');
       patterns.push('**/*.trigger');

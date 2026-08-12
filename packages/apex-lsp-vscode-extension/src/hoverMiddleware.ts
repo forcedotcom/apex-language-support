@@ -7,6 +7,8 @@
  */
 
 import type { LanguageClientOptions } from 'vscode-languageclient';
+import { formattedError } from '@salesforce/apex-lsp-shared';
+import { logToOutputChannel } from './logging';
 
 export const createHoverMiddleware = (): NonNullable<
   LanguageClientOptions['middleware']
@@ -58,6 +60,46 @@ export const createHoverMiddleware = (): NonNullable<
         void nextPromise.catch(() => {});
       }
       return raceResult.value;
+    },
+    sendRequest: async (type, params, token, next) => {
+      const method = typeof type === 'string' ? type : type.method;
+      if (method !== 'textDocument/hover') {
+        return next(type, params, token);
+      }
+
+      const requestStartTime = Date.now();
+      const hoverParams = params as
+        | {
+            textDocument?: { uri?: string };
+            position?: { line?: number; character?: number };
+          }
+        | undefined;
+      const uri = hoverParams?.textDocument?.uri ?? 'unknown';
+      const line = hoverParams?.position?.line ?? '?';
+      const character = hoverParams?.position?.character ?? '?';
+      logToOutputChannel(
+        `🔍 [CLIENT] Hover request initiated: ${uri} at ${line}:${character} [time: ${requestStartTime}]`,
+        'debug',
+      );
+
+      try {
+        const result = await next(type, params, token);
+        const totalTime = Date.now() - requestStartTime;
+        logToOutputChannel(
+          `✅ [CLIENT] Hover request completed: ${uri} ` +
+            `total=${totalTime}ms, result=${result ? 'success' : 'null'}`,
+          'debug',
+        );
+        return result;
+      } catch (error) {
+        const totalTime = Date.now() - requestStartTime;
+        logToOutputChannel(
+          `❌ [CLIENT] Hover request failed after ${totalTime}ms: ` +
+            `${uri} - ${formattedError(error)}`,
+          'error',
+        );
+        throw error;
+      }
     },
   };
 };

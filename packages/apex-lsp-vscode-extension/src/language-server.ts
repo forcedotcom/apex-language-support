@@ -506,7 +506,6 @@ const createDesktopLanguageClient = async (
 
 export const createAndStartClient = async (
   context: vscode.ExtensionContext,
-  _restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> => {
   if (clientState) return;
   setStartingFlag(true);
@@ -555,21 +554,17 @@ function enqueueLifecycleOperation(
 
 export function startLanguageServer(
   context: vscode.ExtensionContext,
-  restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> {
-  return enqueueLifecycleOperation(() =>
-    createAndStartClient(context, restartHandler),
-  );
+  return enqueueLifecycleOperation(() => createAndStartClient(context));
 }
 
 export function restartLanguageServer(
   context: vscode.ExtensionContext,
-  restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> {
   return enqueueLifecycleOperation(async () => {
     await restartAfterStrictStop(
       () => stopLanguageServerNow(true),
-      () => createAndStartClient(context, restartHandler),
+      () => createAndStartClient(context),
     );
   });
 }

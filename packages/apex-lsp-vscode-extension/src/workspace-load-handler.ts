@@ -15,6 +15,7 @@ import type {
 } from '@salesforce/apex-lsp-shared';
 import type { ApexClientCore } from '@salesforce/apex-lsp-client';
 import { getDefaultDocumentSelectors } from '@salesforce/apex-lsp-shared';
+import type { DocumentSelector } from 'vscode-languageserver-protocol';
 import { loadWorkspaceForServer } from './workspace-loader';
 
 // WorkspaceState service
@@ -94,7 +95,7 @@ const validateDocumentSelector = Effect.succeed(
 const launchWorkspaceLoaderEffect = (
   languageClient: ApexClientCore,
   workDoneToken: ProgressToken | undefined,
-  documentSelector: any[],
+  documentSelector: DocumentSelector,
   reason?: WorkspaceLoadReason,
 ) =>
   Effect.gen(function* (_) {
@@ -165,7 +166,7 @@ export class WorkspaceLoaderService extends Effect.Service<WorkspaceLoaderServic
         startWorkspaceLoad: (
           languageClient: ApexClientCore,
           workDoneToken?: ProgressToken,
-          documentSelector?: any[],
+          documentSelector?: DocumentSelector,
           reason?: WorkspaceLoadReason,
           scope?: Scope.CloseableScope,
         ) =>
@@ -291,7 +292,7 @@ export const handleLoadWorkspace = (
 export const startWorkspaceLoad = (
   languageClient: ApexClientCore,
   workDoneToken?: ProgressToken,
-  documentSelector?: any[],
+  documentSelector?: DocumentSelector,
   reason?: WorkspaceLoadReason,
   scope?: Scope.CloseableScope,
 ) =>
