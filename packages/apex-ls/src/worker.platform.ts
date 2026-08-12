@@ -23,7 +23,7 @@ import * as WorkerRunner from '@effect/platform/WorkerRunner';
 import * as Worker from '@effect/platform/Worker';
 import * as NodeWorkerRunner from '@effect/platform-node/NodeWorkerRunner';
 import * as NodeWorker from '@effect/platform-node/NodeWorker';
-import { Effect, Layer, Logger, LogLevel } from 'effect';
+import { Cause, Effect, Layer, Logger, LogLevel } from 'effect';
 import {
   InitializeCompilationWorker,
   isAssistanceResponse,
@@ -523,9 +523,22 @@ export {
   // @ts-ignore - .ts extension required for tsx-in-worker resolution in integration tests
 } from './worker.platform.shared.ts';
 
-WorkerRunner.launch(
+const workerProgram = WorkerRunner.launch(
   Layer.provide(
     runnerLayer,
     Layer.merge(NodeWorkerRunner.layer, CompilationWorkerPoolLive),
   ),
-).pipe(Effect.provide(WorkerLoggerLayer), Effect.runFork);
+).pipe(Effect.provide(WorkerLoggerLayer));
+
+// WorkerRunner completes only after receiving the platform shutdown message
+// and closing every managed layer (including the nested compilation pool).
+// Explicitly terminate the worker at that boundary: worker_threads can retain
+// internal MessagePort handles after parentPort.close(), causing the parent
+// manager to wait for its five-second forced-termination fallback per level.
+void Effect.runPromiseExit(workerProgram).then((exit) => {
+  if (exit._tag === 'Failure' && !Cause.isInterruptedOnly(exit.cause)) {
+    console.error(`Apex worker runner failed: ${Cause.pretty(exit.cause)}`);
+    process.exit(1);
+  }
+  process.exit(0);
+});

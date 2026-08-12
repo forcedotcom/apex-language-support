@@ -38,10 +38,12 @@ jobs:
           - apex-extract-constant.spec.ts
           - apex-extract-variable.spec.ts
           - apex-goto-definition.spec.ts
+          - apex-goto-definition-advanced.spec.ts
           - apex-hover.spec.ts
           - apex-hover-stdlib.spec.ts
           - apex-lsp-integration.spec.ts
           - apex-outline.spec.ts
+          - apex-rename-symbol.spec.ts
 
     steps:
       - name: Checkout code
@@ -280,10 +282,12 @@ jobs:
             "apex-extract-constant.spec.ts"
             "apex-extract-variable.spec.ts"
             "apex-goto-definition.spec.ts"
+            "apex-goto-definition-advanced.spec.ts"
             "apex-hover.spec.ts"
             "apex-hover-stdlib.spec.ts"
             "apex-lsp-integration.spec.ts"
             "apex-outline.spec.ts"
+            "apex-rename-symbol.spec.ts"
           )
 
           # Track which specs produced results

@@ -14,10 +14,15 @@ import { CompilerService } from '../../../../src/parser/compilerService';
 import {
   compileFixture,
   compileFixtureWithOptions,
+  compileSourceLayeredWithOptions,
   runValidator,
 } from './helpers/validation-test-helpers';
 import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
+import {
+  composeSObjectSymbolTable,
+  ownerUriForSObject,
+} from '../../../../src/sobjects/SObjectSymbolTableComposer';
 
 describe('TypeResolutionValidator', () => {
   let symbolManager: ApexSymbolManager;
@@ -98,6 +103,49 @@ describe('TypeResolutionValidator', () => {
 
     expect(result.isValid).toBe(true);
     expect(result.errors).toHaveLength(0);
+  });
+
+  it('treats a native sObject as a resolved type', async () => {
+    const accountTable = composeSObjectSymbolTable(
+      {
+        name: 'Account',
+        custom: false,
+        definitionTarget: { uri: 'org://Account' },
+        fields: [],
+      },
+      1,
+    );
+    await Effect.runPromise(
+      symbolManager.addSymbolTable(
+        accountTable,
+        ownerUriForSObject('Account'),
+        1,
+        false,
+      ),
+    );
+    const { symbolTable, options } = await compileSourceLayeredWithOptions(
+      `
+        public class AccountFactory {
+          public Account create() {
+            return new Account();
+          }
+        }
+      `,
+      'file:///test/AccountFactory.cls',
+      symbolManager,
+      compilerService,
+      {
+        tier: ValidationTier.THOROUGH,
+        allowArtifactLoading: false,
+      },
+    );
+
+    const result = await runValidator(
+      TypeResolutionValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(result.errors).toEqual([]);
   });
 
   it('should detect INVALID_UNRESOLVED_TYPE for generic type arguments (List<NonExistentType>)', async () => {

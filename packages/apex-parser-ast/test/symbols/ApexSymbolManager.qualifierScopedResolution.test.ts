@@ -44,6 +44,10 @@ import {
 import { loadAndRegisterStdlibSymbolTable } from '../../src/symbols/ops/symbolRefResolution';
 import type { SymbolManagerOps } from '../../src/symbols/services/symbolResolver';
 import { ReferenceContext } from '../../src/types/symbolReference';
+import {
+  composeSObjectSymbolTable,
+  ownerUriForSObject,
+} from '../../src/sobjects/SObjectSymbolTableComposer';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import {
   initializeResourceLoaderForTests,
@@ -479,6 +483,64 @@ describe('qualifier-scoped member resolution (F11-3 regression guard)', () => {
     expect(firstValue?.location.identifierRange.startLine).toBe(3);
     expect(secondValue?.location.identifierRange.startLine).toBe(7);
     expect(firstValue?.id).not.toBe(secondValue?.id);
+  });
+
+  it('binds a cross-file SObject declaration type before resolving an incomplete member access', async () => {
+    const uri = 'file:///test/SObjectMemberRecovery.cls';
+    const source = `public class SObjectMemberRecovery {
+  void run() {
+    Property__c property = new Property__c();
+    property.Beds__c
+    Assert.isTrue(true);
+  }
+}`;
+    const sobjectUri = ownerUriForSObject('Property__c');
+    const sobjectTable = composeSObjectSymbolTable(
+      {
+        name: 'Property__c',
+        custom: true,
+        definitionTarget: {
+          uri: 'file:///objects/Property__c/Property__c.object-meta.xml',
+        },
+        fields: [
+          {
+            name: 'Beds__c',
+            type: 'double',
+            definitionTarget: {
+              uri: 'file:///objects/Property__c/fields/Beds__c.field-meta.xml',
+            },
+          },
+        ],
+      },
+      1,
+    );
+    await Effect.runPromise(
+      symbolManager.addSymbolTable(sobjectTable, sobjectUri, 1),
+    );
+    await compileAndAdd(source, uri);
+    await Effect.runPromise(
+      symbolManager.resolveCrossFileReferencesForFile(uri),
+    );
+
+    const symbols = await symbolManager.findSymbolsInFile(uri);
+    const property = symbols.find(
+      (symbol) =>
+        symbol.kind === SymbolKind.Variable && symbol.name === 'property',
+    ) as any;
+    expect(property?.type?.resolvedSymbol?.kind).toBe(SymbolKind.SObject);
+    expect(property?.type?.resolvedSymbol?.name).toBe('Property__c');
+
+    const usageLine = source.split('\n')[3];
+    const field = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 4, character: usageLine.indexOf('Beds__c') + 1 },
+      'precise',
+    );
+    expect(field?.kind).toBe(SymbolKind.Field);
+    expect(field?.name).toBe('Beds__c');
+    expect((field as any)?.definitionTarget?.uri).toBe(
+      'file:///objects/Property__c/fields/Beds__c.field-meta.xml',
+    );
   });
 
   it('resolves an explicitly typed enhanced-for variable as that variable', async () => {

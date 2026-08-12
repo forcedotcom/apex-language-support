@@ -17,6 +17,7 @@ import type {
 } from '../../../types/symbol';
 import { SymbolKind, SymbolVisibility } from '../../../types/symbol';
 import {
+  inTypeSymbolGroup,
   isBlockSymbol,
   isChainedSymbolReference,
   isClassOrInterfaceSymbol,
@@ -425,7 +426,7 @@ export const VariableResolutionValidator: Validator = {
                   }
                 }
                 const resolvedType =
-                  typeSymbols.find(isClassOrInterfaceSymbol) ?? null;
+                  typeSymbols.find(inTypeSymbolGroup) ?? null;
                 if (resolvedType) {
                   targetType = resolvedType;
                 } else {
@@ -458,7 +459,7 @@ export const VariableResolutionValidator: Validator = {
                 }
               }
               const resolvedTargetType =
-                typeSymbols.find(isClassOrInterfaceSymbol) ?? null;
+                typeSymbols.find(inTypeSymbolGroup) ?? null;
               if (resolvedTargetType) {
                 targetType = resolvedTargetType;
               } else {
@@ -634,7 +635,7 @@ export const VariableResolutionValidator: Validator = {
                   );
               }
               const resolvedTargetType =
-                typeSymbols.find(isClassOrInterfaceSymbol) ?? null;
+                typeSymbols.find(inTypeSymbolGroup) ?? null;
               if (resolvedTargetType) {
                 targetType = resolvedTargetType;
               } else {
@@ -831,7 +832,7 @@ function resolveChainTargetType(
             symbolManager.findSymbolByName(lastPart),
           );
       }
-      currentType = typeSymbols.find(isClassOrInterfaceSymbol) ?? null;
+      currentType = typeSymbols.find(inTypeSymbolGroup) ?? null;
     }
     // When first node is a class name (e.g. EncodingUtil), resolve via symbol manager
     if (!currentType && !firstVar) {
@@ -859,7 +860,7 @@ function resolveChainTargetType(
             symbolManager.findSymbolByName(lastPart),
           );
       }
-      currentType = typeSymbols.find(isClassOrInterfaceSymbol) ?? null;
+      currentType = typeSymbols.find(inTypeSymbolGroup) ?? null;
     }
     if (!currentType) return null;
 
@@ -878,7 +879,7 @@ function resolveChainTargetType(
       const typeSymbols: ApexSymbol[] = yield* Effect.promise(() =>
         symbolManager.findSymbolByName(returnTypeName),
       );
-      const nextType = typeSymbols.find(isClassOrInterfaceSymbol);
+      const nextType = typeSymbols.find(inTypeSymbolGroup);
       if (!nextType) return null;
       currentType = nextType;
     }

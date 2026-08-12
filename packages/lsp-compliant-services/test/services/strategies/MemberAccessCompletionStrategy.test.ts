@@ -8,7 +8,11 @@
 
 import { Effect } from 'effect';
 import { getLogger } from '@salesforce/apex-lsp-shared';
-import { ApexSymbolManager } from '@salesforce/apex-lsp-parser-ast';
+import {
+  ApexSymbolManager,
+  composeSObjectSymbolTable,
+  ownerUriForSObject,
+} from '@salesforce/apex-lsp-parser-ast';
 import { MemberAccessCompletionStrategy } from '../../../src/services/strategies/MemberAccessCompletionStrategy';
 import {
   compileAndRegister,
@@ -881,6 +885,7 @@ describe('MemberAccessCompletionStrategy', () => {
         '  void run() {',
         '    Property__c property = new Property__c();',
         '    property.',
+        "    String marker = 'after';",
         '  }',
         '}',
       ].join('\n');
@@ -924,16 +929,129 @@ describe('MemberAccessCompletionStrategy', () => {
         ]),
       );
 
+      const receiver = await sm.getIncompleteMemberAccessAtPosition(uri, {
+        line: 3,
+        character: 13,
+      });
+      expect(receiver?.name).toBe('property');
+
       const candidates = await Effect.runPromise(
         strat.getCompletions(
           makeCompletionContext(makeTextDocument(editedSource, uri), 3, 13, {
             triggerCharacter: '.',
+            incompleteMemberAccess: receiver ?? undefined,
           }),
         ),
       );
       const names = candidates.map((candidate) => candidate.symbol.name);
 
       expect(names).toEqual(expect.arrayContaining(['Beds__c', 'Address__c']));
+    });
+
+    it('uses a parsed member prefix to complete members of a native sObject', async () => {
+      const sm = new ApexSymbolManager();
+      const strat = new MemberAccessCompletionStrategy(logger, sm);
+      const sObjectTable = composeSObjectSymbolTable(
+        {
+          name: 'Property__c',
+          custom: true,
+          definitionTarget: { uri: 'org://Property__c' },
+          fields: [
+            {
+              name: 'Beds__c',
+              type: 'double',
+              definitionTarget: { uri: 'org://Property__c/Beds__c' },
+            },
+          ],
+        },
+        1,
+      );
+      await Effect.runPromise(
+        sm.addSymbolTable(sObjectTable, ownerUriForSObject('Property__c'), 1),
+      );
+
+      const content = [
+        'public class PropertyCompletion {',
+        '  public void run() {',
+        '    Property__c property = new Property__c();',
+        '    property.Bed',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///test/PropertyCompletion.cls';
+      await compileInlineAndRegister(sm, content, uri);
+      await Effect.runPromise(sm.resolveCrossFileReferencesForFile(uri));
+
+      const receiver = await sm.getIncompleteMemberAccessAtPosition(uri, {
+        line: 3,
+        character: 16,
+      });
+      expect(receiver?.name).toBe('property');
+
+      const candidates = await Effect.runPromise(
+        strat.getCompletions(
+          makeCompletionContext(makeTextDocument(content, uri), 3, 16, {
+            incompleteMemberAccess: receiver ?? undefined,
+          }),
+        ),
+      );
+
+      expect(candidates.map((candidate) => candidate.symbol.name)).toContain(
+        'Beds__c',
+      );
+    });
+
+    it('uses a native sObject installed after parsing on the first dot', async () => {
+      const sm = new ApexSymbolManager();
+      const strat = new MemberAccessCompletionStrategy(logger, sm);
+      const content = [
+        'public class PropertyCompletionAfterLoad {',
+        '  public void run() {',
+        '    Property__c property = new Property__c();',
+        '    property.',
+        '  }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///test/PropertyCompletionAfterLoad.cls';
+      await compileInlineAndRegister(sm, content, uri);
+
+      const sObjectTable = composeSObjectSymbolTable(
+        {
+          name: 'Property__c',
+          custom: true,
+          definitionTarget: { uri: 'org://Property__c' },
+          fields: [
+            {
+              name: 'Beds__c',
+              type: 'double',
+              definitionTarget: { uri: 'org://Property__c/Beds__c' },
+            },
+          ],
+        },
+        1,
+      );
+      await Effect.runPromise(
+        sm.addSymbolTable(sObjectTable, ownerUriForSObject('Property__c'), 1),
+      );
+      await Effect.runPromise(sm.resolveCrossFileReferencesForFile(uri));
+
+      const receiver = await sm.getIncompleteMemberAccessAtPosition(uri, {
+        line: 3,
+        character: 13,
+      });
+      expect(receiver?.name).toBe('property');
+
+      const candidates = await Effect.runPromise(
+        strat.getCompletions(
+          makeCompletionContext(makeTextDocument(content, uri), 3, 13, {
+            triggerCharacter: '.',
+          }),
+        ),
+      );
+
+      expect(candidates.map((candidate) => candidate.symbol.name)).toContain(
+        'Beds__c',
+      );
     });
   });
 

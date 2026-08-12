@@ -6,14 +6,19 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { SELECTORS } from './constants';
 import {
   waitForVSCodeWorkbench,
   closeWelcomeTabs,
   isDesktop,
 } from '../shared/utils/helpers';
-import { waitForCommandToBeAvailable } from '../shared/pages/commands';
+import {
+  executeCommandWithCommandPalette,
+  waitForCommandToBeAvailable,
+} from '../shared/pages/commands';
+import { TAB_CLOSE_BUTTON } from '../shared/utils/locators';
+import { expandWorkspaceFolders } from '../shared/utils/fileHelpers';
 
 import type { ConsoleError, NetworkError } from './constants';
 
@@ -45,6 +50,56 @@ export const startVSCodeWeb = async (page: Page): Promise<void> => {
 };
 
 /**
+ * Verifies that Salesforce Services completed activation.
+ *
+ * Installing the extension is insufficient: VS Code can leave an extension
+ * indefinitely in the "Activating..." state. The Running Extensions editor is
+ * the only black-box signal available to the web E2E browser for distinguishing
+ * that state from a completed activation.
+ */
+export const waitForSalesforceServicesActivation = async (
+  page: Page,
+  timeout = 30_000,
+): Promise<void> => {
+  await executeCommandWithCommandPalette(
+    page,
+    'Developer: Show Running Extensions',
+  );
+
+  const runningExtensions = page.locator('.runtime-extensions-editor');
+  await runningExtensions.waitFor({ state: 'visible', timeout: 10_000 });
+
+  const servicesExtension = runningExtensions
+    .locator('.monaco-list-row')
+    .filter({ hasText: 'Salesforce Services' })
+    .first();
+
+  await expect(
+    servicesExtension,
+    'Salesforce Services should be present in Running Extensions',
+  ).toBeVisible({ timeout: 10_000 });
+
+  await expect(async () => {
+    const status = (await servicesExtension.innerText()).trim();
+    if (!/(?:Startup )?Activation:\s*\d+(?:\.\d+)?ms/.test(status)) {
+      throw new Error(
+        `Salesforce Services has not completed activation. Running Extensions reports: "${status}"`,
+      );
+    }
+  }, 'Waiting for Salesforce Services to finish activating').toPass({
+    timeout,
+  });
+
+  const runningExtensionsTab = page
+    .getByRole('tab', { name: /Running Extensions/i })
+    .first();
+  const closeButton = runningExtensionsTab.locator(TAB_CLOSE_BUTTON);
+  await page.keyboard.press('Escape');
+  await closeButton.click({ timeout: 5000, force: true });
+  await runningExtensionsTab.waitFor({ state: 'detached', timeout: 5000 });
+};
+
+/**
  * Verifies workspace files are loaded.
  *
  * @param page - Playwright page instance
@@ -53,6 +108,7 @@ export const startVSCodeWeb = async (page: Page): Promise<void> => {
 export const verifyWorkspaceFiles = async (page: Page): Promise<number> => {
   const explorer = page.locator(SELECTORS.EXPLORER);
   await explorer.waitFor({ state: 'visible', timeout: 30_000 });
+  await expandWorkspaceFolders(page);
 
   // Wait for the file system to stabilize in CI environments
   if (process.env.CI) {
@@ -150,12 +206,19 @@ export const activateExtension = async (page: Page): Promise<void> => {
  * workspace ingestion completes, which means cross-file symbol resolution is available.
  *
  * @param page - Playwright page instance
- * @param timeout - Maximum wait time in milliseconds (default: 45s desktop, 30s web)
+ * @param options - `timeout` (default: 45s desktop, 30s web) and `strict`.
+ *   When `strict` is false (default), a timeout is logged as a warning and the
+ *   call resolves — best-effort readiness for callers (e.g. same-file flows via
+ *   `waitForLSPInitialization`) that can still make progress. When `strict` is
+ *   true, a timeout THROWS after capturing the status-bar text, so a caller that
+ *   requires full ingestion (cross-file navigation) fails/retries instead of
+ *   racing ahead against an incomplete workspace.
  */
 export const waitForWorkspaceIngestion = async (
   page: Page,
-  timeout?: number,
+  options: { timeout?: number; strict?: boolean } = {},
 ): Promise<void> => {
+  const { timeout, strict = false } = options;
   const isDesktopMode = isDesktop();
   const defaultTimeout = timeout ?? (isDesktopMode ? 45_000 : 30_000);
 
@@ -164,8 +227,8 @@ export const waitForWorkspaceIngestion = async (
   // and various loading messages during ingestion (with $(sync~spin) icon).
   // We wait for the status bar to show the ready message or at least
   // NOT contain loading/spinning indicators.
-  await page
-    .waitForFunction(
+  try {
+    await page.waitForFunction(
       () => {
         const statusBar = document.querySelector(
           '[id="workbench.parts.statusbar"]',
@@ -200,19 +263,23 @@ export const waitForWorkspaceIngestion = async (
         );
       },
       { timeout: defaultTimeout },
-    )
-    .catch(async () => {
-      // If timeout, capture actual status bar state for debugging
-      const statusBarText = await page.evaluate(() => {
-        const statusBar = document.querySelector(
-          '[id="workbench.parts.statusbar"]',
-        );
-        return statusBar?.textContent || 'STATUS BAR NOT FOUND';
-      });
-      console.warn(
-        `⚠️  Workspace ingestion wait timed out after ${defaultTimeout}ms. Status bar: "${statusBarText}"`,
+    );
+  } catch {
+    // Capture the actual status-bar state for diagnostics in both modes.
+    const statusBarText = await page.evaluate(() => {
+      const statusBar = document.querySelector(
+        '[id="workbench.parts.statusbar"]',
       );
+      return statusBar?.textContent || 'STATUS BAR NOT FOUND';
     });
+    const message = `Workspace ingestion wait timed out after ${defaultTimeout}ms. Status bar: "${statusBarText}"`;
+    if (strict) {
+      // Cross-file callers must NOT proceed against an incomplete workspace —
+      // surface the timeout so the test fails/retries instead of racing.
+      throw new Error(message);
+    }
+    console.warn(`⚠️  ${message}`);
+  }
 };
 
 /**

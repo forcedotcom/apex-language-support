@@ -7,7 +7,7 @@
  */
 
 import { HashMap } from 'data-structure-typed';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { getLogger, type DefinitionTarget } from '@salesforce/apex-lsp-shared';
 import { TypeInfo } from './typeInfo';
 import {
   Namespace,
@@ -34,6 +34,7 @@ export enum SymbolKind {
   Enum = 'enum',
   EnumValue = 'enumValue',
   Block = 'block',
+  SObject = 'sobject',
 }
 
 /**
@@ -82,6 +83,7 @@ export const SymbolKindValues = {
   [SymbolKind.Enum]: 9,
   [SymbolKind.EnumValue]: 10,
   [SymbolKind.Block]: 11,
+  [SymbolKind.SObject]: 12,
 } as const;
 
 /**
@@ -511,6 +513,8 @@ export interface ApexSymbol {
   namespace?: string | Namespace | null;
   annotations?: Annotation[];
   identifierLocation?: SymbolLocation;
+  /** Optional editor navigation target, independent of graph ownership. */
+  definitionTarget?: DefinitionTarget;
 
   // Lazy loading support
   _isLoaded: boolean;
@@ -530,7 +534,8 @@ export interface TypeSymbol extends ApexSymbol {
     | SymbolKind.Class
     | SymbolKind.Interface
     | SymbolKind.Trigger
-    | SymbolKind.Enum;
+    | SymbolKind.Enum
+    | SymbolKind.SObject;
   /**
    * The superclass that this class extends.
    * Only applicable for classes (not interfaces or triggers).
@@ -550,7 +555,7 @@ export interface TypeSymbol extends ApexSymbol {
 }
 
 /**
- * Type predicate: symbol is a class, interface, enum, or trigger
+ * Type predicate: symbol is a class, interface, enum, trigger, or sObject
  */
 export function inTypeSymbolGroup(
   symbol: ApexSymbol | undefined | null,
@@ -560,7 +565,8 @@ export function inTypeSymbolGroup(
     (symbol.kind === SymbolKind.Class ||
       symbol.kind === SymbolKind.Enum ||
       symbol.kind === SymbolKind.Interface ||
-      symbol.kind === SymbolKind.Trigger)
+      symbol.kind === SymbolKind.Trigger ||
+      symbol.kind === SymbolKind.SObject)
   );
 }
 

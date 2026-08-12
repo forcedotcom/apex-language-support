@@ -69,7 +69,16 @@ export const createWebConfig = (options: WebConfigOptions = {}) => {
     timeout: process.env.DEBUG_MODE ? 0 : 360 * 1000,
     maxFailures: process.env.CI ? 3 : 0,
     // E2E_NO_RETRIES: workflow try-run sets this to fail fast on cache miss. Using env var preserves wireit cache key.
-    retries: process.env.E2E_NO_RETRIES ? 0 : process.env.CI ? 2 : 0,
+    //
+    // CI retries = 1 (not 2): specs configured `mode: 'serial'` (e.g.
+    // apex-goto-definition) re-run the ENTIRE file on each retry, so retries=2
+    // meant up to 3× the whole-suite runtime — enough for the largest suite to
+    // blow past the 20-min job timeout and get cancelled (surfacing as
+    // E2E_MISSING and blocking the PR). The e2e-tests workflow already runs a
+    // dedicated sequential `--last-failed` retry pass after the parallel run,
+    // so a single in-job retry here is sufficient; the workflow step covers the
+    // rest without multiplying wall-clock inside one job.
+    retries: process.env.E2E_NO_RETRIES ? 0 : process.env.CI ? 1 : 0,
     expect: {
       timeout: 10_000,
     },

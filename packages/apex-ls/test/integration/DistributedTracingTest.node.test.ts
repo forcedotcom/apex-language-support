@@ -292,4 +292,15 @@ describe('withExtractedTraceContext()', () => {
     expect(queueSpan?.traceId).toBe(coordinatorTraceId);
     expect(queueSpan?.parentSpanId).toBe(requestSpan?.spanId);
   }, 30_000);
+
+  it('continues processing data-owner writes after one write defects', async () => {
+    setAssignedRole('dataOwner');
+
+    await expect(
+      Effect.runPromise(dataOwnerWrite(Effect.die('malformed payload'))),
+    ).rejects.toBeDefined();
+    await expect(
+      Effect.runPromise(dataOwnerWrite(Effect.succeed('still alive'))),
+    ).resolves.toBe('still alive');
+  });
 });

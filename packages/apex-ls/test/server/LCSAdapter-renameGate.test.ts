@@ -171,4 +171,91 @@ describe('LCSAdapter rename capability gate (W-23631076)', () => {
     // The references handler under the same gating pattern still registered.
     expect(connection.onReferences).toHaveBeenCalledTimes(1);
   });
+
+  it('registers onPrepareRename when prepareProvider is true (W-23631080)', () => {
+    const connection = makeMockConnection();
+    const adapter = makeAdapter(connection, {
+      renameProvider: {
+        prepareProvider: true,
+      },
+      referencesProvider: true,
+    });
+
+    (adapter as any).setupProtocolHandlers();
+
+    // Both rename and prepareRename handlers should be registered
+    expect(connection.onRenameRequest).toHaveBeenCalledTimes(1);
+    expect(connection.onPrepareRename).toHaveBeenCalledTimes(1);
+    expect(connection.onPrepareRename).toHaveBeenCalledWith(
+      expect.any(Function),
+    );
+  });
+
+  it('does NOT register onPrepareRename when prepareProvider is false', () => {
+    const connection = makeMockConnection();
+    const adapter = makeAdapter(connection, {
+      renameProvider: true, // boolean, not object with prepareProvider
+      referencesProvider: true,
+    });
+
+    (adapter as any).setupProtocolHandlers();
+
+    // onRenameRequest is registered, but not onPrepareRename
+    expect(connection.onRenameRequest).toHaveBeenCalledTimes(1);
+    expect(connection.onPrepareRename).not.toHaveBeenCalled();
+  });
+
+  it('onRenameRequest handler throws ResponseError when worker returns error shape (W-23631080 review)', async () => {
+    // W-23631080 MEDIUM review fix: verify the { error }→ResponseError conversion
+    // at the connection layer. Mock handleLspRequest to return an error shape and
+    // assert the registered handler throws ResponseError (not returns null/raw error).
+    const connection = makeMockConnection();
+    const adapter = makeAdapter(connection, {
+      renameProvider: true,
+      referencesProvider: true,
+    });
+
+    (adapter as any).setupProtocolHandlers();
+
+    // Capture the registered handler
+    const registeredHandler = connection.onRenameRequest.mock.calls[0][0];
+    expect(registeredHandler).toBeInstanceOf(Function);
+
+    // Mock handleLspRequest to return an error shape (invalid newName validation failure)
+    jest.spyOn(adapter as any, 'handleLspRequest').mockResolvedValue({
+      error: { code: -32602, message: 'Identifier cannot be a keyword: class' },
+    });
+
+    // Call the handler and assert it throws ResponseError with correct code/message
+    await expect(
+      registeredHandler(
+        {
+          textDocument: { uri: 'file:///test.cls' },
+          position: { line: 1, character: 10 },
+          newName: 'class',
+        },
+        undefined,
+      ),
+    ).rejects.toThrow();
+
+    // Verify the thrown error is a ResponseError with the right shape
+    try {
+      await registeredHandler(
+        {
+          textDocument: { uri: 'file:///test.cls' },
+          position: { line: 1, character: 10 },
+          newName: 'class',
+        },
+        undefined,
+      );
+      fail('Expected handler to throw ResponseError');
+    } catch (err: any) {
+      // ResponseError from vscode-languageserver has code and message properties
+      expect(err).toHaveProperty('code', -32602);
+      expect(err).toHaveProperty(
+        'message',
+        'Identifier cannot be a keyword: class',
+      );
+    }
+  });
 });
