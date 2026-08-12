@@ -1283,6 +1283,7 @@ export class ResourceLoader {
 
     const normalizedInput = className.replace(/\.cls$/i, '');
     const pathParts = normalizedInput.split(/[/.\\]/).filter(Boolean);
+    if (pathParts.length === 0) return null;
     const toFqnFromUri = (fileUri: string): string | null => {
       const match = fileUri.match(STANDARD_APEX_LIBRARY_CLASS_URI_REGEX);
       return match ? `${match[1]}.${match[2]}` : null;

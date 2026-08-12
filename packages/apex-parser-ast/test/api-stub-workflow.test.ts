@@ -124,6 +124,36 @@ describe('API Stub Workflow Integration', () => {
     });
   });
 
+  describe('Annotations', () => {
+    test('generates compilable type annotations with string parameters', () => {
+      const [stub] = generateApexStubs({
+        typeStubs: [
+          {
+            name: 'RestEndpoint',
+            kind: 'CLASS',
+            modifiers: ['global'],
+            annotations: [
+              {
+                name: 'RestResource',
+                parameters: { urlMapping: '/cases/*' },
+              },
+            ],
+          },
+        ],
+      });
+      const listener = new ApexSymbolCollectorListener();
+      const result = new CompilerService('System').compile(
+        stub.source,
+        'apexlib://test/RestEndpoint.cls',
+        listener,
+        { projectNamespace: 'System', includeComments: false },
+      );
+
+      expect(result.errors).toHaveLength(0);
+      expect(result.result).toBeDefined();
+    });
+  });
+
   describe('Generic type handling', () => {
     test('handles List<T> return types correctly', () => {
       const apiResponse = {
@@ -282,7 +312,7 @@ describe('API Stub Workflow Integration', () => {
 
       const stubs = generateApexStubs(apiResponse);
 
-      expect(stubs[0].filename).toBe('MyNamespace_CustomClass.cls');
+      expect(stubs[0].filename).toBe('CustomClass.cls');
     });
 
     test('handles dotted class names', () => {

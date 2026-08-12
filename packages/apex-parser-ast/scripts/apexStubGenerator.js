@@ -14,6 +14,7 @@ const VISIBILITY_MODIFIERS = ['global', 'public', 'protected', 'private'];
 
 // Non-visibility modifiers
 const OTHER_MODIFIERS = ['static', 'final', 'abstract', 'virtual', 'override', 'testMethod', 'webService', 'transient'];
+const APEX_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /**
  * Demangle encoded type strings
@@ -118,13 +119,21 @@ function formatAnnotation(ann) {
     
     // Object annotation with name and optional parameters
     if (ann && typeof ann === 'object' && ann.name) {
+        if (!APEX_IDENTIFIER.test(ann.name)) {
+            throw new Error(`Invalid annotation name: ${ann.name}`);
+        }
         let result = ann.name;
         
         // Add parameters if present and non-empty
         if (ann.parameters && typeof ann.parameters === 'object') {
             const params = Object.entries(ann.parameters)
                 .filter(([key, value]) => value !== null && value !== undefined)
-                .map(([key, value]) => `${key}=${value}`)
+                .map(([key, value]) => {
+                    if (!APEX_IDENTIFIER.test(key)) {
+                        throw new Error(`Invalid annotation parameter name: ${key}`);
+                    }
+                    return `${key}=${formatAnnotationValue(value)}`;
+                })
                 .join(', ');
             
             if (params) {
@@ -136,6 +145,34 @@ function formatAnnotation(ann) {
     }
     
     return String(ann);
+}
+
+function formatAnnotationValue(value) {
+    if (typeof value === 'boolean') {
+        return String(value);
+    }
+
+    if (typeof value === 'number') {
+        if (!Number.isFinite(value)) {
+            throw new Error(`Invalid annotation value: ${value}`);
+        }
+        return String(value);
+    }
+
+    if (typeof value !== 'string') {
+        throw new Error(`Invalid annotation value: ${value}`);
+    }
+
+    if (/^(true|false|-?(?:0|[1-9]\d*)(?:\.\d+)?)$/i.test(value)) {
+        return value;
+    }
+
+    return `'${value
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\r/g, '\\r')
+        .replace(/\n/g, '\\n')
+        .replace(/\t/g, '\\t')}'`;
 }
 
 /**
@@ -292,7 +329,7 @@ function generateTypeBody(typeStub, indent = '') {
     // Annotations
     if (typeStub.annotations && typeStub.annotations.length > 0) {
         typeStub.annotations.forEach(ann => {
-            lines.push(`${indent}@${ann}`);
+            lines.push(`${indent}@${formatAnnotation(ann)}`);
         });
     }
     
@@ -480,12 +517,6 @@ function getFileName(typeStub) {
     // Workaround for W-23491682: Clean generic type parameters from name
     // e.g., "List<T>" -> "List", "Map<K,V>" -> "Map"
     name = cleanGenericTypeName(name);
-
-    // Only add namespace prefix if it's not the default System namespace
-    // System namespace types should not have a prefix in their filename
-    if (typeStub.namespacePrefix && typeStub.namespacePrefix !== 'System') {
-        name = `${typeStub.namespacePrefix}_${name}`;
-    }
 
     const ext = typeStub.kind === 'TRIGGER' ? '.trigger' : '.cls';
 

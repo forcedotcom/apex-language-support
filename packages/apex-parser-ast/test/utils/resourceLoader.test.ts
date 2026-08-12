@@ -502,6 +502,13 @@ describe('ResourceLoader Lazy Loading', () => {
         null,
       );
     });
+
+    it.each(['', '.cls', '/', '\\', '///'])(
+      'returns null for an empty normalized class name: %p',
+      (className) => {
+        expect(loader.resolveStandardClassFqn(className)).toBeNull();
+      },
+    );
   });
 
   describe('getPotentialMatches', () => {

@@ -142,6 +142,64 @@ describe('API stub scripts', () => {
     expect(checksum()).not.toBe(before);
   });
 
+  test('capture checksum changes with content and is independent of namespace order', () => {
+    const root = mkdtempSync(join(tmpdir(), 'apex-capture-checksum-'));
+    writeFileSync(join(root, 'System.json'), '{"typeStubs":["one"]}');
+    writeFileSync(join(root, 'Database.json'), '{"typeStubs":["two"]}');
+    const metadata = {
+      namespaces: {
+        System: { filename: 'System.json' },
+        Database: { filename: 'Database.json' },
+      },
+    };
+    const checksum = (namespaces: string[]): string =>
+      runModule(
+        `
+          import { calculateCaptureChecksum } from ${JSON.stringify(
+            scriptUrl('generate-api-stubs.mjs'),
+          )};
+          const metadata = JSON.parse(process.argv[1]);
+          const namespaces = new Set(JSON.parse(process.argv[3]));
+          console.log(calculateCaptureChecksum(metadata, process.argv[2], namespaces));
+        `,
+        [JSON.stringify(metadata), root, JSON.stringify(namespaces)],
+      );
+
+    const before = checksum(['System', 'Database']);
+    expect(checksum(['Database', 'System'])).toBe(before);
+    writeFileSync(join(root, 'System.json'), '{"typeStubs":["changed"]}');
+    expect(checksum(['System', 'Database'])).not.toBe(before);
+  });
+
+  test('counts skipped builtins while loading a namespace capture', () => {
+    const root = mkdtempSync(join(tmpdir(), 'apex-api-stubs-'));
+    const capture = join(root, 'System.json');
+    writeFileSync(
+      capture,
+      JSON.stringify({
+        typeStubs: [
+          { name: 'String', kind: 'CLASS', modifiers: ['global'] },
+          { name: 'Generated', kind: 'CLASS', modifiers: ['global'] },
+        ],
+      }),
+    );
+
+    const output = runModule(
+      `
+        import { loadNamespaceStubs } from ${JSON.stringify(
+          scriptUrl('generate-api-stubs.mjs'),
+        )};
+        console.log(JSON.stringify(loadNamespaceStubs('System', process.argv[1])));
+      `,
+      [capture],
+    );
+
+    expect(JSON.parse(output)).toMatchObject({
+      skipped: 1,
+      stubs: [{ filename: 'Generated.cls' }],
+    });
+  });
+
   test('FQN index generation does not read api-only types', () => {
     const source = readFileSync(
       join(scriptsDir, 'generate-stdlib-cache.mjs'),

@@ -309,7 +309,7 @@ async function makeResourceLoaderRemoteLayer(): Promise<
             if (fqn) return fqn;
             // Miss: the specified namespace doesn't have this class (or non-stdlib)
             // Fall through to IPC for non-stdlib user types or edge cases
-          } else {
+          } else if (pathParts.length === 1) {
             // Unqualified input: try unqualified key
             const unqualifiedKey = pathParts[0].toLowerCase();
             const fqn = fqnIndex.get(unqualifiedKey);

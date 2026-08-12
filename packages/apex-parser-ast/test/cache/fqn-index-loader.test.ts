@@ -106,6 +106,9 @@ describe('FQN Index Loader', () => {
       { input: 'Schema.SObject', description: 'qualified Schema.SObject' },
       { input: 'ConnectApi.Community', description: 'ConnectApi namespace' },
       { input: 'NonExistentClass', description: 'unknown class' },
+      { input: '', description: 'empty class name' },
+      { input: '.cls', description: 'extension-only class name' },
+      { input: '/', description: 'separator-only class name' },
     ];
 
     testCases.forEach(({ input, description }) => {
@@ -122,7 +125,7 @@ describe('FQN Index Loader', () => {
           indexResult = fqnIndex.get(qualifiedKey) ?? null;
           // If user specified a namespace explicitly, respect it — don't fall
           // through to unqualified. This matches worker.platform.ts logic.
-        } else {
+        } else if (pathParts.length === 1) {
           // Unqualified input: try unqualified key
           const unqualifiedKey = pathParts[0].toLowerCase();
           indexResult = fqnIndex.get(unqualifiedKey) ?? null;

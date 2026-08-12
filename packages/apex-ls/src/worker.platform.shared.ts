@@ -5348,7 +5348,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
               if (fqn !== null) {
                 return { found: true, fqn };
               }
-            } else {
+            } else if (pathParts.length === 1) {
               // Unqualified input: class only
               const unqualifiedKey = pathParts[0].toLowerCase();
               const fqn = _fqnIndex.get(unqualifiedKey) ?? null;

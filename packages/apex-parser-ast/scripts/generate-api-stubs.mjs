@@ -26,6 +26,7 @@ import {
   readdirSync,
   unlinkSync,
 } from 'fs';
+import { createHash } from 'crypto';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { generateApexStubs } from './apexStubGenerator.js';
@@ -136,6 +137,21 @@ export function validateCapture(metadata, inputDir, targetNamespaces = TARGET_NA
   }
 }
 
+export function calculateCaptureChecksum(metadata, inputDir, targetNamespaces = TARGET_NAMESPACES) {
+  const hash = createHash('sha256');
+  for (const namespace of [...targetNamespaces].sort()) {
+    const filename = metadata.namespaces[namespace].filename;
+    const content = readFileSync(join(inputDir, filename));
+    hash.update(namespace);
+    hash.update('\0');
+    hash.update(filename);
+    hash.update('\0');
+    hash.update(content);
+    hash.update('\0');
+  }
+  return hash.digest('hex');
+}
+
 export function cleanNamespaceDirectory(outputDir, namespace) {
   const namespaceDir = join(outputDir, namespace);
   if (!existsSync(namespaceDir)) return 0;
@@ -150,13 +166,14 @@ export function cleanNamespaceDirectory(outputDir, namespace) {
   return removed;
 }
 
-function loadNamespaceStubs(namespace, jsonFilePath) {
+export function loadNamespaceStubs(namespace, jsonFilePath) {
   const jsonData = JSON.parse(readFileSync(jsonFilePath, 'utf8'));
   if (!Array.isArray(jsonData.typeStubs) || jsonData.typeStubs.length === 0) {
     throw new Error(`No type stubs found in ${jsonFilePath}`);
   }
 
-  return generateApexStubs(jsonData)
+  const generatedStubs = generateApexStubs(jsonData);
+  const stubs = generatedStubs
     .filter((stub) => !shouldSkipFile(stub.filename, namespace))
     .map((stub) => {
       if (!SAFE_PATH_COMPONENT.test(stub.filename.replace(/\.cls$/, ''))) {
@@ -164,6 +181,8 @@ function loadNamespaceStubs(namespace, jsonFilePath) {
       }
       return stub;
     });
+
+  return { stubs, skipped: generatedStubs.length - stubs.length };
 }
 
 /**
@@ -212,10 +231,7 @@ async function main() {
   const generatedStubs = new Map();
   for (const namespace of TARGET_NAMESPACES) {
     const info = fetchMetadata.namespaces[namespace];
-    generatedStubs.set(
-      namespace,
-      loadNamespaceStubs(namespace, join(INPUT_DIR, info.filename)),
-    );
+    generatedStubs.set(namespace, loadNamespaceStubs(namespace, join(INPUT_DIR, info.filename)));
   }
 
   // Clean generated files only from namespaces this capture replaces.
@@ -236,7 +252,7 @@ async function main() {
 
   const generationMetadata = {
     generatedAt: new Date().toISOString(),
-    sourceChecksum: fetchMetadata.totalTypes,
+    sourceChecksum: calculateCaptureChecksum(fetchMetadata, INPUT_DIR),
     namespaces: {},
     totalGenerated: 0,
     totalSkipped: 0,
@@ -246,10 +262,14 @@ async function main() {
   let totalSkipped = 0;
   let totalExcluded = 0;
 
-  for (const [namespace, stubs] of generatedStubs) {
+  for (const [namespace, { stubs, skipped }] of generatedStubs) {
     const result = generateNamespace(namespace, stubs);
-    generationMetadata.namespaces[namespace] = { generated: result.generated };
+    generationMetadata.namespaces[namespace] = {
+      generated: result.generated,
+      skipped,
+    };
     totalGenerated += result.generated;
+    totalSkipped += skipped;
   }
 
   totalExcluded = Object.keys(fetchMetadata.namespaces).filter(
