@@ -6,7 +6,7 @@ This directory contains scripts for generating Apex standard library stubs from 
 
 The new API-based approach replaces web scraping with direct API calls to fetch type definitions:
 
-1. **fetch-api-stubs.mjs** - Fetches stub JSON from `/services/data/v<version>/tooling/symbols`
+1. **fetch-api-stubs.mjs** - Fetches stub JSON from `/services/data/latest/tooling/symbols` by default
 2. **generate-api-stubs.mjs** - Converts JSON to `.cls` files using apexStubGenerator.js
 3. **apexStubGenerator.js** - Pure vanilla JS library for JSON → Apex conversion
 4. **generate-stdlib-cache.mjs** - (Existing) Parses `.cls` files → Protobuf cache
@@ -26,7 +26,7 @@ sf org login web -a gus
 ### Fetch Stubs from API
 
 ```bash
-# Fetch fixed set of target namespaces from default org (gus)
+# Fetch all available namespaces from default org (gus) using the backend's latest API version
 npm run fetch:api-stubs
 
 # Fetch from specific org

@@ -24,6 +24,20 @@ const runModule = (source: string, args: string[] = []): string =>
   ).trim();
 
 describe('API stub scripts', () => {
+  test('uses the latest API version alias by default for symbol table requests', () => {
+    const output = runModule(`
+      import { buildSymbolsUrl, parseArgs } from ${JSON.stringify(
+        scriptUrl('fetch-api-stubs.mjs'),
+      )};
+      const config = parseArgs([]);
+      console.log(buildSymbolsUrl(config.apiVersion, 'category=BUILTIN'));
+    `);
+
+    expect(output).toBe(
+      '/services/data/latest/tooling/symbols?category=BUILTIN',
+    );
+  });
+
   test('generator scripts use the canonical target namespace set', () => {
     const output = runModule(`
        import { TARGET_NAMESPACES } from ${JSON.stringify(
