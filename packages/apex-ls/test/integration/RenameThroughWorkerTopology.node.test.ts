@@ -549,4 +549,302 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
 
     expect(result).toBeNull();
   }, 120_000);
+
+  // W-23631084: Field rename tests (4.1)
+  describe('renameField cross-file with receiver-type disambiguation (W-23631084)', () => {
+    // Account.cls declares a `total` field, used in Caller.cls as `acct.total`.
+    const ACCOUNT_URI = 'file:///test/Account.cls';
+    const ACCOUNT_SRC = `public class Account {
+    public Integer total;
+
+    public void increment() {
+        total = total + 1;
+    }
+}`;
+
+    // Caller.cls uses Account.total as `acct.total`.
+    const CALLER_URI = 'file:///test/Caller.cls';
+    const CALLER_SRC = `public class Caller {
+    public void process() {
+        Account acct = new Account();
+        acct.total = 10;
+        Integer x = acct.total;
+    }
+}`;
+
+    // Other.cls has an unrelated `total` field that should NOT be renamed.
+    const OTHER_URI = 'file:///test/Other.cls';
+    const OTHER_SRC = `public class Other {
+    public Integer total;
+
+    public void use() {
+        Other other = new Other();
+        other.total = 99;
+    }
+}`;
+
+    const FIELD_SOURCES: Record<string, string> = {
+      [ACCOUNT_URI]: ACCOUNT_SRC,
+      [CALLER_URI]: CALLER_SRC,
+      [OTHER_URI]: OTHER_SRC,
+    };
+
+    it('renames a field across files, disambiguating by receiver type', async () => {
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => FIELD_SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        // Open all files.
+        for (const uri of [ACCOUNT_URI, CALLER_URI, OTHER_URI]) {
+          yield* Effect.promise(() =>
+            dispatcher.dispatch('documentOpen', {
+              document: {
+                uri,
+                languageId: 'apex',
+                version: 1,
+                getText: () => FIELD_SOURCES[uri],
+              },
+              textDocument: { uri },
+              text: FIELD_SOURCES[uri],
+            }),
+          );
+        }
+
+        // Cursor on Account.total declaration (line 1, char 23).
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: ACCOUNT_URI },
+            position: { line: 1, character: 23 },
+            newName: 'amount',
+            content: ACCOUNT_SRC,
+          }),
+        );
+
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-field] ${JSON.stringify(result)}`);
+
+      // A multi-file WorkspaceEdit came back.
+      const edit = result as {
+        changes?: Record<string, Array<{ range: any; newText: string }>>;
+      } | null;
+      expect(edit?.changes).toBeDefined();
+
+      // Account.cls: declaration + implicit-this usages.
+      const accountEdits = edit!.changes![ACCOUNT_URI];
+      expect(accountEdits).toBeDefined();
+      expect(accountEdits.length).toBeGreaterThan(0);
+      accountEdits.forEach((e) => expect(e.newText).toBe('amount'));
+
+      // Caller.cls: acct.total usages.
+      const callerEdits = edit!.changes![CALLER_URI];
+      expect(callerEdits).toBeDefined();
+      expect(callerEdits.length).toBeGreaterThan(0);
+      callerEdits.forEach((e) => expect(e.newText).toBe('amount'));
+
+      // Other.cls: should NOT be renamed (different receiver type).
+      const otherEdits = edit!.changes![OTHER_URI];
+      expect(otherEdits).toBeUndefined();
+    }, 120_000);
+
+    it('does NOT rename unrelated fields with the same name (disambiguation crux)', async () => {
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => FIELD_SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        for (const uri of [ACCOUNT_URI, CALLER_URI, OTHER_URI]) {
+          yield* Effect.promise(() =>
+            dispatcher.dispatch('documentOpen', {
+              document: {
+                uri,
+                languageId: 'apex',
+                version: 1,
+                getText: () => FIELD_SOURCES[uri],
+              },
+              textDocument: { uri },
+              text: FIELD_SOURCES[uri],
+            }),
+          );
+        }
+
+        // Rename Other.total (not Account.total).
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: OTHER_URI },
+            position: { line: 1, character: 23 },
+            newName: 'count',
+            content: OTHER_SRC,
+          }),
+        );
+
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+
+      const edit = result as {
+        changes?: Record<string, Array<{ range: any; newText: string }>>;
+      } | null;
+      expect(edit?.changes).toBeDefined();
+
+      // Other.cls: should be renamed.
+      const otherEdits = edit!.changes![OTHER_URI];
+      expect(otherEdits).toBeDefined();
+      expect(otherEdits.length).toBeGreaterThan(0);
+      otherEdits.forEach((e) => expect(e.newText).toBe('count'));
+
+      // Account.cls and Caller.cls: should NOT be renamed.
+      expect(edit!.changes![ACCOUNT_URI]).toBeUndefined();
+      expect(edit!.changes![CALLER_URI]).toBeUndefined();
+    }, 120_000);
+
+    it('handles implicit-this usage inside the declaring class', async () => {
+      const IMPLICIT_URI = 'file:///test/ImplicitThis.cls';
+      const IMPLICIT_SRC = `public class ImplicitThis {
+    public Integer value;
+
+    public void useIt() {
+        value = 5;
+        Integer x = value;
+    }
+}`;
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+          uri === IMPLICIT_URI ? IMPLICIT_SRC : FIELD_SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        yield* Effect.promise(() =>
+          dispatcher.dispatch('documentOpen', {
+            document: {
+              uri: IMPLICIT_URI,
+              languageId: 'apex',
+              version: 1,
+              getText: () => IMPLICIT_SRC,
+            },
+            textDocument: { uri: IMPLICIT_URI },
+            text: IMPLICIT_SRC,
+          }),
+        );
+
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: IMPLICIT_URI },
+            position: { line: 1, character: 23 },
+            newName: 'newValue',
+            content: IMPLICIT_SRC,
+          }),
+        );
+
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+
+      const edit = result as {
+        changes?: Record<string, Array<{ range: any; newText: string }>>;
+      } | null;
+      expect(edit?.changes).toBeDefined();
+
+      const edits = edit!.changes![IMPLICIT_URI];
+      expect(edits).toBeDefined();
+      // Declaration + 2 implicit-this usages.
+      expect(edits.length).toBeGreaterThanOrEqual(3);
+      edits.forEach((e) => expect(e.newText).toBe('newValue'));
+    }, 120_000);
+
+    it('rejects invalid newName for a field (W-23631084 validation)', async () => {
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => FIELD_SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        yield* Effect.promise(() =>
+          dispatcher.dispatch('documentOpen', {
+            document: {
+              uri: ACCOUNT_URI,
+              languageId: 'apex',
+              version: 1,
+              getText: () => ACCOUNT_SRC,
+            },
+            textDocument: { uri: ACCOUNT_URI },
+            text: ACCOUNT_SRC,
+          }),
+        );
+
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: ACCOUNT_URI },
+            position: { line: 1, character: 23 },
+            newName: 'class', // reserved keyword
+            content: ACCOUNT_SRC,
+          }),
+        );
+
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('error');
+      const errResult = result as { error: { code: number; message: string } };
+      expect(errResult.error).toHaveProperty('message');
+      expect(errResult.error.message).toContain('keyword');
+    }, 120_000);
+  });
 });

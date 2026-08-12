@@ -3905,6 +3905,232 @@ async function resolvePrepareRenameForLocal(req: PositionReq): Promise<{
   }
 }
 
+/**
+ * Resolve the declaring-type name for the field/property under the cursor
+ * (W-23631084). Walks from the cursor symbol up to its enclosing TypeSymbol via
+ * `getContainingType` and returns that type's name — the string
+ * `findFieldOccurrences` disambiguates candidate receivers against.
+ *
+ * @returns The declaring type's name, or `null` if it can't be determined.
+ */
+async function getDeclaringTypeForCursor(
+  svc: RequestServices,
+  uri: string,
+  position: { line: number; character: number },
+): Promise<string | null> {
+  try {
+    const parserPosition = {
+      line: position.line + 1,
+      character: position.character,
+    };
+    const symbol = await resolveCursorSymbol(svc, uri, parserPosition);
+    if (!symbol) return null;
+    const containingType = await svc.symbolManager.getContainingType(symbol);
+    return containingType?.name ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build a rename `WorkspaceEdit` for a FIELD or PROPERTY under the cursor
+ * (W-23631084). Unlike renameLocal (single-file, lexically scoped), a field is
+ * class-scoped and cross-file addressable, so this runs the workspace-wide
+ * two-phase scan (coordinator lexical prefilter → per-file standalone parse),
+ * then disambiguates each candidate occurrence by its receiver's declared type
+ * so `Acct.total` is renamed while an unrelated `Other.total` is not.
+ *
+ * Occurrences whose receiver can't be resolved locally (a chained `a.b.total`,
+ * or a receiver whose type is only known cross-file) are conservatively SKIPPED
+ * — never renamed — and counted so the (partial) edit is at least logged. See
+ * `findFieldOccurrences`.
+ *
+ * Returns `null` when the cursor isn't on a renamable field (a local/method/type
+ * cursor falls through to its own kind), or a `RenameErrorResult` when the field
+ * resolves but the newName is invalid.
+ *
+ * @param svc Request-pool worker services (needed for the workspace scan).
+ * @param req The rename request (cursor position + newName + live cursor text).
+ */
+async function resolveFieldRename(
+  svc: RequestServices,
+  req: RenameReq,
+): Promise<WorkspaceEditResult | RenameErrorResult | null> {
+  const {
+    CompilerService,
+    FullSymbolCollectorListener,
+    SymbolKind,
+    SymbolTable,
+    findFieldOccurrences,
+    validateRenameName,
+  } = await import('@salesforce/apex-lsp-parser-ast');
+
+  const uri = req.textDocument.uri;
+
+  try {
+    // Stage 1: recompile the cursor file so the cursor symbol resolves, then
+    // load its referenced types (the cursor field may be declared elsewhere).
+    const cursorTextAvailable = typeof req.content === 'string';
+    const cursorRecompiled = await recompileCursorFileAtFullDetail(
+      svc,
+      uri,
+      req.content,
+      { resolveCrossFileReferences: false },
+    );
+    if (!cursorRecompiled && !cursorTextAvailable) return null;
+    await loadReferencedTypesForFile(svc, uri);
+
+    // Stage 2: confirm the cursor is on a field/property.
+    const target = await targetSymbolForCursor(svc, uri, req.position);
+    if (!target?.name) return null;
+    if (target.kind !== 'field' && target.kind !== 'property') return null;
+
+    // Stage 3: the field's declaring type — the disambiguation anchor.
+    const declaringType = await getDeclaringTypeForCursor(
+      svc,
+      uri,
+      req.position,
+    );
+    if (!declaringType) {
+      emitWorkerLog(
+        'warn',
+        `[RENAME] cannot determine declaring type for field '${target.name}' in ${uri}`,
+      );
+      return null;
+    }
+
+    // Stage 4: validate the newName (same rules as renameLocal). An invalid
+    // name is a RenameErrorResult (→ LSP ResponseError), not null. target.kind
+    // is a plain string from targetSymbolForCursor but is already narrowed to
+    // 'field'/'property' above, which are exactly SymbolKind.Field/.Property.
+    const validation = validateRenameName(
+      req.newName,
+      target.kind === 'property' ? SymbolKind.Property : SymbolKind.Field,
+    );
+    if (!validation.ok) {
+      return { error: { code: -32602, message: validation.message } };
+    }
+
+    // Stage 5: phase-1 lexical prefilter across the workspace (data-owner),
+    // overriding the cursor file with the live buffer for fidelity.
+    const scan = (await requestCoordinatorAssistancePromiseShared(
+      'dataOwner:FindOccurrenceCandidates',
+      { symbolName: target.name },
+      true,
+    )) as { candidates?: Array<{ uri: string; content: string }> };
+    const rawCandidates = scan?.candidates ?? [];
+    const candidates =
+      typeof req.content === 'string'
+        ? rawCandidates.map((c) =>
+            c.uri === uri ? { ...c, content: req.content as string } : c,
+          )
+        : rawCandidates;
+
+    // Stage 6: phase-2 standalone parse + receiver-type disambiguation per
+    // candidate file.
+    const allOccurrences: Array<{ uri: string; range: OccurrenceRange }> = [];
+    let totalSkipped = 0;
+    const seen = new Set<string>();
+    for (const candidate of candidates) {
+      if (seen.has(candidate.uri)) continue;
+      seen.add(candidate.uri);
+      try {
+        const t = new SymbolTable();
+        const listener = new FullSymbolCollectorListener(t);
+        const compiled = new CompilerService().compile(
+          candidate.content,
+          candidate.uri,
+          listener,
+          { collectReferences: true, resolveReferences: true },
+        );
+        const table: InstanceType<typeof SymbolTable> =
+          compiled?.result instanceof SymbolTable ? compiled.result : t;
+
+        const { occurrences, skipped } = findFieldOccurrences(
+          table,
+          candidate.uri,
+          target,
+          declaringType,
+        );
+        for (const occ of occurrences) {
+          allOccurrences.push({ uri: occ.uri, range: occ.identifierRange });
+        }
+        totalSkipped += skipped.length;
+      } catch (err) {
+        emitWorkerLog(
+          'warn',
+          `[RENAME] field phase2 scan failed for ${candidate.uri}: ${err}`,
+        );
+      }
+    }
+
+    // Include the field's own declaration token. findOccurrencesInFile matches
+    // only FIELD_ACCESS / VARIABLE_USAGE references, never the declaration
+    // (which is a symbol, not a reference), so it must be added explicitly —
+    // otherwise a field used only via implicit-this in its own file would
+    // rename the usages but leave the declaration untouched. Deduped by the
+    // position set in Stage 7.
+    const declaration = await declarationLocationForCursor(
+      svc,
+      uri,
+      req.position,
+    );
+    if (declaration) {
+      allOccurrences.push({
+        uri: declaration.uri,
+        range: declaration.identifierRange,
+      });
+    }
+
+    if (allOccurrences.length === 0) return null;
+
+    emitWorkerLog(
+      'info',
+      `[RENAME] field '${declaringType}.${target.name}' → '${req.newName}': ` +
+        `${allOccurrences.length} edit(s), ${totalSkipped} skipped ` +
+        '(unresolvable receiver)',
+    );
+
+    // Stage 7: assemble the multi-file WorkspaceEdit (parser 1-based line →
+    // LSP 0-based). Dedup edits per URI by position — the parser emits a token
+    // more than once and candidate files can overlap.
+    const changes: Record<
+      string,
+      Array<{
+        range: {
+          start: { line: number; character: number };
+          end: { line: number; character: number };
+        };
+        newText: string;
+      }>
+    > = {};
+    const seenEdits = new Set<string>();
+    for (const occ of allOccurrences) {
+      const r = occ.range;
+      const key =
+        `${occ.uri}\x1f${r.startLine}:${r.startColumn}:` +
+        `${r.endLine}:${r.endColumn}`;
+      if (seenEdits.has(key)) continue;
+      seenEdits.add(key);
+      (changes[occ.uri] ??= []).push({
+        range: {
+          start: {
+            line: occ.range.startLine - 1,
+            character: occ.range.startColumn,
+          },
+          end: { line: occ.range.endLine - 1, character: occ.range.endColumn },
+        },
+        newText: req.newName,
+      });
+    }
+
+    return { changes };
+  } catch (err) {
+    emitWorkerLog('warn', `[RENAME] field rename failed for ${uri}: ${err}`);
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Enrichment dispatch handlers (Step 11 on the original file)
 // ---------------------------------------------------------------------------
@@ -4212,7 +4438,15 @@ const requestHandlers = {
   // rename"); the field/method/type kinds land in later groups.
   DispatchRename: requestHandler<RenameReq>(
     'DispatchRename',
-    async (_svc, req) => resolveLocalRename(req),
+    async (svc, req) => {
+      // renameLocal first (single-file, no svc needed). A `null` result means
+      // the cursor isn't a local — fall through to renameField (W-23631084),
+      // which needs `svc` for the workspace-wide two-phase scan. A field/method/
+      // type cursor that isn't a field still returns null from both.
+      const local = await resolveLocalRename(req);
+      if (local !== null) return local;
+      return resolveFieldRename(svc, req);
+    },
   ),
   // W-23631080: prepareRename for locals. Returns the identifier range +
   // placeholder of the renamable local under the cursor, or `null` when the
