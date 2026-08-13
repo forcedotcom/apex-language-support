@@ -17,6 +17,7 @@
     "src/server/CoordinatorPrimaryAssistanceHandler.ts",
     "src/server/ResourceLoaderProxy.ts",
     "src/server/WorkerExecArgvBuilder.ts",
+    "src/server/WebWorkerUrlResolver.ts",
     "src/server/WorkspaceBatchHandler.ts",
     "src/server/traceContextInjection.ts",
     "src/server/coordinatorTracing.ts",
