@@ -374,6 +374,54 @@ describe('ApexLanguageServerSettings Validation', () => {
         true,
       );
     });
+
+    // Regression: a client that mis-detects its host (e.g. a web bundle that
+    // sends `runtimePlatform: 'desktop'`) must not override the server's own
+    // authoritative environment detection. The `environment` argument is
+    // derived from where the server physically runs and always wins.
+    it('should NOT let user-supplied runtimePlatform override the environment arg (web)', () => {
+      const partialConfig = {
+        apex: {
+          environment: {
+            runtimePlatform: 'desktop',
+          },
+        },
+      } as unknown as Partial<ApexLanguageServerSettings>;
+
+      const result = mergeWithDefaults(partialConfig, 'web');
+
+      expect(result.apex.environment.runtimePlatform).toBe('web');
+    });
+
+    it('should NOT let user-supplied runtimePlatform override the environment arg (desktop)', () => {
+      const partialConfig = {
+        apex: {
+          environment: {
+            runtimePlatform: 'web',
+          },
+        },
+      } as unknown as Partial<ApexLanguageServerSettings>;
+
+      const result = mergeWithDefaults(partialConfig, 'desktop');
+
+      expect(result.apex.environment.runtimePlatform).toBe('desktop');
+    });
+
+    it('should still apply other user-supplied environment fields while pinning runtimePlatform', () => {
+      const partialConfig = {
+        apex: {
+          environment: {
+            runtimePlatform: 'desktop',
+            serverMode: 'development',
+          },
+        },
+      } as unknown as Partial<ApexLanguageServerSettings>;
+
+      const result = mergeWithDefaults(partialConfig, 'web');
+
+      expect(result.apex.environment.runtimePlatform).toBe('web');
+      expect(result.apex.environment.serverMode).toBe('development');
+    });
   });
 
   describe('mergeWithExisting', () => {
@@ -529,6 +577,63 @@ describe('ApexLanguageServerSettings Validation', () => {
       const result = mergeWithExisting(existingSettings, partialUpdate);
 
       expect(result.apex.environment.jsHeapSizeGB).toBe(8); // Updated
+    });
+
+    // Regression: a `didChangeConfiguration` sync from the client can carry the
+    // client's own `runtimePlatform`. On web, the client may report `desktop`,
+    // which previously clobbered the server's already-detected `web` platform
+    // (the "Platform: web → desktop" log line). The existing platform reflects
+    // where the server actually runs and is fixed for the process lifetime, so
+    // an incoming sync must never flip it.
+    it('should NOT let a config sync flip the existing runtimePlatform (web → desktop)', () => {
+      const existingSettings = mergeWithDefaults({}, 'web');
+      expect(existingSettings.apex.environment.runtimePlatform).toBe('web');
+
+      const partialUpdate = {
+        apex: {
+          environment: {
+            runtimePlatform: 'desktop',
+          },
+        },
+      } as unknown as Partial<ApexLanguageServerSettings>;
+
+      const result = mergeWithExisting(existingSettings, partialUpdate);
+
+      expect(result.apex.environment.runtimePlatform).toBe('web');
+    });
+
+    it('should NOT let a config sync flip the existing runtimePlatform (desktop → web)', () => {
+      const existingSettings = mergeWithDefaults({}, 'desktop');
+
+      const partialUpdate = {
+        apex: {
+          environment: {
+            runtimePlatform: 'web',
+          },
+        },
+      } as unknown as Partial<ApexLanguageServerSettings>;
+
+      const result = mergeWithExisting(existingSettings, partialUpdate);
+
+      expect(result.apex.environment.runtimePlatform).toBe('desktop');
+    });
+
+    it('should apply other synced environment fields while pinning runtimePlatform', () => {
+      const existingSettings = mergeWithDefaults({}, 'web');
+
+      const partialUpdate = {
+        apex: {
+          environment: {
+            runtimePlatform: 'desktop',
+            serverMode: 'development',
+          },
+        },
+      } as unknown as Partial<ApexLanguageServerSettings>;
+
+      const result = mergeWithExisting(existingSettings, partialUpdate);
+
+      expect(result.apex.environment.runtimePlatform).toBe('web');
+      expect(result.apex.environment.serverMode).toBe('development');
     });
   });
 

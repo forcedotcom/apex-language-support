@@ -353,8 +353,14 @@ export function mergeWithDefaults(
       environment: (() => {
         const env = {
           ...baseApex.environment,
-          runtimePlatform: environment,
           ...userSettings.apex?.environment,
+          // `runtimePlatform` is derived from where the server physically runs,
+          // not a user preference. It MUST win over any value carried in the
+          // incoming settings — otherwise a client that mis-detects its host
+          // (e.g. a web bundle sending `desktop`) silently downgrades the
+          // server's own correct detection. Assigned AFTER the spread so the
+          // authoritative value cannot be clobbered.
+          runtimePlatform: environment,
         };
         // VSCode returns 0 for an unset numeric field with no schema default.
         // Treat 0 (and null) as "not configured" — keep jsHeapSizeGB undefined.
@@ -486,6 +492,11 @@ export function mergeWithExisting(
         const env = {
           ...existingSettings.apex.environment,
           ...partialSettings.apex?.environment,
+          // Preserve the already-detected `runtimePlatform`. It reflects where
+          // the server actually runs and is fixed for the process lifetime, so
+          // an incoming config sync (which may carry the client's own, possibly
+          // wrong, detection) must never flip it. Re-assigned AFTER the spread.
+          runtimePlatform: existingSettings.apex.environment.runtimePlatform,
         };
         if (!env.jsHeapSizeGB) {
           env.jsHeapSizeGB = undefined;
