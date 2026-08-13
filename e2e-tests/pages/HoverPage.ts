@@ -230,15 +230,48 @@ export class HoverPage extends BasePage {
   ): Promise<string> {
     const { expect } = await import('@playwright/test');
     let content = '';
+    let attempt = 0;
+    const startedAt = Date.now();
 
     await expect(async () => {
+      attempt++;
       if (await this.isHoverVisible().catch(() => false)) {
         await this.dismissHover();
       }
 
       const appeared = await trigger();
+      if (!appeared) {
+        console.log(
+          `[HOVER-STATE] attempt=${attempt} elapsedMs=${Date.now() - startedAt} ` +
+            'state=no-widget content=""',
+        );
+      }
       expect(appeared).toBe(true);
       content = await this.getHoverContent();
+
+      const normalizedContent = content.replace(/\s+/g, ' ').trim();
+      const isSearching =
+        content.includes('Searching for symbol') ||
+        content.includes('Looking for:');
+      const matchesExpected =
+        typeof expectedContent === 'string'
+          ? content.includes(expectedContent)
+          : new RegExp(expectedContent.source, expectedContent.flags).test(
+              content,
+            );
+      const state =
+        normalizedContent.length === 0
+          ? 'empty-widget'
+          : isSearching
+            ? 'searching'
+            : matchesExpected
+              ? 'resolved'
+              : 'unexpected-content';
+      console.log(
+        `[HOVER-STATE] attempt=${attempt} elapsedMs=${Date.now() - startedAt} ` +
+          `state=${state} content=${JSON.stringify(normalizedContent)}`,
+      );
+
       expect(content.trim().length).toBeGreaterThan(0);
       // Missing-artifact hover placeholders echo the requested symbol name,
       // so a name-only assertion would mistake "Looking for: Foo" for resolved
