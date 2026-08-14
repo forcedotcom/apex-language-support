@@ -155,7 +155,7 @@ jobs:
           if-no-files-found: ignore
 
   e2e-tests-desktop:
-    name: E2E Tests (Desktop Mode)
+    name: E2E ${{ matrix.test_file }} (Desktop, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.test_mode == 'desktop' || github.event.inputs.test_mode == 'both' }}
@@ -164,7 +164,18 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        browser: [chromium]
+        test_file:
+          - apex-capability-gating.spec.ts
+          - apex-extension-core.spec.ts
+          - apex-extract-constant.spec.ts
+          - apex-extract-variable.spec.ts
+          - apex-goto-definition.spec.ts
+          - apex-goto-definition-advanced.spec.ts
+          - apex-hover.spec.ts
+          - apex-hover-stdlib.spec.ts
+          - apex-lsp-integration.spec.ts
+          - apex-outline.spec.ts
+          - apex-rename-symbol.spec.ts
 
     steps:
       - name: Checkout code
@@ -204,29 +215,67 @@ jobs:
           Write-Host "✅ Extension build verified"
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps ${{ matrix.browser }}
+        run: npx playwright install --with-deps chromium
 
-      - name: Run E2E tests (Desktop - ${{ matrix.browser }} on ${{ matrix.os }})
-        id: parallel-run
+      - name: Run E2E tests - ${{ matrix.test_file }} (Linux Desktop)
+        id: parallel-run-linux
+        if: runner.os == 'Linux'
         continue-on-error: true
-        run: npm run test:e2e:desktop:${{ matrix.browser }} -w e2e-tests
+        run: |
+          cd e2e-tests
+          xvfb-run -a npx playwright test tests/${{ matrix.test_file }} --config=playwright.config.desktop.ts --reporter=html,line,junit,json
         env:
           CI: true
           TEST_MODE: desktop
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/${{ matrix.os }}/${{ matrix.test_file }}
+          PLAYWRIGHT_JUNIT_OUTPUT_FILE: test-results/${{ matrix.os }}/${{ matrix.test_file }}/junit.xml
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/${{ matrix.os }}/${{ matrix.test_file }}/results.json
 
-      - name: Retry failed tests (sequential)
-        if: steps.parallel-run.outcome == 'failure'
-        run: npm run test:e2e:desktop:${{ matrix.browser }} -w e2e-tests -- --last-failed
+      - name: Run E2E tests - ${{ matrix.test_file }} (Desktop)
+        id: parallel-run-desktop
+        if: runner.os != 'Linux'
+        continue-on-error: true
+        run: |
+          cd e2e-tests
+          npx playwright test tests/${{ matrix.test_file }} --config=playwright.config.desktop.ts --reporter=html,line,junit,json
+        env:
+          CI: true
+          TEST_MODE: desktop
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/${{ matrix.os }}/${{ matrix.test_file }}
+          PLAYWRIGHT_JUNIT_OUTPUT_FILE: test-results/${{ matrix.os }}/${{ matrix.test_file }}/junit.xml
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/${{ matrix.os }}/${{ matrix.test_file }}/results.json
+
+      - name: Retry failed tests - ${{ matrix.test_file }} (Linux Desktop)
+        if: runner.os == 'Linux' && steps.parallel-run-linux.outcome == 'failure'
+        run: |
+          cd e2e-tests
+          xvfb-run -a npx playwright test tests/${{ matrix.test_file }} --config=playwright.config.desktop.ts --last-failed --reporter=html,line,junit,json
         env:
           CI: true
           TEST_MODE: desktop
           E2E_SEQUENTIAL: 1
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/${{ matrix.os }}/${{ matrix.test_file }}
+          PLAYWRIGHT_JUNIT_OUTPUT_FILE: test-results/${{ matrix.os }}/${{ matrix.test_file }}/junit.xml
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/${{ matrix.os }}/${{ matrix.test_file }}/results.json
+
+      - name: Retry failed tests - ${{ matrix.test_file }} (Desktop)
+        if: runner.os != 'Linux' && steps.parallel-run-desktop.outcome == 'failure'
+        run: |
+          cd e2e-tests
+          npx playwright test tests/${{ matrix.test_file }} --config=playwright.config.desktop.ts --last-failed --reporter=html,line,junit,json
+        env:
+          CI: true
+          TEST_MODE: desktop
+          E2E_SEQUENTIAL: 1
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/${{ matrix.os }}/${{ matrix.test_file }}
+          PLAYWRIGHT_JUNIT_OUTPUT_FILE: test-results/${{ matrix.os }}/${{ matrix.test_file }}/junit.xml
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/${{ matrix.os }}/${{ matrix.test_file }}/results.json
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: test-results-desktop-${{ matrix.browser }}-${{ matrix.os }}-${{ github.run_number }}
+          name: test-results-desktop-${{ matrix.os }}-${{ matrix.test_file }}-${{ github.run_number }}
           path: |
             e2e-tests/test-results/
           retention-days: 30
@@ -236,7 +285,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-report-desktop-${{ matrix.browser }}-${{ matrix.os }}-${{ github.run_number }}
+          name: playwright-report-desktop-${{ matrix.os }}-${{ matrix.test_file }}-${{ github.run_number }}
           path: e2e-tests/playwright-report/
           retention-days: 30
           if-no-files-found: warn
@@ -245,7 +294,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: test-artifacts-desktop-${{ matrix.browser }}-${{ matrix.os }}-${{ github.run_number }}
+          name: test-artifacts-desktop-${{ matrix.os }}-${{ matrix.test_file }}-${{ github.run_number }}
           path: |
             e2e-tests/test-results/**/*.png
             e2e-tests/test-results/**/*.webm
