@@ -119,28 +119,26 @@ export class ApexEditorPage extends BasePage {
    */
   async waitForNavigation(fromFile: string, timeout?: number): Promise<void> {
     const waitMs = timeout ?? (this.isDesktopMode ? 8000 : 6000);
-    await this.page
-      .waitForFunction(
-        (original: string) => {
-          // Try .label-name textContent first (most specific)
-          const labelEl = document.querySelector('.tab.active .label-name');
-          if (labelEl?.textContent?.trim()) {
-            const name = labelEl.textContent.trim();
-            return name !== '' && name !== original;
-          }
-          // Fallback: aria-label may include extra info like ", tab 1 of 4" —
-          // extract only the filename (the part before the first comma).
-          const ariaLabel =
-            document
-              .querySelector('.tab.active[aria-label]')
-              ?.getAttribute('aria-label') ?? '';
-          const name = ariaLabel.split(',')[0].trim();
+    await this.page.waitForFunction(
+      (original: string) => {
+        // Try .label-name textContent first (most specific)
+        const labelEl = document.querySelector('.tab.active .label-name');
+        if (labelEl?.textContent?.trim()) {
+          const name = labelEl.textContent.trim();
           return name !== '' && name !== original;
-        },
-        fromFile,
-        { timeout: waitMs },
-      )
-      .catch(() => {});
+        }
+        // Fallback: aria-label may include extra info like ", tab 1 of 4" —
+        // extract only the filename (the part before the first comma).
+        const ariaLabel =
+          document
+            .querySelector('.tab.active[aria-label]')
+            ?.getAttribute('aria-label') ?? '';
+        const name = ariaLabel.split(',')[0].trim();
+        return name !== '' && name !== original;
+      },
+      fromFile,
+      { timeout: waitMs },
+    );
   }
 
   /**

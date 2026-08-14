@@ -10,6 +10,7 @@ import { expect, Page } from '@playwright/test';
 import {
   closeWelcomeTabs,
   dismissAllQuickInputWidgets,
+  getModifierShortcut,
 } from '../utils/helpers';
 import {
   QUICK_INPUT_WIDGET,
@@ -18,7 +19,7 @@ import {
 } from '../utils/locators';
 
 export const openCommandPalette = async (page: Page): Promise<void> => {
-  const widget = page.locator(QUICK_INPUT_WIDGET);
+  const widget = page.locator(`${QUICK_INPUT_WIDGET}:visible`);
   const workbench = page.locator(WORKBENCH);
 
   await closeWelcomeTabs(page);
@@ -32,6 +33,12 @@ export const openCommandPalette = async (page: Page): Promise<void> => {
     // Small delay to allow Windows to process focus change before F1 keypress
     await page.waitForTimeout(100);
     await page.keyboard.press('F1');
+
+    // F1 can be consumed by the host/window manager on desktop runners. Use
+    // VS Code's explicit Show All Commands shortcut as a deterministic fallback.
+    if (!(await widget.isVisible({ timeout: 1000 }).catch(() => false))) {
+      await page.keyboard.press(getModifierShortcut('Shift+P'));
+    }
     await expect(widget).toBeVisible({ timeout: 5000 });
     const input = widget.locator('input.input');
     await expect(input).toBeVisible({ timeout: 5000 });
@@ -44,7 +51,7 @@ const executeCommand = async (
   command: string,
   hasNotText?: string,
 ): Promise<void> => {
-  const widget = page.locator(QUICK_INPUT_WIDGET);
+  const widget = page.locator(`${QUICK_INPUT_WIDGET}:visible`);
   const input = widget.locator('input.input');
 
   await expect(widget).toBeVisible({ timeout: 5000 });
@@ -83,8 +90,12 @@ export const executeCommandWithCommandPalette = async (
   command: string,
   hasNotText?: string,
 ): Promise<void> => {
-  await openCommandPalette(page);
-  await executeCommand(page, command, hasNotText);
+  await expect(async () => {
+    await openCommandPalette(page);
+    await executeCommand(page, command, hasNotText);
+  }, `Executing command "${command}" from the command palette`).toPass({
+    timeout: 30_000,
+  });
 };
 
 /** Verify a command exists in the command palette using retry pattern */

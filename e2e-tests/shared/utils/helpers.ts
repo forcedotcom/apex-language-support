@@ -165,11 +165,71 @@ export const dismissAllQuickInputWidgets = async (
   }
 };
 
+/**
+ * Dismiss VS Code's first-run onboarding dialog.
+ *
+ * Desktop tests use a fresh user-data directory for every test. Newer VS Code
+ * versions can render the onboarding experience as a modal overlay rather than
+ * a Welcome editor tab. That overlay intercepts all workbench pointer events,
+ * so do not continue until it is actually gone.
+ */
+export const dismissStartupPrompts = async (page: Page): Promise<void> => {
+  const onboardingDialog = page.locator(
+    '.onboarding-a-overlay.visible, [role="dialog"][aria-label="Welcome to Visual Studio Code"]:visible',
+  );
+
+  await expect(async () => {
+    const dialog = onboardingDialog.first();
+    if (!(await dialog.isVisible().catch(() => false))) {
+      return;
+    }
+
+    const dismissControls = [
+      dialog.getByRole('button', {
+        name: /Skip|Continue without Signing In|Not Now|Close/i,
+      }),
+      dialog.getByRole('link', {
+        name: /Skip|Continue without Signing In|Not Now|Close/i,
+      }),
+      dialog.locator('[aria-label="Close"]'),
+    ];
+
+    let dismissed = false;
+    for (const control of dismissControls) {
+      const candidate = control.first();
+      if (await candidate.isVisible().catch(() => false)) {
+        await candidate.click({ timeout: 3000, force: true });
+        dismissed = true;
+        break;
+      }
+    }
+
+    if (!dismissed) {
+      await page.keyboard.press('Escape');
+    }
+
+    await dialog.waitFor({ state: 'hidden', timeout: 3000 });
+  }).toPass({ timeout: 30_000, intervals: [100, 250, 500] });
+
+  // Startup notifications can obscure controls even after onboarding closes.
+  const toastClose = page.locator(
+    '.notifications-toasts .notification-toast .codicon-close',
+  );
+  const toastCount = await toastClose.count().catch(() => 0);
+  for (let i = 0; i < toastCount; i++) {
+    await toastClose
+      .nth(i)
+      .click({ timeout: 1000 })
+      .catch(() => {});
+  }
+};
+
 /** Close VS Code Welcome/Walkthrough tabs if they're open */
 export const closeWelcomeTabs = async (page: Page): Promise<void> => {
   const workbench = page.locator(WORKBENCH);
 
   await expect(async () => {
+    await dismissStartupPrompts(page);
     await dismissAllQuickInputWidgets(page);
     await workbench.click({ timeout: 5000 });
 

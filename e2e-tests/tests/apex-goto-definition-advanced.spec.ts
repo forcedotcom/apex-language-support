@@ -54,7 +54,7 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
         navigationError = error;
       }
 
-      if (process.env.E2E_APEX_DIAGNOSTICS === '1') {
+      if (navigationError && process.env.E2E_APEX_DIAGNOSTICS === '1') {
         console.log(
           `[APEX E2E DIAGNOSTICS: client]\n${await readOutputChannelText(page, CLIENT_OUTPUT_CHANNEL)}`,
         );

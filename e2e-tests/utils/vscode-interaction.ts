@@ -11,6 +11,7 @@ import { SELECTORS } from './constants';
 import {
   waitForVSCodeWorkbench,
   closeWelcomeTabs,
+  getModifierShortcut,
   isDesktop,
 } from '../shared/utils/helpers';
 import {
@@ -93,10 +94,25 @@ export const waitForSalesforceServicesActivation = async (
   const runningExtensionsTab = page
     .getByRole('tab', { name: /Running Extensions/i })
     .first();
-  const closeButton = runningExtensionsTab.locator(TAB_CLOSE_BUTTON);
   await page.keyboard.press('Escape');
-  await closeButton.click({ timeout: 5000, force: true });
-  await runningExtensionsTab.waitFor({ state: 'detached', timeout: 5000 });
+  await expect(async () => {
+    if (!(await runningExtensionsTab.isVisible().catch(() => false))) {
+      return;
+    }
+
+    const closeButton = runningExtensionsTab.locator(TAB_CLOSE_BUTTON);
+    if (await closeButton.isVisible().catch(() => false)) {
+      await closeButton.click({ timeout: 3000, force: true });
+    } else {
+      await runningExtensionsTab.click({ timeout: 3000, force: true });
+      await page.keyboard.press(getModifierShortcut('w'));
+    }
+
+    await runningExtensionsTab.waitFor({ state: 'hidden', timeout: 3000 });
+  }, 'Closing the Running Extensions editor').toPass({
+    timeout: 10_000,
+    intervals: [100, 250, 500],
+  });
 };
 
 /**
@@ -106,6 +122,7 @@ export const waitForSalesforceServicesActivation = async (
  * @returns Number of Apex files found
  */
 export const verifyWorkspaceFiles = async (page: Page): Promise<number> => {
+  await closeWelcomeTabs(page);
   const explorer = page.locator(SELECTORS.EXPLORER);
   await explorer.waitFor({ state: 'visible', timeout: 30_000 });
   await expandWorkspaceFolders(page);
@@ -141,6 +158,7 @@ export const verifyWorkspaceFiles = async (page: Page): Promise<number> => {
  * @param page - Playwright page instance
  */
 export const activateExtension = async (page: Page): Promise<void> => {
+  await closeWelcomeTabs(page);
   // Desktop mode requires longer timeouts
   const isDesktopMode = isDesktop();
   const shortTimeout = isDesktopMode ? 30_000 : 15_000;
