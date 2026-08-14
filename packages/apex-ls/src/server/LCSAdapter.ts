@@ -2646,11 +2646,13 @@ export class LCSAdapter {
         mediatorModule,
         resourceLoaderModule,
         execArgvModule,
+        workerUrlModule,
       ] = yield* Effect.all([
         Effect.promise(() => import('./WorkerCoordinator')),
         Effect.promise(() => import('./CoordinatorAssistanceMediator')),
         Effect.promise(() => import('./ResourceLoaderProxy')),
         Effect.promise(() => import('./WorkerExecArgvBuilder')),
+        Effect.promise(() => import('./WebWorkerUrlResolver')),
       ]);
 
       const {
@@ -2667,6 +2669,7 @@ export class LCSAdapter {
       const { CoordinatorAssistanceMediator } = mediatorModule;
       const { ResourceLoaderProxy } = resourceLoaderModule;
       const { buildWorkerExecArgv } = execArgvModule;
+      const { resolveWebWorkerUrl } = workerUrlModule;
 
       const { Scope } = yield* Effect.promise(() => import('effect'));
 
@@ -2811,19 +2814,12 @@ export class LCSAdapter {
         // the client-injected absolute worker URL, then a file:// placeholder.
         // The browser layer factory re-wraps fetched scripts in SAME-ORIGIN
         // blob regardless, so the sub-worker always shares the parent's origin.
-        const resolveWorkerUrl = (fileName: string, base: string) =>
-          new URL(`./${fileName}`, base).href;
-        const rawHref = (globalThis as any).location?.href;
-        const workerUrl =
-          typeof rawHref === 'string' && !rawHref.startsWith('blob:')
-            ? resolveWorkerUrl('worker.platform.web.js', rawHref)
-            : // `||` (not `??`): an empty string is as unusable a base as
-              // undefined, so fall through to the placeholder in both cases.
-              this.workerPlatformWebUrl ||
-              resolveWorkerUrl(
-                'worker.platform.web.js',
-                'file:///server.web.js',
-              );
+        // Logic lives in `resolveWebWorkerUrl` (pure, unit-tested for the
+        // blob-URL regression).
+        const workerUrl = resolveWebWorkerUrl({
+          locationHref: (globalThis as any).location?.href,
+          injectedWorkerUrl: this.workerPlatformWebUrl,
+        });
         this.logger.alwaysLog(
           () => `[WorkerCoordinator] Worker script (browser): ${workerUrl}`,
         );
