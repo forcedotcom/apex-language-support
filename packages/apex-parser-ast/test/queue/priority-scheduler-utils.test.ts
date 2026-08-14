@@ -365,6 +365,19 @@ describe('PriorityScheduler', () => {
       );
 
       const executionOrder: Priority[] = [];
+      const schedulerTrace: Array<{
+        sequence: number;
+        event: string;
+        elapsedMs: number;
+      }> = [];
+      const traceStartTime = Date.now();
+      const recordSchedulerEvent = (event: string) => {
+        schedulerTrace.push({
+          sequence: schedulerTrace.length,
+          event,
+          elapsedMs: Date.now() - traceStartTime,
+        });
+      };
 
       const program = Effect.gen(function* () {
         // Create refs to track tasks
@@ -381,18 +394,21 @@ describe('PriorityScheduler', () => {
         yield* Effect.all(
           Array.from({ length: 5 }, (_, i) =>
             Effect.fork(
-              offerTask(
-                Priority.High,
-                Effect.gen(function* () {
-                  executionOrder.push(Priority.High);
-                  yield* Effect.sleep('5 millis');
-                  return `high-${i}`;
-                }),
-              ).pipe(
-                Effect.tap((task) =>
-                  Ref.update(highTasksRef, (tasks) => [...tasks, task]),
-                ),
-              ),
+              Effect.gen(function* () {
+                recordSchedulerEvent(`high-${i}:offer-start`);
+                const task = yield* offerTask(
+                  Priority.High,
+                  Effect.gen(function* () {
+                    recordSchedulerEvent(`high-${i}:task-start`);
+                    executionOrder.push(Priority.High);
+                    yield* Effect.sleep('5 millis');
+                    return `high-${i}`;
+                  }),
+                  `starvation-high-${i}`,
+                );
+                recordSchedulerEvent(`high-${i}:offer-complete`);
+                yield* Ref.update(highTasksRef, (tasks) => [...tasks, task]);
+              }),
             ),
           ),
         );
@@ -402,13 +418,20 @@ describe('PriorityScheduler', () => {
 
         // Submit a low priority task (forked to queue without waiting)
         yield* Effect.fork(
-          offerTask(
-            Priority.Low,
-            Effect.gen(function* () {
-              executionOrder.push(Priority.Low);
-              return 'low';
-            }),
-          ).pipe(Effect.tap((task) => Ref.update(lowTaskRef, () => task))),
+          Effect.gen(function* () {
+            recordSchedulerEvent('low:offer-start');
+            const task = yield* offerTask(
+              Priority.Low,
+              Effect.gen(function* () {
+                recordSchedulerEvent('low:task-start');
+                executionOrder.push(Priority.Low);
+                return 'low';
+              }),
+              'starvation-low',
+            );
+            recordSchedulerEvent('low:offer-complete');
+            yield* Ref.set(lowTaskRef, task);
+          }),
         );
 
         // Wait a bit for all offers to complete (tasks dequeued and forked)
@@ -449,6 +472,32 @@ describe('PriorityScheduler', () => {
 
       // Low should execute before the last high priority task
       // With maxHighPriorityStreak=3, low should execute after at most 3 high tasks
+      if (lowIndex >= order.length - 1) {
+        const finalMetrics = await Effect.runPromise(metrics());
+        console.error(
+          'Starvation relief diagnostics:',
+          JSON.stringify(
+            {
+              executionOrder: order,
+              lowIndex,
+              schedulerTrace,
+              finalMetrics: {
+                queueSizes: finalMetrics.queueSizes,
+                activeTasks: finalMetrics.activeTasks,
+                tasksStarted: finalMetrics.tasksStarted,
+                tasksCompleted: finalMetrics.tasksCompleted,
+                queuedRequestTypeBreakdown:
+                  finalMetrics.queuedRequestTypeBreakdown,
+                activeRequestTypeBreakdown:
+                  finalMetrics.activeRequestTypeBreakdown,
+                requestTypeBreakdown: finalMetrics.requestTypeBreakdown,
+              },
+            },
+            null,
+            2,
+          ),
+        );
+      }
       expect(lowIndex).toBeLessThan(order.length - 1);
     });
 
