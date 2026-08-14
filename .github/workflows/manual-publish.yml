@@ -102,6 +102,6 @@ jobs:
       exclude-web-vsix: 'true'
       extensions-root: 'packages'
       vsix-artifact-name: 'vsix-packages'
-      required-ci-checks: 'CI Complete, Package / Package, Test Quality (ubuntu-latest, lts/*)'
+      required-ci-checks: '["CI Complete","Package / Package","Test Quality (ubuntu-latest, lts/*)"]'
       dry-run: ${{ inputs.dry-run }}
     secrets: inherit
