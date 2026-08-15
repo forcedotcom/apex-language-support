@@ -4030,6 +4030,7 @@ async function resolveFieldRename(
     // candidate file.
     const allOccurrences: Array<{ uri: string; range: OccurrenceRange }> = [];
     let totalSkipped = 0;
+    const unsafeOccurrences: Array<{ uri: string; reason: string }> = [];
     const seen = new Set<string>();
     for (const candidate of candidates) {
       if (seen.has(candidate.uri)) continue;
@@ -4046,7 +4047,7 @@ async function resolveFieldRename(
         const table: InstanceType<typeof SymbolTable> =
           compiled?.result instanceof SymbolTable ? compiled.result : t;
 
-        const { occurrences, skipped } = findFieldOccurrences(
+        const { occurrences, skipped, unsafe } = findFieldOccurrences(
           table,
           candidate.uri,
           target,
@@ -4056,12 +4057,37 @@ async function resolveFieldRename(
           allOccurrences.push({ uri: occ.uri, range: occ.identifierRange });
         }
         totalSkipped += skipped.length;
+        for (const u of unsafe) {
+          unsafeOccurrences.push({ uri: candidate.uri, reason: u.reason });
+        }
       } catch (err) {
         emitWorkerLog(
           'warn',
           `[RENAME] field phase2 scan failed for ${candidate.uri}: ${err}`,
         );
       }
+    }
+
+    // Decline the whole rename if ANY candidate held a same-named field access we
+    // couldn't prove is unrelated (a possible INHERITED reference — `super.field`
+    // or a bare inherited field in a subclass — or an unresolvable receiver).
+    // Applying edits while silently omitting those would emit a broken partial
+    // WorkspaceEdit that leaves references dangling. Establishing the inheritance
+    // relationship needs the cross-file graph this pool path lacks, so we decline
+    // rather than corrupt (W-23631084 review). Return a RenameErrorResult so the
+    // client shows a rename-failure toast instead of applying a partial edit.
+    if (unsafeOccurrences.length > 0) {
+      const sample = unsafeOccurrences
+        .slice(0, 3)
+        .map((u) => `${u.uri} (${u.reason})`)
+        .join(', ');
+      const message =
+        `Cannot safely rename '${target.name}': ${unsafeOccurrences.length} ` +
+        'reference(s) may target an inherited or cross-file member that this ' +
+        'rename cannot resolve without risking a broken partial edit. ' +
+        `Examples: ${sample}.`;
+      emitWorkerLog('warn', `[RENAME] declined field rename — ${message}`);
+      return { error: { code: -32600, message } }; // InvalidRequest
     }
 
     // Include the field's own declaration token. findOccurrencesInFile matches

@@ -846,5 +846,84 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       expect(errResult.error).toHaveProperty('message');
       expect(errResult.error.message).toContain('keyword');
     }, 120_000);
+
+    // W-23631084 review regression: renaming a field whose subclass references it
+    // via `super.field` or a bare inherited access must DECLINE (no partial edit),
+    // because the single-file standalone scan cannot resolve the subclass→ancestor
+    // relationship and would otherwise rename the declaration while leaving the
+    // subclass references dangling.
+    it('declines renaming a field referenced by a subclass via super/inherited access', async () => {
+      const BASE_URI = 'file:///test/Base.cls';
+      const BASE_SRC = `public class Base {
+    public Integer total;
+}`;
+      const CHILD_URI = 'file:///test/Child.cls';
+      const CHILD_SRC = `public class Child extends Base {
+    public void bump() {
+        super.total = 1;
+        total = total + 1;
+    }
+}`;
+      const INHERIT_SOURCES: Record<string, string> = {
+        [BASE_URI]: BASE_SRC,
+        [CHILD_URI]: CHILD_SRC,
+      };
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => INHERIT_SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        for (const uri of [BASE_URI, CHILD_URI]) {
+          yield* Effect.promise(() =>
+            dispatcher.dispatch('documentOpen', {
+              document: {
+                uri,
+                languageId: 'apex',
+                version: 1,
+                getText: () => INHERIT_SOURCES[uri],
+              },
+              textDocument: { uri },
+              text: INHERIT_SOURCES[uri],
+            }),
+          );
+        }
+
+        // Cursor on Base.total declaration (line 1, char 19).
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: BASE_URI },
+            position: { line: 1, character: 19 },
+            newName: 'amount',
+            content: BASE_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+
+      // Must decline with an error — NOT a partial WorkspaceEdit that renames
+      // Base.total's declaration while leaving Child's super.total / bare total
+      // dangling.
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('error');
+      expect(result).not.toHaveProperty('changes');
+      const errResult = result as { error: { code: number; message: string } };
+      expect(errResult.error.message).toContain('Cannot safely rename');
+    }, 120_000);
   });
 });
