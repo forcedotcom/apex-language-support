@@ -14,19 +14,35 @@ import {
 } from './findOccurrencesInFile';
 
 /**
- * Field occurrences plus skipped candidates whose receivers couldn't be resolved.
- * For 4.1, the skipped list is logged; a future story may surface it to the user
- * (the LSP WorkspaceEdit has no warning channel).
+ * A candidate that was neither kept as an occurrence nor safely dismissed.
+ */
+export interface FieldOccurrenceCandidateNote {
+  uri: string;
+  identifierRange: OccurrenceMatch['identifierRange'];
+  reason: string;
+}
+
+/**
+ * Field occurrences, plus two disjoint sets of non-occurrences:
+ *
+ * - `skipped` — candidates PROVEN unrelated to the target field (a receiver that
+ *   resolves to a different, known type, e.g. `Other.total`). Safe to omit while
+ *   still renaming the declaration.
+ * - `unsafe` — candidates that MIGHT be the target field but cannot be proven so
+ *   from this single-file standalone parse: a `this`/`super`/bare (implicit-this)
+ *   field access inside a type that is not the declaring type (a possible
+ *   INHERITED reference — `super.total` or a bare inherited `total` in a
+ *   subclass), or a field access whose receiver type is unresolvable. Renaming
+ *   the declaration while silently omitting these would emit a broken partial
+ *   edit (dangling references), so the caller MUST decline the whole rename when
+ *   `unsafe` is non-empty rather than apply a partial WorkspaceEdit.
+ *   (Establishing the actual inheritance relationship needs the cross-file graph,
+ *   which this op does not have — hence decline, per the W-23631084 review.)
  */
 export interface FieldOccurrenceResult {
-  /** Genuine field occurrences whose receivers match the declaring type. */
   occurrences: OccurrenceMatch[];
-  /** Candidates skipped because their receiver type couldn't be resolved. */
-  skipped: Array<{
-    uri: string;
-    identifierRange: OccurrenceMatch['identifierRange'];
-    reason: string;
-  }>;
+  skipped: FieldOccurrenceCandidateNote[];
+  unsafe: FieldOccurrenceCandidateNote[];
 }
 
 /**
@@ -66,6 +82,7 @@ export function findFieldOccurrences(
 
   const occurrences: OccurrenceMatch[] = [];
   const skipped: FieldOccurrenceResult['skipped'] = [];
+  const unsafe: FieldOccurrenceResult['unsafe'] = [];
 
   const declaringTypeLower = declaringTypeFqn.toLowerCase();
 
@@ -83,8 +100,12 @@ export function findFieldOccurrences(
       const receiverType = resolveReceiverType(receiverRef, table);
 
       if (receiverType === null) {
-        // Unresolvable receiver → skip for safety.
-        skipped.push({
+        // Unresolvable receiver → UNSAFE, not a safe skip: this could be a
+        // receiver of the declaring type (e.g. a cross-file-typed variable, or
+        // `super`/`this` in a subclass we can't relate here). Omitting it while
+        // renaming the declaration would leave a dangling reference, so the
+        // caller must decline the whole rename.
+        unsafe.push({
           uri: fileUri,
           identifierRange: candidate.identifierRange,
           reason: 'unresolvable-receiver',
@@ -96,7 +117,8 @@ export function findFieldOccurrences(
       if (receiverType.toLowerCase() === declaringTypeLower) {
         occurrences.push(candidate);
       } else {
-        // Different receiver type → not the field we're renaming (e.g. Other.total).
+        // Receiver resolves to a DIFFERENT, KNOWN type → proven unrelated (e.g.
+        // Other.total). Safe to omit and still rename the declaration.
         skipped.push({
           uri: fileUri,
           identifierRange: candidate.identifierRange,
@@ -128,25 +150,48 @@ export function findFieldOccurrences(
         continue;
       }
 
-      // Accept if inside the declaring type or a subclass.
+      // Implicit-this (bare `field`): classify by the enclosing type.
       const enclosingType = getEnclosingType(table, candidate.identifierRange);
       if (
         enclosingType &&
         enclosingType.name.toLowerCase() === declaringTypeLower
       ) {
+        // Enclosing type IS the declaring type → a genuine implicit-this access.
         occurrences.push(candidate);
+      } else if (enclosingTypeCouldInherit(enclosingType)) {
+        // Enclosing type is DIFFERENT but declares a superclass, so this bare
+        // `total` COULD be an inherited reference to the declaring type's field
+        // (e.g. `total` inside `Child extends Account` resolving to
+        // Account.total). This single-file parse can't prove the relationship,
+        // so it is UNSAFE: silently omitting it while renaming the declaration
+        // would leave the subclass uncompilable → the caller must decline
+        // (W-23631084 review, finding #2). Proving/refuting inheritance needs the
+        // cross-file graph this op does not have.
+        unsafe.push({
+          uri: fileUri,
+          identifierRange: candidate.identifierRange,
+          reason: `implicit-this-possible-inherited-in:${
+            enclosingType?.name ?? '?'
+          }`,
+        });
       } else {
-        // Inside a different type or no type → not the field we're renaming.
+        // Enclosing type is DIFFERENT and declares NO superclass (or there is no
+        // enclosing type), so it cannot inherit the declaring type's field. This
+        // `total` is a genuinely unrelated field of another class — safe to omit
+        // while still renaming the declaration (the cross-class disambiguation
+        // that keeps `Other.total` distinct from `Account.total`).
         skipped.push({
           uri: fileUri,
           identifierRange: candidate.identifierRange,
-          reason: 'implicit-this-wrong-enclosing-type',
+          reason: enclosingType
+            ? `implicit-this-unrelated-type:${enclosingType.name}`
+            : 'implicit-this-no-enclosing-type',
         });
       }
     }
   }
 
-  return { occurrences, skipped };
+  return { occurrences, skipped, unsafe };
 }
 
 /**
@@ -213,19 +258,27 @@ function resolveReceiverType(
   receiverRef: SymbolReference,
   table: SymbolTable,
 ): string | null {
-  // `this` / `super` qualifiers resolve to the enclosing type — the receiver is
-  // the current instance, not a declared variable, so resolveVariableAtPosition
-  // would return null and (wrongly) skip a legitimate `this.field` occurrence.
-  // Map `this` to the enclosing type's name. `super.field` is a field inherited
-  // from an ancestor; for 4.1 we conservatively treat it as the enclosing type
-  // too (the field is visible on `this`), which keeps in-hierarchy renames
-  // correct without a cross-file supertype lookup.
   const nameLower = receiverRef.name.toLowerCase();
-  if (nameLower === 'this' || nameLower === 'super') {
+
+  // `this.field` — the receiver is the current instance, so it resolves to the
+  // enclosing type. resolveVariableAtPosition would return null for the `this`
+  // keyword, so map it explicitly; a `this.total` inside the declaring type is a
+  // genuine match.
+  if (nameLower === 'this') {
     const loc = receiverRef.location?.identifierRange;
     if (!loc) return null;
     const enclosing = getEnclosingType(table, loc);
     return enclosing?.name ?? null;
+  }
+
+  // `super.field` refers to a field inherited from an ANCESTOR — NOT the
+  // enclosing type. Resolving the actual superclass needs the cross-file
+  // inheritance graph, which this single-file standalone parse does not have.
+  // Return null so the caller treats it as UNSAFE and declines the rename,
+  // rather than wrongly attributing it to the enclosing type (which would skip a
+  // `super.total` occurrence and leave it dangling — W-23631084 review, #1).
+  if (nameLower === 'super') {
+    return null;
   }
 
   // First try: resolvedSymbolId (reliably set for same-file receivers).
@@ -272,6 +325,23 @@ function resolveReceiverType(
   // have from the SymbolReference alone. These will return null and be skipped
   // as unresolvable, which is acceptable and safe for 4.1.
   return null;
+}
+
+/**
+ * Whether a bare field access inside `enclosingType` could be an INHERITED
+ * reference to a field declared in another type — i.e. whether the enclosing
+ * type declares a superclass. If it extends nothing, it cannot inherit the
+ * declaring type's field, so a same-named bare access is a genuinely unrelated
+ * field of this class (safe to skip). If it does extend a superclass, this
+ * single-file parse cannot prove the superclass chain does NOT reach the
+ * declaring type, so the access is treated as possibly-inherited (unsafe →
+ * decline). A missing enclosing type cannot inherit anything.
+ *
+ * Interfaces carry no instance fields, so only `superClass` matters for field
+ * inheritance; `interfaces` is intentionally not consulted.
+ */
+function enclosingTypeCouldInherit(enclosingType: TypeSymbol | null): boolean {
+  return !!enclosingType?.superClass;
 }
 
 /**

@@ -140,22 +140,27 @@ describe('findFieldOccurrences', () => {
       'Account',
     );
 
-    // Chained `a.inner.total`: the immediate receiver of `total` is `inner` (a field),
-    // which either won't have a co-located VARIABLE_USAGE with a known type (unresolvable)
-    // OR will resolve to Container instead of Account (mismatch).
-    // Either way, it should be skipped for safety.
+    // Chained `a.inner.total`: the immediate receiver of `total` is `inner` (a
+    // field), which either resolves to Container instead of Account (a proven
+    // mismatch → `skipped`, safe) OR has no co-located VARIABLE_USAGE with a
+    // known type (unresolvable → `unsafe`, decline). It is never a real
+    // occurrence, and either outcome is a non-occurrence.
     expect(result.occurrences.length).toBe(0);
-    expect(result.skipped.length).toBeGreaterThanOrEqual(1);
-
-    const skip = result.skipped[0];
-    // Accept either unresolvable or type mismatch as valid skip reasons.
+    const notes = [...result.skipped, ...result.unsafe];
+    expect(notes.length).toBeGreaterThanOrEqual(1);
     expect(
-      skip.reason.includes('unresolvable-receiver') ||
-        skip.reason.includes('receiver-type-mismatch'),
+      notes.some(
+        (n) =>
+          n.reason.includes('unresolvable-receiver') ||
+          n.reason.includes('receiver-type-mismatch'),
+      ),
     ).toBe(true);
   });
 
-  it('skips implicit-this usage in wrong enclosing type', () => {
+  it('safely skips implicit-this usage in an UNRELATED type with no superclass', () => {
+    // `Other` extends nothing, so its bare `total` cannot be an inherited
+    // Account.total — it is a genuinely unrelated field. Safe to skip (the
+    // caller still renames Account.total elsewhere); NOT unsafe.
     const src = `public class Other {
     public Integer total;
 
@@ -172,12 +177,34 @@ describe('findFieldOccurrences', () => {
       'Account', // Looking for Account.total, not Other.total
     );
 
-    // Implicit-this `total` inside Other class should be skipped when looking for Account.total.
     expect(result.occurrences.length).toBe(0);
+    expect(result.unsafe.length).toBe(0);
     expect(result.skipped.length).toBeGreaterThanOrEqual(1);
+    expect(result.skipped[0].reason).toContain('implicit-this-unrelated-type');
+  });
 
-    const skip = result.skipped[0];
-    expect(skip.reason).toContain('implicit-this-wrong-enclosing-type');
+  it('flags implicit-this usage in a SUBCLASS (has superclass) as unsafe', () => {
+    // `Sub extends Account` COULD inherit Account.total, and this single-file
+    // parse can't prove the chain, so a bare `total` in Sub is unsafe → decline.
+    const src = `public class Sub extends Account {
+    public void use() {
+        total = 99;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Sub.cls');
+
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Sub.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    expect(result.occurrences.length).toBe(0);
+    expect(result.unsafe.length).toBeGreaterThanOrEqual(1);
+    expect(result.unsafe[0].reason).toContain(
+      'implicit-this-possible-inherited',
+    );
   });
 
   it('handles method argument form of qualified field access', () => {
@@ -259,6 +286,67 @@ describe('findFieldOccurrences', () => {
     ).toBe(true);
   });
 
+  // --- W-23631084 review regressions: inherited-field references ------------
+  // A single-file standalone parse cannot resolve a subclass→superclass
+  // relationship, so a reference that MIGHT be the inherited field must be
+  // flagged `unsafe` (→ caller declines) rather than silently skipped while the
+  // declaration is renamed (which would emit a broken partial edit).
+
+  it('flags super.field in a subclass as unsafe when renaming the ancestor field', () => {
+    // `super.total` in Child refers to Account.total (Account declares it). This
+    // file alone cannot prove Child extends Account, so `super` must NOT be
+    // attributed to the enclosing type (Child) and dismissed — it is unsafe.
+    const src = `public class Child extends Account {
+    public void bump() {
+        super.total = super.total + 1;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Child.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Child.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    // No confirmed occurrences, and the super.total references are unsafe (never
+    // safely skipped) so the caller declines rather than renaming Account.total
+    // and leaving super.total dangling. (The parser emits `super` mostly as a
+    // CLASS_REFERENCE, so some occurrences reach the implicit-this branch and
+    // others the unresolvable-receiver branch — both are `unsafe`; what matters
+    // is that NONE are safely skipped and NONE are confirmed occurrences.)
+    expect(result.occurrences.length).toBe(0);
+    expect(result.skipped.length).toBe(0);
+    expect(result.unsafe.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('flags a bare inherited field read/write in a subclass as unsafe', () => {
+    // Bare `total` in Child (extends Account) legitimately resolves to
+    // Account.total. The enclosing type is Child, not Account, and this parse
+    // can't prove the inheritance — so it is unsafe, not a safe skip.
+    const src = `public class Child extends Account {
+    public void bump() {
+        total = 1;
+        Integer x = total;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Child.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Child.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    expect(result.occurrences.length).toBe(0);
+    expect(result.unsafe.length).toBeGreaterThanOrEqual(1);
+    expect(
+      result.unsafe.every((u) =>
+        u.reason.startsWith('implicit-this-possible-inherited'),
+      ),
+    ).toBe(true);
+  });
+
   it('does NOT match an inner class field when renaming the outer field', () => {
     // Outer and Inner both declare `total`. A bare `total` inside Inner.f() must
     // resolve to Inner (innermost enclosing type), not Outer.
@@ -281,7 +369,11 @@ describe('findFieldOccurrences', () => {
       'Outer',
     );
 
-    // Inner.f()'s `total` is Inner-scoped → not an Outer.total occurrence.
+    // Inner.f()'s `total` is Inner-scoped → not an Outer.total occurrence, so it
+    // is never renamed. Inner declares no superclass, so it cannot inherit
+    // Outer.total — the bare `total` is a genuinely unrelated field, safely
+    // skipped (not unsafe), and the rename is NOT declined.
     expect(result.occurrences.length).toBe(0);
+    expect(result.unsafe.length).toBe(0);
   });
 });
