@@ -36,6 +36,6 @@ jobs:
       registries: 'all'
       pre-release: 'true'
       version-bump: 'auto'
-      exclude-web-vsix: 'true'
+      exclude-web-vsix: 'false'
       dry-run: ${{ github.event.inputs.dry-run == true || github.event.inputs.dry-run == 'true' }}
     secrets: inherit
