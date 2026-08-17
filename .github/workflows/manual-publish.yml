@@ -88,8 +88,7 @@ permissions:
 
 jobs:
   manual-publish:
-    # TODO: Change to @main once feat/add-vscode-extension-ci is merged
-    uses: salesforcecli/github-workflows/.github/workflows/vscode-manual-publish.yml@main
+    uses: salesforcecli/github-workflows/.github/workflows/vscode-manual-publish.yml@ph/W-23832274-pnpm-stable-promotion
     with:
       extension-name: ${{ inputs.extension }}
       vsix-name-pattern: 'apex-language-server-extension-*.vsix'
@@ -103,6 +102,6 @@ jobs:
       exclude-web-vsix: 'true'
       extensions-root: 'packages'
       vsix-artifact-name: 'vsix-packages'
-      required-ci-checks: 'CI Complete, Package / Package, Test Quality (ubuntu-latest, lts/*)'
+      required-ci-checks: '["CI Complete","Package / Package","Test Quality (ubuntu-latest, lts/*)"]'
       dry-run: ${{ inputs.dry-run }}
     secrets: inherit
