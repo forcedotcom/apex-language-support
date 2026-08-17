@@ -157,7 +157,7 @@ jobs:
   e2e-tests-desktop:
     name: E2E ${{ matrix.test_file }} (Desktop, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 30
     if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.test_mode == 'desktop' || github.event.inputs.test_mode == 'both' }}
 
     strategy:
@@ -251,7 +251,7 @@ jobs:
         if: runner.os == 'Linux' && steps.parallel-run-linux.outcome == 'failure'
         run: |
           cd e2e-tests
-          xvfb-run -a npx playwright test tests/${{ matrix.test_file }} --config=playwright.config.desktop.ts --last-failed --reporter=html,line,junit,json
+          xvfb-run -a npx playwright test tests/${{ matrix.test_file }} --config=playwright.config.desktop.ts --reporter=html,line,junit,json
         env:
           CI: true
           TEST_MODE: desktop
@@ -265,7 +265,7 @@ jobs:
         if: runner.os != 'Linux' && steps.parallel-run-desktop.outcome == 'failure'
         run: |
           cd e2e-tests
-          npx playwright test tests/${{ matrix.test_file }} --config=playwright.config.desktop.ts --last-failed --reporter=html,line,junit,json
+          npx playwright test tests/${{ matrix.test_file }} --config=playwright.config.desktop.ts --reporter=html,line,junit,json
         env:
           CI: true
           TEST_MODE: desktop

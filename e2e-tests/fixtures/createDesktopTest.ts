@@ -7,7 +7,11 @@
  */
 
 import type { WorkerFixtures, TestFixtures } from './desktopFixtureTypes';
-import { test as base, _electron as electron } from '@playwright/test';
+import {
+  test as base,
+  _electron as electron,
+  type ElectronApplication,
+} from '@playwright/test';
 import { downloadAndUnzipVSCode } from '@vscode/test-electron';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
@@ -41,6 +45,35 @@ const resolveDesktopExecutable = async (
     const codeExecutable = path.join(path.dirname(downloadedPath), 'Code');
     await fs.access(codeExecutable);
     return codeExecutable;
+  }
+};
+
+const closeDesktopApp = async (
+  electronApp: ElectronApplication,
+): Promise<void> => {
+  let closeTimer: ReturnType<typeof setTimeout> | undefined;
+  const closedGracefully = await Promise.race([
+    electronApp.close().then(
+      () => true,
+      () => false,
+    ),
+    new Promise<boolean>((resolve) => {
+      closeTimer = setTimeout(() => resolve(false), 5000);
+    }),
+  ]);
+
+  if (closeTimer) {
+    clearTimeout(closeTimer);
+  }
+
+  if (!closedGracefully) {
+    // VS Code can leave the extension host alive after a failed test. Do not
+    // let that consume the remainder of Playwright's per-test timeout.
+    try {
+      electronApp.process().kill();
+    } catch {
+      // The process may have exited between the timeout and the kill attempt.
+    }
   }
 };
 
@@ -148,11 +181,7 @@ export const createDesktopTest = (options: CreateDesktopTestOptions) => {
       try {
         await use(electronApp);
       } finally {
-        try {
-          await electronApp.close();
-        } catch {
-          // Ignore cleanup errors
-        }
+        await closeDesktopApp(electronApp);
       }
     },
 

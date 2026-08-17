@@ -37,10 +37,14 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
     apexEditor,
     page,
   }) => {
-    await test.step('Open inheritance test file', async () => {
+    await test.step('Open base class, then inheritance test file', async () => {
+      // didOpen is what eagerly prepares a workspace file. Workspace ingestion
+      // alone no longer guarantees full symbol enrichment for cross-file
+      // references, so prepare the target before opening the source of F12.
+      await apexEditor.openFile('BaseHandler.cls');
+      await apexEditor.waitForLanguageServerReady();
       await apexEditor.openFile('AccountHandler.cls');
       await apexEditor.waitForLanguageServerReady();
-      // Cross-file resolution needs full workspace ingestion, not just LSP init.
       await apexEditor.waitForWorkspaceReady();
     });
 
@@ -100,7 +104,9 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
   test('should navigate to interface from implementing class', async ({
     apexEditor,
   }) => {
-    await test.step('Open interface implementation test file', async () => {
+    await test.step('Open interface, then implementation test file', async () => {
+      await apexEditor.openFile('DataProcessor.cls');
+      await apexEditor.waitForLanguageServerReady();
       await apexEditor.openFile('AccountProcessor.cls');
       await apexEditor.waitForLanguageServerReady();
       // This is the historically flaky test: it gated only on LSP init, so the

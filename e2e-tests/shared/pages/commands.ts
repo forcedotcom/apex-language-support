@@ -28,8 +28,11 @@ export const openCommandPalette = async (page: Page): Promise<void> => {
   await expect(async () => {
     // Bring page to front to ensure VS Code window is active (critical on Windows)
     await page.bringToFront();
-    // Click workbench to ensure focus is not on walkthrough elements; Windows needs explicit focus before F1
-    await workbench.click({ timeout: 5000 });
+    // Force focus without waiting for the entire workbench to become stable.
+    // Animations and editor layout changes can keep this root element moving
+    // even though it is ready to receive keyboard input.
+    await workbench.click({ timeout: 2000, force: true }).catch(() => {});
+    await page.keyboard.press('Escape');
     // Small delay to allow Windows to process focus change before F1 keypress
     await page.waitForTimeout(100);
     await page.keyboard.press('F1');
@@ -43,7 +46,7 @@ export const openCommandPalette = async (page: Page): Promise<void> => {
     const input = widget.locator('input.input');
     await expect(input).toBeVisible({ timeout: 5000 });
     await expect(input).toHaveValue(/^>/, { timeout: 5000 });
-  }).toPass({ timeout: 20_000 });
+  }).toPass({ timeout: 15_000, intervals: [100, 250, 500] });
 };
 
 const executeCommand = async (

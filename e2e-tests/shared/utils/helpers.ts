@@ -231,7 +231,8 @@ export const closeWelcomeTabs = async (page: Page): Promise<void> => {
   await expect(async () => {
     await dismissStartupPrompts(page);
     await dismissAllQuickInputWidgets(page);
-    await workbench.click({ timeout: 5000 });
+    await page.bringToFront();
+    await workbench.click({ timeout: 2000, force: true }).catch(() => {});
 
     const welcomeTabs = page.getByRole('tab', { name: /Welcome|Walkthrough/i });
     const count = await welcomeTabs.count();
