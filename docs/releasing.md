@@ -125,7 +125,8 @@ Run it from **Actions → Manual Publish → Run workflow**. Inputs:
 | `version-tag` | **Tag path (normal):** a nightly git tag, e.g. `v0.5.3-nightly.20260301`. Mutually exclusive with `source-run-id`. |
 | `source-run-id` | **Run path (bypass):** an Actions run ID whose VSIX artifact to publish. For branch builds with no GH release. Requires `skip-quality-checks=true` **and** `confirm-bypass=BYPASS`. |
 | `slot` | `pre-release` or `stable`. |
-| `registries` | `all` (default), `vsce`, or `ovsx`. |
+| `registries` | `all` (default), `vsce`, `ovsx`, or `none`. Use `none` with `publish-web-vsix: true` for an internal-only publish. |
+| `publish-web-vsix` | `false` (default) excludes the web VSIX. Set to `true` to publish it to the internal CBWeb marketplace; use only with `slot: pre-release`. |
 | `target-stable-version` | Optional stable override (valid semver, **even** minor). Required when using `source-run-id` with `slot: stable`. |
 | `skip-quality-checks` | Bypass the CI quality gate. Required for the `source-run-id` path. |
 | `confirm-bypass` | Must be exactly `BYPASS` when skipping the quality gate. |
@@ -250,6 +251,7 @@ Apex extension publishes.
 - [ ] Run **Manual Publish** with `dry-run: true`; review the preview.
 - [ ] Re-run with `dry-run: false`; approve the environment gate.
 - [ ] Verify the new version on both registries.
+- [ ] If `publish-web-vsix: true`, verify the web VSIX in the internal CBWeb marketplace.
 - [ ] Update `code-builder-web` pin and open a PR there.
 
 ---
