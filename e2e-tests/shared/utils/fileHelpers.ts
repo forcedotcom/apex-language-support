@@ -8,16 +8,10 @@
 
 import { expect, type Page } from '@playwright/test';
 import { executeCommandWithCommandPalette } from '../pages/commands';
-import {
-  dismissAllQuickInputWidgets,
-  getGoToStartShortcut,
-  getModifierShortcut,
-  isDesktop,
-} from './helpers';
+import { getGoToStartShortcut } from './helpers';
 import {
   DIRTY_EDITOR,
   EDITOR_WITH_URI,
-  QUICK_INPUT_LIST_ROW,
   QUICK_INPUT_WIDGET,
   WORKBENCH,
 } from './locators';
@@ -49,107 +43,30 @@ export const createFileWithContents = async (
 /**
  * Open a file by name.
  *
- * Desktop: uses "Go to File" (Ctrl+P with full workspace indexing).
- * Web: clicks the file in the Explorer sidebar. vscode-test-web's Ctrl+P only
- * surfaces recently-opened files, not workspace files, so Quick Open is not
- * usable for the initial open of an arbitrary workspace file.
+ * Uses the Explorer sidebar in both modes. Quick Open depends on VS Code's file
+ * search provider having finished indexing the workspace; on fresh desktop CI
+ * instances the widget can be ready while that provider still returns no rows.
+ * The Explorer is backed directly by the loaded workspace and is deterministic
+ * for the small E2E fixture.
  */
 export const openFileByName = async (
   page: Page,
   fileName: string,
 ): Promise<void> => {
-  if (isDesktop()) {
-    const widget = page.locator(QUICK_INPUT_WIDGET);
-    await expect(async () => {
-      await dismissAllQuickInputWidgets(page);
-      await page.bringToFront();
-      await page
-        .locator(WORKBENCH)
-        .click({ timeout: 2000, force: true })
-        .catch(() => {});
-      await page.keyboard.press(getModifierShortcut('p'));
-      await widget.waitFor({ state: 'visible', timeout: 3000 });
-    }, 'Opening Quick Open with the direct keyboard shortcut').toPass({
-      timeout: 12_000,
-      intervals: [250, 500, 1000],
-    });
-    const input = widget.locator('input.input');
-    await expect(input).toBeVisible({ timeout: 5000 });
-    await input.click({ timeout: 5000 });
-    await page.keyboard.press(getModifierShortcut('a'));
-    await page.keyboard.press('Delete');
-    await page.keyboard.type(fileName);
-
-    await page.locator(QUICK_INPUT_LIST_ROW).first().waitFor({
-      state: 'visible',
-      timeout: 10_000,
-    });
-    await widget.waitFor({ state: 'visible', timeout: 1000 });
-
-    const results = page.locator(QUICK_INPUT_LIST_ROW);
-    const resultCount = await results.count();
-    let foundMatch = false;
-    let matchIndex = 0;
-    for (let i = 0; i < resultCount; i++) {
-      const resultText = await results.nth(i).textContent();
-      if (
-        resultText &&
-        (resultText.includes(`/${fileName}`) ||
-          resultText.includes(`\\${fileName}`) ||
-          resultText.startsWith(fileName))
-      ) {
-        matchIndex = i;
-        foundMatch = true;
-        break;
-      }
-    }
-
-    if (!foundMatch) {
-      const allResults: string[] = [];
-      for (let i = 0; i < Math.min(resultCount, 10); i++) {
-        const text = await results.nth(i).textContent();
-        if (text) allResults.push(text.trim());
-      }
-      const firstResult = allResults[0] || '';
-      if (
-        firstResult.toLowerCase().includes('similar commands') ||
-        firstResult.toLowerCase().includes('no matching')
-      ) {
-        throw new Error(
-          'Quick Open appears to be showing command palette results instead of files. ' +
-            `Found ${resultCount} results. First few: ${allResults.join(' | ')}`,
-        );
-      }
-      throw new Error(
-        `No exact match found for "${fileName}" in Quick Open. ` +
-          `Found ${resultCount} results. First few: ${allResults.join(' | ')}`,
-      );
-    }
-
-    for (let i = 0; i < matchIndex; i++) {
-      await page.keyboard.press('ArrowDown');
-    }
-    await page.keyboard.press('Enter');
-  } else {
-    // On web, use the Explorer sidebar — it shows all workspace files regardless
-    // of whether they have been opened before in this session.
-    const explorerView = page.locator('[id="workbench.view.explorer"]');
-    await explorerView.waitFor({ state: 'visible', timeout: 10_000 });
-    await expandWorkspaceFolders(page);
-
-    // Use an exact label match so Foo.cls never binds to Foo.cls-meta.xml.
-    const fileLabel = explorerView.getByText(fileName, { exact: true });
-
-    const labelCount = await fileLabel.count();
-    if (labelCount === 0) {
-      throw new Error(
-        `File "${fileName}" not found in Explorer sidebar. ` +
-          'Ensure the file exists in the workspace.',
-      );
-    }
-
-    await fileLabel.first().click();
+  const explorerView = page.locator('[id="workbench.view.explorer"]');
+  if (!(await explorerView.isVisible().catch(() => false))) {
+    await executeCommandWithCommandPalette(
+      page,
+      'File: Focus on Files Explorer',
+    );
   }
+  await explorerView.waitFor({ state: 'visible', timeout: 10_000 });
+  await expandWorkspaceFolders(page);
+
+  // Use an exact label match so Foo.cls never binds to Foo.cls-meta.xml.
+  const fileLabel = explorerView.getByText(fileName, { exact: true });
+  await expect(fileLabel.first()).toBeVisible({ timeout: 10_000 });
+  await fileLabel.first().click();
 
   await page.locator(EDITOR_WITH_URI).first().waitFor({
     state: 'visible',

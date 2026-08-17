@@ -169,8 +169,8 @@ export const activateExtension = async (page: Page): Promise<void> => {
   const contentTimeout = isDesktopMode ? 15_000 : 5_000;
 
   if (isDesktopMode) {
-    // Quick Open is independent of the Explorer tree's animation/expansion
-    // state and is the most reliable way to trigger onLanguage:apex.
+    // The Explorer is populated from the loaded workspace before the file
+    // search provider used by Quick Open is necessarily ready.
     await openFileByName(page, 'ApexClassExample.cls');
   } else {
     const clsFile = page.locator(SELECTORS.CLS_FILE_ICON).first();

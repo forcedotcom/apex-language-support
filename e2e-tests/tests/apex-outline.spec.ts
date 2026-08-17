@@ -47,6 +47,7 @@ test.describe('Apex Outline View', () => {
     await test.step('Open and activate outline view', async () => {
       await outlineView.open();
       expect(await outlineView.isVisible()).toBe(true);
+      await outlineView.waitForSymbols(1);
     });
 
     await test.step('Validate Apex symbols in outline', async () => {
@@ -197,7 +198,7 @@ test.describe('Apex Outline View', () => {
     await outlineView.open();
 
     await outlineView.refresh();
-    await outlineView.waitForSymbols(1, 5000);
+    await outlineView.waitForSymbols(1);
 
     const symbols = await outlineView.getSymbols();
     expect(symbols.length).toBeGreaterThan(0);

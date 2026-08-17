@@ -7,8 +7,8 @@
  */
 
 import type { Page } from '@playwright/test';
-import { getModifierShortcut } from '../shared/utils/helpers';
-import { OUTLINE_SELECTORS, type ExpectedApexSymbols } from './constants';
+import { executeCommandWithCommandPalette } from '../shared/pages/commands';
+import type { ExpectedApexSymbols } from './constants';
 
 /**
  * Attempts to find and activate the outline view.
@@ -18,112 +18,48 @@ import { OUTLINE_SELECTORS, type ExpectedApexSymbols } from './constants';
  * @throws Error if outline view cannot be found or activated
  */
 export const findAndActivateOutlineView = async (page: Page): Promise<void> => {
-  // Check if the outline tree already has content (rows) — skip activation
-  // to avoid toggling it closed by re-clicking the header.
-  const existingRows = page.locator(
-    '.outline-tree .monaco-list-row, .tree-explorer .monaco-list-row',
-  );
-  if ((await existingRows.count()) > 0) {
+  const outlineTree = page.locator('.outline-tree:visible');
+  if (
+    await outlineTree
+      .first()
+      .isVisible()
+      .catch(() => false)
+  ) {
     return;
   }
 
-  // Also check broader outline presence — the tree container may exist without rows
-  const outlineTree = page.locator('.outline-tree');
-  if ((await outlineTree.count()) > 0) {
-    return;
+  // The Outline pane belongs to the Files Explorer. Ensure that view is active
+  // before looking for its header; a hidden .outline-tree from a previous view
+  // must not be mistaken for an activated outline.
+  const explorerView = page.locator('[id="workbench.view.explorer"]');
+  if (!(await explorerView.isVisible().catch(() => false))) {
+    await executeCommandWithCommandPalette(
+      page,
+      'File: Focus on Files Explorer',
+    );
   }
+  await explorerView.waitFor({ state: 'visible', timeout: 10_000 });
 
-  // Try to find outline view in the explorer sidebar
-  let outlineFound = false;
-
-  for (const selector of OUTLINE_SELECTORS) {
-    const outlineElement = page.locator(selector);
-    const count = await outlineElement.count();
-
-    if (count > 0) {
-      outlineFound = true;
-
-      // Highlight the outline section in debug mode
-      if (process.env.DEBUG_MODE && count > 0) {
-        await outlineElement.first().hover();
-      }
-
-      // If it's the text selector, try to click to expand
-      if (selector === 'text=OUTLINE') {
-        await outlineElement.first().click();
-        // Wait for outline tree to become visible after clicking
-        await page.waitForSelector('.outline-tree', { timeout: 15000 });
-      }
-      break;
+  const outlineHeader = page
+    .locator('.pane-header:visible')
+    .filter({ hasText: /outline/i })
+    .first();
+  if (await outlineHeader.isVisible().catch(() => false)) {
+    if ((await outlineHeader.getAttribute('aria-expanded')) !== 'true') {
+      await outlineHeader.click();
     }
+  } else {
+    // This command reveals and focuses Outline even when its pane was moved or
+    // hidden. Command-palette results are available before Quick Open's file
+    // index, so this does not reproduce the desktop activation race.
+    await executeCommandWithCommandPalette(page, 'View: Focus on Outline View');
   }
 
-  // If outline not visible, try to activate it via command palette
-  if (!outlineFound) {
-    try {
-      await activateOutlineViaCommandPalette(page);
-      outlineFound = true;
-    } catch (error) {
-      throw new Error(
-        `Failed to activate outline via command palette: ${error}`,
-      );
-    }
-  }
-
-  if (!outlineFound) {
-    throw new Error('Outline view could not be found or activated');
-  }
-};
-
-/**
- * Activates outline view using the command palette.
- * Throws an error if activation fails.
- *
- * @param page - Playwright page instance
- * @throws Error if activation fails
- */
-const activateOutlineViaCommandPalette = async (page: Page): Promise<void> => {
-  try {
-    // Open command palette
-    await page.keyboard.press(getModifierShortcut('Shift+P'));
-    await page.waitForSelector('.quick-input-widget', { timeout: 3000 });
-
-    // Type command to show outline
-    await page.keyboard.type('outline');
-    await page.waitForSelector('.quick-input-list .monaco-list-row', {
-      timeout: 4000,
-    });
-
-    // Try to find and click outline command
-    const outlineCommand = page
-      .locator('.quick-input-list .monaco-list-row')
-      .filter({ hasText: /outline/i })
-      .first();
-
-    const isVisible = await outlineCommand.isVisible({ timeout: 3000 });
-    if (isVisible) {
-      await outlineCommand.click();
-      // Wait for outline tree to appear after command execution
-      await page.waitForSelector('.outline-tree, [id*="outline"]', {
-        timeout: 10000,
-      });
-    } else {
-      // Close command palette
-      await page.keyboard.press('Escape');
-      throw new Error('Outline command not visible in command palette');
-    }
-  } catch (error) {
-    // Ensure command palette is closed
-    await page.keyboard.press('Escape').catch(() => {});
-
-    if (
-      error instanceof Error &&
-      error.message.includes('Outline command not visible')
-    ) {
-      throw error; // Re-throw our custom error
-    }
-    throw new Error(`Failed to activate outline via command palette: ${error}`);
-  }
+  // An expanded pane can legitimately render "No symbols found" after an
+  // early null document-symbol response. That is an activated Outline view,
+  // even though .outline-tree does not exist yet; waitForSymbols is responsible
+  // for reissuing the semantic request and waiting for rows.
+  await outlineHeader.waitFor({ state: 'visible', timeout: 15_000 });
 };
 
 /**

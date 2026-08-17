@@ -15,6 +15,7 @@ import {
 } from '../utils/outline-helpers';
 import { detectOutlineSymbols } from '../utils/lsp-testing';
 import { SELECTORS, OUTLINE_SELECTORS } from '../utils/constants';
+import { getModifierShortcut } from '../shared/utils/helpers';
 
 /**
  * Symbol information from the outline view.
@@ -344,11 +345,21 @@ export class OutlineViewPage extends BasePage {
   async waitForSymbols(minSymbols = 1, timeout?: number): Promise<void> {
     const effectiveTimeout = timeout || (this.isDesktopMode ? 20000 : 12000);
     const startTime = Date.now();
+    let lastRequestTime = 0;
 
     while (Date.now() - startTime < effectiveTimeout) {
       const count = await this.getSymbolCount();
       if (count >= minSymbols) {
         return;
+      }
+
+      // VS Code does not automatically repeat a document-symbol request that
+      // returned null while the lazily-started server was preparing the file.
+      // Opening the editor symbol picker issues a fresh request; dismiss it as
+      // soon as the response arrives and continue observing the Outline model.
+      if (Date.now() - lastRequestTime >= 2500) {
+        lastRequestTime = Date.now();
+        await this.requestDocumentSymbols();
       }
       await this.page.waitForTimeout(500);
     }
@@ -362,13 +373,28 @@ export class OutlineViewPage extends BasePage {
    * Refresh the outline view.
    */
   async refresh(): Promise<void> {
-    // Focus on the outline view
-    await this.outlineTree.click();
-    await this.page.waitForTimeout(200);
+    await this.requestDocumentSymbols();
+  }
 
-    // Send refresh command (if available)
-    // Note: VS Code outline typically refreshes automatically
-    await this.page.waitForTimeout(500);
+  /** Issue a fresh textDocument/documentSymbol request through VS Code. */
+  private async requestDocumentSymbols(): Promise<void> {
+    await this.page
+      .locator('.editor-group-container.active .monaco-editor')
+      .first()
+      .click({ timeout: 2000 })
+      .catch(() => {});
+    await this.page.keyboard.press(getModifierShortcut('Shift+O'));
+
+    const picker = this.page.locator('.quick-input-widget:visible');
+    if (await picker.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await picker
+        .locator('.monaco-list-row')
+        .first()
+        .waitFor({ state: 'attached', timeout: 2000 })
+        .catch(() => {});
+      await this.page.keyboard.press('Escape');
+      await picker.waitFor({ state: 'hidden', timeout: 2000 }).catch(() => {});
+    }
   }
 
   /**

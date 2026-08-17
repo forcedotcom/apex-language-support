@@ -73,12 +73,12 @@ export const setupFullTestSession = async (
   // Execute core test steps
   await startVSCodeWeb(page);
   try {
-    // Desktop activation uses Quick Open directly; it does not depend on the
-    // animated Explorer tree being expanded or Running Extensions rendering.
+    // Desktop does not load the Salesforce Services running-extensions page,
+    // but both modes use the Explorer-backed workspace to activate Apex.
     if (!isDesktop()) {
       await waitForSalesforceServicesActivation(page);
-      await verifyWorkspaceFiles(page);
     }
+    await verifyWorkspaceFiles(page);
     await activateExtension(page);
     await waitForLSPInitialization(page);
   } catch (error) {

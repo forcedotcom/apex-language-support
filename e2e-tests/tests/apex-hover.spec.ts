@@ -117,9 +117,20 @@ test.describe('Apex Hover Functionality', () => {
   });
 
   /**
-   * Test: Hover is responsive (appears within reasonable time).
+   * Test: Hover is responsive after lazy semantic preparation.
    */
   test('should show hover within reasonable time', async ({ hoverHelper }) => {
+    // A fresh VS Code instance lazily starts the language server and prepares
+    // the document on the first semantic request. Warm that path separately so
+    // this assertion measures hover responsiveness rather than cold startup.
+    await hoverHelper.hoverOnWordWithRetry(
+      'ApexClassExample',
+      'ApexClassExample',
+      30_000,
+    );
+    await hoverHelper.dismissHover();
+    await hoverHelper.waitForHoverToDisappear(3000);
+
     const isResponsive = await hoverHelper.isHoverResponsive(
       'ApexClassExample',
       12000,
