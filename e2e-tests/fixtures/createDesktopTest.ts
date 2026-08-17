@@ -52,11 +52,12 @@ const closeDesktopApp = async (
   electronApp: ElectronApplication,
 ): Promise<void> => {
   let closeTimer: ReturnType<typeof setTimeout> | undefined;
+  const closePromise = electronApp.close().then(
+    () => true,
+    () => false,
+  );
   const closedGracefully = await Promise.race([
-    electronApp.close().then(
-      () => true,
-      () => false,
-    ),
+    closePromise,
     new Promise<boolean>((resolve) => {
       closeTimer = setTimeout(() => resolve(false), 5000);
     }),
@@ -70,7 +71,19 @@ const closeDesktopApp = async (
     // VS Code can leave the extension host alive after a failed test. Do not
     // let that consume the remainder of Playwright's per-test timeout.
     try {
-      electronApp.process().kill();
+      if (process.platform === 'win32') {
+        electronApp.process().kill();
+      } else {
+        electronApp.process().kill('SIGKILL');
+      }
+      // Let Playwright observe the process exit and dispose its transport;
+      // returning while close() is pending leaves handles in the test worker.
+      await Promise.race([
+        closePromise,
+        new Promise<boolean>((resolve) =>
+          setTimeout(() => resolve(false), 5000),
+        ),
+      ]);
     } catch {
       // The process may have exited between the timeout and the kill attempt.
     }

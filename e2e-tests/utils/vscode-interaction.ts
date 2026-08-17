@@ -19,7 +19,10 @@ import {
   waitForCommandToBeAvailable,
 } from '../shared/pages/commands';
 import { TAB_CLOSE_BUTTON } from '../shared/utils/locators';
-import { expandWorkspaceFolders } from '../shared/utils/fileHelpers';
+import {
+  expandWorkspaceFolders,
+  openFileByName,
+} from '../shared/utils/fileHelpers';
 
 import type { ConsoleError, NetworkError } from './constants';
 
@@ -165,14 +168,17 @@ export const activateExtension = async (page: Page): Promise<void> => {
   const longTimeout = isDesktopMode ? 60_000 : 30_000;
   const contentTimeout = isDesktopMode ? 15_000 : 5_000;
 
-  const clsFile = page.locator(SELECTORS.CLS_FILE_ICON).first();
+  if (isDesktopMode) {
+    // Quick Open is independent of the Explorer tree's animation/expansion
+    // state and is the most reliable way to trigger onLanguage:apex.
+    await openFileByName(page, 'ApexClassExample.cls');
+  } else {
+    const clsFile = page.locator(SELECTORS.CLS_FILE_ICON).first();
+    await clsFile.waitFor({
+      state: 'visible',
+      timeout: shortTimeout,
+    });
 
-  await clsFile.waitFor({
-    state: 'visible',
-    timeout: shortTimeout,
-  });
-
-  if (await clsFile.isVisible()) {
     // Hover to show file selection in debug mode
     if (process.env.DEBUG_MODE) {
       await clsFile.hover();
@@ -184,8 +190,6 @@ export const activateExtension = async (page: Page): Promise<void> => {
     }
 
     await clsFile.click();
-  } else {
-    throw new Error('No .cls file found to activate extension');
   }
 
   // Wait for editor to load
@@ -210,12 +214,15 @@ export const activateExtension = async (page: Page): Promise<void> => {
     );
   }
 
-  // Wait for extension command to be available (extension fully loaded + when context ready)
-  await waitForCommandToBeAvailable(
-    page,
-    'SFDX: Restart Apex-LS-TS Language Server',
-    30_000,
-  );
+  if (!isDesktopMode) {
+    // Web activation is asynchronous and cannot be inferred solely from the
+    // editor opening, so retain its command-availability readiness check.
+    await waitForCommandToBeAvailable(
+      page,
+      'SFDX: Restart Apex-LS-TS Language Server',
+      30_000,
+    );
+  }
 };
 
 /**

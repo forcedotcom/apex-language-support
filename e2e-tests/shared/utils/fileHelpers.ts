@@ -9,6 +9,7 @@
 import { expect, type Page } from '@playwright/test';
 import { executeCommandWithCommandPalette } from '../pages/commands';
 import {
+  dismissAllQuickInputWidgets,
   getGoToStartShortcut,
   getModifierShortcut,
   isDesktop,
@@ -59,8 +60,19 @@ export const openFileByName = async (
 ): Promise<void> => {
   if (isDesktop()) {
     const widget = page.locator(QUICK_INPUT_WIDGET);
-    await executeCommandWithCommandPalette(page, 'Go to File');
-    await expect(widget).toBeVisible({ timeout: 10_000 });
+    await expect(async () => {
+      await dismissAllQuickInputWidgets(page);
+      await page.bringToFront();
+      await page
+        .locator(WORKBENCH)
+        .click({ timeout: 2000, force: true })
+        .catch(() => {});
+      await page.keyboard.press(getModifierShortcut('p'));
+      await widget.waitFor({ state: 'visible', timeout: 3000 });
+    }, 'Opening Quick Open with the direct keyboard shortcut').toPass({
+      timeout: 12_000,
+      intervals: [250, 500, 1000],
+    });
     const input = widget.locator('input.input');
     await expect(input).toBeVisible({ timeout: 5000 });
     await input.click({ timeout: 5000 });

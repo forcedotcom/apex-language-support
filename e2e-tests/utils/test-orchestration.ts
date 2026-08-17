@@ -28,6 +28,7 @@ import {
   type LCSDetectionResult,
 } from './worker-detection';
 import { waitForLCSReady } from './lsp-testing';
+import { isDesktop } from '../shared/utils/helpers';
 
 /**
  * Extended test session result with LCS detection.
@@ -55,8 +56,12 @@ export interface TestSessionOptions {
 export const setupFullTestSession = async (
   page: Page,
 ): Promise<TestSessionResult> => {
-  // Setup test workspace
-  await setupTestWorkspace();
+  // Web tests share the repository-backed workspace. Desktop tests receive an
+  // isolated, fully populated workspace from the workspaceDir fixture; copying
+  // into the shared path here races when multiple desktop workers start.
+  if (!isDesktop()) {
+    await setupTestWorkspace();
+  }
 
   // Set up monitoring
   const consoleErrors = setupConsoleMonitoring(page);
@@ -68,11 +73,18 @@ export const setupFullTestSession = async (
   // Execute core test steps
   await startVSCodeWeb(page);
   try {
-    await waitForSalesforceServicesActivation(page);
+    // Desktop activation uses Quick Open directly; it does not depend on the
+    // animated Explorer tree being expanded or Running Extensions rendering.
+    if (!isDesktop()) {
+      await waitForSalesforceServicesActivation(page);
+      await verifyWorkspaceFiles(page);
+    }
+    await activateExtension(page);
+    await waitForLSPInitialization(page);
   } catch (error) {
     if (process.env.E2E_APEX_DIAGNOSTICS === '1') {
       console.error(
-        `Salesforce Services activation diagnostics:\n${JSON.stringify(
+        `Extension activation diagnostics:\n${JSON.stringify(
           { consoleErrors, networkErrors },
           null,
           2,
@@ -81,9 +93,6 @@ export const setupFullTestSession = async (
     }
     throw error;
   }
-  await verifyWorkspaceFiles(page);
-  await activateExtension(page);
-  await waitForLSPInitialization(page);
 
   return { consoleErrors, networkErrors };
 };

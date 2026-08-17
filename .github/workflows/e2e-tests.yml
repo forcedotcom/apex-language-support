@@ -256,6 +256,7 @@ jobs:
           CI: true
           TEST_MODE: desktop
           E2E_SEQUENTIAL: 1
+          E2E_NO_RETRIES: 1
           E2E_APEX_DIAGNOSTICS: 1
           PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/${{ matrix.os }}/${{ matrix.test_file }}
           PLAYWRIGHT_JUNIT_OUTPUT_FILE: test-results/${{ matrix.os }}/${{ matrix.test_file }}/junit.xml
@@ -270,6 +271,7 @@ jobs:
           CI: true
           TEST_MODE: desktop
           E2E_SEQUENTIAL: 1
+          E2E_NO_RETRIES: 1
           E2E_APEX_DIAGNOSTICS: 1
           PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/${{ matrix.os }}/${{ matrix.test_file }}
           PLAYWRIGHT_JUNIT_OUTPUT_FILE: test-results/${{ matrix.os }}/${{ matrix.test_file }}/junit.xml

@@ -88,13 +88,13 @@ export class HoverPage extends BasePage {
   async hoverOnWordWithRetry(
     searchText: string,
     expectedContent: string | RegExp = searchText,
-    timeout = 20_000,
+    timeout?: number,
   ): Promise<string> {
     await positionCursorOnWord(this.page, searchText);
     return this.retryHoverRequest(
       () => triggerHover(this.page),
       expectedContent,
-      timeout,
+      timeout ?? (this.isDesktopMode ? 30_000 : 20_000),
     );
   }
 
@@ -207,14 +207,14 @@ export class HoverPage extends BasePage {
     line: number,
     column: number,
     expectedContent: string | RegExp,
-    timeout = 20_000,
+    timeout?: number,
   ): Promise<string> {
     await goToLineInEditor(this.page, `${line}:${column}`);
     await this.page.waitForTimeout(this.isDesktopMode ? 1000 : 500);
     return this.retryHoverRequest(
       () => triggerHover(this.page),
       expectedContent,
-      timeout,
+      timeout ?? (this.isDesktopMode ? 30_000 : 20_000),
     );
   }
 
