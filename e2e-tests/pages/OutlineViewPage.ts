@@ -360,12 +360,20 @@ export class OutlineViewPage extends BasePage {
       if (Date.now() - lastRequestTime >= 2500) {
         lastRequestTime = Date.now();
         await this.requestDocumentSymbols();
+        if ((await this.getSymbolCount()) >= minSymbols) {
+          return;
+        }
       }
       await this.page.waitForTimeout(500);
     }
 
+    const finalCount = await this.getSymbolCount();
+    if (finalCount >= minSymbols) {
+      return;
+    }
+
     throw new Error(
-      `Timeout waiting for outline to have at least ${minSymbols} symbols (found: ${await this.getSymbolCount()})`,
+      `Timeout waiting for outline to have at least ${minSymbols} symbols (found: ${finalCount})`,
     );
   }
 

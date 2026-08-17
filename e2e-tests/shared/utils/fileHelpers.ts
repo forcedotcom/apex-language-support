@@ -8,7 +8,7 @@
 
 import { expect, type Page } from '@playwright/test';
 import { executeCommandWithCommandPalette } from '../pages/commands';
-import { getGoToStartShortcut } from './helpers';
+import { dismissStartupPrompts, getGoToStartShortcut } from './helpers';
 import {
   DIRTY_EDITOR,
   EDITOR_WITH_URI,
@@ -66,7 +66,10 @@ export const openFileByName = async (
   // Use an exact label match so Foo.cls never binds to Foo.cls-meta.xml.
   const fileLabel = explorerView.getByText(fileName, { exact: true });
   await expect(fileLabel.first()).toBeVisible({ timeout: 10_000 });
-  await fileLabel.first().click();
+  await expect(async () => {
+    await dismissStartupPrompts(page);
+    await fileLabel.first().click({ timeout: 2000 });
+  }).toPass({ timeout: 30_000, intervals: [100, 250, 500] });
 
   await page.locator(EDITOR_WITH_URI).first().waitFor({
     state: 'visible',
@@ -91,7 +94,15 @@ export const expandWorkspaceFolders = async (page: Page): Promise<void> => {
       'xpath=ancestor::*[@role="treeitem"][1]',
     );
     if ((await folder.getAttribute('aria-expanded')) === 'false') {
-      await folder.locator('.monaco-tl-twistie').first().click();
+      await expect(async () => {
+        await dismissStartupPrompts(page);
+        if ((await folder.getAttribute('aria-expanded')) === 'false') {
+          await folder
+            .locator('.monaco-tl-twistie')
+            .first()
+            .click({ timeout: 2000 });
+        }
+      }).toPass({ timeout: 30_000, intervals: [100, 250, 500] });
     }
   }
 };
