@@ -89,8 +89,8 @@ Releases flow through three channels. Each stage publishes the **same VSIX**
      `chore: bump versions for release [skip ci]`, and tags
      `v{VERSION}-nightly.{DATE}` (e.g. `v0.5.3-nightly.20260301`; non-main branches append the branch: `v{VERSION}-nightly.{BRANCH}.{DATE}`).
   3. Packages the VSIX (`npm run package:packages:prerelease`).
-  4. Creates a GitHub Release with the VSIX + MD5 checksum attached (no marketplace publish at this stage).
-  5. The internal CBWeb marketplace receives the web VSIX via `publish-to-cbweb-marketplace`.
+   4. Creates a GitHub Release with desktop and web VSIX assets plus MD5 checksums attached (no marketplace publish at this stage).
+   5. Manual Publish can send the released web VSIX to the internal CBWeb marketplace.
 - **Manual dispatch inputs:** `branch`, `extensions`, `dry-run`.
 
 ### Stage 2 — Promote to pre-release (`promote-prerelease.yml`)
