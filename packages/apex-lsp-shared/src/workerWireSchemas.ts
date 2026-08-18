@@ -1079,6 +1079,11 @@ export class CheckMemberConflicts extends Schema.TaggedRequest<CheckMemberConfli
         Schema.Literal('method'),
       ),
       isRenamedMemberPrivate: Schema.Boolean,
+      // The current (pre-rename) name of the member being renamed. When present,
+      // a no-op or case-only rename (newName equals currentName ignoring case) is
+      // short-circuited to conflict:false so the member never conflicts with
+      // itself in the same-type lookup. Optional for backward compatibility.
+      currentName: Schema.optional(Schema.String),
     },
   },
 ) {}

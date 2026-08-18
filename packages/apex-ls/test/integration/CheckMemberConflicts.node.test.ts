@@ -83,6 +83,72 @@ describe('CheckMemberConflicts data-owner query', () => {
     clearRawWorkers();
   });
 
+  type ConflictResult = {
+    conflict: boolean;
+    conflictingTypeFqn?: string;
+    reason?: 'same-type' | 'ancestor' | 'descendant';
+  };
+
+  type ConflictQuery = {
+    definingTypeFqn: string;
+    newName: string;
+    memberKind: 'field' | 'method';
+    isRenamedMemberPrivate: boolean;
+    currentName?: string;
+  };
+
+  // Shared scenario runner: stands up a fresh topology, runs the standard
+  // workspace-load session (begin → ingest → compile → drain), then issues a
+  // single CheckMemberConflicts data-owner query and returns its result.
+  const runConflictQuery = (
+    entries: ReadonlyArray<{
+      uri: string;
+      content: string;
+      languageId: string;
+      version: number;
+    }>,
+    sessionId: string,
+    query: ConflictQuery,
+  ): Promise<ConflictResult> => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        enableResourceLoader: false,
+        logger,
+        logLevel: 'error',
+        workerLayerFactory: (role) =>
+          makeNodeWorkerLayer(WORKER_ENTRY, {
+            name: `test-${role}`,
+            execArgv: ['--import', 'tsx'],
+            workerData: {
+              role,
+              compilationPoolSize: COMPILATION_POOL_SIZE,
+            },
+          }),
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger);
+      const session = dispatcher.createWorkspaceLoadSessionDispatcher();
+      const ingest = dispatcher.createBatchIngestionDispatcher();
+      const compile = dispatcher.createDataOwnerCompileDispatcher();
+
+      yield* Effect.promise(() =>
+        session({ _tag: 'BeginWorkspaceLoadSession', sessionId }),
+      );
+      yield* Effect.promise(() => ingest(sessionId, entries));
+      yield* Effect.promise(() => compile({ sessionId, entries }));
+      yield* Effect.promise(() =>
+        session({ _tag: 'DrainDeferredReferences', sessionId }),
+      );
+
+      return (yield* Effect.promise(() =>
+        dispatcher.queryDataOwner('CheckMemberConflicts', query),
+      )) as ConflictResult;
+    }).pipe(Effect.scoped);
+
+    return Effect.runPromise(program);
+  };
+
   it('reports same-type conflict when member exists in the defining type', async () => {
     const program = Effect.gen(function* () {
       const topology = yield* initializeTopology({
@@ -708,17 +774,20 @@ describe('CheckMemberConflicts data-owner query', () => {
     expect(result.conflict).toBe(false);
   }, 30_000);
 
-  it('reports ancestor conflict for interface member', async () => {
-    // Test with interface as ancestor
-    const interfaceUri = 'file:///test/IHasProperty.cls';
-    const interfaceSrc = `public interface IHasProperty {
-    String interfaceField { get; set; }
+  it('reports ancestor conflict for interface member via the ancestor branch', async () => {
+    // Interfaces in Apex declare METHODS (not fields/properties). To genuinely
+    // exercise the ANCESTOR branch (not same-type), the implementing type must
+    // NOT declare a member with the target name — so the only collision is via
+    // the interface (an ancestor). We rename Implementation.myMethod to
+    // 'interfaceMethod', which is declared ONLY on the implemented interface.
+    const interfaceUri = 'file:///test/IHasMethod.cls';
+    const interfaceSrc = `public interface IHasMethod {
+    void interfaceMethod();
 }`;
 
     const implUri = 'file:///test/Implementation.cls';
-    const implSrc = `public class Implementation implements IHasProperty {
-    public String interfaceField { get; set; }
-    public String myField;
+    const implSrc = `public class Implementation implements IHasMethod {
+    public void myMethod() {}
 }`;
 
     const entries = [
@@ -731,67 +800,162 @@ describe('CheckMemberConflicts data-owner query', () => {
       { uri: implUri, content: implSrc, languageId: 'apex', version: 1 },
     ];
 
-    const program = Effect.gen(function* () {
-      const topology = yield* initializeTopology({
-        poolSize: 1,
-        compilationPoolSize: COMPILATION_POOL_SIZE,
-        enableResourceLoader: false,
-        logger,
-        logLevel: 'error',
-        workerLayerFactory: (role) =>
-          makeNodeWorkerLayer(WORKER_ENTRY, {
-            name: `test-${role}`,
-            execArgv: ['--import', 'tsx'],
-            workerData: {
-              role,
-              compilationPoolSize: COMPILATION_POOL_SIZE,
-            },
-          }),
-      });
-      const dispatcher = makeWorkerDispatcher(topology, logger);
-      const session = dispatcher.createWorkspaceLoadSessionDispatcher();
-      const ingest = dispatcher.createBatchIngestionDispatcher();
-      const compile = dispatcher.createDataOwnerCompileDispatcher();
+    const result = await runConflictQuery(
+      entries,
+      'interface-ancestor-session',
+      {
+        definingTypeFqn: 'implementation',
+        newName: 'interfaceMethod',
+        memberKind: 'method',
+        isRenamedMemberPrivate: false,
+      },
+    );
 
-      yield* Effect.promise(() =>
-        session({
-          _tag: 'BeginWorkspaceLoadSession',
-          sessionId: 'interface-ancestor-session',
-        }),
-      );
-      yield* Effect.promise(() =>
-        ingest('interface-ancestor-session', entries),
-      );
-      yield* Effect.promise(() =>
-        compile({ sessionId: 'interface-ancestor-session', entries }),
-      );
-      yield* Effect.promise(() =>
-        session({
-          _tag: 'DrainDeferredReferences',
-          sessionId: 'interface-ancestor-session',
-        }),
-      );
+    // Detected via the interface ancestor — NOT same-type (impl has no such
+    // member). This test fails if ancestor detection is removed.
+    expect(result.conflict).toBe(true);
+    expect(result.reason).toBe('ancestor');
+    expect(result.conflictingTypeFqn?.toLowerCase()).toContain('ihasmethod');
+  }, 30_000);
 
-      // Try to rename Implementation.myField to 'interfaceField'
-      const result = (yield* Effect.promise(() =>
-        dispatcher.queryDataOwner('CheckMemberConflicts', {
-          definingTypeFqn: 'implementation',
-          newName: 'interfaceField',
-          memberKind: 'field',
-          isRenamedMemberPrivate: false,
-        }),
-      )) as {
-        conflict: boolean;
-        conflictingTypeFqn?: string;
-        reason?: 'same-type' | 'ancestor' | 'descendant';
-      };
+  // --- Finding 1: non-public members must be visible ---------------------
+  // Batch-loaded workspace files are served at 'public-api' detail, which drops
+  // private/protected/default-visibility members. hasMemberNamed enriches to
+  // 'full' before reading so all-visibility collisions are detected.
 
-      return { result };
-    }).pipe(Effect.scoped);
+  it('reports same-type conflict against a PRIVATE field (enrichment)', async () => {
+    // hasSecret has a public field and a private field. Renaming the public
+    // field to collide with the private field must conflict (same-type needs
+    // ALL members, including private — only visible after full enrichment).
+    const uri = 'file:///test/hasSecret.cls';
+    const src = `public class hasSecret {
+    public String visibleField;
+    private String secretField;
+}`;
+    const entries = [{ uri, content: src, languageId: 'apex', version: 1 }];
 
-    const { result } = await Effect.runPromise(program);
+    const result = await runConflictQuery(
+      entries,
+      'private-same-type-session',
+      {
+        definingTypeFqn: 'hassecret',
+        newName: 'secretField',
+        memberKind: 'field',
+        isRenamedMemberPrivate: false,
+      },
+    );
 
     expect(result.conflict).toBe(true);
     expect(result.reason).toBe('same-type');
+    expect(result.conflictingTypeFqn).toBe('hassecret');
+  }, 30_000);
+
+  it('reports ancestor conflict against a PROTECTED ancestor member (enrichment)', async () => {
+    // protectedBase declares a PROTECTED field. A protected member IS inherited
+    // (unlike private/default) so renaming a child field to that name conflicts
+    // via the ancestor branch — but only if enrichment exposes the protected
+    // member (dropped at public-api).
+    const baseUri = 'file:///test/protectedBase.cls';
+    const baseSrc = `public virtual class protectedBase {
+    protected String protectedField;
+}`;
+    const childUri = 'file:///test/protectedChild.cls';
+    const childSrc = `public class protectedChild extends protectedBase {
+    public String childOwn;
+}`;
+    const entries = [
+      { uri: baseUri, content: baseSrc, languageId: 'apex', version: 1 },
+      { uri: childUri, content: childSrc, languageId: 'apex', version: 1 },
+    ];
+
+    const result = await runConflictQuery(
+      entries,
+      'protected-ancestor-session',
+      {
+        definingTypeFqn: 'protectedchild',
+        newName: 'protectedField',
+        memberKind: 'field',
+        isRenamedMemberPrivate: false,
+      },
+    );
+
+    expect(result.conflict).toBe(true);
+    expect(result.reason).toBe('ancestor');
+    expect(result.conflictingTypeFqn).toBe('protectedbase');
+  }, 30_000);
+
+  it('reports descendant conflict against a PRIVATE descendant member (enrichment)', async () => {
+    // Renaming a NON-private member in the parent to a name that collides with a
+    // PRIVATE member in a descendant must conflict (descendant check applies NO
+    // private filter). The private descendant member is only visible after full
+    // enrichment.
+    const parentUri = 'file:///test/descParent.cls';
+    const parentSrc = `public virtual class descParent {
+    public String parentField;
+}`;
+    const childUri = 'file:///test/descChild.cls';
+    const childSrc = `public class descChild extends descParent {
+    private String hiddenChildField;
+}`;
+    const entries = [
+      { uri: parentUri, content: parentSrc, languageId: 'apex', version: 1 },
+      { uri: childUri, content: childSrc, languageId: 'apex', version: 1 },
+    ];
+
+    const result = await runConflictQuery(
+      entries,
+      'private-descendant-session',
+      {
+        definingTypeFqn: 'descparent',
+        newName: 'hiddenChildField',
+        memberKind: 'field',
+        isRenamedMemberPrivate: false,
+      },
+    );
+
+    expect(result.conflict).toBe(true);
+    expect(result.reason).toBe('descendant');
+    expect(result.conflictingTypeFqn).toBe('descchild');
+  }, 30_000);
+
+  // --- Finding 2: no-op / case-only rename never self-conflicts ----------
+
+  it('returns no conflict for a case-only rename when currentName is provided', async () => {
+    // total→Total is a case-only rename of the SAME member; it must not
+    // self-conflict against the same-type lookup.
+    const uri = 'file:///test/caseOnly.cls';
+    const src = `public class caseOnly {
+    public String total;
+}`;
+    const entries = [{ uri, content: src, languageId: 'apex', version: 1 }];
+
+    const result = await runConflictQuery(entries, 'case-only-rename-session', {
+      definingTypeFqn: 'caseonly',
+      newName: 'Total',
+      memberKind: 'field',
+      isRenamedMemberPrivate: false,
+      currentName: 'total',
+    });
+
+    expect(result.conflict).toBe(false);
+  }, 30_000);
+
+  it('returns no conflict for an exact no-op rename when currentName is provided', async () => {
+    // total→total is a no-op; it must not self-conflict.
+    const uri = 'file:///test/noOp.cls';
+    const src = `public class noOp {
+    public String total;
+}`;
+    const entries = [{ uri, content: src, languageId: 'apex', version: 1 }];
+
+    const result = await runConflictQuery(entries, 'noop-rename-session', {
+      definingTypeFqn: 'noop',
+      newName: 'total',
+      memberKind: 'field',
+      isRenamedMemberPrivate: false,
+      currentName: 'total',
+    });
+
+    expect(result.conflict).toBe(false);
   }, 30_000);
 });

@@ -1136,6 +1136,7 @@ function createDispatcher(
             newName: string;
             memberKind: 'field' | 'method';
             isRenamedMemberPrivate: boolean;
+            currentName?: string;
           };
           return sendTracedToDataOwner(
             new CheckMemberConflicts({
@@ -1143,6 +1144,7 @@ function createDispatcher(
               newName: cmc.newName,
               memberKind: cmc.memberKind,
               isRenamedMemberPrivate: cmc.isRenamedMemberPrivate,
+              currentName: cmc.currentName,
             }),
           );
         }
