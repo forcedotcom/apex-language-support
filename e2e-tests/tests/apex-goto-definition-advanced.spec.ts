@@ -35,6 +35,7 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
    */
   test('should navigate to base class from derived class', async ({
     apexEditor,
+    hoverHelper,
     page,
   }) => {
     await test.step('Open base class, then inheritance test file', async () => {
@@ -49,7 +50,10 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
     });
 
     await test.step('Navigate from derived class to base', async () => {
-      await apexEditor.positionCursorOnWord('BaseHandler');
+      // Prove the exact cross-file reference is resolved before issuing F12.
+      // Workspace readiness alone does not guarantee this first request has a
+      // definition result on fresh desktop hosts.
+      await hoverHelper.hoverAtWithResolution(5, 37, 'BaseHandler');
       await apexEditor.goToDefinition();
       let navigationError: unknown;
       try {
@@ -103,6 +107,7 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
    */
   test('should navigate to interface from implementing class', async ({
     apexEditor,
+    hoverHelper,
   }) => {
     await test.step('Open interface, then implementation test file', async () => {
       await apexEditor.openFile('DataProcessor.cls');
@@ -116,7 +121,7 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
     });
 
     await test.step('Navigate to interface definition', async () => {
-      await apexEditor.positionCursorOnWord('DataProcessor');
+      await hoverHelper.hoverAtWithResolution(5, 42, 'DataProcessor');
       await apexEditor.goToDefinition();
       await apexEditor.waitForNavigation('AccountProcessor.cls', 15000);
 
@@ -198,9 +203,7 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
     });
 
     await test.step('Warm up cross-file LSP resolution via hover', async () => {
-      // The Apex LSP uses "missing artifact resolution" to lazily load cross-file
-      // types. hoverAtWithResolution triggers this: first hover fires the resolver,
-      // waits 3s for the background load, then re-hovers to confirm resolution.
+      // Hover retries the semantic request until the exact F12 target resolves.
       await hoverHelper.hoverAtWithResolution(11, 27, 'CrossFileUtility');
     });
 
@@ -233,7 +236,8 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
     });
 
     await test.step('Warm up cross-file LSP resolution via hover', async () => {
-      await hoverHelper.hoverAtWithResolution(11, 27, 'CrossFileUtility');
+      // Resolving the owner type alone does not prove its member is ready.
+      await hoverHelper.hoverAtWithResolution(11, 44, 'formatName');
     });
 
     await test.step('Position on cross-file method call and go-to-definition', async () => {
@@ -293,8 +297,9 @@ test.describe('Apex Go-to-Definition - Cross-File Workspace Resolution', () => {
     });
 
     await test.step('Warm up cross-file LSP resolution via hover', async () => {
-      // Hover at base class reference to trigger missing artifact resolution
-      // for CrossFileBaseClass.cls, which is needed for getBaseName to resolve.
+      // Resolve the superclass before asking for its inherited member. The
+      // member call is inside an invalid expression in this fixture, so hover
+      // there reports the enclosing diagnostic rather than the member symbol.
       await hoverHelper.hoverAtWithResolution(6, 42, 'CrossFileBaseClass');
     });
 
