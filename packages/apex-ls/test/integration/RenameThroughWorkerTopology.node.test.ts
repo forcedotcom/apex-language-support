@@ -925,5 +925,154 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       const errResult = result as { error: { code: number; message: string } };
       expect(errResult.error.message).toContain('Cannot safely rename');
     }, 120_000);
+
+    // W-23631086 review finding #2: the declaring-type anchor must be an FQN, not
+    // the short type name. Two outer classes each hold an inner `Inner` with a
+    // `total` field; renaming OuterOne.Inner.total must NOT touch
+    // OuterTwo.Inner.total (the short name `Inner` is identical for both).
+    it('does NOT rename a same-named inner field of a DIFFERENT outer class (FQN anchor)', async () => {
+      const OUTER_ONE_URI = 'file:///test/OuterOne.cls';
+      const OUTER_ONE_SRC = `public class OuterOne {
+    public class Inner {
+        public Integer total;
+        public void f() {
+            total = 1;
+        }
+    }
+}`;
+      const OUTER_TWO_URI = 'file:///test/OuterTwo.cls';
+      const OUTER_TWO_SRC = `public class OuterTwo {
+    public class Inner {
+        public Integer total;
+        public void f() {
+            total = 2;
+        }
+    }
+}`;
+      const NESTED_SOURCES: Record<string, string> = {
+        [OUTER_ONE_URI]: OUTER_ONE_SRC,
+        [OUTER_TWO_URI]: OUTER_TWO_SRC,
+      };
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => NESTED_SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        for (const uri of [OUTER_ONE_URI, OUTER_TWO_URI]) {
+          yield* Effect.promise(() =>
+            dispatcher.dispatch('documentOpen', {
+              document: {
+                uri,
+                languageId: 'apex',
+                version: 1,
+                getText: () => NESTED_SOURCES[uri],
+              },
+              textDocument: { uri },
+              text: NESTED_SOURCES[uri],
+            }),
+          );
+        }
+
+        // Cursor on OuterOne.Inner.total declaration (line 2, char 24).
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: OUTER_ONE_URI },
+            position: { line: 2, character: 24 },
+            newName: 'amount',
+            content: OUTER_ONE_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-field:nested-fqn] ${JSON.stringify(result)}`);
+
+      const edit = result as {
+        changes?: Record<string, Array<{ range: any; newText: string }>>;
+      } | null;
+      expect(edit?.changes).toBeDefined();
+
+      // OuterOne.cls is renamed (declaration + implicit-this usage).
+      const oneEdits = edit!.changes![OUTER_ONE_URI];
+      expect(oneEdits).toBeDefined();
+      expect(oneEdits.length).toBeGreaterThan(0);
+      // OuterTwo.cls's same-named inner field must be untouched.
+      expect(edit!.changes![OUTER_TWO_URI]).toBeUndefined();
+    }, 120_000);
+
+    // W-23631086 review finding #5: the cursor URI must ALWAYS be scanned with
+    // the live buffer, even when the data-owner prefilter does not return it.
+    // Here the cursor file is NEVER documentOpen'd (so FindOccurrenceCandidates,
+    // which scans only stored docs, cannot return it), yet its implicit-this
+    // usages must still be found and renamed via the inserted cursor buffer.
+    it('scans the cursor buffer even when absent from the candidate set', async () => {
+      const UNOPENED_URI = 'file:///test/Unopened.cls';
+      const UNOPENED_SRC = `public class Unopened {
+    public Integer total;
+
+    public void bump() {
+        total = total + 1;
+    }
+}`;
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+          uri === UNOPENED_URI ? UNOPENED_SRC : FIELD_SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        // Deliberately do NOT documentOpen UNOPENED_URI — it is absent from the
+        // data-owner store, so the prefilter cannot return it as a candidate.
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: UNOPENED_URI },
+            position: { line: 1, character: 23 }, // on `total` declaration
+            newName: 'amount',
+            content: UNOPENED_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-field:cursor-absent] ${JSON.stringify(result)}`);
+
+      const edit = result as {
+        changes?: Record<string, Array<{ range: any; newText: string }>>;
+      } | null;
+      expect(edit?.changes).toBeDefined();
+
+      // The cursor file's declaration + two implicit-this usages are renamed,
+      // even though the prefilter never returned it.
+      const edits = edit!.changes![UNOPENED_URI];
+      expect(edits).toBeDefined();
+      expect(edits.length).toBeGreaterThanOrEqual(3);
+      edits.forEach((e) => expect(e.newText).toBe('amount'));
+    }, 120_000);
   });
 });
