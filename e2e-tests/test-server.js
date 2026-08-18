@@ -116,27 +116,32 @@ async function startTestServer() {
       );
     }
 
-    // Ensure .vscode/settings.json exists with test-appropriate settings
+    // Apply test settings before VS Code opens the workspace. This suppresses
+    // both the Welcome editor and extension-contributed walkthroughs.
     const vscodeDir = path.join(workspacePath, '.vscode');
     fs.mkdirSync(vscodeDir, { recursive: true });
     const settingsPath = path.join(vscodeDir, 'settings.json');
-    if (!fs.existsSync(settingsPath)) {
-      fs.writeFileSync(
-        settingsPath,
-        JSON.stringify(
-          {
-            'apex.logLevel':
-              process.env.E2E_APEX_DIAGNOSTICS === '1' ? 'debug' : 'error',
-            'apex.environment.serverMode': 'development',
-            ...(process.env.E2E_APEX_DIAGNOSTICS === '1' && {
-              'apex.trace.server': 'verbose',
-            }),
-          },
-          null,
-          2,
-        ),
-      );
-    }
+    const workspaceSettings = fs.existsSync(settingsPath)
+      ? JSON.parse(fs.readFileSync(settingsPath, 'utf8'))
+      : {};
+    fs.writeFileSync(
+      settingsPath,
+      JSON.stringify(
+        {
+          ...workspaceSettings,
+          'apex.logLevel':
+            process.env.E2E_APEX_DIAGNOSTICS === '1' ? 'debug' : 'error',
+          'apex.environment.serverMode': 'development',
+          'workbench.startupEditor': 'none',
+          'workbench.welcomePage.walkthroughs.openOnInstall': false,
+          ...(process.env.E2E_APEX_DIAGNOSTICS === '1' && {
+            'apex.trace.server': 'verbose',
+          }),
+        },
+        null,
+        2,
+      ),
+    );
 
     console.log('🌐 Starting VS Code Web Test Server...');
     console.log(`📁 Extension path: ${extensionDevelopmentPath}`);

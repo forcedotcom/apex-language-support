@@ -8,11 +8,7 @@
 
 import { expect, type Page } from '@playwright/test';
 import { SELECTORS } from './constants';
-import {
-  waitForVSCodeWorkbench,
-  closeWelcomeTabs,
-  isDesktop,
-} from '../shared/utils/helpers';
+import { waitForVSCodeWorkbench, isDesktop } from '../shared/utils/helpers';
 import {
   executeCommandWithCommandPalette,
   waitForCommandToBeAvailable,
@@ -40,13 +36,12 @@ export interface TestSessionResult {
 
 /**
  * Starts VS Code Web and waits for it to load.
- * Uses shared waitForVSCodeWorkbench and closeWelcomeTabs (monorepo parity).
+ * Startup settings suppress the Welcome editor and extension walkthroughs.
  *
  * @param page - Playwright page instance
  */
 export const startVSCodeWeb = async (page: Page): Promise<void> => {
   await waitForVSCodeWorkbench(page, true);
-  await closeWelcomeTabs(page);
 };
 
 /**

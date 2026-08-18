@@ -7,14 +7,13 @@
  */
 
 import { Locator, Page, expect } from '@playwright/test';
-import { closeWelcomeTabs, getModifierShortcut } from '../utils/helpers';
+import { getModifierShortcut } from '../utils/helpers';
 import { WORKBENCH, SETTINGS_SEARCH_INPUT } from '../utils/locators';
 
 const settingsLocator = (page: Page): Locator =>
   page.locator(SETTINGS_SEARCH_INPUT.join(','));
 
 export const openSettingsUI = async (page: Page): Promise<void> => {
-  await closeWelcomeTabs(page);
   await page.locator(WORKBENCH).click({ timeout: 60_000 });
   await page.keyboard.press(getModifierShortcut(','));
   await settingsLocator(page).first().waitFor({ timeout: 3000 });

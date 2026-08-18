@@ -284,8 +284,9 @@ export const completeClientStart = async (
     operations.sendConfiguration();
     if (operations.shouldLoadWorkspace) {
       await operations.loadWorkspace();
+    } else {
+      operations.markReady?.();
     }
-    operations.markReady?.();
     return { ...state, configurationListener, apexLibResources };
   } catch (error) {
     return cleanupAfterStartupFailure(

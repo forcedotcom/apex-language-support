@@ -380,6 +380,49 @@ describe('completeClientStart', () => {
       'core',
     ]);
   });
+
+  it('waits for the server ingestion-complete notification before marking a loaded workspace ready', async () => {
+    const events: string[] = [];
+    const state = {
+      rawClient: {
+        setTrace: jest.fn(async () => events.push('trace')),
+      },
+      core: { dispose: jest.fn() },
+    } as never;
+
+    await completeClientStart(state, {
+      registerConfigurationListener: jest.fn(() => {
+        events.push('listener');
+        return { dispose: jest.fn() };
+      }),
+      sendConfiguration: jest.fn(() => events.push('configuration')),
+      loadWorkspace: jest.fn(async () => {
+        events.push('load');
+      }),
+      shouldLoadWorkspace: true,
+      markReady: jest.fn(() => events.push('ready')),
+    });
+
+    expect(events).toEqual(['trace', 'listener', 'configuration', 'load']);
+  });
+
+  it('marks the server ready immediately when workspace loading is disabled', async () => {
+    const markReady = jest.fn();
+    const state = {
+      rawClient: { setTrace: jest.fn().mockResolvedValue(undefined) },
+      core: { dispose: jest.fn() },
+    } as never;
+
+    await completeClientStart(state, {
+      registerConfigurationListener: jest.fn(() => ({ dispose: jest.fn() })),
+      sendConfiguration: jest.fn(),
+      loadWorkspace: jest.fn(),
+      shouldLoadWorkspace: false,
+      markReady,
+    });
+
+    expect(markReady).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('initializeApexLib', () => {
