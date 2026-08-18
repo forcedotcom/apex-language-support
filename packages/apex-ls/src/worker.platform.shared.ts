@@ -5029,6 +5029,24 @@ const untracedHandlers: SerializedWorkerHandlers = {
               });
             }
 
+            // No-op / case-only rename never conflicts with itself. The same-type
+            // lookup cannot exclude the member being renamed, so total→total or
+            // total→Total would self-conflict. When the caller supplies the
+            // member's current name, short-circuit an identical (case-insensitive)
+            // rename to conflict:false — mirrors jorje FieldRenameHandler's
+            // short-circuit. Backward-compatible: absent currentName → unchanged.
+            if (
+              req.currentName &&
+              req.newName.toLowerCase() === req.currentName.toLowerCase()
+            ) {
+              emitWorkerLog(
+                'info',
+                '[RENAME] CheckMemberConflicts: no-op/case-only rename ' +
+                  `${req.definingTypeFqn}.${req.currentName}→${req.newName}, no conflict`,
+              );
+              return { conflict: false };
+            }
+
             const newNameLower = req.newName.toLowerCase();
             const memberKinds =
               req.memberKind === 'field'
@@ -5064,6 +5082,29 @@ const untracedHandlers: SerializedWorkerHandlers = {
               excludePrivate: boolean,
             ) =>
               Effect.gen(function* () {
+                // Batch-loaded workspace files are served at 'public-api' detail,
+                // which DROPS private/protected/default-visibility members from the
+                // symbol table entirely (VisibilitySymbolListener never adds them at
+                // public-api). All three checks below need non-public members:
+                //   - same-type: needs ALL members (incl. private)
+                //   - ancestor:  needs protected members present
+                //   - descendant: needs ALL members (incl. private/default)
+                // Enrich this type's file to 'full' before reading so every-
+                // visibility member is present. enrichToLevel is idempotent — it
+                // no-ops if already at/above 'full'. Best-effort: if the retained
+                // document text is missing we proceed with whatever is loaded.
+                const doc = yield* Effect.promise(() =>
+                  svc.storageManager.getStorage().getDocument(type.fileUri),
+                );
+                const text = doc?.getText();
+                if (text) {
+                  yield* svc.symbolManager.enrichToLevel(
+                    type.fileUri,
+                    'full',
+                    text,
+                  );
+                }
+
                 const typeTable = yield* Effect.promise(() =>
                   svc.symbolManager.getSymbolTableForFile(type.fileUri),
                 );
