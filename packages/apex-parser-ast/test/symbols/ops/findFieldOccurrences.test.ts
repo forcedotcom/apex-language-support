@@ -376,4 +376,184 @@ describe('findFieldOccurrences', () => {
     expect(result.occurrences.length).toBe(0);
     expect(result.unsafe.length).toBe(0);
   });
+
+  // --- W-23631086 review finding #1: subtype receiver must not be a proven skip
+  // A qualified receiver whose resolved type is a locally-visible SUBCLASS of the
+  // declaring type is an INHERITED reference to the target field. Standalone we
+  // can't prove the chain does NOT reach the declaring type, so it must be
+  // `unsafe` (→ decline), NOT `skipped` (which would rename the declaration and
+  // leave the subtype access dangling).
+
+  it('flags a direct-subclass qualified receiver as unsafe (not a proven skip)', () => {
+    // Child extends Base (both visible here as inner types). `c.total` where
+    // c: Child is a possible inherited Base.total access. Renaming Base.total
+    // must NOT silently drop it.
+    const src = `public class Holder {
+    public class Child extends Base {}
+
+    public void use() {
+        Child c = new Child();
+        c.total = 1;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Holder.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Holder.cls',
+      { name: 'total', kind: 'field' },
+      'Base',
+    );
+
+    expect(result.occurrences.length).toBe(0);
+    expect(result.skipped.length).toBe(0);
+    expect(result.unsafe.length).toBeGreaterThanOrEqual(1);
+    expect(result.unsafe[0].reason).toContain('receiver-subtype-unprovable');
+  });
+
+  it('flags a transitive-subclass qualified receiver as unsafe', () => {
+    // GrandChild extends Child (which itself extends something, unknown here).
+    // GrandChild declares a superclass → its ancestry could reach Base →
+    // unprovable → unsafe.
+    const src = `public class Holder {
+    public class GrandChild extends Child {}
+
+    public void use() {
+        GrandChild g = new GrandChild();
+        g.total = 1;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Holder.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Holder.cls',
+      { name: 'total', kind: 'field' },
+      'Base',
+    );
+
+    expect(result.occurrences.length).toBe(0);
+    expect(result.unsafe.length).toBeGreaterThanOrEqual(1);
+    expect(result.unsafe[0].reason).toContain('receiver-subtype-unprovable');
+  });
+
+  it('still safely skips a mismatched receiver with NO superclass', () => {
+    // `Other` (declared locally, extends nothing) cannot inherit Account.total,
+    // so `other.total` is a proven-unrelated field access → safe skip, NOT
+    // unsafe. This is the disambiguation that keeps the cross-file rename usable.
+    const src = `public class Holder {
+    public class Other {}
+
+    public void use() {
+        Other other = new Other();
+        other.total = 1;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Holder.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Holder.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    expect(result.occurrences.length).toBe(0);
+    expect(result.unsafe.length).toBe(0);
+    expect(result.skipped.length).toBeGreaterThanOrEqual(1);
+    expect(result.skipped[0].reason).toContain('receiver-type-mismatch');
+  });
+
+  // --- W-23631086 review finding #2: FQN-anchored nested-type disambiguation
+  // `OuterOne.Inner.total` and `OuterTwo.Inner.total` share the short type name
+  // `Inner`; only an FQN anchor distinguishes them. The producer sends the
+  // graph FQN (which carries a block-scope name duplication like
+  // `outerone.outerone.inner`); the op normalizes that to compare equal to its
+  // own block-free `outerone.inner`.
+
+  it('matches a nested inner-class field by FQN (block-artifact-insensitive)', () => {
+    const src = `public class OuterOne {
+    public class Inner {
+        public Integer total;
+        public void f() { total = 1; }
+    }
+}`;
+    const table = parseSource(src, 'file:///test/OuterOne.cls');
+    // Producer sends the graph FQN with the block-scope name duplication.
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/OuterOne.cls',
+      { name: 'total', kind: 'field' },
+      'outerone.outerone.inner',
+    );
+
+    // The declaration + the bare `total` inside Inner.f() are OuterOne.Inner's.
+    expect(result.occurrences.length).toBeGreaterThanOrEqual(1);
+    expect(result.unsafe.length).toBe(0);
+  });
+
+  it('does NOT match a different outer class`s same-named inner-class field', () => {
+    // OuterTwo.Inner.total must NOT match when renaming OuterOne.Inner.total.
+    const src = `public class OuterTwo {
+    public class Inner {
+        public Integer total;
+        public void f() { total = 1; }
+    }
+}`;
+    const table = parseSource(src, 'file:///test/OuterTwo.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/OuterTwo.cls',
+      { name: 'total', kind: 'field' },
+      'outerone.outerone.inner', // renaming OuterOne.Inner.total
+    );
+
+    // OuterTwo.Inner is a different FQN → the bare `total` is unrelated. Inner
+    // declares no superclass → safe skip, not unsafe.
+    expect(result.occurrences.length).toBe(0);
+    expect(result.unsafe.length).toBe(0);
+    expect(result.skipped.length).toBeGreaterThanOrEqual(1);
+  });
+
+  // --- W-23631086 review finding #4: static field access (`Type.total`) --------
+  // `Account.total` emits a co-located class qualifier at the field token; the
+  // op recognizes a non-variable receiver as a static type qualifier.
+
+  it('matches a static field access `Type.total` of the declaring type', () => {
+    const src = `public class Caller {
+    public void t() {
+        Integer x = Account.total;
+        Account.total = 5;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Caller.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Caller.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    // Both static accesses (read + assign) are occurrences of Account.total.
+    expect(result.occurrences.length).toBe(2);
+    expect(result.unsafe.length).toBe(0);
+  });
+
+  it('skips a static field access of a DIFFERENT type', () => {
+    const src = `public class Caller {
+    public void t() {
+        Integer x = Other.total;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Caller.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Caller.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    // Other.total is a static access of a different type not declared here →
+    // its hierarchy is unknown but the receiver is a plain (non-subclass-proven)
+    // qualifier → safe skip (mismatch), never a wrong occurrence.
+    expect(result.occurrences.length).toBe(0);
+    expect(result.skipped.length).toBeGreaterThanOrEqual(1);
+  });
 });

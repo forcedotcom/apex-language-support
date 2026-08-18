@@ -3906,12 +3906,21 @@ async function resolvePrepareRenameForLocal(req: PositionReq): Promise<{
 }
 
 /**
- * Resolve the declaring-type name for the field/property under the cursor
- * (W-23631084). Walks from the cursor symbol up to its enclosing TypeSymbol via
- * `getContainingType` and returns that type's name — the string
- * `findFieldOccurrences` disambiguates candidate receivers against.
+ * Resolve the declaring-type FQN for the field/property under the cursor
+ * (W-23631084 / W-23631086 review finding #2). Walks from the cursor symbol up
+ * to its enclosing TypeSymbol via `getContainingType` and returns that type's
+ * fully-qualified name — the string `findFieldOccurrences` disambiguates
+ * candidate receivers against.
  *
- * @returns The declaring type's name, or `null` if it can't be determined.
+ * Returning the FQN (not the short `.name`) is required to distinguish a nested
+ * `OuterOne.Inner.total` from `OuterTwo.Inner.total`: the short name `Inner` is
+ * identical for both, so a short-name anchor would rename the wrong class's
+ * field. `findFieldOccurrences` compares FQN-to-FQN (case-insensitive, with the
+ * block-scope name duplication normalized), so producer and consumer must both
+ * speak FQN. Prefer the graph's `.fqn` (the normalized/lowercased index FQN);
+ * fall back to `constructFQN` when it is absent.
+ *
+ * @returns The declaring type's FQN, or `null` if it can't be determined.
  */
 async function getDeclaringTypeForCursor(
   svc: RequestServices,
@@ -3926,7 +3935,13 @@ async function getDeclaringTypeForCursor(
     const symbol = await resolveCursorSymbol(svc, uri, parserPosition);
     if (!symbol) return null;
     const containingType = await svc.symbolManager.getContainingType(symbol);
-    return containingType?.name ?? null;
+    if (!containingType) return null;
+    return (
+      containingType.fqn ??
+      (await svc.symbolManager.constructFQN(containingType)) ??
+      containingType.name ??
+      null
+    );
   } catch {
     return null;
   }
@@ -4019,15 +4034,40 @@ async function resolveFieldRename(
       true,
     )) as { candidates?: Array<{ uri: string; content: string }> };
     const rawCandidates = scan?.candidates ?? [];
-    const candidates =
-      typeof req.content === 'string'
-        ? rawCandidates.map((c) =>
-            c.uri === uri ? { ...c, content: req.content as string } : c,
-          )
-        : rawCandidates;
+    let candidates: Array<{ uri: string; content: string }> = rawCandidates;
+    if (typeof req.content === 'string') {
+      // Override the cursor file with the live buffer when the prefilter already
+      // returned it, so we scan the unsaved edits rather than stored text.
+      let cursorPresent = false;
+      candidates = rawCandidates.map((c) => {
+        if (c.uri === uri) {
+          cursorPresent = true;
+          return { ...c, content: req.content as string };
+        }
+        return c;
+      });
+      // Finding #5 (W-23631086 review): the prefilter scans only the
+      // data-owner's STORED docs whose text mentions the name, so the cursor
+      // file can be ABSENT — an unsaved/newly-modified buffer, or one whose
+      // stored text doesn't mention the name. If we don't scan it, its
+      // occurrences are silently missed while the declaration renames → a
+      // dangling partial edit. Always ensure the cursor URI is scanned with the
+      // live buffer content. The Stage 6 loop dedups by uri via `seen`, so this
+      // never double-scans when the file was present.
+      if (!cursorPresent) {
+        candidates = [{ uri, content: req.content }, ...candidates];
+      }
+    }
 
     // Stage 6: phase-2 standalone parse + receiver-type disambiguation per
     // candidate file.
+    // NOTE (Finding #6, W-23631086 review): the reviewer asked for cooperative
+    // cancellation between candidate files. There is no CancellationToken in
+    // this path — RenameReq is `PositionReq & { newName }` and nothing threads a
+    // token to the worker — so there is no infra to check here. Cancellation for
+    // this request kind would need to be added upstream (the pool-side dispatch
+    // pattern documented in the worker-pool-cancellation memory: debounce before
+    // dispatch). Not inventing it here.
     const allOccurrences: Array<{ uri: string; range: OccurrenceRange }> = [];
     let totalSkipped = 0;
     const unsafeOccurrences: Array<{ uri: string; reason: string }> = [];
@@ -4061,10 +4101,20 @@ async function resolveFieldRename(
           unsafeOccurrences.push({ uri: candidate.uri, reason: u.reason });
         }
       } catch (err) {
+        // Finding #3 (W-23631086 review): a candidate we could not parse/scan
+        // might CONTAIN a reference to the target field. Silently continuing and
+        // still returning a WorkspaceEdit would rename the declaration (and other
+        // files) while leaving this file's references dangling — a broken partial
+        // edit. Treat any scan failure as UNSAFE so the existing "decline whole
+        // rename if unsafe" logic fires, rather than emitting a partial edit.
         emitWorkerLog(
           'warn',
           `[RENAME] field phase2 scan failed for ${candidate.uri}: ${err}`,
         );
+        unsafeOccurrences.push({
+          uri: candidate.uri,
+          reason: `candidate-scan-failed: ${err}`,
+        });
       }
     }
 
