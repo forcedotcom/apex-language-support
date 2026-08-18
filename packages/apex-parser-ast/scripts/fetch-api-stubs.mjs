@@ -33,7 +33,7 @@
  *
  * Options:
  *   --org <alias>         Salesforce org alias (default: $APEX_STUBS_ORG or 'gus')
- *   --api-version <ver>   API version to use (default: v67.0)
+ *   --api-version <ver>   API version to use (default: latest)
  *   --namespace <ns>      Fetch only specific namespace (skips discovery)
  *   --category <cat>      Category filter: BUILTIN, DATABASE, DYNAMIC (default: BUILTIN)
  *
@@ -46,10 +46,9 @@ import {
   existsSync,
   mkdirSync,
   writeFileSync,
-  readFileSync,
 } from 'fs';
 import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { createHash } from 'crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -58,73 +57,15 @@ const projectRoot = join(__dirname, '..');
 // Configuration
 const OUTPUT_DIR = join(projectRoot, 'build', 'api-stubs');
 const METADATA_FILE = join(OUTPUT_DIR, 'fetch-metadata.json');
-
-// Fixed list of namespaces to fetch from API
-// Based on existing StandardApexLibrary namespaces, excluding ConnectApi
-const TARGET_NAMESPACES = [
-  'ApexPages',
-  'AppLauncher',
-  'Approval',
-  'Auth',
-  'Cache',
-  'Canvas',
-  'ChatterAnswers',
-  'CommerceBuyGrp',
-  'CommerceExtension',
-  'CommercePayments',
-  'CommerceTax',
-  'Compression',
-  'DataSource',
-  'DataWeave',
-  'Database',
-  'Datacloud',
-  'Dom',
-  'EventBus',
-  'Flow',
-  'FormulaEval',
-  'Functions',
-  'Invocable',
-  'IsvPartners',
-  'KbManagement',
-  'LxScheduler',
-  'Messaging',
-  'Metadata',
-  'Pref_center',
-  'Process',
-  'QuickAction',
-  'Reports',
-  'RichMessaging',
-  'Schema',
-  'Search',
-  'Sfc',
-  'Sfdc_Checkout',
-  'Sfdc_Enablement',
-  'Sfdc_Surveys',
-  'Site',
-  'Slack',
-  'Support',
-  'System',
-  'TerritoryMgmt',
-  'TxnSecurity',
-  'UserProvisioning',
-  'VisualEditor',
-  'Wave',
-  'embeddedai',
-  'flowuiruntime',
-  'fsccashflow',
-  'industriesNlpSvc',
-  'ise_bots_apex',
-  'setup_flow_performance',
-];
+const DEFAULT_API_VERSION = 'latest';
 
 /**
  * Parse command line arguments
  */
-function parseArgs() {
-  const args = process.argv.slice(2);
+export function parseArgs(args = process.argv.slice(2)) {
   const config = {
     org: process.env.APEX_STUBS_ORG || 'gus',
-    apiVersion: 'v67.0',
+    apiVersion: DEFAULT_API_VERSION,
     namespace: null,
     category: 'BUILTIN', // Valid values: BUILTIN, DATABASE, DYNAMIC
   };
@@ -202,10 +143,14 @@ async function fetchSymbols(config, category, namespace = null) {
     query += `&namespace=${encodeURIComponent(namespace)}`;
   }
 
-  const url = `/services/data/${config.apiVersion}/tooling/symbols?${query}`;
+  const url = buildSymbolsUrl(config.apiVersion, query);
   const response = await sfApiRequest(url, config.org);
 
   return response.typeStubs || [];
+}
+
+export function buildSymbolsUrl(apiVersion, query) {
+  return `/services/data/${apiVersion}/tooling/symbols?${query}`;
 }
 
 /**
@@ -348,4 +293,6 @@ async function main() {
   }
 }
 
-main().catch(console.error);
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch(console.error);
+}

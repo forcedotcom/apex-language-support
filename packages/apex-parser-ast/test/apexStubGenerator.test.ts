@@ -340,6 +340,49 @@ describe('apexStubGenerator', () => {
 
       expect(result[0].source).toContain('@AuraEnabled(cacheable=true)');
     });
+
+    test('rejects unsafe object annotation syntax', () => {
+      expect(() =>
+        generateApexStubs({
+          typeStubs: [
+            {
+              name: 'UnsafeAnnotation',
+              kind: 'CLASS',
+              annotations: [{ name: 'RestResource\npublic class Injected' }],
+            },
+          ],
+        }),
+      ).toThrow('Invalid annotation name');
+    });
+
+    test('formats type annotations with Apex string literals', () => {
+      const input = {
+        typeStubs: [
+          {
+            name: 'RestClass',
+            kind: 'CLASS',
+            modifiers: ['global'],
+            annotations: [
+              {
+                name: 'RestResource',
+                parameters: {
+                  urlMapping: "/cases/'active'",
+                  enabled: false,
+                  version: 1,
+                },
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = generateApexStubs(input);
+
+      expect(result[0].source).toContain(
+        "@RestResource(urlMapping='/cases/\\'active\\'', enabled=false, version=1)",
+      );
+      expect(result[0].source).not.toContain('[object Object]');
+    });
   });
 
   describe('Properties', () => {
@@ -626,7 +669,7 @@ describe('apexStubGenerator', () => {
       expect(result[0].source).toContain('public class MyClass');
     });
 
-    test('handles namespace prefix in filename', () => {
+    test('writes a bare filename within a namespace directory', () => {
       const input = {
         typeStubs: [
           {
@@ -640,7 +683,7 @@ describe('apexStubGenerator', () => {
 
       const result = generateApexStubs(input);
 
-      expect(result[0].filename).toBe('myns_MyClass.cls');
+      expect(result[0].filename).toBe('MyClass.cls');
     });
 
     test('handles namespace prefix in type references', () => {
@@ -718,10 +761,10 @@ describe('apexStubGenerator', () => {
       expect(result[0].filename).toBe('List.cls');
       expect(result[1].filename).toBe('Map.cls');
       expect(result[2].filename).toBe('Set.cls');
-      // Source code should preserve the original name
-      expect(result[0].source).toContain('global class List<T>');
-      expect(result[1].source).toContain('global class Map<K,V>');
-      expect(result[2].source).toContain('global class Set<T>');
+      // Apex does not support generic type declarations.
+      expect(result[0].source).toContain('global class List {');
+      expect(result[1].source).toContain('global class Map {');
+      expect(result[2].source).toContain('global class Set {');
     });
   });
 

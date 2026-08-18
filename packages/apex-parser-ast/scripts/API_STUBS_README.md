@@ -4,9 +4,9 @@ This directory contains scripts for generating Apex standard library stubs from 
 
 ## Overview
 
-The new API-based approach replaces web scraping with direct API calls to fetch type definitions:
+This is the sole supported stub-generation process. It uses direct API calls to fetch type definitions:
 
-1. **fetch-api-stubs.mjs** - Fetches stub JSON from `/services/data/v<version>/tooling/symbols`
+1. **fetch-api-stubs.mjs** - Fetches stub JSON from `/services/data/latest/tooling/symbols` by default
 2. **generate-api-stubs.mjs** - Converts JSON to `.cls` files using apexStubGenerator.js
 3. **apexStubGenerator.js** - Pure vanilla JS library for JSON → Apex conversion
 4. **generate-stdlib-cache.mjs** - (Existing) Parses `.cls` files → Protobuf cache
@@ -39,7 +39,7 @@ npm run fetch:api-stubs -- --namespace System
 npm run fetch:api-stubs -- --api-version v68.0
 ```
 
-**Output:** `src/resources/ApiStubs/*.json` - One JSON file per namespace
+**Output:** `build/api-stubs/*.json` - One JSON file per namespace
 
 ### Generate .cls Files
 
@@ -47,8 +47,8 @@ npm run fetch:api-stubs -- --api-version v68.0
 # Generate Apex source files from fetched JSON
 npm run generate:api-stubs
 
-# Force regeneration even if up-to-date
-npm run generate:api-stubs -- --force
+# Fetch and generate in one command
+npm run update:stubs
 ```
 
 **Output:** `src/resources/StandardApexLibrary/<namespace>/*.cls`
@@ -79,8 +79,7 @@ This runs the full pipeline:
 
 ```bash
 # Full regeneration from API
-npm run fetch:api-stubs
-npm run generate:api-stubs
+npm run update:stubs
 npm run compile
 
 # Run tests to verify
@@ -96,17 +95,14 @@ packages/apex-parser-ast/
 │   ├── generate-api-stubs.mjs       # Stub generator orchestrator
 │   ├── apexStubGenerator.js         # JSON → Apex converter
 │   ├── generate-stdlib-cache.mjs    # (Existing) .cls → Protobuf
-│   └── example-api-call.sh          # Example API usage
+├── build/api-stubs/                 # Fetched JSON (gitignored)
+│   ├── System.json
+│   ├── Database.json
+│   └── fetch-metadata.json
 ├── src/resources/
-│   ├── ApiStubs/                    # Fetched JSON (gitignored)
-│   │   ├── System.json
-│   │   ├── Database.json
-│   │   ├── ConnectApi.json
-│   │   └── fetch-metadata.json
 │   ├── StandardApexLibrary/         # Generated .cls files
 │   │   ├── System/
-│   │   ├── Database/
-│   │   └── ConnectApi/
+│   │   └── Database/
 │   └── builtins/                    # Hand-crafted overrides
 │       ├── Blob.cls
 │       ├── Integer.cls
@@ -218,7 +214,7 @@ The generated `.cls` files may have syntax errors. Check:
 node scripts/test-compile-stubs.js System/String.cls
 
 # Check generation logs
-cat src/resources/ApiStubs/generation-metadata.json
+cat build/api-stubs/generation-metadata.json
 ```
 
 ### "Bundle size too large"

@@ -26,6 +26,7 @@
   "scripts": {
     "fetch:api-stubs": "node scripts/fetch-api-stubs.mjs",
     "generate:api-stubs": "node scripts/generate-api-stubs.mjs",
+    "update:stubs": "npm run fetch:api-stubs && npm run generate:api-stubs",
     "generate:stdlib-cache": "wireit",
     "precompile": "wireit",
     "bundle": "wireit",

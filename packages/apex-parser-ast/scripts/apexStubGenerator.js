@@ -14,6 +14,7 @@ const VISIBILITY_MODIFIERS = ['global', 'public', 'protected', 'private'];
 
 // Non-visibility modifiers
 const OTHER_MODIFIERS = ['static', 'final', 'abstract', 'virtual', 'override', 'testMethod', 'webService', 'transient'];
+const APEX_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /**
  * Demangle encoded type strings
@@ -52,11 +53,25 @@ function demangleMethodName(mangledName) {
         // e.g., "List$$lSObject$$r_0String" -> "List<SObject>"
         // The part after $$r_N is parameter type info, not part of return type
         
-        // Find where the return type ends (at _0, _1 etc. or end of string)
-        const paramMarkerMatch = typeInfo.match(/^(.+?\$\$r)(_\d+.*)?$/);
-        
-        if (paramMarkerMatch) {
-            const returnTypePart = paramMarkerMatch[1];
+        let depth = 0;
+        let returnTypeEnd = -1;
+        for (let index = 0; index < typeInfo.length - 2; index++) {
+            const token = typeInfo.slice(index, index + 3);
+            if (token === '$$l') {
+                depth++;
+                index += 2;
+            } else if (token === '$$r') {
+                depth--;
+                index += 2;
+                if (depth === 0) {
+                    returnTypeEnd = index + 1;
+                    break;
+                }
+            }
+        }
+
+        if (returnTypeEnd !== -1) {
+            const returnTypePart = typeInfo.slice(0, returnTypeEnd);
             const demangled = demangleType(returnTypePart);
             return { cleanName, genericReturnType: demangled };
         }
@@ -104,13 +119,21 @@ function formatAnnotation(ann) {
     
     // Object annotation with name and optional parameters
     if (ann && typeof ann === 'object' && ann.name) {
+        if (!APEX_IDENTIFIER.test(ann.name)) {
+            throw new Error(`Invalid annotation name: ${ann.name}`);
+        }
         let result = ann.name;
         
         // Add parameters if present and non-empty
         if (ann.parameters && typeof ann.parameters === 'object') {
             const params = Object.entries(ann.parameters)
                 .filter(([key, value]) => value !== null && value !== undefined)
-                .map(([key, value]) => `${key}=${value}`)
+                .map(([key, value]) => {
+                    if (!APEX_IDENTIFIER.test(key)) {
+                        throw new Error(`Invalid annotation parameter name: ${key}`);
+                    }
+                    return `${key}=${formatAnnotationValue(value)}`;
+                })
                 .join(', ');
             
             if (params) {
@@ -122,6 +145,34 @@ function formatAnnotation(ann) {
     }
     
     return String(ann);
+}
+
+function formatAnnotationValue(value) {
+    if (typeof value === 'boolean') {
+        return String(value);
+    }
+
+    if (typeof value === 'number') {
+        if (!Number.isFinite(value)) {
+            throw new Error(`Invalid annotation value: ${value}`);
+        }
+        return String(value);
+    }
+
+    if (typeof value !== 'string') {
+        throw new Error(`Invalid annotation value: ${value}`);
+    }
+
+    if (/^(true|false|-?(?:0|[1-9]\d*)(?:\.\d+)?)$/i.test(value)) {
+        return value;
+    }
+
+    return `'${value
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\r/g, '\\r')
+        .replace(/\n/g, '\\n')
+        .replace(/\t/g, '\\t')}'`;
 }
 
 /**
@@ -278,7 +329,7 @@ function generateTypeBody(typeStub, indent = '') {
     // Annotations
     if (typeStub.annotations && typeStub.annotations.length > 0) {
         typeStub.annotations.forEach(ann => {
-            lines.push(`${indent}@${ann}`);
+            lines.push(`${indent}@${formatAnnotation(ann)}`);
         });
     }
     
@@ -299,9 +350,10 @@ function generateTypeBody(typeStub, indent = '') {
     }
     
     // Extract class name (handle trigger naming like "__sfdc_trigger.AccountTrigger")
-    const className = typeStub.name.includes('.') 
+    const rawClassName = typeStub.name.includes('.')
         ? typeStub.name.split('.').pop() 
         : typeStub.name;
+    const className = cleanGenericTypeName(rawClassName);
     
     let declaration = `${indent}${modStr}${keyword} ${className}`;
     
@@ -437,8 +489,20 @@ function generateTrigger(typeStub) {
  * @returns {string} Clean type name without generic parameters
  */
 function cleanGenericTypeName(name) {
-    // Remove generic type parameters: "List<T>" -> "List", "Map<K,V>" -> "Map"
-    return name.replace(/<[^>]+>/g, '');
+    let depth = 0;
+    let result = '';
+
+    for (const character of name) {
+        if (character === '<') {
+            depth++;
+        } else if (character === '>') {
+            if (depth > 0) depth--;
+        } else if (depth === 0) {
+            result += character;
+        }
+    }
+
+    return result;
 }
 
 /**
@@ -453,12 +517,6 @@ function getFileName(typeStub) {
     // Workaround for W-23491682: Clean generic type parameters from name
     // e.g., "List<T>" -> "List", "Map<K,V>" -> "Map"
     name = cleanGenericTypeName(name);
-
-    // Only add namespace prefix if it's not the default System namespace
-    // System namespace types should not have a prefix in their filename
-    if (typeStub.namespacePrefix && typeStub.namespacePrefix !== 'System') {
-        name = `${typeStub.namespacePrefix}_${name}`;
-    }
 
     const ext = typeStub.kind === 'TRIGGER' ? '.trigger' : '.cls';
 
