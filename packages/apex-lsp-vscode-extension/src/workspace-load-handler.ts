@@ -44,6 +44,7 @@ const initializeSharedRefs = Effect.gen(function* (_) {
 // Run synchronously to create the Refs once at module load time
 // This creates singleton Refs that persist across all Effect.runPromise calls
 const sharedState = Effect.runSync(initializeSharedRefs);
+const scopesWithWorkspaceReset = new WeakSet<Scope.CloseableScope>();
 
 // Use Layer.succeed to provide the pre-created singleton state
 // This ensures all requests share the same Refs regardless of runtime context
@@ -80,12 +81,14 @@ const setWorkspaceFailed = (flag: boolean) =>
     Effect.flatMap((s) => Ref.set(s.hasFailed, flag)),
   );
 
-const resetWorkspaceState = (state: WorkspaceState) =>
+export const resetWorkspaceState = (state: WorkspaceState) =>
   Effect.all([
     Ref.set(state.isLoading, false),
     Ref.set(state.hasLoaded, false),
     Ref.set(state.hasFailed, false),
   ]).pipe(Effect.asVoid);
+
+export const resetSharedWorkspaceState = resetWorkspaceState(sharedState);
 
 const validateDocumentSelector = Effect.succeed(
   getDefaultDocumentSelectors('all'),
@@ -191,9 +194,17 @@ export class WorkspaceLoaderService extends Effect.Service<WorkspaceLoaderServic
             // If previously failed, allow retry and indicate retryable=true
             const isRetry = hasWorkspaceFailed === true;
 
-            if (scope) {
+            if (scope && !scopesWithWorkspaceReset.has(scope)) {
+              scopesWithWorkspaceReset.add(scope);
               yield* _(
-                Scope.addFinalizer(scope, resetWorkspaceState(workspaceState)),
+                Scope.addFinalizer(
+                  scope,
+                  resetWorkspaceState(workspaceState).pipe(
+                    Effect.ensuring(
+                      Effect.sync(() => scopesWithWorkspaceReset.delete(scope)),
+                    ),
+                  ),
+                ),
               );
             }
 

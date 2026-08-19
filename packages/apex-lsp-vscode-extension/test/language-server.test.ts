@@ -287,6 +287,35 @@ describe('completeClientStart', () => {
     expect(dispose).toHaveBeenCalledTimes(1);
   });
 
+  it('continues startup when ApexLib initialization fails', async () => {
+    const apexLibError = new Error('ApexLib initialization failed');
+    const markReady = jest.fn();
+    const dispose = jest.fn();
+    const state = {
+      rawClient: { setTrace: jest.fn().mockResolvedValue(undefined) },
+      core: { dispose },
+    } as never;
+
+    await expect(
+      completeClientStart(state, {
+        registerConfigurationListener: jest.fn(() => ({ dispose: jest.fn() })),
+        initializeApexLib: jest.fn().mockRejectedValue(apexLibError),
+        sendConfiguration: jest.fn(),
+        loadWorkspace: jest.fn(),
+        shouldLoadWorkspace: false,
+        markReady,
+      }),
+    ).resolves.toMatchObject({ configurationListener: expect.anything() });
+
+    expect(dispose).not.toHaveBeenCalled();
+    expect(markReady).toHaveBeenCalledTimes(1);
+    const { logToOutputChannel } = jest.requireMock('../src/logging');
+    expect(logToOutputChannel).toHaveBeenCalledWith(
+      expect.stringContaining('Standard library navigation may not work'),
+      'warning',
+    );
+  });
+
   it('preserves a post-start failure while attempting every candidate cleanup stage', async () => {
     const startupError = new Error('load failed');
     const events: string[] = [];
@@ -383,6 +412,7 @@ describe('completeClientStart', () => {
 
   it('waits for the server ingestion-complete notification before marking a loaded workspace ready', async () => {
     const events: string[] = [];
+    const resetStartRetries = jest.fn(() => events.push('reset'));
     const state = {
       rawClient: {
         setTrace: jest.fn(async () => events.push('trace')),
@@ -400,14 +430,22 @@ describe('completeClientStart', () => {
         events.push('load');
       }),
       shouldLoadWorkspace: true,
+      resetStartRetries,
       markReady: jest.fn(() => events.push('ready')),
     });
 
-    expect(events).toEqual(['trace', 'listener', 'configuration', 'load']);
+    expect(events).toEqual([
+      'trace',
+      'listener',
+      'configuration',
+      'reset',
+      'load',
+    ]);
   });
 
   it('marks the server ready immediately when workspace loading is disabled', async () => {
     const markReady = jest.fn();
+    const resetStartRetries = jest.fn();
     const state = {
       rawClient: { setTrace: jest.fn().mockResolvedValue(undefined) },
       core: { dispose: jest.fn() },
@@ -418,9 +456,11 @@ describe('completeClientStart', () => {
       sendConfiguration: jest.fn(),
       loadWorkspace: jest.fn(),
       shouldLoadWorkspace: false,
+      resetStartRetries,
       markReady,
     });
 
+    expect(resetStartRetries).toHaveBeenCalledTimes(1);
     expect(markReady).toHaveBeenCalledTimes(1);
   });
 });

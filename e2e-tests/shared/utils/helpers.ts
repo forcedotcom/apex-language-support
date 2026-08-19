@@ -137,17 +137,6 @@ export const waitForVSCodeWorkbench = async (
   await page.waitForSelector(WORKBENCH, { timeout: 60_000 });
 };
 
-/** Assert that Welcome/Walkthrough tab exists and is visible - useful for debugging startup issues */
-export const assertWelcomeTabExists = async (page: Page): Promise<void> => {
-  const welcomeTab = page
-    .getByRole('tab', { name: /Welcome|Walkthrough/i })
-    .first();
-  await expect(
-    welcomeTab,
-    'Welcome/Walkthrough tab should exist after VS Code startup',
-  ).toBeVisible({ timeout: 10_000 });
-};
-
 /** Dismiss any open quick input widgets by pressing Escape until none visible */
 export const dismissAllQuickInputWidgets = async (
   page: Page,
@@ -163,52 +152,6 @@ export const dismissAllQuickInputWidgets = async (
       break;
     }
   }
-};
-
-/** Close VS Code Welcome/Walkthrough tabs if they're open */
-export const closeWelcomeTabs = async (page: Page): Promise<void> => {
-  const workbench = page.locator(WORKBENCH);
-
-  await expect(async () => {
-    await dismissAllQuickInputWidgets(page);
-    await workbench.click({ timeout: 5000 });
-
-    const welcomeTabs = page.getByRole('tab', { name: /Welcome|Walkthrough/i });
-    const count = await welcomeTabs.count();
-
-    if (count === 0) {
-      return;
-    }
-
-    const welcomeTab = welcomeTabs.first();
-    await welcomeTab.click({ timeout: 5000, force: true });
-    await expect(welcomeTab).toHaveAttribute('aria-selected', 'true', {
-      timeout: 5000,
-    });
-
-    await dismissAllQuickInputWidgets(page);
-
-    const closeButton = welcomeTab.locator(TAB_CLOSE_BUTTON);
-    if (await closeButton.isVisible({ timeout: 5000 }).catch(() => false)) {
-      const quickInput = page.locator(QUICK_INPUT_WIDGET);
-      const widgetVisible = await quickInput
-        .isVisible({ timeout: 200 })
-        .catch(() => false);
-      if (widgetVisible) {
-        await dismissAllQuickInputWidgets(page);
-      }
-      await closeButton.click({ timeout: 5000, force: true });
-      await welcomeTab.waitFor({ state: 'detached', timeout: 10_000 });
-    } else {
-      await page.keyboard.press(getModifierShortcut('w'));
-      await welcomeTab.waitFor({ state: 'detached', timeout: 10_000 });
-    }
-
-    const remainingCount = await welcomeTabs.count();
-    if (remainingCount > 0) {
-      throw new Error(`Still ${remainingCount} welcome tab(s) remaining`);
-    }
-  }).toPass({ timeout: 30_000 });
 };
 
 /** Closes any visible Settings tabs */

@@ -42,6 +42,18 @@ export interface TestSessionResult {
  */
 export const startVSCodeWeb = async (page: Page): Promise<void> => {
   await waitForVSCodeWorkbench(page, true);
+  await dismissStartupPrompts(page);
+};
+
+const dismissStartupPrompts = async (page: Page): Promise<void> => {
+  const skipSignIn = page
+    .getByRole('button', { name: /Skip|Continue without Signing In/i })
+    .first();
+  if (await skipSignIn.isVisible({ timeout: 500 }).catch(() => false)) {
+    await skipSignIn.click();
+  }
+
+  await page.keyboard.press('Escape');
 };
 
 /**

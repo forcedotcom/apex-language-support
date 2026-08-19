@@ -16,15 +16,11 @@ import type {
 } from '@salesforce/apex-lsp-shared';
 import {
   formattedError,
-  getClientCapabilitiesForMode,
   getDocumentSelectorsFromSettings,
   WORKSPACE_LOAD_REASON_MESSAGE,
 } from '@salesforce/apex-lsp-shared';
 import type { ApexClientCore } from '@salesforce/apex-lsp-client';
-import type {
-  InitializeParams,
-  TextDocumentFilter,
-} from 'vscode-languageserver-protocol';
+import type { TextDocumentFilter } from 'vscode-languageserver-protocol';
 import type {
   BaseLanguageClient,
   LanguageClientOptions,
@@ -192,38 +188,6 @@ const createEnhancedInitializationOptions = async (
   };
 };
 
-export const createInitializeParams = async (
-  context: vscode.ExtensionContext,
-  environment: 'desktop' | 'web',
-  serverMode: ServerMode,
-): Promise<InitializeParams> => {
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  return {
-    processId: environment === 'web' ? null : process.pid,
-    clientInfo: {
-      name: 'Apex Language Server Extension',
-      version: (context.extension.packageJSON?.version as string) ?? '0.0.0',
-    },
-    locale: vscode.env.language,
-    rootPath:
-      environment === 'web'
-        ? null
-        : (workspaceFolders?.[0]?.uri.fsPath ?? null),
-    rootUri: workspaceFolders?.[0]?.uri.toString() ?? null,
-    capabilities: getClientCapabilitiesForMode(serverMode),
-    initializationOptions: await createEnhancedInitializationOptions(
-      context,
-      environment,
-      serverMode,
-    ),
-    workspaceFolders:
-      workspaceFolders?.map((folder) => ({
-        uri: folder.uri.toString(),
-        name: folder.name,
-      })) ?? null,
-  };
-};
-
 export async function createClientState(
   rawClient: BaseLanguageClient,
   environment: 'desktop' | 'web',
@@ -269,6 +233,7 @@ interface ClientStartOperations {
   readonly loadWorkspace: () => Promise<void>;
   readonly shouldLoadWorkspace: boolean;
   readonly markReady?: () => void;
+  readonly resetStartRetries?: () => void;
 }
 
 export const completeClientStart = async (
@@ -279,9 +244,17 @@ export const completeClientStart = async (
   let apexLibResources: readonly vscode.Disposable[] = [];
   try {
     await state.rawClient.setTrace(traceLevel());
-    apexLibResources = (await operations.initializeApexLib?.()) ?? [];
+    try {
+      apexLibResources = (await operations.initializeApexLib?.()) ?? [];
+    } catch (error) {
+      logToOutputChannel(
+        `⚠️ Failed to initialize ApexLib. Standard library navigation may not work: ${formattedError(error)}`,
+        'warning',
+      );
+    }
     configurationListener = operations.registerConfigurationListener();
     operations.sendConfiguration();
+    operations.resetStartRetries?.();
     if (operations.shouldLoadWorkspace) {
       await operations.loadWorkspace();
     } else {
@@ -531,8 +504,8 @@ export const createAndStartClient = async (
           candidateState.workspaceLoadScope!,
         ),
       shouldLoadWorkspace: getWorkspaceSettings().apex.loadWorkspace.enabled,
+      resetStartRetries: resetServerStartRetries,
       markReady: () => {
-        resetServerStartRetries();
         updateApexServerStatusReady();
       },
     });

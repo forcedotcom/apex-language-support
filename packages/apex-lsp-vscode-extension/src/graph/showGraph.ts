@@ -96,7 +96,7 @@ const mapReferenceType = (
 export const convertProtocolGraphData = (
   responseData: GraphDataShape,
 ): GraphData => ({
-  nodes: responseData.nodes.map((node) => ({
+  nodes: (responseData.nodes ?? []).map((node) => ({
     id: node.id,
     label: node.name,
     type: mapSymbolKind(node.kind),
@@ -104,7 +104,7 @@ export const convertProtocolGraphData = (
     filePath: node.fileUri,
     line: node.location.symbolRange.startLine,
   })),
-  edges: responseData.edges.map((edge) => ({
+  edges: (responseData.edges ?? []).map((edge) => ({
     id: edge.id,
     source: edge.source,
     target: edge.target,
