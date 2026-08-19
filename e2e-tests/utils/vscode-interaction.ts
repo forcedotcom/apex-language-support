@@ -11,13 +11,13 @@ import { SELECTORS } from './constants';
 import {
   waitForVSCodeWorkbench,
   closeWelcomeTabs,
+  getModifierShortcut,
   isDesktop,
 } from '../shared/utils/helpers';
 import {
   executeCommandWithCommandPalette,
   waitForCommandToBeAvailable,
 } from '../shared/pages/commands';
-import { TAB_CLOSE_BUTTON } from '../shared/utils/locators';
 import { expandWorkspaceFolders } from '../shared/utils/fileHelpers';
 
 import type { ConsoleError, NetworkError } from './constants';
@@ -93,9 +93,8 @@ export const waitForSalesforceServicesActivation = async (
   const runningExtensionsTab = page
     .getByRole('tab', { name: /Running Extensions/i })
     .first();
-  const closeButton = runningExtensionsTab.locator(TAB_CLOSE_BUTTON);
   await page.keyboard.press('Escape');
-  await closeButton.click({ timeout: 5000, force: true });
+  await page.keyboard.press(getModifierShortcut('w'));
   await runningExtensionsTab.waitFor({ state: 'detached', timeout: 5000 });
 };
 
