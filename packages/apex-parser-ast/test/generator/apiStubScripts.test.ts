@@ -88,6 +88,30 @@ describe('API stub scripts', () => {
     expect(output).toContain('capture failed');
   });
 
+  test('capture validation accepts namespace casing returned by the API', () => {
+    const root = mkdtempSync(join(tmpdir(), 'apex-api-capture-'));
+    writeFileSync(join(root, 'cache.json'), '{"typeStubs":["one"]}');
+
+    const output = runModule(
+      `
+        import { validateCapture } from ${JSON.stringify(
+          scriptUrl('generate-api-stubs.mjs'),
+        )};
+        const metadata = JSON.parse(process.argv[1]);
+        validateCapture(metadata, process.argv[2], new Set(['Cache']));
+        console.log('valid');
+      `,
+      [
+        JSON.stringify({
+          namespaces: { cache: { filename: 'cache.json' } },
+        }),
+        root,
+      ],
+    );
+
+    expect(output).toBe('valid');
+  });
+
   test('cleanup preserves skipped builtin files', () => {
     const root = mkdtempSync(join(tmpdir(), 'apex-api-cleanup-'));
     const systemDir = join(root, 'System');

@@ -123,7 +123,7 @@ packages/apex-parser-ast/
 
 ### Query Parameters
 
-- `category` (required) - Type category: `CLASS`, `INTERFACE`, `ENUM`, `TRIGGER`
+- `category` (required) - Symbol API category: `BUILTIN`, `DATABASE`, or `DYNAMIC`; the fetch script defaults to `BUILTIN`
 - `namespace` (optional) - Namespace filter (empty string = default namespace, omitted = all)
 - `name` (optional) - Specific type name
 
@@ -159,12 +159,14 @@ Certain classes are hand-crafted in `src/resources/builtins/` and **should not b
 - `Continuation.cls` - PascalCase fields
 - `RestContext.cls` - Static request/response fields
 - `RestResponse.cls` - statusCode casing
+- `List.cls`, `Map.cls`, `Set.cls` - API type names include generic parameters
+- `System.cls`, `Url.cls`, `String.cls`, `Exception.cls` - API output conflicts with required hand-crafted behavior
 
 ### Other Namespaces
 - `Database/DMLOptions.cls` - PascalCase fields, inner class structure
 - `Schema/DescribeSObjectResult.cls` - Correct Map/List return types
 
-The generation script automatically skips these files.
+The generation script automatically skips these files. `generate-stdlib-cache.mjs` has a separate builtin list for files physically stored in `builtins/`; keep the two lists aligned for those hand-crafted overrides. The generator additionally preserves `List`, `Map`, `Set`, `System`, `Url`, `String`, and `Exception` in `StandardApexLibrary` without adding them to the cache builtin list.
 
 ## Name Demangling
 
@@ -186,7 +188,7 @@ Demangled: List<SObject> translateToSObjects(String sObjectType)
 
 **Current (Web Scraping):** ~2,600 types from 53 namespaces
 
-**API-Based:** ~8,345 types from 136 namespaces (4x increase)
+**API-Based:** Generated stubs for the 53 namespaces in `TARGET_NAMESPACES`. A full fetch may capture additional namespaces, but those JSON files are not bundled or added to the type registry until their namespace is configured as a target.
 
 ## Troubleshooting
 
@@ -252,8 +254,7 @@ npm run test:perf
 
 - **StubFromJson Library:** https://git.soma.salesforce.com/a-subramanian/StubFromJson
 - **Type Stub Format:** [Falcon CodeSearch](https://falcon.devhub.internal.salesforce.com/aihub/code-search/...)
-- **Work Item:** W-23631682
-- **Upstream Fix:** W-23491682 (List/Set/Map handling)
+- **Work Item:** W-23491682
 - **Slack Discussion:** https://salesforce-internal.slack.com/archives/C0ABYE180M6/p1784660116039269
 
 ## Future Enhancements
@@ -261,5 +262,5 @@ npm run test:perf
 - Incremental updates (only fetch changed types)
 - Namespace filtering (generate only needed namespaces)
 - Bundle optimization (reduce cache size)
-- Automated CI refresh (detect API updates)
+- Automated CI refresh (requires an authenticated 264+ org, so refresh remains a manual developer workflow)
 - Diff reporting (show changes between generations)

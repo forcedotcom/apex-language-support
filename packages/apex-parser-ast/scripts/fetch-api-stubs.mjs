@@ -19,13 +19,10 @@
  * them dynamically (no namespace filter in API call). The TARGET_NAMESPACES
  * constant is used during generation, not fetch:
  * - generate-api-stubs.mjs: Creates .cls files only for TARGET_NAMESPACES
- * - generate-stdlib-cache.mjs: Includes bundled types (from .cls) +
- *   non-bundled types (from JSON) in TypeRegistry
+ * - generate-stdlib-cache.mjs: Includes only bundled types emitted as .cls files
  *
- * This two-tier approach provides:
- * - Full symbol data for 53 bundled namespaces (TARGET_NAMESPACES)
- * - Type awareness for all other namespaces (e.g., ConnectApi)
- * - Predictable bundle size (only TARGET_NAMESPACES generate .cls files)
+ * Capturing all namespaces makes it possible to inspect coverage and selectively
+ * expand TARGET_NAMESPACES while keeping the shipped bundle predictable.
  *
  * Usage:
  *   npm run fetch:api-stubs

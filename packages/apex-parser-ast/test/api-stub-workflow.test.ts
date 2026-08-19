@@ -124,6 +124,53 @@ describe('API Stub Workflow Integration', () => {
     });
   });
 
+  describe('enum and interface generation', () => {
+    test('generates compilable enum constants and modifier-free interface methods', () => {
+      const stubs = generateApexStubs({
+        typeStubs: [
+          {
+            name: 'Status',
+            kind: 'ENUM',
+            modifiers: ['global'],
+            fields: [
+              { name: 'ACTIVE', modifiers: ['global', 'static'] },
+              { name: 'INACTIVE', modifiers: ['global', 'static'] },
+            ],
+          },
+          {
+            name: 'Processor',
+            kind: 'INTERFACE',
+            modifiers: ['global'],
+            methods: [
+              {
+                name: 'process',
+                returnType: { name: 'void' },
+                modifiers: ['global'],
+                parameters: [],
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(stubs[0].source).toContain('ACTIVE,');
+      expect(stubs[0].source).toContain('INACTIVE');
+      expect(stubs[0].source).not.toContain('values()');
+      expect(stubs[1].source).toContain('void process();');
+      expect(stubs[1].source).not.toContain('global void process();');
+
+      for (const stub of stubs) {
+        const result = new CompilerService('System').compile(
+          stub.source,
+          `apexlib://test/${stub.filename}`,
+          new ApexSymbolCollectorListener(),
+          { projectNamespace: 'System', includeComments: false },
+        );
+        expect(result.errors).toHaveLength(0);
+      }
+    });
+  });
+
   describe('Annotations', () => {
     test('generates compilable type annotations with string parameters', () => {
       const [stub] = generateApexStubs({
@@ -155,6 +202,34 @@ describe('API Stub Workflow Integration', () => {
   });
 
   describe('Generic type handling', () => {
+    test('compiles a generic return type without a returnType object', () => {
+      const [stub] = generateApexStubs({
+        typeStubs: [
+          {
+            name: 'GenericFallbackClass',
+            kind: 'CLASS',
+            modifiers: ['public'],
+            methods: [
+              {
+                name: 'getStrings_rList$$lString$$r',
+                modifiers: ['public'],
+                parameters: [],
+              },
+            ],
+          },
+        ],
+      });
+
+      const result = new CompilerService('System').compile(
+        stub.source,
+        'apexlib://test/GenericFallbackClass.cls',
+        new ApexSymbolCollectorListener(),
+        { projectNamespace: 'System', includeComments: false },
+      );
+
+      expect(result.errors).toHaveLength(0);
+    });
+
     test('handles List<T> return types correctly', () => {
       const apiResponse = {
         typeStubs: [
@@ -391,7 +466,8 @@ describe('API Stub Workflow Integration', () => {
       const source = stubs[0].source;
 
       expect(source).toContain('public interface MyInterface');
-      expect(source).toContain('public void interfaceMethod();');
+      expect(source).toContain('void interfaceMethod();');
+      expect(source).not.toContain('public void interfaceMethod();');
       expect(source).not.toContain('interfaceMethod() {');
     });
 

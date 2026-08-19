@@ -45,6 +45,13 @@ const GENERATION_METADATA_FILE = join(INPUT_DIR, 'generation-metadata.json');
 export const targetNamespaces = TARGET_NAMESPACES;
 const SAFE_PATH_COMPONENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
+function getCaptureNamespace(metadata, namespace) {
+  return Object.keys(metadata.namespaces ?? {}).find(
+    (capturedNamespace) =>
+      capturedNamespace.toLowerCase() === namespace.toLowerCase(),
+  );
+}
+
 // List of builtin classes that should NOT be overwritten
 // These are hand-crafted overrides. Most live in src/resources/builtins/;
 // several System overrides remain in StandardApexLibrary/System.
@@ -92,7 +99,9 @@ function shouldSkipFile(filename, namespace) {
   }
 
   // Skip if it's a namespaced builtin
-  const builtinNamespace = BUILTIN_NAMESPACED_CLASSES.get(filename);
+  const builtinNamespace = [...BUILTIN_NAMESPACED_CLASSES.entries()].find(
+    ([builtin]) => builtin.toLowerCase() === filename.toLowerCase(),
+  )?.[1];
   if (builtinNamespace !== undefined && namespace === builtinNamespace) {
     return true;
   }
@@ -118,7 +127,8 @@ export function validateCapture(metadata, inputDir, targetNamespaces = TARGET_NA
   const invalidNamespaces = [];
 
   for (const namespace of targetNamespaces) {
-    const info = metadata.namespaces?.[namespace];
+    const captureNamespace = getCaptureNamespace(metadata, namespace);
+    const info = captureNamespace ? metadata.namespaces[captureNamespace] : undefined;
     if (!SAFE_PATH_COMPONENT.test(namespace)) {
       invalidNamespaces.push(`${namespace} (invalid namespace)`);
     } else if (!info) {
@@ -140,7 +150,8 @@ export function validateCapture(metadata, inputDir, targetNamespaces = TARGET_NA
 export function calculateCaptureChecksum(metadata, inputDir, targetNamespaces = TARGET_NAMESPACES) {
   const hash = createHash('sha256');
   for (const namespace of [...targetNamespaces].sort()) {
-    const filename = metadata.namespaces[namespace].filename;
+    const captureNamespace = getCaptureNamespace(metadata, namespace);
+    const filename = metadata.namespaces[captureNamespace].filename;
     const content = readFileSync(join(inputDir, filename));
     hash.update(namespace);
     hash.update('\0');
@@ -176,7 +187,7 @@ export function loadNamespaceStubs(namespace, jsonFilePath) {
   const stubs = generatedStubs
     .filter((stub) => !shouldSkipFile(stub.filename, namespace))
     .map((stub) => {
-      if (!SAFE_PATH_COMPONENT.test(stub.filename.replace(/\.cls$/, ''))) {
+      if (!SAFE_PATH_COMPONENT.test(stub.filename.replace(/\.(cls|trigger)$/, ''))) {
         throw new Error(`Invalid generated filename: ${stub.filename}`);
       }
       return stub;
@@ -230,7 +241,8 @@ async function main() {
 
   const generatedStubs = new Map();
   for (const namespace of TARGET_NAMESPACES) {
-    const info = fetchMetadata.namespaces[namespace];
+    const captureNamespace = getCaptureNamespace(fetchMetadata, namespace);
+    const info = fetchMetadata.namespaces[captureNamespace];
     generatedStubs.set(namespace, loadNamespaceStubs(namespace, join(INPUT_DIR, info.filename)));
   }
 
@@ -273,7 +285,11 @@ async function main() {
   }
 
   totalExcluded = Object.keys(fetchMetadata.namespaces).filter(
-    (namespace) => !TARGET_NAMESPACES.has(namespace),
+    (namespace) =>
+      ![...TARGET_NAMESPACES].some(
+        (targetNamespace) =>
+          targetNamespace.toLowerCase() === namespace.toLowerCase(),
+      ),
   ).length;
 
   generationMetadata.totalGenerated = totalGenerated;

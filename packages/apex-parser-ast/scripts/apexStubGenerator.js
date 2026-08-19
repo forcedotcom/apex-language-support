@@ -37,8 +37,9 @@ function demangleType(encoded) {
  * Returns: { cleanName: string, genericReturnType: string | null }
  */
 function demangleMethodName(mangledName) {
-    // Look for _r followed by a type name (capital letter)
-    const match = mangledName.match(/^(.+?)_r([A-Z].*)$/);
+    // Only decode names containing the API's generic return-type encoding.
+    // A regular method name can legitimately contain `_r` followed by a capital letter.
+    const match = mangledName.match(/^(.+?)_r([A-Z].*\$\$l.*)$/);
     
     if (!match) {
         return { cleanName: mangledName, genericReturnType: null };
@@ -85,7 +86,7 @@ function demangleMethodName(mangledName) {
  * Format a type reference including namespace prefix if present
  */
 function formatType(typeRef) {
-    if (!typeRef) return 'Object';
+    if (!typeRef || !typeRef.name) return 'Object';
     const prefix = typeRef.namespacePrefix ? `${typeRef.namespacePrefix}.` : '';
     return `${prefix}${typeRef.name}`;
 }
@@ -125,7 +126,7 @@ function formatAnnotation(ann) {
         let result = ann.name;
         
         // Add parameters if present and non-empty
-        if (ann.parameters && typeof ann.parameters === 'object') {
+        if (ann.parameters && !Array.isArray(ann.parameters) && typeof ann.parameters === 'object') {
             const params = Object.entries(ann.parameters)
                 .filter(([key, value]) => value !== null && value !== undefined)
                 .map(([key, value]) => {
@@ -266,7 +267,11 @@ function generateProperty(property, indent = '    ') {
 function generateMethod(method, className, typeKind, indent = '    ') {
     const annotations = formatAnnotations(method.annotations, indent);
     const modifiers = formatModifiers(method.modifiers);
-    const modStr = modifiers.length > 0 ? modifiers.join(' ') + ' ' : '';
+    // Apex interface methods inherit their visibility from the interface.
+    const methodModifiers = typeKind === 'INTERFACE'
+        ? modifiers.filter(modifier => !VISIBILITY_MODIFIERS.includes(modifier))
+        : modifiers;
+    const modStr = methodModifiers.length > 0 ? methodModifiers.join(' ') + ' ' : '';
 
     // Handle constructor
     const isConstructor = method.name === '<init>';
@@ -295,7 +300,7 @@ function generateMethod(method, className, typeKind, indent = '    ') {
     }).join(', ');
 
     // Generate body - use base type name for default return
-    const returnTypeName = method.returnType ? method.returnType.name : 'void';
+    const returnTypeName = genericReturnType || formatType(method.returnType);
     const defaultReturn = getDefaultReturn(returnTypeName);
 
     let body;
@@ -370,14 +375,30 @@ function generateTypeBody(typeStub, indent = '') {
     
     lines.push(`${declaration} {`);
     
+    // Enum values must be declarations, not static fields.
+    const enumValues = typeStub.kind === 'ENUM'
+        ? (typeStub.values || typeStub.enumValues || typeStub.enumConstants || typeStub.fields || [])
+        : [];
+    if (enumValues.length > 0) {
+        lines.push(`${innerIndent}${enumValues.map(value => typeof value === 'string' ? value : value.name).join(`,\n${innerIndent}`)}`);
+        lines.push('');
+    }
+
     // Fields
-    if (typeStub.fields && typeStub.fields.length > 0) {
+    if (typeStub.kind !== 'ENUM' && typeStub.fields && typeStub.fields.length > 0) {
         typeStub.fields.forEach(field => {
             lines.push(generateField(field, innerIndent));
         });
         lines.push('');
     }
     
+    // Enum member methods are implicit runtime helpers and are not part of the
+    // enum declaration syntax used by generated stubs.
+    if (typeStub.kind === 'ENUM') {
+        lines.push(`${indent}}`);
+        return lines.join('\n');
+    }
+
     // Properties
     if (typeStub.properties && typeStub.properties.length > 0) {
         typeStub.properties.forEach(prop => {
@@ -388,6 +409,10 @@ function generateTypeBody(typeStub, indent = '') {
     
     // Methods (filter out clone methods that are auto-generated)
     const methods = (typeStub.methods || []).filter(m => {
+        // Static initializers are not callable Apex members and cannot be emitted as methods.
+        if (m.name === '<clinit>') {
+            return false;
+        }
         if (m.name === 'clone' && m.returnType && m.returnType.name === className) {
             return false;
         }

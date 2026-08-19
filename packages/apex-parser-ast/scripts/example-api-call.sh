@@ -4,39 +4,22 @@
 # This demonstrates the API call pattern for the new stub generator
 #
 # Usage:
-#   ./example-api-call.sh <org-alias> <category> [namespace] [name]
+#   ./example-api-call.sh [org-alias] [namespace]
 #
 # Examples:
-#   ./example-api-call.sh myorg CLASS
-#   ./example-api-call.sh myorg CLASS System
-#   ./example-api-call.sh myorg CLASS System String
+#   ./example-api-call.sh myorg
+#   ./example-api-call.sh myorg System
 
 ORG_ALIAS="${1:-gus}"
-CATEGORY="${2:-CLASS}"
-NAMESPACE="$3"
-NAME="$4"
+NAMESPACE="$2"
 
-# Build the query string
-QUERY="category=${CATEGORY}"
-if [ -n "$NAMESPACE" ]; then
-  QUERY="${QUERY}&namespace=${NAMESPACE}"
-fi
-if [ -n "$NAME" ]; then
-  QUERY="${QUERY}&name=${NAME}"
+ARGS=(--org "${ORG_ALIAS}")
+if [ -n "${NAMESPACE}" ]; then
+  ARGS+=(--namespace "${NAMESPACE}")
 fi
 
-# Construct the full URL
-# Note: You'll need to determine the correct API version
-API_VERSION="v67.0"
-URL="/services/data/${API_VERSION}/tooling/symbols?${QUERY}"
-
-echo "Fetching: ${URL}"
-echo "From org: ${ORG_ALIAS}"
-echo ""
-
-# Make the API request
-# The response will be JSON with a "typeStubs" array
-sf api request rest "${URL}" -o "${ORG_ALIAS}" | jq '.'
+# Invoke the shipping script. It uses category=BUILTIN and API version latest by default.
+node "$(dirname "$0")/fetch-api-stubs.mjs" "${ARGS[@]}"
 
 # Example response structure:
 # {

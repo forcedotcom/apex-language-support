@@ -341,6 +341,22 @@ describe('apexStubGenerator', () => {
       expect(result[0].source).toContain('@AuraEnabled(cacheable=true)');
     });
 
+    test('handles API annotations with an empty parameter array', () => {
+      const [stub] = generateApexStubs({
+        typeStubs: [
+          {
+            name: 'DeprecatedClass',
+            kind: 'CLASS',
+            modifiers: ['public'],
+            annotations: [{ name: 'Deprecated', parameters: [] }],
+          },
+        ],
+      });
+
+      expect(stub.source).toContain('@Deprecated');
+      expect(stub.source).not.toContain('@Deprecated()');
+    });
+
     test('rejects unsafe object annotation syntax', () => {
       expect(() =>
         generateApexStubs({
@@ -571,7 +587,8 @@ describe('apexStubGenerator', () => {
       const result = generateApexStubs(input);
 
       expect(result[0].source).toContain('public interface MyInterface');
-      expect(result[0].source).toContain('public void interfaceMethod();');
+      expect(result[0].source).toContain('void interfaceMethod();');
+      expect(result[0].source).not.toContain('public void interfaceMethod();');
     });
   });
 
@@ -583,6 +600,7 @@ describe('apexStubGenerator', () => {
             name: 'MyEnum',
             kind: 'ENUM',
             modifiers: ['public'],
+            values: [{ name: 'ACTIVE' }, { name: 'INACTIVE' }],
           },
         ],
       };
@@ -590,6 +608,28 @@ describe('apexStubGenerator', () => {
       const result = generateApexStubs(input);
 
       expect(result[0].source).toContain('public enum MyEnum');
+      expect(result[0].source).toContain('ACTIVE,');
+      expect(result[0].source).toContain('INACTIVE');
+    });
+
+    test('generates enum constants represented as fields by the API', () => {
+      const result = generateApexStubs({
+        typeStubs: [
+          {
+            name: 'FieldBackedEnum',
+            kind: 'ENUM',
+            modifiers: ['public'],
+            fields: [
+              { name: 'FIRST', modifiers: ['public', 'static'] },
+              { name: 'SECOND', modifiers: ['public', 'static'] },
+            ],
+          },
+        ],
+      });
+
+      expect(result[0].source).toContain('FIRST,');
+      expect(result[0].source).toContain('SECOND');
+      expect(result[0].source).not.toContain('static undefined FIRST;');
     });
   });
 
@@ -766,6 +806,29 @@ describe('apexStubGenerator', () => {
       expect(result[1].source).toContain('global class Map {');
       expect(result[2].source).toContain('global class Set {');
     });
+
+    test('returns null for a generic return type without a returnType object', () => {
+      const [stub] = generateApexStubs({
+        typeStubs: [
+          {
+            name: 'GenericClass',
+            kind: 'CLASS',
+            modifiers: ['public'],
+            methods: [
+              {
+                name: 'getValues_rList$$lString$$r',
+                modifiers: ['public'],
+                parameters: [],
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(stub.source).toContain(
+        'public List<String> getValues() { return null; }',
+      );
+    });
   });
 
   describe('Edge Cases', () => {
@@ -826,6 +889,66 @@ describe('apexStubGenerator', () => {
 
       expect(result[0].source).not.toContain('clone()');
       expect(result[0].source).toContain('otherMethod()');
+    });
+
+    test('uses Object for a malformed type reference', () => {
+      const [stub] = generateApexStubs({
+        typeStubs: [
+          {
+            name: 'FallbackTypeClass',
+            kind: 'CLASS',
+            modifiers: ['public'],
+            fields: [{ name: 'value', type: {}, modifiers: ['public'] }],
+          },
+        ],
+      });
+
+      expect(stub.source).toContain('public Object value;');
+      expect(stub.source).not.toContain('undefined');
+    });
+
+    test('does not demangle a regular method name containing _r', () => {
+      const [stub] = generateApexStubs({
+        typeStubs: [
+          {
+            name: 'MethodNameClass',
+            kind: 'CLASS',
+            modifiers: ['public'],
+            methods: [
+              {
+                name: 'find_rRecords',
+                returnType: { name: 'void' },
+                modifiers: ['public'],
+                parameters: [],
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(stub.source).toContain('void find_rRecords() { }');
+    });
+
+    test('filters out static initializer pseudo-methods', () => {
+      const [stub] = generateApexStubs({
+        typeStubs: [
+          {
+            name: 'InitializerClass',
+            kind: 'CLASS',
+            modifiers: ['public'],
+            methods: [
+              {
+                name: '<clinit>',
+                returnType: { name: 'void' },
+                modifiers: ['static'],
+                parameters: [],
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(stub.source).not.toContain('<clinit>');
     });
   });
 });
