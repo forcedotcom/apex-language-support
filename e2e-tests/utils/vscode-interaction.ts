@@ -11,6 +11,7 @@ import { SELECTORS } from './constants';
 import {
   getModifierShortcut,
   waitForVSCodeWorkbench,
+  closeWelcomeTabs,
   isDesktop,
 } from '../shared/utils/helpers';
 import {
@@ -46,6 +47,7 @@ export interface TestSessionResult {
 export const startVSCodeWeb = async (page: Page): Promise<void> => {
   await waitForVSCodeWorkbench(page, true);
   await dismissStartupPrompts(page);
+  await closeWelcomeTabs(page);
 };
 
 const dismissStartupPrompts = async (page: Page): Promise<void> => {
