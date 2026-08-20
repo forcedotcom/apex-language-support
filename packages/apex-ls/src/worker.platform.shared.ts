@@ -5091,18 +5091,24 @@ const untracedHandlers: SerializedWorkerHandlers = {
                 //   - descendant: needs ALL members (incl. private/default)
                 // So this type's file MUST be at 'full' detail before we read it.
                 //
-                // FAIL CLOSED (W-23631128 re-review, P1): if the file is not
-                // already full and we cannot enrich it (its retained source text
-                // is unavailable, or enrichment does not reach full), we must NOT
-                // read a possibly-public-api table and report "no conflict" —
-                // that recreates the destructive false-negative (a private/
-                // protected/default collision silently approved). Instead fail the
-                // whole query so the caller preserves uncertainty rather than
-                // treating an incomplete member view as no conflict.
-                const currentLevel = yield* Effect.promise(() =>
-                  svc.symbolManager.getDetailLevelForFile(type.fileUri),
+                // FAIL CLOSED (W-23631128 re-review, P1): validate the CANONICAL
+                // table's own getDetailLevel() — the level of the symbols actually
+                // present — NOT the getDetailLevelForFile() side-channel. That
+                // tracker is set by enrichToLevel but is NOT downgraded when a
+                // newer, lower-detail table later replaces the enriched one, so it
+                // can read 'full' while the canonical table a reader observes is
+                // back to 'public-api'. Reading that stale-approved table would
+                // drop private/protected/default members and recreate the
+                // destructive false-negative. If the canonical table is not full
+                // and we cannot enrich it to full (retained source unavailable, or
+                // enrichment does not land at full), fail the whole query so the
+                // caller preserves uncertainty rather than treating an incomplete
+                // member view as no conflict. (enrichToLevel now also guards on the
+                // canonical level, so it cannot no-op on the stale tracker.)
+                let typeTable = yield* Effect.promise(() =>
+                  svc.symbolManager.getSymbolTableForFile(type.fileUri),
                 );
-                if (currentLevel !== 'full') {
+                if (typeTable?.getDetailLevel() !== 'full') {
                   const doc = yield* Effect.promise(() =>
                     svc.storageManager.getStorage().getDocument(type.fileUri),
                   );
@@ -5121,24 +5127,21 @@ const untracedHandlers: SerializedWorkerHandlers = {
                     'full',
                     text,
                   );
-                  const enrichedLevel = yield* Effect.promise(() =>
-                    svc.symbolManager.getDetailLevelForFile(type.fileUri),
+                  typeTable = yield* Effect.promise(() =>
+                    svc.symbolManager.getSymbolTableForFile(type.fileUri),
                   );
-                  if (enrichedLevel !== 'full') {
+                  if (typeTable?.getDetailLevel() !== 'full') {
                     return yield* Effect.fail({
                       _tag: 'CheckMemberConflictsError' as const,
                       message:
                         `Cannot verify member conflicts for ${type.fileUri}: ` +
-                        'enrichment did not reach full detail (at ' +
-                        `${enrichedLevel ?? 'none'}); non-public members may be ` +
-                        'absent.',
+                        'enrichment did not reach full detail (canonical table at ' +
+                        `${typeTable?.getDetailLevel() ?? 'none'}); non-public ` +
+                        'members may be absent.',
                     });
                   }
                 }
 
-                const typeTable = yield* Effect.promise(() =>
-                  svc.symbolManager.getSymbolTableForFile(type.fileUri),
-                );
                 if (!typeTable) {
                   return yield* Effect.fail({
                     _tag: 'CheckMemberConflictsError' as const,
