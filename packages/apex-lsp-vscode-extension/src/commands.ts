@@ -320,10 +320,7 @@ export const registerProfilingCommands = (
           'info',
         );
 
-        const result = await client.languageClient.sendRequest(
-          'apex/profiling/start',
-          { type: profilingType },
-        );
+        const result = await client.profilingStart({ type: profilingType });
 
         if (result.success) {
           vscode.window.showInformationMessage(
@@ -367,10 +364,7 @@ export const registerProfilingCommands = (
         // Get tag from workspace settings (no prompt)
         const tag = getProfilingTag();
 
-        const result = await client.languageClient.sendRequest(
-          'apex/profiling/stop',
-          { tag: tag || undefined },
-        );
+        const result = await client.profilingStop({ tag: tag || undefined });
 
         if (result.success) {
           const filesMessage = result.files
@@ -415,10 +409,7 @@ export const registerProfilingCommands = (
           return;
         }
 
-        const status = await client.languageClient.sendRequest(
-          'apex/profiling/status',
-          {},
-        );
+        const status = await client.profilingStatus({});
 
         const statusMessage = status.isProfiling
           ? `Profiling is active (type: ${status.type})`

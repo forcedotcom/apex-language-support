@@ -5,16 +5,17 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import { Effect, Ref, Context, Layer, pipe } from 'effect';
+import { Effect, Ref, Context, Layer, pipe, Scope } from 'effect';
 import type {
-  ClientInterface,
   LoadWorkspaceParams,
   LoadWorkspaceResult,
   ProgressToken,
   WorkspaceLoadCompleteParams,
   WorkspaceLoadReason,
 } from '@salesforce/apex-lsp-shared';
+import type { ApexClientCore } from '@salesforce/apex-lsp-client';
 import { getDefaultDocumentSelectors } from '@salesforce/apex-lsp-shared';
+import type { DocumentSelector } from 'vscode-languageserver-protocol';
 import { loadWorkspaceForServer } from './workspace-loader';
 
 // WorkspaceState service
@@ -43,6 +44,7 @@ const initializeSharedRefs = Effect.gen(function* (_) {
 // Run synchronously to create the Refs once at module load time
 // This creates singleton Refs that persist across all Effect.runPromise calls
 const sharedState = Effect.runSync(initializeSharedRefs);
+const scopesWithWorkspaceReset = new WeakSet<Scope.CloseableScope>();
 
 // Use Layer.succeed to provide the pre-created singleton state
 // This ensures all requests share the same Refs regardless of runtime context
@@ -79,15 +81,24 @@ const setWorkspaceFailed = (flag: boolean) =>
     Effect.flatMap((s) => Ref.set(s.hasFailed, flag)),
   );
 
+export const resetWorkspaceState = (state: WorkspaceState) =>
+  Effect.all([
+    Ref.set(state.isLoading, false),
+    Ref.set(state.hasLoaded, false),
+    Ref.set(state.hasFailed, false),
+  ]).pipe(Effect.asVoid);
+
+export const resetSharedWorkspaceState = resetWorkspaceState(sharedState);
+
 const validateDocumentSelector = Effect.succeed(
   getDefaultDocumentSelectors('all'),
 );
 
 // Loader
 const launchWorkspaceLoaderEffect = (
-  languageClient: ClientInterface,
+  languageClient: ApexClientCore,
   workDoneToken: ProgressToken | undefined,
-  documentSelector: any[],
+  documentSelector: DocumentSelector,
   reason?: WorkspaceLoadReason,
 ) =>
   Effect.gen(function* (_) {
@@ -96,14 +107,17 @@ const launchWorkspaceLoaderEffect = (
 
     const result = yield* _(
       pipe(
-        Effect.promise(() =>
-          loadWorkspaceForServer(
-            languageClient,
-            workDoneToken,
-            documentSelector,
-            reason,
-          ),
-        ),
+        Effect.tryPromise({
+          try: (signal) =>
+            loadWorkspaceForServer(
+              languageClient,
+              workDoneToken,
+              documentSelector,
+              reason,
+              signal,
+            ),
+          catch: (error) => error,
+        }),
         Effect.tapError((e) =>
           Effect.logError(`Failed to load workspace: ${String(e)}`),
         ),
@@ -117,33 +131,47 @@ const launchWorkspaceLoaderEffect = (
       const error = result.left as unknown;
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      languageClient.sendNotification('apex/workspaceLoadFailed', {
-        success: false,
-        error: errorMessage,
-      } as WorkspaceLoadCompleteParams);
+      yield* _(
+        Effect.tryPromise(() =>
+          Promise.resolve(
+            languageClient.workspaceLoadFailed({
+              success: false,
+              error: errorMessage,
+            } as WorkspaceLoadCompleteParams),
+          ),
+        ).pipe(Effect.catchAll(() => Effect.void)),
+      );
     } else {
       yield* _(setWorkspaceLoaded(true));
       // Send success notification to server
-      languageClient.sendNotification('apex/workspaceLoadComplete', {
-        success: true,
-      } as WorkspaceLoadCompleteParams);
+      yield* _(
+        Effect.tryPromise(() =>
+          Promise.resolve(
+            languageClient.workspaceLoadComplete({
+              success: true,
+            } as WorkspaceLoadCompleteParams),
+          ),
+        ).pipe(Effect.catchAll(() => Effect.void)),
+      );
     }
-    yield* _(setWorkspaceLoading(false));
-  });
+  }).pipe(Effect.ensuring(setWorkspaceLoading(false)));
+
+export const makeWorkspaceLoadScope = Scope.make();
 
 // WorkspaceLoaderService
 export class WorkspaceLoaderService extends Effect.Service<WorkspaceLoaderService>()(
   'WorkspaceLoaderService',
   {
     scoped: Effect.gen(function* (_) {
-      yield* _(WorkspaceState);
+      const workspaceState = yield* _(WorkspaceState);
 
       return {
         startWorkspaceLoad: (
-          languageClient: ClientInterface,
+          languageClient: ApexClientCore,
           workDoneToken?: ProgressToken,
-          documentSelector?: any[],
+          documentSelector?: DocumentSelector,
           reason?: WorkspaceLoadReason,
+          scope?: Scope.CloseableScope,
         ) =>
           Effect.gen(function* (_) {
             const {
@@ -166,15 +194,39 @@ export class WorkspaceLoaderService extends Effect.Service<WorkspaceLoaderServic
             // If previously failed, allow retry and indicate retryable=true
             const isRetry = hasWorkspaceFailed === true;
 
-            yield* _(
-              Effect.forkDaemon(
-                launchWorkspaceLoaderEffect(
-                  languageClient,
-                  workDoneToken,
-                  selector,
-                  reason,
+            if (scope && !scopesWithWorkspaceReset.has(scope)) {
+              scopesWithWorkspaceReset.add(scope);
+              yield* _(
+                Scope.addFinalizer(
+                  scope,
+                  resetWorkspaceState(workspaceState).pipe(
+                    Effect.ensuring(
+                      Effect.sync(() => scopesWithWorkspaceReset.delete(scope)),
+                    ),
+                  ),
                 ),
-              ),
+              );
+            }
+
+            yield* _(
+              scope
+                ? Effect.forkIn(
+                    launchWorkspaceLoaderEffect(
+                      languageClient,
+                      workDoneToken,
+                      selector,
+                      reason,
+                    ),
+                    scope,
+                  )
+                : Effect.forkDaemon(
+                    launchWorkspaceLoaderEffect(
+                      languageClient,
+                      workDoneToken,
+                      selector,
+                      reason,
+                    ),
+                  ),
             );
 
             return isRetry
@@ -183,7 +235,7 @@ export class WorkspaceLoaderService extends Effect.Service<WorkspaceLoaderServic
           }),
         handleLoadWorkspace: (
           params: LoadWorkspaceParams,
-          languageClient: ClientInterface,
+          languageClient: ApexClientCore,
         ) =>
           Effect.flatMap(WorkspaceLoaderService, (svc) =>
             svc.startWorkspaceLoad(
@@ -223,7 +275,7 @@ const queryWorkspaceState = Effect.gen(function* (_) {
 // Kept for backward compatibility during migration
 export const handleLoadWorkspace = (
   params: LoadWorkspaceParams,
-  languageClient: ClientInterface,
+  languageClient: ApexClientCore,
 ) => {
   // If queryOnly is true, return current state without triggering load
   if (params.queryOnly) {
@@ -249,10 +301,11 @@ export const handleLoadWorkspace = (
 
 // Public helper for startup-triggered load
 export const startWorkspaceLoad = (
-  languageClient: ClientInterface,
+  languageClient: ApexClientCore,
   workDoneToken?: ProgressToken,
-  documentSelector?: any[],
+  documentSelector?: DocumentSelector,
   reason?: WorkspaceLoadReason,
+  scope?: Scope.CloseableScope,
 ) =>
   pipe(
     WorkspaceLoaderService,
@@ -262,6 +315,7 @@ export const startWorkspaceLoad = (
         workDoneToken,
         documentSelector,
         reason,
+        scope,
       ),
     ),
   );
@@ -269,7 +323,5 @@ export const startWorkspaceLoad = (
 // Reset (for tests)
 export const resetWorkspaceLoadingState = Effect.gen(function* (_) {
   const state = yield* _(getWorkspaceState);
-  yield* _(Ref.set(state.isLoading, false));
-  yield* _(Ref.set(state.hasLoaded, false));
-  yield* _(Ref.set(state.hasFailed, false));
+  yield* _(resetWorkspaceState(state));
 });

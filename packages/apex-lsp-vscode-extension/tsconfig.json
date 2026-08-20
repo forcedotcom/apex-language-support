@@ -15,6 +15,7 @@
     "test/**/*"
   ],
   "references": [
+    { "path": "../apex-lsp-client" },
     { "path": "../apex-lsp-shared" },
     { "path": "../apex-parser-ast" },
     { "path": "../lsp-compliant-services" },

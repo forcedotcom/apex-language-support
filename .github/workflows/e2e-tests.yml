@@ -25,7 +25,9 @@ jobs:
   e2e-tests-web:
     name: E2E ${{ matrix.test_file }} (Web)
     runs-on: ubuntu-latest
-    container: mcr.microsoft.com/playwright:v1.62.1-noble
+    container:
+      # Keep this tag in sync with the Playwright version resolved by package-lock.json.
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
     timeout-minutes: 20
     if: ${{ github.event.inputs.test_mode != 'desktop' }}
     continue-on-error: true
@@ -87,6 +89,7 @@ jobs:
         env:
           CI: true
           TEST_MODE: web
+          PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
           PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/${{ matrix.test_file }}
           PLAYWRIGHT_JUNIT_OUTPUT_FILE: test-results/${{ matrix.test_file }}/junit.xml
           PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/${{ matrix.test_file }}/results.json
@@ -103,6 +106,7 @@ jobs:
           CI: true
           TEST_MODE: web
           E2E_SEQUENTIAL: 1
+          PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
           PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/${{ matrix.test_file }}
           PLAYWRIGHT_JUNIT_OUTPUT_FILE: test-results/${{ matrix.test_file }}/junit.xml
           PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/${{ matrix.test_file }}/results.json

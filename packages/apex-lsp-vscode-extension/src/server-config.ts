@@ -32,6 +32,7 @@ import {
 } from '@salesforce/apex-lsp-shared';
 import { getOrgArtifactSourceDocumentSelectors } from './services/org-artifact-fs';
 import type { TextDocumentFilter } from 'vscode-languageserver-protocol';
+import { createHoverMiddleware } from './hoverMiddleware';
 
 /**
  * Determines debug options based on VS Code configuration
@@ -311,8 +312,6 @@ export const createClientOptions = (
   initializationOptions: ApexLanguageServerSettings,
 ): LanguageClientOptions => {
   const rawChannel = getWorkerServerOutputChannel();
-  let hoverSequence = 0;
-  const inFlightSupersede = new Map<number, () => void>();
   // The shared selector builder returns only text-document filters for this
   // capability, although its protocol type also permits notebook filters.
   const baseSelectors = getDocumentSelectorsFromSettings(
@@ -332,55 +331,7 @@ export const createClientOptions = (
       error: handleClientError,
       closed: () => handleClientClosed(),
     },
-    middleware: {
-      provideHover: async (document, position, token, next) => {
-        const requestSeq = ++hoverSequence;
-        for (const [seq, resolveSupersede] of inFlightSupersede.entries()) {
-          if (seq < requestSeq) {
-            resolveSupersede();
-            inFlightSupersede.delete(seq);
-          }
-        }
-        const nextPromise = Promise.resolve(
-          next(document, position, token),
-        ).then(
-          (value) => ({ source: 'next' as const, value }),
-          (error) => {
-            throw error;
-          },
-        );
-        const cancellationPromise = new Promise<{
-          source: 'cancel';
-          value: null;
-        }>((resolve) => {
-          if (token.isCancellationRequested) {
-            resolve({ source: 'cancel', value: null });
-            return;
-          }
-          token.onCancellationRequested(() =>
-            resolve({ source: 'cancel', value: null }),
-          );
-        });
-        const supersedePromise = new Promise<{
-          source: 'supersede';
-          value: null;
-        }>((resolve) => {
-          inFlightSupersede.set(requestSeq, () =>
-            resolve({ source: 'supersede', value: null }),
-          );
-        });
-        const raceResult = await Promise.race([
-          nextPromise,
-          cancellationPromise,
-          supersedePromise,
-        ]);
-        inFlightSupersede.delete(requestSeq);
-        if (raceResult.value === null) {
-          void nextPromise.catch(() => {});
-        }
-        return raceResult.value;
-      },
-    },
+    middleware: createHoverMiddleware(),
     initializationOptions,
     workspaceFolder: vscode.workspace.workspaceFolders?.[0],
   };

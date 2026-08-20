@@ -458,9 +458,10 @@ test('should do something', async ({ apexEditor, outlineView }) => {
 
 ### Adding Test Data
 
-1. Create Apex file in `test-data/apex-samples/`
-2. Document purpose in `test-data/README.md`
-3. Reference in tests by filename
+1. Create the Apex file in `test-data/apex-samples/force-app/main/default/classes/`
+2. Add its matching `.cls-meta.xml` metadata file
+3. Document purpose in `test-data/README.md`
+4. Reference it in tests by filename
 
 **Example:**
 
