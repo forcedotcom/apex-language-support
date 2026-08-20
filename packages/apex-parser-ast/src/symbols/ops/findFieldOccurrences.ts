@@ -207,29 +207,33 @@ export function findFieldOccurrences(
         // must NOT be silently dropped while the declaration renames (e.g.
         // `Child c; c.total` where `Child extends Base`, renaming `Base.total`).
         //
-        // Standalone we can only inspect a type's `superClass` when that type is
-        // LOCALLY DECLARED in this candidate file. So:
-        //  - locally declared AND declares a superclass → it COULD be a subtype
-        //    in the target's cone (this parse can't refute the chain) → UNSAFE
-        //    → decline. This catches the reported regression.
-        //  - otherwise (locally declared with NO superclass → cannot inherit
-        //    anything; or a distinct type not declared here) → treat as a
-        //    genuinely unrelated field of another type → safe `skipped`. Keeping
-        //    a distinct-named non-local receiver as `skipped` is what preserves
-        //    the cross-file field-rename feature (an unrelated `Other.total` in
-        //    a caller must not force the whole rename to decline).
+        // A mismatched receiver is a PROVEN non-occurrence (safe `skipped`) ONLY
+        // when we can prove it is outside the declaring type's subtype cone.
+        // Standalone, that proof exists in exactly one case: the receiver type is
+        // declared IN THIS candidate file AND declares no superclass, so it
+        // cannot inherit anything and cannot be a subtype. Every other case is
+        // UNPROVABLE here and therefore `unsafe` → decline:
+        //  - receiver type NOT declared in this file → its supertype chain is
+        //    cross-file and unknown; a plain caller `Child c; c.total` (with
+        //    `Child extends Base` in Child.cls) lands here, and dropping it while
+        //    renaming `Base.total` would dangle `c.total`. Proving the cone needs
+        //    the data-owner graph this op does not have — so decline.
+        //  - receiver type declared locally WITH a superclass → its chain could
+        //    reach the declaring type; this parse can't refute it → decline.
+        // This trades some cross-hierarchy renames (which now report "cannot
+        // safely rename") for never emitting a broken partial edit.
         const receiverTypeSym = findLocalType(typeSymbols, receiverType);
-        if (receiverTypeSym?.superClass) {
-          unsafe.push({
-            uri: fileUri,
-            identifierRange: candidate.identifierRange,
-            reason: `receiver-subtype-unprovable:${receiverType}`,
-          });
-        } else {
+        if (receiverTypeSym && !receiverTypeSym.superClass) {
           skipped.push({
             uri: fileUri,
             identifierRange: candidate.identifierRange,
             reason: `receiver-type-mismatch:${receiverType}`,
+          });
+        } else {
+          unsafe.push({
+            uri: fileUri,
+            identifierRange: candidate.identifierRange,
+            reason: `receiver-subtype-unprovable:${receiverType}`,
           });
         }
       }

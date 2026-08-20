@@ -100,7 +100,13 @@ describe('findFieldOccurrences', () => {
     expect(occ.identifierRange.startLine).toBe(4);
   });
 
-  it('skips field access with non-matching receiver type (disambiguation)', () => {
+  it('flags a non-local mismatched receiver as unsafe (cannot prove unrelated cross-file)', () => {
+    // `Other` is NOT declared in this candidate file, so its supertype chain is
+    // unknown here — it COULD be `Other extends Account` in Other.cls, making
+    // `other.total` an inherited `Account.total`. This parse cannot refute that,
+    // so it must be `unsafe` (→ decline), NOT a proven skip (W-23631086 review
+    // finding #1: a cross-file subtype receiver must never be silently dropped
+    // while the declaration renames).
     const src = `public class Caller {
     public void test() {
         Other other = new Other();
@@ -116,12 +122,10 @@ describe('findFieldOccurrences', () => {
       'Account', // Looking for Account.total, not Other.total
     );
 
-    // Should NOT find `other.total` (receiver type = Other ≠ Account).
     expect(result.occurrences.length).toBe(0);
-    expect(result.skipped.length).toBeGreaterThanOrEqual(1);
-
-    const skip = result.skipped[0];
-    expect(skip.reason).toContain('receiver-type-mismatch');
+    expect(result.skipped.length).toBe(0);
+    expect(result.unsafe.length).toBeGreaterThanOrEqual(1);
+    expect(result.unsafe[0].reason).toContain('receiver-subtype-unprovable');
   });
 
   it('skips chained field access as unresolvable or mismatched', () => {
@@ -141,10 +145,10 @@ describe('findFieldOccurrences', () => {
     );
 
     // Chained `a.inner.total`: the immediate receiver of `total` is `inner` (a
-    // field), which either resolves to Container instead of Account (a proven
-    // mismatch → `skipped`, safe) OR has no co-located VARIABLE_USAGE with a
-    // known type (unresolvable → `unsafe`, decline). It is never a real
-    // occurrence, and either outcome is a non-occurrence.
+    // field). It is never a real Account.total occurrence — either the receiver
+    // resolves to a non-local type whose hierarchy we can't see
+    // (`receiver-subtype-unprovable` → unsafe) or it has no resolvable type at
+    // all (`unresolvable-receiver` → unsafe). Both are non-occurrences.
     expect(result.occurrences.length).toBe(0);
     const notes = [...result.skipped, ...result.unsafe];
     expect(notes.length).toBeGreaterThanOrEqual(1);
@@ -152,6 +156,7 @@ describe('findFieldOccurrences', () => {
       notes.some(
         (n) =>
           n.reason.includes('unresolvable-receiver') ||
+          n.reason.includes('receiver-subtype-unprovable') ||
           n.reason.includes('receiver-type-mismatch'),
       ),
     ).toBe(true);
@@ -536,7 +541,7 @@ describe('findFieldOccurrences', () => {
     expect(result.unsafe.length).toBe(0);
   });
 
-  it('skips a static field access of a DIFFERENT type', () => {
+  it('flags a static field access of a non-local DIFFERENT type as unsafe', () => {
     const src = `public class Caller {
     public void t() {
         Integer x = Other.total;
@@ -550,10 +555,43 @@ describe('findFieldOccurrences', () => {
       'Account',
     );
 
-    // Other.total is a static access of a different type not declared here →
-    // its hierarchy is unknown but the receiver is a plain (non-subclass-proven)
-    // qualifier → safe skip (mismatch), never a wrong occurrence.
+    // `Other.total` is a static access of a type not declared here. Static
+    // members ARE inherited in Apex, so if `Other extends Account` in Other.cls
+    // this IS `Account.total`. Its hierarchy is unknown standalone → unprovable
+    // → unsafe (→ decline), not a silent skip (W-23631086 review finding #1).
     expect(result.occurrences.length).toBe(0);
-    expect(result.skipped.length).toBeGreaterThanOrEqual(1);
+    expect(result.skipped.length).toBe(0);
+    expect(result.unsafe.length).toBeGreaterThanOrEqual(1);
+    expect(result.unsafe[0].reason).toContain('receiver-subtype-unprovable');
+  });
+
+  it('flags a cross-file subclass receiver (declaration not in this file) as unsafe', () => {
+    // The reviewer's exact reproduction: a plain caller file with `Child c;
+    // c.total` where `Child` is declared ELSEWHERE (Child.cls, `Child extends
+    // Base`). Standalone, findLocalType('Child') is null, so we cannot prove
+    // Child is outside Base's subtype cone. Renaming `Base.total` must NOT drop
+    // `c.total` as a proven skip — it is unsafe → the whole rename declines.
+    const src = `public class Caller {
+    public void use(Child c) {
+        c.total = 1;
+        Integer x = c.total;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Caller.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Caller.cls',
+      { name: 'total', kind: 'field' },
+      'Base',
+    );
+
+    expect(result.occurrences.length).toBe(0);
+    expect(result.skipped.length).toBe(0);
+    expect(result.unsafe.length).toBeGreaterThanOrEqual(1);
+    expect(
+      result.unsafe.every((u) =>
+        u.reason.startsWith('receiver-subtype-unprovable'),
+      ),
+    ).toBe(true);
   });
 });
