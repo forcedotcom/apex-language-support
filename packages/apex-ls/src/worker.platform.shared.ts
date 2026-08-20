@@ -5089,26 +5089,62 @@ const untracedHandlers: SerializedWorkerHandlers = {
                 //   - same-type: needs ALL members (incl. private)
                 //   - ancestor:  needs protected members present
                 //   - descendant: needs ALL members (incl. private/default)
-                // Enrich this type's file to 'full' before reading so every-
-                // visibility member is present. enrichToLevel is idempotent — it
-                // no-ops if already at/above 'full'. Best-effort: if the retained
-                // document text is missing we proceed with whatever is loaded.
-                const doc = yield* Effect.promise(() =>
-                  svc.storageManager.getStorage().getDocument(type.fileUri),
+                // So this type's file MUST be at 'full' detail before we read it.
+                //
+                // FAIL CLOSED (W-23631128 re-review, P1): if the file is not
+                // already full and we cannot enrich it (its retained source text
+                // is unavailable, or enrichment does not reach full), we must NOT
+                // read a possibly-public-api table and report "no conflict" —
+                // that recreates the destructive false-negative (a private/
+                // protected/default collision silently approved). Instead fail the
+                // whole query so the caller preserves uncertainty rather than
+                // treating an incomplete member view as no conflict.
+                const currentLevel = yield* Effect.promise(() =>
+                  svc.symbolManager.getDetailLevelForFile(type.fileUri),
                 );
-                const text = doc?.getText();
-                if (text) {
+                if (currentLevel !== 'full') {
+                  const doc = yield* Effect.promise(() =>
+                    svc.storageManager.getStorage().getDocument(type.fileUri),
+                  );
+                  const text = doc?.getText();
+                  if (!text) {
+                    return yield* Effect.fail({
+                      _tag: 'CheckMemberConflictsError' as const,
+                      message:
+                        `Cannot verify member conflicts for ${type.fileUri}: ` +
+                        'source text unavailable to enrich to full detail, so ' +
+                        'non-public members cannot be inspected.',
+                    });
+                  }
                   yield* svc.symbolManager.enrichToLevel(
                     type.fileUri,
                     'full',
                     text,
                   );
+                  const enrichedLevel = yield* Effect.promise(() =>
+                    svc.symbolManager.getDetailLevelForFile(type.fileUri),
+                  );
+                  if (enrichedLevel !== 'full') {
+                    return yield* Effect.fail({
+                      _tag: 'CheckMemberConflictsError' as const,
+                      message:
+                        `Cannot verify member conflicts for ${type.fileUri}: ` +
+                        'enrichment did not reach full detail (at ' +
+                        `${enrichedLevel ?? 'none'}); non-public members may be ` +
+                        'absent.',
+                    });
+                  }
                 }
 
                 const typeTable = yield* Effect.promise(() =>
                   svc.symbolManager.getSymbolTableForFile(type.fileUri),
                 );
-                if (!typeTable) return false;
+                if (!typeTable) {
+                  return yield* Effect.fail({
+                    _tag: 'CheckMemberConflictsError' as const,
+                    message: `Cannot verify member conflicts: no symbol table for ${type.fileUri}.`,
+                  });
+                }
 
                 // Members are children of the type's BLOCK scope, not the type itself.
                 // Find the block symbol (it's a child of the type with kind === 'block')
