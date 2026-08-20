@@ -287,6 +287,62 @@ describe('Apex symbol replacement semantics', () => {
     expect(afterFullAgain.totalReferences).toBe(afterFull.totalReferences);
   });
 
+  it('re-enriches when a newer public-API table downgraded the canonical below full (W-23631128)', async () => {
+    // W-23631128 re-review (P1): enrichToLevel used to guard its no-op on the
+    // fileDetailLevels side-channel (getDetailLevelForFile), which is set by
+    // enrichToLevel but NOT reconciled when a newer, lower-detail table later
+    // replaces the enriched one. So the tracker could read 'full' while the
+    // canonical table a reader observes was back to 'public-api', and enrichment
+    // wrongly no-opped — leaving non-public members absent. enrichToLevel now
+    // guards on the CANONICAL table's own getDetailLevel(), so it re-enriches.
+    const fileUri = 'file:///test/EnrichReplace.cls';
+    const code = `public class EnrichReplace {
+    public Integer visible;
+    private Integer secret;
+    public void use() {
+        secret = 1;
+    }
+}`;
+
+    // 1. Enrich to full: both the canonical table AND the tracker are 'full'.
+    await Effect.runPromise(manager.enrichToLevel(fileUri, 'full', code));
+    expect(
+      (await manager.getSymbolTableForFile(fileUri))?.getDetailLevel(),
+    ).toBe('full');
+    expect(await manager.getDetailLevelForFile(fileUri)).toBe('full');
+
+    // 2. A newer PUBLIC-API table replaces the canonical (as a workspace re-scan
+    //    / batch compile would). addSymbolTable does not touch the tracker, so it
+    //    stays stale at 'full' while the canonical table drops to 'public-api'.
+    const publicApiListener = new ApexSymbolCollectorListener(
+      undefined,
+      'public-api',
+    );
+    const publicApiCompiled = compilerService.compile(
+      code,
+      fileUri,
+      publicApiListener,
+    );
+    if (!publicApiCompiled.result) {
+      throw new Error('Failed to compile public-api table');
+    }
+    await Effect.runPromise(
+      manager.addSymbolTable(publicApiCompiled.result, fileUri, 2),
+    );
+
+    // The divergence the re-review flagged: tracker stale-high, canonical low.
+    expect(
+      (await manager.getSymbolTableForFile(fileUri))?.getDetailLevel(),
+    ).toBe('public-api');
+    expect(await manager.getDetailLevelForFile(fileUri)).toBe('full');
+
+    // 3. enrichToLevel must NOT no-op on the stale tracker — guarding on the
+    //    canonical level, it re-enriches the observable table back to full.
+    await Effect.runPromise(manager.enrichToLevel(fileUri, 'full', code));
+    const finalTable = await manager.getSymbolTableForFile(fileUri);
+    expect(finalTable?.getDetailLevel()).toBe('full');
+  });
+
   it('keeps semantic representation idempotent across structural variants', async () => {
     const fileUri = 'file:///test/FormattingVariant.cls';
     const compactCode = `

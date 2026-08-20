@@ -7625,20 +7625,28 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   ): Effect.Effect<void, never, never> {
     const self = this;
     return Effect.gen(function* () {
-      const normalizedUri = extractFilePathFromUri(fileUri);
-      const currentLevel = yield* Effect.promise(() =>
-        self.getDetailLevelForFile(normalizedUri),
+      // Re-use existing symbol table if available for enrichment.
+      const existingSymbolTable = yield* Effect.promise(() =>
+        self.getSymbolTableForFile(fileUri),
       );
 
-      // Check if already at or above target level
+      // Decide whether enrichment is needed from the CANONICAL table's own
+      // detail level, not the `fileDetailLevels` side-channel
+      // (getDetailLevelForFile). That tracker is set by enrichToLevel but is NOT
+      // downgraded when a newer, lower-detail table later replaces the enriched
+      // one — so trusting it can wrongly no-op and leave the canonical table
+      // below the target level (W-23631128 re-review). The table's
+      // getDetailLevel() reflects the symbols actually present, so it never goes
+      // stale relative to what a reader will observe.
+      const canonicalLevel = existingSymbolTable?.getDetailLevel() ?? null;
       if (
-        currentLevel &&
-        self.getLayerOrderIndex(currentLevel) >=
+        canonicalLevel &&
+        self.getLayerOrderIndex(canonicalLevel) >=
           self.getLayerOrderIndex(targetLevel)
       ) {
         self.logger.debug(
           () =>
-            `File ${fileUri} already at level ${currentLevel}, ` +
+            `File ${fileUri} canonical table already at level ${canonicalLevel}, ` +
             `skipping enrichment to ${targetLevel}`,
         );
         return;
@@ -7646,14 +7654,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
       self.logger.debug(
         () =>
-          `Enriching ${fileUri} from ${currentLevel ?? 'none'} to ${targetLevel}`,
+          `Enriching ${fileUri} from ${canonicalLevel ?? 'none'} to ${targetLevel}`,
       );
 
       // Use ApexSymbolCollectorListener with appropriate detail level
-      // Re-use existing symbol table if available for enrichment
-      const existingSymbolTable = yield* Effect.promise(() =>
-        self.getSymbolTableForFile(fileUri),
-      );
       const listener = new ApexSymbolCollectorListener(
         existingSymbolTable || undefined,
         targetLevel,
