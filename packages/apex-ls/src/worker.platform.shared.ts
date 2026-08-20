@@ -3973,6 +3973,7 @@ async function resolveFieldRename(
 ): Promise<WorkspaceEditResult | RenameErrorResult | null> {
   const {
     CompilerService,
+    ErrorType,
     FullSymbolCollectorListener,
     SymbolKind,
     SymbolTable,
@@ -4084,8 +4085,45 @@ async function resolveFieldRename(
           listener,
           { collectReferences: true, resolveReferences: true },
         );
-        const table: InstanceType<typeof SymbolTable> =
-          compiled?.result instanceof SymbolTable ? compiled.result : t;
+
+        // Finding #2 (W-23631086 re-review): CompilerService.compile RECOVERS
+        // from malformed Apex — it returns a (partial) SymbolTable plus a
+        // non-empty `errors` array rather than throwing. A candidate that
+        // lexically mentions the field but failed to PARSE cleanly may have
+        // DROPPED the very occurrence we need to rewrite, so its symbol table is
+        // an incomplete view. Treating that as "no occurrences" and still
+        // renaming the declaration would emit a broken partial edit. Treat any
+        // candidate with SYNTAX errors (or no SymbolTable) as UNSAFE → decline,
+        // exactly like a thrown scan failure.
+        //
+        // Count ONLY syntax errors: a standalone single-file parse cannot resolve
+        // cross-file references, so `errors` routinely contains benign SEMANTIC
+        // (unresolved-reference) entries for otherwise-valid files. Declining on
+        // those would reject nearly every real multi-file rename. Syntax errors,
+        // by contrast, mean the parse tree itself is broken and occurrences may
+        // be missing.
+        const syntaxErrorCount = (compiled?.errors ?? []).filter(
+          (e) => e.type === ErrorType.Syntax,
+        ).length;
+        if (
+          !(compiled?.result instanceof SymbolTable) ||
+          syntaxErrorCount > 0
+        ) {
+          const detail = !(compiled?.result instanceof SymbolTable)
+            ? 'no-result'
+            : `${syntaxErrorCount} syntax error(s)`;
+          emitWorkerLog(
+            'warn',
+            `[RENAME] field phase2 candidate ${candidate.uri} did not parse ` +
+              `cleanly (${detail}); declining to avoid a partial edit`,
+          );
+          unsafeOccurrences.push({
+            uri: candidate.uri,
+            reason: `candidate-parse-incomplete:${detail}`,
+          });
+          continue;
+        }
+        const table: InstanceType<typeof SymbolTable> = compiled.result;
 
         const { occurrences, skipped, unsafe } = findFieldOccurrences(
           table,

@@ -663,7 +663,15 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       expect(otherEdits).toBeUndefined();
     }, 120_000);
 
-    it('does NOT rename unrelated fields with the same name (disambiguation crux)', async () => {
+    it('declines rename when another file has an unprovable non-local receiver (W-23631086 #1)', async () => {
+      // Renaming Other.total. Caller.cls contains `acct.total` where `acct` is
+      // typed `Account` — a type NOT declared in Caller.cls. Standalone, this
+      // parse cannot prove Account is outside Other's subtype cone (Account could
+      // `extends Other` in Account.cls), so `acct.total` MIGHT be an inherited
+      // Other.total. Renaming Other.total's declaration while dropping it would
+      // emit a broken partial edit, so the whole rename must DECLINE rather than
+      // silently skip the unprovable receiver. (Proving the cone needs the
+      // data-owner hierarchy graph this pool path does not have.)
       const program = Effect.gen(function* () {
         const topology = yield* initializeTopology({
           poolSize: 1,
@@ -712,20 +720,14 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
 
       const { result } = await Effect.runPromise(program);
 
-      const edit = result as {
-        changes?: Record<string, Array<{ range: any; newText: string }>>;
-      } | null;
-      expect(edit?.changes).toBeDefined();
-
-      // Other.cls: should be renamed.
-      const otherEdits = edit!.changes![OTHER_URI];
-      expect(otherEdits).toBeDefined();
-      expect(otherEdits.length).toBeGreaterThan(0);
-      otherEdits.forEach((e) => expect(e.newText).toBe('count'));
-
-      // Account.cls and Caller.cls: should NOT be renamed.
-      expect(edit!.changes![ACCOUNT_URI]).toBeUndefined();
-      expect(edit!.changes![CALLER_URI]).toBeUndefined();
+      // Declines with an error — never a partial WorkspaceEdit that renames
+      // Other.total while leaving Caller's acct.total (an unprovable receiver)
+      // dangling.
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('error');
+      expect(result).not.toHaveProperty('changes');
+      const errResult = result as { error: { code: number; message: string } };
+      expect(errResult.error.message).toContain('Cannot safely rename');
     }, 120_000);
 
     it('handles implicit-this usage inside the declaring class', async () => {
@@ -1073,6 +1075,91 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       expect(edits).toBeDefined();
       expect(edits.length).toBeGreaterThanOrEqual(3);
       edits.forEach((e) => expect(e.newText).toBe('amount'));
+    }, 120_000);
+
+    // W-23631086 review finding #2: CompilerService.compile RECOVERS from
+    // malformed Apex — it returns a partial SymbolTable plus a non-empty errors
+    // array rather than throwing. A candidate that lexically mentions the field
+    // but failed to parse cleanly may have DROPPED the occurrence we need to
+    // rewrite, so its symbol table is an incomplete semantic view. The rename
+    // must decline (not silently skip it and emit a partial edit) even though no
+    // exception is thrown.
+    it('declines when a candidate file compiles with parser errors (diagnostic path)', async () => {
+      const CLEAN_URI = 'file:///test/CleanField.cls';
+      const CLEAN_SRC = `public class CleanField {
+    public Integer total;
+}`;
+      // Broken.cls lexically contains `total` but does not parse cleanly (missing
+      // semicolon + malformed method), so compile returns errors and a partial
+      // table in which the `total` reference may be absent.
+      const BROKEN_URI = 'file:///test/Broken.cls';
+      const BROKEN_SRC = `public class Broken {
+    public void oops() {
+        Integer total = 1
+        total = total +
+    }
+`;
+      const BROKEN_SOURCES: Record<string, string> = {
+        [CLEAN_URI]: CLEAN_SRC,
+        [BROKEN_URI]: BROKEN_SRC,
+      };
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => BROKEN_SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        for (const uri of [CLEAN_URI, BROKEN_URI]) {
+          yield* Effect.promise(() =>
+            dispatcher.dispatch('documentOpen', {
+              document: {
+                uri,
+                languageId: 'apex',
+                version: 1,
+                getText: () => BROKEN_SOURCES[uri],
+              },
+              textDocument: { uri },
+              text: BROKEN_SOURCES[uri],
+            }),
+          );
+        }
+
+        // Rename CleanField.total — Broken.cls is a candidate (mentions `total`)
+        // but compiles with errors.
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: CLEAN_URI },
+            position: { line: 1, character: 19 }, // on `total` declaration
+            newName: 'amount',
+            content: CLEAN_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-field:broken-candidate] ${JSON.stringify(result)}`);
+
+      // Declines with an error — never a partial edit that renames the clean
+      // declaration while the broken candidate's occurrences go unanalyzed.
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('error');
+      expect(result).not.toHaveProperty('changes');
+      const errResult = result as { error: { code: number; message: string } };
+      expect(errResult.error.message).toContain('Cannot safely rename');
     }, 120_000);
   });
 });
