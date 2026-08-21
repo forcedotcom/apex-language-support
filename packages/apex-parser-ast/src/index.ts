@@ -163,6 +163,10 @@ export {
   type LocalOccurrences,
 } from './symbols/ops/findLocalOccurrences';
 export {
+  findFieldOccurrences,
+  type FieldOccurrenceResult,
+} from './symbols/ops/findFieldOccurrences';
+export {
   validateRenameName,
   type ValidateRenameNameResult,
 } from './symbols/ops/validateRenameName';
