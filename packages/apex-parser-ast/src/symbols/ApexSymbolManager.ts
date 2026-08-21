@@ -106,6 +106,7 @@ import {
 import { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
 import { CompilerService } from '../parser/compilerService';
 import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
+import { ErrorType } from '../parser/listeners/ApexErrorListener';
 import { type GenericTypeSubstitutionMap } from '../utils/genericTypeSubstitution';
 import {
   isPositionInIdentifierRange as posInIdRange,
@@ -7674,11 +7675,48 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       );
 
       if (result?.result) {
-        yield* self.addSymbolTable(result.result, fileUri);
+        // Mark parse completeness HONESTLY (W-23631128 re-review, P1). A
+        // malformed source still yields a RECOVERED SymbolTable whose
+        // getDetailLevel() reports 'full', but a recovered parse can omit
+        // declarations or whole scopes in the damaged region — so a
+        // correctness-sensitive reader (CheckMemberConflicts) must be able to
+        // tell that this table came from a broken parse and fail closed rather
+        // than trust an incomplete member set. Only SYNTAX errors indicate a
+        // structurally incomplete parse; standalone/enrichment compiles routinely
+        // carry benign SEMANTIC errors (unresolved cross-file references) that do
+        // NOT drop declarations, so those must NOT poison completeness.
+        const syntaxErrorCount = (result.errors ?? []).filter(
+          (e) => e.type === ErrorType.Syntax,
+        ).length;
+        const hasSyntaxErrors = syntaxErrorCount > 0;
+        result.result.setMetadata({
+          hasErrors: hasSyntaxErrors,
+          parseCompleteness: hasSyntaxErrors ? 'incomplete' : 'complete',
+        });
+        yield* self.addSymbolTable(
+          result.result,
+          fileUri,
+          undefined,
+          hasSyntaxErrors,
+        );
+        // registerSymbolTable may keep an EXISTING instance as canonical (merge
+        // fallback) rather than the table we just stamped, so re-stamp whatever
+        // getSymbolTableForFile now returns — the reader observes the canonical
+        // table, and it must carry this parse's completeness truthfully.
+        if (hasSyntaxErrors) {
+          const canonical = yield* Effect.promise(() =>
+            self.getSymbolTableForFile(fileUri),
+          );
+          canonical?.setMetadata({
+            hasErrors: true,
+            parseCompleteness: 'incomplete',
+          });
+        }
         self.setDetailLevelForFile(fileUri, targetLevel);
         self.logger.debug(
           () =>
-            `Enriched ${fileUri} to ${targetLevel} level using ApexSymbolCollectorListener`,
+            `Enriched ${fileUri} to ${targetLevel} level using ` +
+            `ApexSymbolCollectorListener (syntaxErrors=${syntaxErrorCount})`,
         );
       }
     });
