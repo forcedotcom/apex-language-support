@@ -7,11 +7,7 @@
  */
 
 import type { WorkerFixtures, TestFixtures } from './desktopFixtureTypes';
-import {
-  test as base,
-  _electron as electron,
-  type Page,
-} from '@playwright/test';
+import { test as base, _electron as electron } from '@playwright/test';
 import { downloadAndUnzipVSCode } from '@vscode/test-electron';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
@@ -20,47 +16,6 @@ import { resolveRepoRoot } from '../shared/utils/repoRoot';
 import { createDesktopTestWorkspace } from './desktopWorkspace';
 import { WORKBENCH } from '../shared/utils/locators';
 import { getDesktopExtensionsDir } from '../shared/config/downloadVSCode';
-
-/**
- * Dismiss the VS Code Welcome sign-in page and any other startup prompts.
- * The welcome page shows "Continue with GitHub" / "Skip" / "Continue without
- * Signing In" inside the editor area as a webview-like tab.
- */
-async function dismissStartupPrompts(page: Page): Promise<void> {
-  // Wait for the welcome sign-in page to render
-  await page.waitForTimeout(2000);
-
-  // The welcome sign-in page has a "Skip" link at the bottom left.
-  // Try several selectors since the exact DOM structure varies by VS Code version.
-  const skipSelectors = [
-    'text=Skip',
-    'text=Continue without Signing In',
-    'a:has-text("Skip")',
-    'button:has-text("Skip")',
-    '[aria-label="Skip"]',
-  ];
-
-  for (const selector of skipSelectors) {
-    const el = page.locator(selector).first();
-    if (await el.isVisible().catch(() => false)) {
-      await el.click({ timeout: 3000 }).catch(() => {});
-      await page.waitForTimeout(1000);
-      return;
-    }
-  }
-
-  // Fallback: close any notification toasts
-  const toastClose = page.locator(
-    '.notifications-toasts .notification-toast .codicon-close',
-  );
-  const toastCount = await toastClose.count().catch(() => 0);
-  for (let i = 0; i < toastCount; i++) {
-    await toastClose
-      .nth(i)
-      .click({ timeout: 1000 })
-      .catch(() => {});
-  }
-}
 
 type CreateDesktopTestOptions = {
   /** __dirname from the calling fixture file (e.g., 'e2e-tests/fixtures') */
@@ -97,14 +52,20 @@ export const createDesktopTest = (options: CreateDesktopTestOptions) => {
     ): Promise<void> => {
       const userDataDir = path.join(workspaceDir, '.vscode-test-user-data');
       await fs.mkdir(userDataDir, { recursive: true });
-      if (userSettings !== undefined && Object.keys(userSettings).length > 0) {
-        const userSettingsDir = path.join(userDataDir, 'User');
-        await fs.mkdir(userSettingsDir, { recursive: true });
-        await fs.writeFile(
-          path.join(userSettingsDir, 'settings.json'),
-          JSON.stringify(userSettings, null, 2),
-        );
-      }
+      const userSettingsDir = path.join(userDataDir, 'User');
+      await fs.mkdir(userSettingsDir, { recursive: true });
+      await fs.writeFile(
+        path.join(userSettingsDir, 'settings.json'),
+        JSON.stringify(
+          {
+            ...userSettings,
+            'workbench.startupEditor': 'none',
+            'workbench.welcomePage.walkthroughs.openOnInstall': false,
+          },
+          null,
+          2,
+        ),
+      );
       const repoRoot = resolveRepoRoot(fixturesDir);
       // Global setup installs only Salesforce Services here. Keeping the
       // directory isolated from the user's extensions gives development mode
@@ -200,8 +161,6 @@ export const createDesktopTest = (options: CreateDesktopTestOptions) => {
       await page.setViewportSize({ width: 1920, height: 1080 });
 
       await page.waitForSelector(WORKBENCH, { timeout: 60_000 });
-
-      await dismissStartupPrompts(page);
 
       await use(page);
     },

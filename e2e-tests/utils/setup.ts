@@ -76,10 +76,12 @@ export async function setupTestWorkspace(
   );
   if (fs.existsSync(testDataProjectDir)) {
     // Remove the previous flat-fixture shape from persistent local workspaces
-    // so tests cannot accidentally pass against stale root-level classes.
-    for (const file of fs.readdirSync(workspacePath)) {
-      if (file.endsWith('.cls')) {
-        fs.rmSync(path.join(workspacePath, file), { force: true });
+    // so the memfs seeder receives only the DX project fixture.
+    for (const entry of fs.readdirSync(workspacePath, {
+      withFileTypes: true,
+    })) {
+      if (entry.isFile() && entry.name.endsWith('.cls')) {
+        fs.rmSync(path.join(workspacePath, entry.name), { force: true });
       }
     }
 

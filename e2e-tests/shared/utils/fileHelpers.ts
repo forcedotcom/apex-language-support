@@ -162,7 +162,10 @@ export const expandWorkspaceFolders = async (page: Page): Promise<void> => {
       'xpath=ancestor::*[@role="treeitem"][1]',
     );
     if ((await folder.getAttribute('aria-expanded')) === 'false') {
-      await folder.locator('.monaco-tl-twistie').first().click();
+      // The Explorer virtualizes and can re-render a tree row between checking
+      // aria-expanded and clicking its twistie. Click the stable treeitem with
+      // force instead of its transient child control.
+      await folder.click({ force: true });
     }
   }
 };

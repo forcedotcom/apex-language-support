@@ -80,7 +80,7 @@ describe('Empty stub snapshot — known stubs with no members', () => {
     if (!fs.existsSync(STDLIB_DIR)) {
       console.warn(
         'StandardApexLibrary not found — skipping snapshot test.\n' +
-          'Run "npm run generate" in packages/apex-stubs-generator first.',
+          'Run "npm run update:stubs" in packages/apex-parser-ast first.',
       );
       return;
     }

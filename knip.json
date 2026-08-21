@@ -88,9 +88,6 @@
       ],
       "ignoreDependencies": ["@protobuf-ts/plugin"]
     },
-    "packages/apex-stubs-generator": {
-      "ignoreDependencies": ["playwright"]
-    },
     "packages/lsp-compliant-services": {
       "entry": [
         "src/apexlib/manager.ts",

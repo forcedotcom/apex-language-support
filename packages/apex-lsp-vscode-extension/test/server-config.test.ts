@@ -736,6 +736,39 @@ describe('Server Config Module', () => {
         expect(slowResult).toBeNull();
         expect(fastResult).toEqual({ contents: 'fast' });
       });
+
+      it('logs raw hover request timing and failure through sendRequest middleware', async () => {
+        const clientOptions = createClientOptions({
+          enableDocumentSymbols: true,
+          extensionMode: 'development',
+        } as any);
+        const sendRequest = clientOptions.middleware!.sendRequest!;
+        const next = jest.fn().mockRejectedValue(new Error('hover failed'));
+
+        await expect(
+          sendRequest(
+            'textDocument/hover',
+            {
+              textDocument: { uri: 'file:///Test.cls' },
+              position: { line: 2, character: 4 },
+            },
+            undefined,
+            next,
+          ),
+        ).rejects.toThrow('hover failed');
+
+        const { logToOutputChannel } = jest.requireMock('../src/logging');
+        expect(logToOutputChannel).toHaveBeenCalledWith(
+          expect.stringContaining(
+            'Hover request initiated: file:///Test.cls at 2:4',
+          ),
+          'debug',
+        );
+        expect(logToOutputChannel).toHaveBeenCalledWith(
+          expect.stringContaining('Hover request failed after'),
+          'error',
+        );
+      });
     });
   });
 });

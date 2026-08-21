@@ -8,8 +8,8 @@
 
 import { expect, Page } from '@playwright/test';
 import {
-  closeWelcomeTabs,
   dismissAllQuickInputWidgets,
+  getModifierShortcut,
 } from '../utils/helpers';
 import {
   QUICK_INPUT_WIDGET,
@@ -21,17 +21,16 @@ export const openCommandPalette = async (page: Page): Promise<void> => {
   const widget = page.locator(QUICK_INPUT_WIDGET);
   const workbench = page.locator(WORKBENCH);
 
-  await closeWelcomeTabs(page);
   await dismissAllQuickInputWidgets(page);
 
   await expect(async () => {
     // Bring page to front to ensure VS Code window is active (critical on Windows)
     await page.bringToFront();
-    // Click workbench to ensure focus is not on walkthrough elements; Windows needs explicit focus before F1
+    // Explicitly focus the workbench before opening the command palette.
     await workbench.click({ timeout: 5000 });
-    // Small delay to allow Windows to process focus change before F1 keypress
+    // Small delay to allow Windows to process the focus change.
     await page.waitForTimeout(100);
-    await page.keyboard.press('F1');
+    await page.keyboard.press(getModifierShortcut('Shift+P'));
     await expect(widget).toBeVisible({ timeout: 5000 });
     const input = widget.locator('input.input');
     await expect(input).toBeVisible({ timeout: 5000 });

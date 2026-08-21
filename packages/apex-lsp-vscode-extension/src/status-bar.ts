@@ -417,10 +417,7 @@ export const updateProfilingToggleItem = async (): Promise<void> => {
 
     // Query server for profiling status
     try {
-      const status = await client.languageClient.sendRequest(
-        'apex/profiling/status',
-        {},
-      );
+      const status = await client.profilingStatus({});
 
       // Check if status response is valid
       if (!status || typeof status !== 'object') {
@@ -538,10 +535,7 @@ export const registerProfilingToggleCommand = (
         };
 
         try {
-          currentStatus = await client.languageClient.sendRequest(
-            'apex/profiling/status',
-            {},
-          );
+          currentStatus = await client.profilingStatus({});
         } catch (_error) {
           // Status not available
           vscode.window.showErrorMessage(
@@ -556,10 +550,9 @@ export const registerProfilingToggleCommand = (
           try {
             const tag = getProfilingTag();
 
-            const result = await client.languageClient.sendRequest(
-              'apex/profiling/stop',
-              { tag: tag || undefined },
-            );
+            const result = await client.profilingStop({
+              tag: tag || undefined,
+            });
 
             if (result.success) {
               const filesMessage = result.files
@@ -583,10 +576,9 @@ export const registerProfilingToggleCommand = (
           const preferredType = getPreferredProfilingType();
 
           try {
-            const result = await client.languageClient.sendRequest(
-              'apex/profiling/start',
-              { type: preferredType },
-            );
+            const result = await client.profilingStart({
+              type: preferredType,
+            });
 
             if (result.success) {
               const typeLabel =

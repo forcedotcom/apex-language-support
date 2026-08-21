@@ -7,1470 +7,516 @@
  */
 
 import * as vscode from 'vscode';
+import { Effect, Exit, Layer, Scope } from 'effect';
 import type {
   ApexLanguageServerSettings,
-  ClientInterface,
-  RuntimePlatform,
+  FindMissingArtifactParams,
   RequestWorkspaceLoadParams,
+  RuntimePlatform,
 } from '@salesforce/apex-lsp-shared';
 import {
   formattedError,
-  getClientCapabilitiesForMode,
   getDocumentSelectorsFromSettings,
   WORKSPACE_LOAD_REASON_MESSAGE,
 } from '@salesforce/apex-lsp-shared';
+import type { ApexClientCore } from '@salesforce/apex-lsp-client';
+import type { TextDocumentFilter } from 'vscode-languageserver-protocol';
 import type {
-  InitializeParams,
-  MessageSignature,
-  TextDocumentFilter,
-} from 'vscode-languageserver-protocol';
-import type { BaseLanguageClient } from 'vscode-languageclient';
+  BaseLanguageClient,
+  LanguageClientOptions,
+} from 'vscode-languageclient';
 import { Trace } from 'vscode-languageclient';
-import {
-  logToOutputChannel,
-  getWorkerServerOutputChannel,
-  createSafeOutputChannel,
-} from './logging';
 import { setStartingFlag, resetServerStartRetries } from './commands';
-import { handleFindMissingArtifact } from './missing-artifact-handler';
 import {
-  startWorkspaceLoad,
-  WorkspaceLoaderServiceLive,
-  WorkspaceStateLive,
-} from './workspace-load-handler';
-import { Effect, Layer } from 'effect';
-import {
-  updateApexServerStatusStarting,
-  updateApexServerStatusReady,
-  updateApexServerStatusError,
-  updateApexServerStatusStopped,
-  updateApexServerStatusLoading,
-  clearIngestionTimeout,
-} from './status-bar';
-import {
+  getTraceServerConfig,
   getWorkspaceSettings,
   registerConfigurationChangeListener,
   sendInitialConfiguration,
-  getTraceServerConfig,
 } from './configuration';
 import { EXTENSION_CONSTANTS } from './constants';
+import { handleFindMissingArtifact } from './missing-artifact-handler';
 import {
-  determineServerMode,
+  createSafeOutputChannel,
+  getWorkerServerOutputChannel,
+  logToOutputChannel,
+} from './logging';
+import {
+  emitTelemetrySpan,
+  getSpanCollectorUrl,
+} from './observability/extensionTracing';
+import { getOrgArtifactSourceDocumentSelectors } from './services/org-artifact-fs';
+import {
+  clearIngestionTimeout,
+  updateApexServerStatusError,
+  updateApexServerStatusLoading,
+  updateApexServerStatusReady,
+  updateApexServerStatusStarting,
+  updateApexServerStatusStopped,
+} from './status-bar';
+import {
   detectEnvironment,
+  determineServerMode,
   getStdApexClassesPathFromContext,
   ServerMode,
 } from './utils/serverUtils';
 import {
-  emitTelemetrySpan,
-  getSalesforceServicesApi,
-  getSpanCollectorUrl,
-} from './observability/extensionTracing';
-import { EXCLUDE_GLOB } from './workspace-loader';
-import { getOrgArtifactSourceDocumentSelectors } from './services/org-artifact-fs';
+  startWorkspaceLoad,
+  makeWorkspaceLoadScope,
+  WorkspaceLoaderServiceLive,
+  WorkspaceStateLive,
+} from './workspace-load-handler';
+import { createHoverMiddleware } from './hoverMiddleware';
 
 export { detectEnvironment };
 
-export function createWebDocumentSelector(
-  initializationOptions: ApexLanguageServerSettings,
-): TextDocumentFilter[] {
-  // The shared selector builder returns only text-document filters for this
-  // capability, although its protocol type also permits notebook filters.
-  const baseSelectors = getDocumentSelectorsFromSettings(
-    'all',
-    initializationOptions,
-  ) as TextDocumentFilter[];
-  return [...baseSelectors, ...getOrgArtifactSourceDocumentSelectors()];
+export interface ClientState {
+  readonly rawClient: BaseLanguageClient;
+  readonly core: ApexClientCore;
+  readonly configurationListener?: vscode.Disposable;
+  readonly apexLibResources?: readonly vscode.Disposable[];
+  readonly workspaceLoadScope?: Scope.CloseableScope;
 }
 
-/**
- * Global language client instance
- */
-let Client: ClientInterface | undefined;
+type CleanupStage = readonly [
+  name: string,
+  cleanup: () => void | Promise<void>,
+];
 
-/**
- * Raw LanguageClient instance (for extension API export)
- * Note: This can be either browser or node LanguageClient, both extend BaseLanguageClient
- */
-let LanguageClientInstance: BaseLanguageClient | undefined;
+let clientState: ClientState | undefined;
 let lifecycleQueue: Promise<void> = Promise.resolve();
 
-/**
- * Shared workspace load layer - created once and reused across all requests
- * to ensure state is shared between query-only and load requests
- */
 const sharedWorkspaceLoadLayer = Layer.mergeAll(
   WorkspaceLoaderServiceLive,
   WorkspaceStateLive,
 );
 
-function registerIngestionCompleteHandler(client: ClientInterface) {
-  client.onNotification('apex/workspaceIngestionComplete', () => {
-    clearIngestionTimeout();
-    logToOutputChannel(
-      '✅ Server workspace ingestion complete — updating status bar',
-      'debug',
-    );
-    updateApexServerStatusReady();
-  });
-}
+const cleanupClientState = async (
+  state: ClientState,
+  logFailures: boolean,
+): Promise<void> => {
+  const stages: readonly CleanupStage[] = [
+    ['configuration listener', () => state.configurationListener?.dispose()],
+    ...(state.apexLibResources ?? []).map((resource, index): CleanupStage => [
+      `ApexLib resource ${index + 1}`,
+      () => resource.dispose(),
+    ]),
+    [
+      'workspace load scope',
+      () =>
+        state.workspaceLoadScope
+          ? Effect.runPromise(Scope.close(state.workspaceLoadScope, Exit.void))
+          : undefined,
+    ],
+    ['client core and raw transport', () => state.core.dispose()],
+  ];
+  let firstError: unknown;
 
-/**
- * Returns glob patterns constrained to the DX project's packageDirectories.
- * Uses ProjectService from salesforcedx-vscode-services as the canonical source.
- * Returns undefined if the services extension is unavailable or the workspace is not a DX project.
- */
-async function getPackageDirectoryGlobs(): Promise<string | undefined> {
-  const api = getSalesforceServicesApi();
-  if (!api) return undefined;
-
-  try {
-    // api.services types are re-exported from an unresolvable sibling path,
-    // so we cast to access the Effect service tag and its Default layer.
-    const ProjectService = api.services.ProjectService as any;
-    const project: any = await Effect.runPromise(
-      Effect.flatMap(ProjectService, (svc: any) =>
-        Effect.tryPromise(() => svc.getSfProject() as Promise<unknown>),
-      ).pipe(Effect.provide(ProjectService.Default)) as Effect.Effect<
-        unknown,
-        unknown,
-        never
-      >,
-    );
-    const dirs: string[] = project
-      .getPackageDirectories()
-      .map((d: any) => d.fullPath as string);
-    if (dirs.length === 0) return undefined;
-    return dirs.length === 1 ? `${dirs[0]}/**` : `{${dirs.join(',')}}/**`;
-  } catch {
-    return undefined;
+  for (const [name, cleanup] of stages) {
+    try {
+      await cleanup();
+    } catch (error) {
+      firstError ??= error;
+      if (logFailures) {
+        logToOutputChannel(
+          `⚠️ Failed to dispose ${name}: ${formattedError(error)}`,
+          'warning',
+        );
+      }
+    }
   }
+
+  if (firstError !== undefined) {
+    throw firstError;
+  }
+};
+
+const cleanupAfterStartupFailure = async (
+  state: ClientState,
+  startupError: unknown,
+): Promise<never> => {
+  try {
+    await cleanupClientState(state, true);
+  } catch {
+    // Each cleanup error was logged by cleanupClientState. The startup error is
+    // the operation's primary failure and must remain observable to the caller.
+  }
+  throw startupError;
+};
+
+export function createWebDocumentSelector(
+  initializationOptions: ApexLanguageServerSettings,
+): TextDocumentFilter[] {
+  const selectors = getDocumentSelectorsFromSettings(
+    'all',
+    initializationOptions,
+  ) as TextDocumentFilter[];
+  return [...selectors, ...getOrgArtifactSourceDocumentSelectors()];
 }
 
-/**
- * Creates enhanced initialization options that incorporate benefits from server-config.ts.
- * @param context - VS Code extension context
- * @param runtimePlatform - The detected environment (desktop or web)
- * @param serverMode - The server mode (already determined to avoid duplicate logging)
- * @returns Enhanced initialization options
- */
 const createEnhancedInitializationOptions = async (
   context: vscode.ExtensionContext,
   runtimePlatform: RuntimePlatform,
   serverMode: ServerMode,
 ): Promise<ApexLanguageServerSettings> => {
   const settings = getWorkspaceSettings();
-
-  // Get standard Apex library path
-  const standardApexLibraryPath =
-    getStdApexClassesPathFromContext(context)?.toString();
-
-  // Use settings directly without deep cloning to avoid serialization issues
-  const safeSettings = settings || {};
-
-  const extensionVersion =
-    (context.extension.packageJSON?.version as string) ?? '0.0.0';
-
-  // Count workspace files for startup telemetry (best-effort, non-blocking).
-  // Constrained to packageDirectories from sfdx-project.json via ProjectService.
-  // If the services extension is unavailable or this is not a DX project, counts remain 0.
-  let workspaceFileCount = 0;
-  let apexFileCount = 0;
-  const includeGlob = await getPackageDirectoryGlobs();
-  if (includeGlob) {
-    try {
-      const timeout = new Promise<[vscode.Uri[], vscode.Uri[]]>((resolve) =>
-        setTimeout(() => resolve([[], []]), 3000),
-      );
-      const [allFiles, apexFiles] = await Promise.race([
-        Promise.all([
-          vscode.workspace.findFiles(`${includeGlob}/*`, EXCLUDE_GLOB, 50_000),
-          vscode.workspace.findFiles(
-            `${includeGlob}/*.{cls,trigger,apex}`,
-            EXCLUDE_GLOB,
-            50_000,
-          ),
-        ]),
-        timeout,
-      ]);
-      workspaceFileCount = allFiles.length;
-      apexFileCount = apexFiles.length;
-    } catch {
-      // Best-effort: leave counts at 0
-    }
-  }
-
-  const workerPlatformWebUrl =
-    runtimePlatform === 'web'
-      ? vscode.Uri.joinPath(
-          context.extensionUri,
-          'dist',
-          'worker.platform.web.js',
-        ).toString()
-      : undefined;
-
-  // Get the span collector URL (desktop only, if tracing enabled)
-  const spanCollectorUrl = getSpanCollectorUrl();
-  if (spanCollectorUrl) {
-    logToOutputChannel(
-      `[extension] Passing span collector URL to language server: ${spanCollectorUrl}`,
-      'info',
-    );
-  }
-
-  const enhancedOptions: ApexLanguageServerSettings = {
+  return {
     apex: {
-      ...safeSettings.apex,
+      ...settings.apex,
       environment: {
-        ...safeSettings.apex?.environment,
+        ...settings.apex.environment,
         runtimePlatform,
         serverMode,
         vscodeVersion: vscode.version,
-        extensionVersion,
-        workspaceFileCount,
-        apexFileCount,
-        workerPlatformWebUrl,
-        spanCollectorUrl,
+        extensionVersion:
+          (context.extension.packageJSON?.version as string) ?? '0.0.0',
+        workerPlatformWebUrl:
+          runtimePlatform === 'web'
+            ? vscode.Uri.joinPath(
+                context.extensionUri,
+                'dist',
+                'worker.platform.web.js',
+              ).toString()
+            : undefined,
+        spanCollectorUrl: getSpanCollectorUrl(),
       },
       resources: {
-        ...safeSettings.apex?.resources,
-        standardApexLibraryPath,
-      },
-      performance: {
-        ...safeSettings.apex?.performance,
-      },
-      commentCollection: {
-        ...safeSettings.apex?.commentCollection,
+        ...settings.apex.resources,
+        standardApexLibraryPath:
+          getStdApexClassesPathFromContext(context)?.toString(),
       },
     },
   };
-
-  return enhancedOptions;
 };
 
-/**
- * Create initialization parameters.
- * @param context - VS Code extension context
- * @param environment - The detected environment (desktop or web)
- * @param serverMode - The server mode (already determined to avoid duplicate logging)
- * @returns LSP initialization parameters
- */
-export const createInitializeParams = async (
-  context: vscode.ExtensionContext,
+export async function createClientState(
+  rawClient: BaseLanguageClient,
   environment: 'desktop' | 'web',
-  serverMode: ServerMode,
-): Promise<InitializeParams> => {
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-
-  // Get mode-appropriate client capabilities
-  const clientCapabilities = getClientCapabilitiesForMode(serverMode);
-
-  // Log the server mode for debugging
-  logToOutputChannel(
-    `🔧 Server mode detected: ${serverMode} (context.extensionMode: ${context.extensionMode})`,
-    'info',
+  registerHandlers: (
+    core: ApexClientCore,
+    workspaceLoadScope: Scope.CloseableScope,
+  ) => void | Promise<void>,
+): Promise<ClientState> {
+  const sdk =
+    environment === 'web'
+      ? await import('@salesforce/apex-lsp-client/browser')
+      : await import('@salesforce/apex-lsp-client');
+  const core = await sdk.ApexClientCore.create(
+    new sdk.LanguageClientConnection(rawClient),
   );
-
-  const extensionVersion =
-    (context.extension.packageJSON?.version as string) ?? '0.0.0';
-  const baseParams = {
-    processId: null, // Web environments don't have process IDs
-    clientInfo: {
-      name: 'Apex Language Server Extension',
-      version: extensionVersion,
-    },
-    locale: vscode.env.language,
-    rootPath:
-      environment === 'web'
-        ? null
-        : (workspaceFolders?.[0]?.uri.fsPath ?? null),
-    rootUri: workspaceFolders?.[0]?.uri.toString() ?? null,
-    capabilities: clientCapabilities, // Use mode-aware capabilities
-    initializationOptions: await createEnhancedInitializationOptions(
-      context,
-      environment,
-      serverMode,
-    ),
-    workspaceFolders:
-      workspaceFolders?.map((folder: vscode.WorkspaceFolder) => ({
-        uri: folder.uri.toString(),
-        name: folder.name,
-      })) ?? null,
-  };
-
-  // Parameters are already built with safe values, return as-is
-  // The initializationOptions are already safely cloned in createEnhancedInitializationOptions
-  return baseParams as InitializeParams;
-};
-
-/**
- * Creates and starts the language client
- */
-export const createAndStartClient = async (
-  context: vscode.ExtensionContext,
-  restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
-): Promise<void> => {
-  logToOutputChannel('createAndStartClient called!', 'info');
-
-  // Check if a client is already running
-  if (Client) {
-    logToOutputChannel('Client already exists, skipping creation', 'warning');
-    return;
-  }
-
+  const workspaceLoadScope = await Effect.runPromise(makeWorkspaceLoadScope);
   try {
-    setStartingFlag(true);
-    updateApexServerStatusStarting();
-
-    const environment = detectEnvironment();
-    logToOutputChannel(
-      `Environment detected: ${environment} mode (UIKind: ${vscode.env.uiKind})`,
-      'info',
-    );
-    logToOutputChannel(
-      `Starting language server in ${environment} mode`,
-      'info',
-    );
-
-    if (environment === 'web') {
-      // Web environment - use worker-based approach
-      logToOutputChannel('Creating WEB language client', 'debug');
-      await createWebLanguageClient(context, environment);
-      logToOutputChannel('WEB language client created successfully', 'debug');
-    } else {
-      // Desktop environment - use Node.js server-based approach with proper server config
-      logToOutputChannel('Creating DESKTOP language client', 'debug');
-      await createDesktopLanguageClient(context, environment);
-      logToOutputChannel(
-        'DESKTOP language client created successfully',
-        'debug',
-      );
-    }
-
-    logToOutputChannel('✅ Client initialized successfully', 'info');
-
-    // Forward LSP telemetry/event notifications as OTEL spans
-    if (LanguageClientInstance) {
-      LanguageClientInstance.onTelemetry((event: unknown) => {
-        emitTelemetrySpan(event as Record<string, unknown>);
-      });
-    }
-
-    // Set up client state monitoring
-    updateApexServerStatusReady();
-    resetServerStartRetries();
-    setStartingFlag(false);
-
-    // Register configuration change listener
-    if (Client) {
-      logToOutputChannel(
-        '⚙️ Registering configuration change listener...',
-        'debug',
-      );
-      registerConfigurationChangeListener(Client, context);
-      sendInitialConfiguration(Client);
-    }
-
-    logToOutputChannel('🎉 Apex Language Server is ready!', 'info');
+    await registerHandlers(core, workspaceLoadScope);
+    await rawClient.start();
+    return { rawClient, core, workspaceLoadScope };
   } catch (error) {
-    logToOutputChannel(
-      `❌ Failed to start language server: ${formattedError(error, {
-        includeStack: true,
-        includeProperties: true,
-        maxStackLines: 30,
-      })}`,
-      'error',
+    return cleanupAfterStartupFailure(
+      { rawClient, core, workspaceLoadScope },
+      error,
     );
-    setStartingFlag(false);
-    updateApexServerStatusError();
-    throw error;
   }
-};
+}
 
-/**
- * Creates a web-based language client using a worker
- */
-async function createWebLanguageClient(
-  context: vscode.ExtensionContext,
-  environment: 'desktop' | 'web',
+export async function disposeClientState(
+  state: ClientState | undefined,
+  clearState: () => void,
 ): Promise<void> {
-  // Determine server mode once to avoid duplicate logging
-  const serverMode = determineServerMode(context);
+  clearState();
+  if (state) {
+    await cleanupClientState(state, true);
+  }
+}
 
-  // Import web-worker package and browser language client dynamically in parallel
-  const [{ default: Worker }, { LanguageClient }] = await Promise.all([
-    import('web-worker'),
-    import('vscode-languageclient/browser'),
-  ]);
+interface ClientStartOperations {
+  readonly registerConfigurationListener: () => vscode.Disposable;
+  readonly initializeApexLib?: () => Promise<readonly vscode.Disposable[]>;
+  readonly sendConfiguration: () => void;
+  readonly loadWorkspace: () => Promise<void>;
+  readonly shouldLoadWorkspace: boolean;
+  readonly markReady?: () => void;
+  readonly resetStartRetries?: () => void;
+}
 
-  logToOutputChannel('🔧 Creating web-based language client...', 'info');
-
-  // Debug extension URI resolution
-  logToOutputChannel(
-    `🔍 Extension URI: ${context.extensionUri.toString()}`,
-    'debug',
-  );
-
-  const workerUri = vscode.Uri.joinPath(
-    context.extensionUri,
-    'dist',
-    'server.web.js',
-  );
-  logToOutputChannel(`🔍 Worker URI: ${workerUri.toString()}`, 'debug');
-
-  // Check if worker file exists/is accessible
+export const completeClientStart = async (
+  state: ClientState,
+  operations: ClientStartOperations,
+): Promise<ClientState> => {
+  let configurationListener: vscode.Disposable | undefined;
+  let apexLibResources: readonly vscode.Disposable[] = [];
   try {
-    logToOutputChannel('🔍 Checking worker file accessibility...', 'debug');
-    const response = await fetch(workerUri.toString());
-    logToOutputChannel(
-      `🔍 Worker file fetch status: ${response.status}`,
-      'debug',
-    );
-    if (!response.ok) {
+    await state.rawClient.setTrace(traceLevel());
+    try {
+      apexLibResources = (await operations.initializeApexLib?.()) ?? [];
+    } catch (error) {
       logToOutputChannel(
-        `❌ Worker file not accessible: ${response.statusText}`,
-        'error',
+        `⚠️ Failed to initialize ApexLib. Standard library navigation may not work: ${formattedError(error)}`,
+        'warning',
       );
     }
+    configurationListener = operations.registerConfigurationListener();
+    operations.sendConfiguration();
+    operations.resetStartRetries?.();
+    if (operations.shouldLoadWorkspace) {
+      await operations.loadWorkspace();
+    } else {
+      operations.markReady?.();
+    }
+    return { ...state, configurationListener, apexLibResources };
   } catch (error) {
-    logToOutputChannel(
-      `❌ Error checking worker file: ${formattedError(error)}`,
-      'error',
+    return cleanupAfterStartupFailure(
+      { ...state, configurationListener, apexLibResources },
+      error,
     );
   }
+};
 
-  // Create worker
-  logToOutputChannel('⚡ Creating web worker...', 'info');
-
-  const worker = new Worker(workerUri.toString(), {
-    type: 'classic',
-  });
-
-  // Add worker error handling for debugging
-  worker.onerror = (error) => {
-    logToOutputChannel(`❌ Worker error: ${error.message}`, 'error');
-    logToOutputChannel(
-      `❌ Worker error details: ${error.message} (${error.filename}:${error.lineno}:${error.colno})`,
-      'debug',
-    );
-  };
-
-  worker.onmessageerror = (error) => {
-    logToOutputChannel(`❌ Worker message error: ${error}`, 'error');
-  };
-
-  // Remove custom message handling - let LSP handle all communication
-  logToOutputChannel('✅ Web worker created successfully', 'info');
-
-  // Create VS Code Language Client for web extension with enhanced configuration
-  logToOutputChannel('🔗 Creating Language Client for web...', 'info');
-
-  // Create initialization options with debugging
-  const initOptions = await createEnhancedInitializationOptions(
-    context,
-    environment,
-    serverMode,
+const runWorkspaceLoad = async (
+  core: ApexClientCore,
+  scope: Scope.CloseableScope,
+  params?: RequestWorkspaceLoadParams,
+): Promise<void> => {
+  await Effect.runPromise(
+    Effect.provide(
+      startWorkspaceLoad(
+        core,
+        params?.workDoneToken,
+        undefined,
+        params?.reason,
+        scope,
+      ),
+      sharedWorkspaceLoadLayer,
+    ),
   );
-  logToOutputChannel('Initialization options created', 'debug');
+};
 
-  let languageClient: any;
-  try {
-    // Get document selectors from settings (using 'all' capability to get all schemes)
-    const documentSelector = createWebDocumentSelector(initOptions);
-
-    languageClient = new LanguageClient(
-      'apex-language-server',
-      'Apex Language Server Extension (Worker/Server)',
-      {
-        documentSelector,
-        synchronize: {
-          configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
-        },
-        initializationOptions: initOptions,
-        // Use our consolidated worker/server output channel to prevent LanguageClient
-        // from creating its own default output channel (which causes duplicate tabs).
-        // Wrapped to swallow "Channel has been closed" errors during shutdown.
-        outputChannel: (() => {
-          const ch = getWorkerServerOutputChannel();
-          return ch ? createSafeOutputChannel(ch) : undefined;
-        })(),
-      },
-      worker,
-    );
-    logToOutputChannel('Language Client created successfully', 'debug');
-
-    // Wrap LanguageClient's sendRequest to intercept hover requests
-    const originalSendRequest = languageClient.sendRequest.bind(languageClient);
-    (languageClient as any).sendRequest = async (
-      method: string,
-      ...args: any[]
-    ) => {
-      const isHoverRequest = method === 'textDocument/hover';
-      const requestStartTime = Date.now();
-
-      if (isHoverRequest && args[0]) {
-        const params = args[0];
-        const uri = params.textDocument?.uri || 'unknown';
-        const line = params.position?.line ?? '?';
-        const character = params.position?.character ?? '?';
-        logToOutputChannel(
-          `🔍 [CLIENT] Hover request initiated: ${uri} at ${line}:${character} [time: ${requestStartTime}]`,
-          'debug',
-        );
-      }
-
-      try {
-        const sendStartTime = Date.now();
-        const result = await originalSendRequest(method, ...args);
-        const sendTime = Date.now() - sendStartTime;
-        const totalTime = Date.now() - requestStartTime;
-
-        if (isHoverRequest) {
-          const params = args[0];
-          const uri = params?.textDocument?.uri || 'unknown';
-          logToOutputChannel(
-            `✅ [CLIENT] Hover request completed: ${uri} ` +
-              `total=${totalTime}ms, send=${sendTime}ms, ` +
-              `result=${result ? 'success' : 'null'}`,
-            'debug',
-          );
-        }
-
-        return result;
-      } catch (error) {
-        const totalTime = Date.now() - requestStartTime;
-
-        if (isHoverRequest) {
-          const params = args[0];
-          const uri = params?.textDocument?.uri || 'unknown';
-          logToOutputChannel(
-            `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${formattedError(error)}`,
-            'error',
-          );
-        }
-
-        throw error;
-      }
-    };
-
-    // Workspace state is now managed via Effect Context/Layer
-  } catch (error) {
+const registerCoreHandlers = async (
+  core: ApexClientCore,
+  workspaceLoadScope: Scope.CloseableScope,
+  context: vscode.ExtensionContext,
+): Promise<void> => {
+  core.onFindMissingArtifact(async (params: FindMissingArtifactParams) => {
+    const identifiers = params.identifiers
+      .map((identifier) => identifier.name)
+      .join(', ');
     logToOutputChannel(
-      `Failed to create Language Client: ${formattedError(error, {
-        includeStack: true,
-        includeProperties: true,
-        maxStackLines: 30,
-      })}`,
-      'error',
+      `📨 Received apex/findMissingArtifact request for: ${identifiers}`,
+      'debug',
     );
     try {
+      const result = await handleFindMissingArtifact(params, context);
       logToOutputChannel(
-        `Init options: ${JSON.stringify(initOptions, null, 2)}`,
+        'notFound' in result
+          ? `❌ Could not resolve missing artifact: ${identifiers}`
+          : `✅ Resolved missing artifact: ${identifiers}`,
+        'debug',
+      );
+      return result;
+    } catch (error) {
+      logToOutputChannel(
+        `❌ Failed to resolve missing artifact ${identifiers}: ${formattedError(error)}`,
         'error',
       );
-    } catch (_jsonError) {
+      return { notFound: true };
+    }
+  });
+  core.onRequestWorkspaceLoad((params) => {
+    if (params.reason && WORKSPACE_LOAD_REASON_MESSAGE[params.reason]) {
+      updateApexServerStatusLoading(
+        WORKSPACE_LOAD_REASON_MESSAGE[params.reason],
+      );
+    }
+    runWorkspaceLoad(core, workspaceLoadScope, params).catch((error) => {
       logToOutputChannel(
-        'Init options: [unable to serialize init options]',
+        `❌ Failed to handle workspace load notification: ${formattedError(error)}`,
         'error',
       );
+    });
+  });
+  core.onWorkspaceIngestionComplete(() => {
+    clearIngestionTimeout();
+    updateApexServerStatusReady();
+  });
+};
+
+export const initializeApexLib = async (
+  core: ApexClientCore,
+  context: vscode.ExtensionContext,
+): Promise<readonly vscode.Disposable[]> => {
+  const { createApexLibManager } =
+    await import('@salesforce/apex-lsp-compliant-services');
+  const { VSCodeEditorContextAdapter, VSCodeLanguageClientAdapter } =
+    await import('./apexlib/vscode-adapters');
+  const editorContext = new VSCodeEditorContextAdapter(context);
+  try {
+    await createApexLibManager(
+      new VSCodeLanguageClientAdapter(core),
+      'apex',
+      'apexlib',
+      'cls',
+    ).initialize(editorContext);
+    return editorContext.disposables;
+  } catch (error) {
+    for (const [index, resource] of editorContext.disposables.entries()) {
+      try {
+        resource.dispose();
+      } catch (cleanupError) {
+        logToOutputChannel(
+          `⚠️ Failed to dispose ApexLib resource ${index + 1} ` +
+            `after initialization failure: ${formattedError(cleanupError)}`,
+          'warning',
+        );
+      }
     }
     throw error;
   }
+};
 
-  // Server formats log messages with timestamps and log levels before sending
-  // The built-in window/logMessage handler writes them to the outputChannel as-is
-  // No custom notification handler needed
+const traceLevel = (): Trace => {
+  const trace = getTraceServerConfig();
+  return trace === 'verbose'
+    ? Trace.Verbose
+    : trace === 'messages'
+      ? Trace.Messages
+      : Trace.Off;
+};
 
-  // Set up configuration change handler to manually trigger updates
-  languageClient.onNotification(
-    'workspace/didChangeConfiguration',
-    (params: any) => {
-      // Only log the settings part to avoid serialization issues
-      if (params?.settings) {
-        logToOutputChannel(
-          `📋 Configuration change notification received: ${JSON.stringify(params.settings, null, 2)}`,
-          'debug',
-        );
-      } else {
-        logToOutputChannel(
-          '📋 Configuration change notification received (no settings)',
-          'debug',
-        );
-      }
-    },
-  );
-
-  // Note: Removed $/logMessage handler - all contexts now use standard window/logMessage
-
-  // Add more notification handlers for debugging
-  languageClient.onNotification('$/logTrace', (params: any) => {
-    logToOutputChannel(
-      `📨 Received $/logTrace: ${params.message || 'No trace message'}`,
-      'debug',
-    );
+const observeRawClient = (rawClient: BaseLanguageClient): void => {
+  rawClient.onTelemetry((event: unknown) => {
+    emitTelemetrySpan(event as Record<string, unknown>);
   });
-
-  // Handle connection state changes
-  languageClient.onDidChangeState((event: any) => {
+  rawClient.onDidChangeState((event) => {
     logToOutputChannel(
       `🔄 Language client state changed: ${event.oldState} -> ${event.newState}`,
       'info',
     );
   });
+};
 
-  // Store raw LanguageClient instance for extension API
-  LanguageClientInstance = languageClient;
-
-  // Store client for disposal with ClientInterface wrapper
-  logToOutputChannel('Setting global Client to web client', 'debug');
-  Client = {
-    languageClient,
-    initialize: async (params: InitializeParams) => {
-      logToOutputChannel('🚀 Starting language client...', 'info');
-      try {
-        await languageClient.start();
-        logToOutputChannel('✅ Language client started successfully', 'info');
-
-        // Set trace level based on configuration
-        const traceConfig = getTraceServerConfig();
-        const traceLevel =
-          traceConfig === 'verbose'
-            ? Trace.Verbose
-            : traceConfig === 'messages'
-              ? Trace.Messages
-              : Trace.Off;
-        await languageClient.setTrace(traceLevel);
-        logToOutputChannel(`🔍 Trace level set to: ${traceConfig}`, 'debug');
-
-        // If configured, trigger workspace load on startup via service (web)
-        try {
-          const settings = getWorkspaceSettings();
-          logToOutputChannel(
-            `Workspace load settings (web): ${JSON.stringify(settings?.apex?.loadWorkspace)}`,
-            'debug',
-          );
-          if (settings?.apex?.loadWorkspace?.enabled && Client) {
-            logToOutputChannel(
-              '🚀 Triggering workspace load on startup (web)...',
-              'info',
-            );
-            await Effect.runPromise(
-              Effect.provide(
-                startWorkspaceLoad(Client),
-                sharedWorkspaceLoadLayer,
-              ),
-            );
-            logToOutputChannel(
-              '✅ Workspace load on startup completed (web)',
-              'info',
-            );
-          } else {
-            logToOutputChannel(
-              '⚠️ Workspace load on startup skipped (web) (disabled or no client)',
-              'debug',
-            );
-          }
-        } catch (err) {
-          logToOutputChannel(
-            `⚠️ Workspace load on startup failed or skipped (web): ${String(
-              err,
-            )}`,
-            'warning',
-          );
-        }
-        return { capabilities: {} }; // Return basic capabilities
-      } catch (error) {
-        logToOutputChannel(
-          `❌ Failed to start language client: ${formattedError(error, {
-            includeStack: true,
-            includeProperties: true,
-            maxStackLines: 30,
-          })}`,
-          'error',
-        );
-        throw error;
-      }
-    },
-    sendRequest: async (method: string, params?: any) => {
-      const isHoverRequest = method === 'textDocument/hover';
-      const requestStartTime = Date.now();
-
-      if (isHoverRequest && params) {
-        const uri = params.textDocument?.uri || 'unknown';
-        const line = params.position?.line ?? '?';
-        const character = params.position?.character ?? '?';
-        logToOutputChannel(
-          `🔍 [CLIENT] Hover request initiated: ${uri} at ${line}:${character} [time: ${requestStartTime}]`,
-          'debug',
-        );
-      } else {
-        logToOutputChannel(`Sending request: ${method}`, 'debug');
-      }
-
-      try {
-        const sendStartTime = Date.now();
-        const result = await languageClient.sendRequest(method, params);
-        const sendTime = Date.now() - sendStartTime;
-        const totalTime = Date.now() - requestStartTime;
-
-        if (isHoverRequest) {
-          const uri = params?.textDocument?.uri || 'unknown';
-          logToOutputChannel(
-            `✅ [CLIENT] Hover request completed: ${uri} ` +
-              `total=${totalTime}ms, send=${sendTime}ms, ` +
-              `result=${result ? 'success' : 'null'}`,
-            'debug',
-          );
-        } else {
-          logToOutputChannel(`Successfully sent request: ${method}`, 'debug');
-        }
-
-        return result;
-      } catch (error) {
-        const totalTime = Date.now() - requestStartTime;
-
-        if (isHoverRequest) {
-          const uri = params?.textDocument?.uri || 'unknown';
-          logToOutputChannel(
-            `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${formattedError(error)}`,
-            'error',
-          );
-        } else {
-          logToOutputChannel(
-            `Failed to send request ${method}: ${formattedError(error)}`,
-            'error',
-          );
-        }
-
-        try {
-          logToOutputChannel(
-            `Request params: ${JSON.stringify(params, null, 2)}`,
-            'error',
-          );
-        } catch (_jsonError) {
-          logToOutputChannel('Failed to stringify request params', 'error');
-        }
-        throw error;
-      }
-    },
-    sendNotification: (method: string, params?: any) => {
-      try {
-        const isDidOpen = method === 'textDocument/didOpen';
-
-        if (isDidOpen && params) {
-          const uri = params.textDocument?.uri || 'unknown';
-          const version = params.textDocument?.version ?? '?';
-          const languageId = params.textDocument?.languageId || 'unknown';
-          logToOutputChannel(
-            `📤 [CLIENT] Sending textDocument/didOpen: ${uri} (version: ${version}, language: ${languageId})`,
-            'debug',
-          );
-        } else {
-          logToOutputChannel(`Sending notification: ${method}`, 'debug');
-        }
-
-        languageClient.sendNotification(method, params);
-
-        if (isDidOpen) {
-          const uri = params?.textDocument?.uri || 'unknown';
-          logToOutputChannel(
-            `✅ [CLIENT] Successfully sent textDocument/didOpen: ${uri}`,
-            'debug',
-          );
-        } else {
-          logToOutputChannel(
-            `Successfully sent notification: ${method}`,
-            'debug',
-          );
-        }
-      } catch (error) {
-        const uri = params?.textDocument?.uri || 'unknown';
-        logToOutputChannel(
-          `❌ [CLIENT] Failed to send textDocument/didOpen: ${uri} - ${formattedError(error)}`,
-          'error',
-        );
-        try {
-          logToOutputChannel(
-            `Notification params: ${JSON.stringify(params, null, 2)}`,
-            'error',
-          );
-        } catch (_jsonError) {
-          logToOutputChannel(
-            'Failed to stringify notification params',
-            'error',
-          );
-        }
-        throw error;
-      }
-    },
-    onRequest: (method: string, handler: (params: any) => any) => {
-      languageClient.onRequest(method, handler);
-    },
-    onNotification: (
-      method: string,
-      handler: (params: any) => void,
-    ): vscode.Disposable => {
-      logToOutputChannel(
-        `[Client] Registering notification handler for: ${method}`,
-        'debug',
-      );
-      const disposable = languageClient.onNotification(
-        method,
-        (params: any) => {
-          logToOutputChannel(
-            `[Client] Notification received: ${method}`,
-            'debug',
-          );
-          handler(params);
-        },
-      );
-      return disposable;
-    },
-    isDisposed: () => !languageClient.isRunning(),
-    dispose: () => languageClient.stop(),
-  } as ClientInterface;
-
-  // Initialize ApexLib for standard library support
-  try {
-    const { createApexLibManager } =
-      await import('@salesforce/apex-lsp-compliant-services');
-    const { VSCodeLanguageClientAdapter, VSCodeEditorContextAdapter } =
-      await import('./apexlib/vscode-adapters');
-
-    // Create adapters
-    const languageClientAdapter = new VSCodeLanguageClientAdapter(Client);
-    const editorContextAdapter = new VSCodeEditorContextAdapter(context);
-
-    // Create and initialize ApexLib manager
-    const apexLibManager = createApexLibManager(
-      languageClientAdapter,
-      'apex', // languageId
-      'apexlib', // customScheme for standard library URIs
-      'cls', // fileExtension
-    );
-
-    // Register protocol handler with VS Code
-    await apexLibManager.initialize(editorContextAdapter);
-    logToOutputChannel(
-      '✅ ApexLib protocol handler registered for standard library support',
-      'info',
-    );
-  } catch (error) {
-    logToOutputChannel(
-      '⚠️ Failed to initialize ApexLib: ' +
-        `${error instanceof Error ? error.stack : error}.` +
-        ' Standard library navigation may not work.',
-      'warning',
-    );
-  }
-
-  // Register handler for server-to-client apex/findMissingArtifact requests
-  Client.onRequest('apex/findMissingArtifact', async (params: any) => {
-    const identifiers = Array.isArray(params.identifiers)
-      ? (params.identifiers as Array<{ name?: unknown }>)
-          .map((identifier) => String(identifier.name ?? '<unnamed>'))
-          .join(', ')
-      : '<none>';
-    logToOutputChannel(
-      `📨 Received apex/findMissingArtifact request for: ${identifiers}`,
-      'debug',
-    );
-
-    try {
-      const result = await handleFindMissingArtifact(params, context);
-      logToOutputChannel(
-        'notFound' in result
-          ? `❌ Could not resolve missing artifact: ${identifiers}`
-          : `✅ Resolved missing artifact: ${identifiers}`,
-        'debug',
-      );
-      return result;
-    } catch (error) {
-      logToOutputChannel(
-        `❌ Failed to resolve missing artifact ${identifiers}: ${formattedError(error)}`,
-        'error',
-      );
-      return { notFound: true };
-    }
-  });
-
-  // Register handler for server-to-client apex/requestWorkspaceLoad notification
-  Client.onNotification(
-    'apex/requestWorkspaceLoad',
-    async (params: RequestWorkspaceLoadParams) => {
-      logToOutputChannel(
-        '📨 Received apex/requestWorkspaceLoad notification from server',
-        'debug',
-      );
-
-      // Show an action-tailored busy status the moment the load is requested,
-      // so a feature that triggered a cold load (e.g. go-to-implementation)
-      // tells the user what is happening right now. The generic per-phase load
-      // messages (Scanning…/Sending batches…) follow; this just sets the
-      // initial context. Reverts to ready on apex/workspaceIngestionComplete.
-      if (params.reason && WORKSPACE_LOAD_REASON_MESSAGE[params.reason]) {
-        updateApexServerStatusLoading(
-          WORKSPACE_LOAD_REASON_MESSAGE[params.reason],
-        );
-      }
-
-      try {
-        await Effect.runPromise(
-          Effect.provide(
-            startWorkspaceLoad(Client!, params.workDoneToken),
-            sharedWorkspaceLoadLayer,
-          ),
-        );
-        logToOutputChannel(
-          '✅ Workspace load initiated from server notification',
-          'debug',
-        );
-      } catch (error) {
-        logToOutputChannel(
-          `❌ Failed to handle workspace load notification: ${formattedError(error)}`,
-          'error',
-        );
-      }
-    },
-  );
-
-  registerIngestionCompleteHandler(Client);
-
-  // Initialize the language server
-  logToOutputChannel('🔧 Creating initialization parameters...', 'debug');
-
-  let initParams: InitializeParams;
-  try {
-    initParams = await createInitializeParams(context, environment, serverMode);
-    logToOutputChannel(
-      'Initialization parameters created successfully',
-      'debug',
-    );
-  } catch (error) {
-    logToOutputChannel(
-      `Failed to create initialization parameters: ${formattedError(error, {
-        includeStack: true,
-        includeProperties: true,
-        maxStackLines: 30,
-      })}`,
-      'error',
-    );
-    throw error;
-  }
-
-  // Initialize params are already serializable (plain objects with primitive values)
-
-  logToOutputChannel('🚀 Initializing web client...', 'info');
-  try {
-    await Client.initialize(initParams);
-    logToOutputChannel('Web client initialized successfully', 'debug');
-  } catch (error) {
-    logToOutputChannel(
-      `Failed to initialize web client: ${formattedError(error, {
-        includeStack: true,
-        includeProperties: true,
-        maxStackLines: 30,
-      })}`,
-      'error',
-    );
-    logToOutputChannel(
-      `Init params: ${JSON.stringify(initParams, null, 2)}`,
-      'error',
-    );
-    throw error;
-  }
-}
-
-/**
- * Creates a desktop-based language client using Node.js server
- * For desktop environments, we use the native Node.js server without polyfills
- */
-async function createDesktopLanguageClient(
-  context: vscode.ExtensionContext,
-  environment: 'desktop' | 'web',
-): Promise<void> {
-  // Determine server mode once to avoid duplicate logging
-  const serverMode = determineServerMode(context);
-
+export const logDesktopServerStartStatus = (
+  rawClient: Pick<BaseLanguageClient, 'isRunning'>,
+): void => {
   logToOutputChannel(
-    '🖥️ Creating desktop language client with Node.js server...',
-    'info',
-  );
-
-  // Import server configuration and language client in parallel
-  const serverConfig = await import('./server-config');
-  const clientModule = await import('vscode-languageclient/lib/node/main');
-
-  const { createServerOptions, createClientOptions } = serverConfig;
-  const { LanguageClient } = clientModule;
-
-  // Create server and client options
-  const serverOptions = createServerOptions(context, serverMode);
-  const clientOptions = createClientOptions(
-    await createEnhancedInitializationOptions(context, environment, serverMode),
-  );
-
-  logToOutputChannel(
-    '⚙️ Using Node.js server (no polyfills needed)...',
+    `🟢 Node language server start completed (client running: ${rawClient.isRunning()})`,
     'debug',
   );
+};
 
-  // Create the language client using Node.js server
-  const nodeClient = new LanguageClient(
+const startConfiguredClient = async (
+  rawClient: BaseLanguageClient,
+  environment: 'desktop' | 'web',
+  context: vscode.ExtensionContext,
+): Promise<ClientState> => {
+  const state = await createClientState(
+    rawClient,
+    environment,
+    (core, workspaceLoadScope) =>
+      registerCoreHandlers(core, workspaceLoadScope, context),
+  );
+  observeRawClient(rawClient);
+  return state;
+};
+
+export const createWebClientOptions = (
+  initializationOptions: ApexLanguageServerSettings,
+): LanguageClientOptions => ({
+  documentSelector: createWebDocumentSelector(initializationOptions),
+  synchronize: {
+    configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
+  },
+  middleware: createHoverMiddleware(),
+  initializationOptions,
+  outputChannel: (() => {
+    const channel = getWorkerServerOutputChannel();
+    return channel ? createSafeOutputChannel(channel) : undefined;
+  })(),
+});
+
+const createWebLanguageClient = async (
+  context: vscode.ExtensionContext,
+): Promise<ClientState> => {
+  const [{ default: Worker }, { LanguageClient }] = await Promise.all([
+    import('web-worker'),
+    import('vscode-languageclient/browser'),
+  ]);
+  const initializationOptions = await createEnhancedInitializationOptions(
+    context,
+    'web',
+    determineServerMode(context),
+  );
+  const options = createWebClientOptions(initializationOptions);
+  const workerUri = vscode.Uri.joinPath(
+    context.extensionUri,
+    'dist',
+    'server.web.js',
+  );
+  const rawClient = new LanguageClient(
+    'apex-language-server',
+    'Apex Language Server Extension (Worker/Server)',
+    options,
+    new Worker(workerUri.toString(), { type: 'classic' }),
+  );
+  return startConfiguredClient(rawClient, 'web', context);
+};
+
+const createDesktopLanguageClient = async (
+  context: vscode.ExtensionContext,
+): Promise<ClientState> => {
+  const [serverConfig, { LanguageClient }] = await Promise.all([
+    import('./server-config'),
+    import('vscode-languageclient/lib/node/main'),
+  ]);
+  const serverMode = determineServerMode(context);
+  const rawClient = new LanguageClient(
     'apexLanguageServer',
     'Apex Language Server Extension (Node.js)',
-    serverOptions,
-    clientOptions,
+    serverConfig.createServerOptions(context, serverMode),
+    serverConfig.createClientOptions(
+      await createEnhancedInitializationOptions(context, 'desktop', serverMode),
+    ),
   );
+  const state = await startConfiguredClient(rawClient, 'desktop', context);
+  logDesktopServerStartStatus(rawClient);
+  return state;
+};
 
-  // Workspace state is now managed via Effect Context/Layer
-
-  logToOutputChannel('🚀 Starting Node.js language client...', 'info');
-
-  // Wrap LanguageClient's sendRequest to intercept hover requests
-  const originalSendRequest = nodeClient.sendRequest.bind(nodeClient);
-  (nodeClient as any).sendRequest = async (method: string, ...args: any[]) => {
-    const methodName =
-      typeof method === 'string'
-        ? method
-        : ((method as MessageSignature).method ?? String(method));
-    const isHoverRequest = methodName === 'textDocument/hover';
-    const requestStartTime = Date.now();
-
-    if (isHoverRequest && args[0]) {
-      const params = args[0];
-      const uri = params.textDocument?.uri || 'unknown';
-      const line = params.position?.line ?? '?';
-      const character = params.position?.character ?? '?';
-      logToOutputChannel(
-        `🔍 [CLIENT] Hover request initiated: ${uri} at ${line}:${character} [time: ${requestStartTime}]`,
-        'debug',
-      );
-    }
-
-    try {
-      const sendStartTime = Date.now();
-      const result = await originalSendRequest(method, ...args);
-      const sendTime = Date.now() - sendStartTime;
-      const totalTime = Date.now() - requestStartTime;
-
-      if (isHoverRequest) {
-        const params = args[0];
-        const uri = params?.textDocument?.uri || 'unknown';
-        logToOutputChannel(
-          `✅ [CLIENT] Hover request completed: ${uri} ` +
-            `total=${totalTime}ms, send=${sendTime}ms, ` +
-            `result=${result ? 'success' : 'null'}`,
-          'debug',
-        );
-      }
-
-      return result;
-    } catch (error) {
-      const totalTime = Date.now() - requestStartTime;
-
-      if (isHoverRequest) {
-        const params = args[0];
-        const uri = params?.textDocument?.uri || 'unknown';
-        logToOutputChannel(
-          `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${formattedError(error)}`,
-          'error',
-        );
-      }
-
-      throw error;
-    }
-  };
-
-  // Start the client and language server
-  await nodeClient.start();
-
-  const rawServerProcess = (nodeClient as any)?._serverProcess as
-    | {
-        on: (
-          event: 'spawn' | 'error' | 'exit' | 'close' | 'disconnect',
-          listener: (...args: any[]) => void,
-        ) => void;
-      }
-    | undefined;
-  if (rawServerProcess) {
-    rawServerProcess.on('spawn', () => {
-      logToOutputChannel('🟢 Node server process spawned', 'debug');
-    });
-    rawServerProcess.on('error', (error: unknown) => {
-      logToOutputChannel(
-        `🔴 Node server process error: ${formattedError(error, {
-          includeStack: true,
-          includeProperties: true,
-          maxStackLines: 30,
-        })}`,
-        'error',
-      );
-    });
-    rawServerProcess.on(
-      'exit',
-      (code: number | null, signal: string | null) => {
-        logToOutputChannel(
-          `🟠 Node server process exited (code=${code}, signal=${signal})`,
-          'warning',
-        );
-      },
-    );
-    rawServerProcess.on(
-      'close',
-      (code: number | null, signal: string | null) => {
-        logToOutputChannel(
-          `🟠 Node server process closed (code=${code}, signal=${signal})`,
-          'warning',
-        );
-      },
-    );
-    rawServerProcess.on('disconnect', () => {
-      logToOutputChannel('⚪ Node server process disconnected', 'debug');
-    });
-  } else {
-    logToOutputChannel('No raw node server process available', 'debug');
-  }
-
-  nodeClient.onDidChangeState((event: any) => {
-    logToOutputChannel(
-      `🔄 Node language client state changed: ${event.oldState} -> ${event.newState}`,
-      'info',
-    );
-  });
-
-  // Set trace level based on configuration
-  const traceConfig = getTraceServerConfig();
-  const traceLevel =
-    traceConfig === 'verbose'
-      ? Trace.Verbose
-      : traceConfig === 'messages'
-        ? Trace.Messages
-        : Trace.Off;
-  await nodeClient.setTrace(traceLevel);
-  logToOutputChannel(`🔍 Trace level set to: ${traceConfig}`, 'debug');
-
-  // Store raw LanguageClient instance for extension API
-  LanguageClientInstance = nodeClient;
-
-  // Wrap in ClientInterface to match our global Client type
-  logToOutputChannel('Setting global Client to desktop client', 'debug');
-  Client = {
-    languageClient: nodeClient,
-    initialize: async (params: InitializeParams) => {
-      // Node.js client handles initialization automatically during start()
-      logToOutputChannel('📋 Node.js client initialization completed', 'debug');
-      return { capabilities: {} }; // Return proper InitializeResult
-    },
-    sendNotification: (method: string, params?: any) => {
-      try {
-        const isDidOpen = method === 'textDocument/didOpen';
-
-        if (isDidOpen && params) {
-          const uri = params.textDocument?.uri || 'unknown';
-          const version = params.textDocument?.version ?? '?';
-          const languageId = params.textDocument?.languageId || 'unknown';
-          logToOutputChannel(
-            `📤 [CLIENT] Sending textDocument/didOpen: ${uri} (version: ${version}, language: ${languageId})`,
-            'debug',
-          );
-        } else {
-          logToOutputChannel(
-            `Sending desktop notification: ${method}`,
-            'debug',
-          );
-        }
-
-        nodeClient.sendNotification(method, params);
-
-        if (isDidOpen) {
-          const uri = params?.textDocument?.uri || 'unknown';
-          logToOutputChannel(
-            `✅ [CLIENT] Successfully sent textDocument/didOpen: ${uri}`,
-            'debug',
-          );
-        } else {
-          logToOutputChannel(
-            `Successfully sent desktop notification: ${method}`,
-            'debug',
-          );
-        }
-      } catch (error) {
-        const uri = params?.textDocument?.uri || 'unknown';
-        logToOutputChannel(
-          `❌ [CLIENT] Failed to send textDocument/didOpen: ${uri} - ${formattedError(error)}`,
-          'error',
-        );
-        try {
-          logToOutputChannel(
-            `Desktop notification params: ${JSON.stringify(params, null, 2)}`,
-            'error',
-          );
-        } catch (_jsonError) {
-          logToOutputChannel(
-            'Failed to stringify desktop notification params',
-            'error',
-          );
-        }
-        throw error;
-      }
-    },
-    sendRequest: async (method: string, params?: any) => {
-      const isHoverRequest = method === 'textDocument/hover';
-      const requestStartTime = Date.now();
-
-      if (isHoverRequest && params) {
-        const uri = params.textDocument?.uri || 'unknown';
-        const line = params.position?.line ?? '?';
-        const character = params.position?.character ?? '?';
-        logToOutputChannel(
-          `🔍 [CLIENT] Hover request initiated: ${uri} at ${line}:${character} [time: ${requestStartTime}]`,
-          'debug',
-        );
-      } else {
-        logToOutputChannel(`Sending desktop request: ${method}`, 'debug');
-      }
-
-      try {
-        const sendStartTime = Date.now();
-        const result = await nodeClient.sendRequest(method, params);
-        const sendTime = Date.now() - sendStartTime;
-        const totalTime = Date.now() - requestStartTime;
-
-        if (isHoverRequest) {
-          const uri = params?.textDocument?.uri || 'unknown';
-          logToOutputChannel(
-            `✅ [CLIENT] Hover request completed: ${uri} ` +
-              `total=${totalTime}ms, send=${sendTime}ms, ` +
-              `result=${result ? 'success' : 'null'}`,
-            'debug',
-          );
-        } else {
-          logToOutputChannel(
-            `Successfully sent desktop request: ${method}`,
-            'debug',
-          );
-        }
-
-        return result;
-      } catch (error) {
-        const totalTime = Date.now() - requestStartTime;
-
-        if (isHoverRequest) {
-          const uri = params?.textDocument?.uri || 'unknown';
-          logToOutputChannel(
-            `❌ [CLIENT] Hover request failed after ${totalTime}ms: ${uri} - ${formattedError(error)}`,
-            'error',
-          );
-        } else {
-          logToOutputChannel(
-            `Failed to send desktop request ${method}: ${formattedError(error)}`,
-            'error',
-          );
-        }
-
-        try {
-          logToOutputChannel(
-            `Desktop request params: ${JSON.stringify(params, null, 2)}`,
-            'error',
-          );
-        } catch (_jsonError) {
-          logToOutputChannel(
-            'Failed to stringify desktop request params',
-            'error',
-          );
-        }
-        throw error;
-      }
-    },
-    onNotification: (method: string, handler: (...args: any[]) => void) => {
-      logToOutputChannel(
-        `[Client] Registering notification handler for: ${method}`,
-        'debug',
-      );
-      const disposable = nodeClient.onNotification(method, (...args: any[]) => {
-        logToOutputChannel(
-          `[Client] Notification received: ${method}`,
-          'debug',
-        );
-        handler(...args);
-      });
-      return disposable;
-    },
-    onRequest: (method: string, handler: (...args: any[]) => any) =>
-      nodeClient.onRequest(method, handler),
-    isDisposed: () => !nodeClient.isRunning(),
-    dispose: () => nodeClient.stop(),
-  } as ClientInterface;
-
-  // Initialize ApexLib for standard library support
-  try {
-    const { createApexLibManager } =
-      await import('@salesforce/apex-lsp-compliant-services');
-    const { VSCodeLanguageClientAdapter, VSCodeEditorContextAdapter } =
-      await import('./apexlib/vscode-adapters');
-
-    // Create adapters
-    const languageClientAdapter = new VSCodeLanguageClientAdapter(Client);
-    const editorContextAdapter = new VSCodeEditorContextAdapter(context);
-
-    // Create and initialize ApexLib manager
-    const apexLibManager = createApexLibManager(
-      languageClientAdapter,
-      'apex', // languageId
-      'apexlib', // customScheme for standard library URIs
-      'cls', // fileExtension
-    );
-
-    // Register protocol handler with VS Code
-    await apexLibManager.initialize(editorContextAdapter);
-    logToOutputChannel(
-      '✅ ApexLib protocol handler registered for standard library support',
-      'info',
-    );
-  } catch (error) {
-    logToOutputChannel(
-      '⚠️ Failed to initialize ApexLib: ' +
-        `${error instanceof Error ? error.stack : error}.` +
-        ' Standard library navigation may not work.',
-      'warning',
-    );
-  }
-
-  // Register handler for server-to-client apex/findMissingArtifact requests
-  Client.onRequest('apex/findMissingArtifact', async (params: any) => {
-    const identifiers = Array.isArray(params.identifiers)
-      ? (params.identifiers as Array<{ name?: unknown }>)
-          .map((identifier) => String(identifier.name ?? '<unnamed>'))
-          .join(', ')
-      : '<none>';
-    logToOutputChannel(
-      `📨 Received apex/findMissingArtifact request for: ${identifiers}`,
-      'debug',
-    );
-
-    try {
-      const result = await handleFindMissingArtifact(params, context);
-      logToOutputChannel(
-        'notFound' in result
-          ? `❌ Could not resolve missing artifact: ${identifiers}`
-          : `✅ Resolved missing artifact: ${identifiers}`,
-        'debug',
-      );
-      return result;
-    } catch (error) {
-      logToOutputChannel(
-        `❌ Failed to resolve missing artifact ${identifiers}: ${formattedError(error)}`,
-        'error',
-      );
-      return { notFound: true };
-    }
-  });
-
-  // Register handler for server-to-client apex/requestWorkspaceLoad notification
-  Client.onNotification(
-    'apex/requestWorkspaceLoad',
-    async (params: RequestWorkspaceLoadParams) => {
-      logToOutputChannel(
-        '📨 Received apex/requestWorkspaceLoad notification from server',
-        'debug',
-      );
-
-      // Show an action-tailored busy status the moment the load is requested,
-      // so a feature that triggered a cold load (e.g. go-to-implementation)
-      // tells the user what is happening right now. The generic per-phase load
-      // messages (Scanning…/Sending batches…) follow; this just sets the
-      // initial context. Reverts to ready on apex/workspaceIngestionComplete.
-      if (params.reason && WORKSPACE_LOAD_REASON_MESSAGE[params.reason]) {
-        updateApexServerStatusLoading(
-          WORKSPACE_LOAD_REASON_MESSAGE[params.reason],
-        );
-      }
-
-      try {
-        await Effect.runPromise(
-          Effect.provide(
-            startWorkspaceLoad(Client!, params.workDoneToken),
-            sharedWorkspaceLoadLayer,
-          ),
-        );
-        logToOutputChannel(
-          '✅ Workspace load initiated from server notification',
-          'debug',
-        );
-      } catch (error) {
-        logToOutputChannel(
-          `❌ Failed to handle workspace load notification: ${formattedError(error)}`,
-          'error',
-        );
-      }
-    },
-  );
-
-  registerIngestionCompleteHandler(Client);
-
-  logToOutputChannel('✅ Node.js language client started successfully', 'info');
-
-  // Server registers all protocol handlers (including apex/sendWorkspaceBatch) in
-  // handleInitialize() before returning capabilities, so handlers are ready as soon
-  // as the client starts. No need to wait for a separate notification.
-
-  // If configured, trigger workspace load on startup via service
-  try {
-    const settings = getWorkspaceSettings();
-    logToOutputChannel(
-      `Workspace load settings: ${JSON.stringify(settings?.apex?.loadWorkspace)}`,
-      'debug',
-    );
-    if (settings?.apex?.loadWorkspace?.enabled && Client) {
-      logToOutputChannel('🚀 Triggering workspace load on startup...', 'info');
-      await Effect.runPromise(
-        Effect.provide(startWorkspaceLoad(Client), sharedWorkspaceLoadLayer),
-      );
-      logToOutputChannel('✅ Workspace load on startup completed', 'info');
-    } else {
-      logToOutputChannel(
-        '⚠️ Workspace load on startup skipped (disabled or no client)',
-        'debug',
-      );
-    }
-  } catch (err) {
-    logToOutputChannel(
-      `⚠️ Workspace load on startup failed or skipped: ${String(err)}`,
-      'warning',
-    );
-  }
-}
-
-/**
- * Starts the language server
- */
-async function startLanguageServerNow(
+export const createAndStartClient = async (
   context: vscode.ExtensionContext,
-  restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
-): Promise<void> {
-  if (Client) {
-    logToOutputChannel(
-      'Apex Language Server client already exists; skipping duplicate start',
-      'warning',
-    );
-    return;
-  }
-  logToOutputChannel('🚀 Starting Apex Language Server...', 'info');
-
+): Promise<void> => {
+  if (clientState) return;
+  setStartingFlag(true);
+  updateApexServerStatusStarting();
   try {
-    await createAndStartClient(context, restartHandler);
+    const environment = detectEnvironment();
+    const candidateState =
+      environment === 'web'
+        ? await createWebLanguageClient(context)
+        : await createDesktopLanguageClient(context);
+    clientState = await completeClientStart(candidateState, {
+      registerConfigurationListener: () =>
+        registerConfigurationChangeListener(
+          candidateState.core,
+          candidateState.rawClient,
+        ),
+      initializeApexLib: () => initializeApexLib(candidateState.core, context),
+      sendConfiguration: () => sendInitialConfiguration(candidateState.core),
+      loadWorkspace: () =>
+        runWorkspaceLoad(
+          candidateState.core,
+          candidateState.workspaceLoadScope!,
+        ),
+      shouldLoadWorkspace: getWorkspaceSettings().apex.loadWorkspace.enabled,
+      resetStartRetries: resetServerStartRetries,
+      markReady: () => {
+        updateApexServerStatusReady();
+      },
+    });
   } catch (error) {
-    logToOutputChannel(
-      `❌ Failed to start language server: ${formattedError(error, {
-        includeStack: true,
-        includeProperties: true,
-        maxStackLines: 30,
-      })}`,
-      'error',
-    );
+    clientState = undefined;
+    updateApexServerStatusError();
     throw error;
+  } finally {
+    setStartingFlag(false);
   }
-}
+};
 
 function enqueueLifecycleOperation(
   operation: () => Promise<void>,
@@ -1482,77 +528,57 @@ function enqueueLifecycleOperation(
 
 export function startLanguageServer(
   context: vscode.ExtensionContext,
-  restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> {
-  return enqueueLifecycleOperation(() =>
-    startLanguageServerNow(context, restartHandler),
-  );
+  return enqueueLifecycleOperation(() => createAndStartClient(context));
 }
 
-/**
- * Restarts the language server
- */
 export function restartLanguageServer(
   context: vscode.ExtensionContext,
-  restartHandler: (context: vscode.ExtensionContext) => Promise<void>,
 ): Promise<void> {
   return enqueueLifecycleOperation(async () => {
-    logToOutputChannel('🔄 Restarting Apex Language Server...', 'info');
-
-    try {
-      await stopLanguageServerNow();
-      await startLanguageServerNow(context, restartHandler);
-    } catch (error) {
-      logToOutputChannel(
-        `Failed to restart language server: ${formattedError(error, {
-          includeStack: true,
-          includeProperties: true,
-          maxStackLines: 30,
-        })}`,
-        'error',
-      );
-      throw error;
-    }
+    await restartAfterStrictStop(
+      () => stopLanguageServerNow(true),
+      () => createAndStartClient(context),
+    );
   });
 }
 
-/**
- * Stops the language server
- */
-async function stopLanguageServerNow(): Promise<void> {
-  logToOutputChannel('🛑 Stopping Apex Language Server...', 'info');
-  clearIngestionTimeout();
-  if (Client) {
-    try {
-      await Client.dispose();
-      Client = undefined;
-      LanguageClientInstance = undefined;
-      logToOutputChannel('✅ Language server stopped', 'info');
-    } catch (error) {
-      logToOutputChannel(
-        `⚠️ Error stopping language server: ${formattedError(error)}`,
-        'warning',
-      );
-    }
-  }
+export const restartAfterStrictStop = async (
+  stop: () => Promise<void>,
+  start: () => Promise<void>,
+): Promise<void> => {
+  await stop();
+  await start();
+};
 
-  updateApexServerStatusStopped();
+async function stopLanguageServerNow(strict = false): Promise<void> {
+  clearIngestionTimeout();
+  const state = clientState;
+  try {
+    await disposeClientState(state, () => {
+      clientState = undefined;
+    });
+  } catch (error) {
+    logToOutputChannel(
+      `⚠️ Error stopping language server: ${formattedError(error)}`,
+      'warning',
+    );
+    if (strict) {
+      throw error;
+    }
+  } finally {
+    updateApexServerStatusStopped();
+  }
 }
 
 export function stopLanguageServer(): Promise<void> {
   return enqueueLifecycleOperation(stopLanguageServerNow);
 }
 
-/**
- * Gets the current client instance
- */
-export function getClient(): ClientInterface | undefined {
-  return Client;
+export function getClient(): ApexClientCore | undefined {
+  return clientState?.core;
 }
 
-/**
- * Gets the raw LanguageClient instance for extension API export
- */
 export function getLanguageClient(): BaseLanguageClient | undefined {
-  return LanguageClientInstance;
+  return clientState?.rawClient;
 }

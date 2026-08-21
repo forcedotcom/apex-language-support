@@ -122,7 +122,7 @@ export function activate(context: vscode.ExtensionContext): void {
   registerRestartCommand(context);
 
   // Start the language server
-  startLanguageServer(context, restartLanguageServer);
+  startLanguageServer(context);
 }
 ```
 

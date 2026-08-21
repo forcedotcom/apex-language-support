@@ -71,6 +71,8 @@ jscpd-report-parser-ast/
 
 /packages/apex-parser-ast/test/generator/test-files
 /packages/apex-parser-ast/src/generated
+/packages/apex-parser-ast/build/api-stubs/
+/packages/apex-stubs-generator/
 
 # Extension directory
 extension/

@@ -30,8 +30,8 @@ describe('VSCodeLanguageClientAdapter', () => {
 
   beforeEach(() => {
     mockClient = {
-      sendRequest: jest.fn(),
-      sendNotification: jest.fn(),
+      request: jest.fn(),
+      notify: jest.fn(),
     };
   });
 
@@ -43,12 +43,12 @@ describe('VSCodeLanguageClientAdapter', () => {
   it('should delegate sendRequest to client', async () => {
     const adapter = new VSCodeLanguageClientAdapter(mockClient);
     const expectedResult = { content: 'test content' };
-    mockClient.sendRequest.mockResolvedValue(expectedResult);
+    mockClient.request.mockResolvedValue(expectedResult);
 
     const result = await adapter.sendRequest('test/method', { param: 'value' });
 
     expect(result).toBe(expectedResult);
-    expect(mockClient.sendRequest).toHaveBeenCalledWith('test/method', {
+    expect(mockClient.request).toHaveBeenCalledWith('test/method', {
       param: 'value',
     });
   });
@@ -58,10 +58,9 @@ describe('VSCodeLanguageClientAdapter', () => {
 
     adapter.sendNotification('test/notification', { data: 'value' });
 
-    expect(mockClient.sendNotification).toHaveBeenCalledWith(
-      'test/notification',
-      { data: 'value' },
-    );
+    expect(mockClient.notify).toHaveBeenCalledWith('test/notification', {
+      data: 'value',
+    });
   });
 });
 
@@ -110,7 +109,7 @@ describe('VSCodeEditorContextAdapter', () => {
       vscode.workspace.registerTextDocumentContentProvider,
     ).toHaveBeenCalledWith('apexlib', expect.any(Object));
     expect(result).toBe(mockDisposable);
-    expect(mockContext.subscriptions).toContain(mockDisposable);
+    expect(adapter.disposables).toContain(mockDisposable);
   });
 
   it('should create file system watcher', () => {
@@ -123,6 +122,7 @@ describe('VSCodeEditorContextAdapter', () => {
       pattern,
     );
     expect(result).toBeDefined();
+    expect(adapter.disposables).toContain(result);
   });
 
   // Skip complex provider wrapping test due to VS Code mock complexity

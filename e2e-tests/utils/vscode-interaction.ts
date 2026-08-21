@@ -9,9 +9,9 @@
 import { expect, type Page } from '@playwright/test';
 import { SELECTORS } from './constants';
 import {
+  getModifierShortcut,
   waitForVSCodeWorkbench,
   closeWelcomeTabs,
-  getModifierShortcut,
   isDesktop,
 } from '../shared/utils/helpers';
 import {
@@ -40,13 +40,25 @@ export interface TestSessionResult {
 
 /**
  * Starts VS Code Web and waits for it to load.
- * Uses shared waitForVSCodeWorkbench and closeWelcomeTabs (monorepo parity).
+ * Startup settings suppress the Welcome editor and extension walkthroughs.
  *
  * @param page - Playwright page instance
  */
 export const startVSCodeWeb = async (page: Page): Promise<void> => {
   await waitForVSCodeWorkbench(page, true);
+  await dismissStartupPrompts(page);
   await closeWelcomeTabs(page);
+};
+
+const dismissStartupPrompts = async (page: Page): Promise<void> => {
+  const skipSignIn = page
+    .getByRole('button', { name: /Skip|Continue without Signing In/i })
+    .first();
+  if (await skipSignIn.isVisible({ timeout: 500 }).catch(() => false)) {
+    await skipSignIn.click();
+  }
+
+  await page.keyboard.press('Escape');
 };
 
 /**
@@ -94,7 +106,8 @@ export const waitForSalesforceServicesActivation = async (
     .getByRole('tab', { name: /Running Extensions/i })
     .first();
   await page.keyboard.press('Escape');
-  await page.keyboard.press(getModifierShortcut('w'));
+  await runningExtensionsTab.click({ timeout: 5000, force: true });
+  await page.keyboard.press(getModifierShortcut('W'));
   await runningExtensionsTab.waitFor({ state: 'detached', timeout: 5000 });
 };
 
