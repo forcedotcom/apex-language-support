@@ -2472,7 +2472,7 @@ export class ApexSymbolRefManager {
    * indirectly) extends or implements it: subclasses, classes that implement an
    * interface, sub-interfaces, and the subclasses of those, to any depth. Walks
    * the INCOMING INHERITANCE / INTERFACE_IMPLEMENTATION edges; `type` itself is
-   * not included. Cycle-guarded and de-duplicated by type name.
+   * not included. Cycle-guarded and de-duplicated by stable symbol id.
    *
    * This is the single canonical implementor/subclass query for the workspace —
    * the one go-to-implementation and find-references both build on, so they
@@ -2499,7 +2499,7 @@ export class ApexSymbolRefManager {
    * All transitive SUPERTYPES of `type` — its superclass chain plus every
    * interface it (or an ancestor) implements/extends, to any depth. Walks the
    * OUTGOING INHERITANCE / INTERFACE_IMPLEMENTATION edges; `type` itself is not
-   * included. Cycle-guarded and de-duplicated by type name. Same maintained-edge
+   * included. Cycle-guarded and de-duplicated by stable symbol id. Same maintained-edge
    * source of truth, and the same drain-on-read against THIS manager's local
    * graph (see {@link findSubtypes} for the graph-locality note).
    */
@@ -2514,21 +2514,24 @@ export class ApexSymbolRefManager {
    * Breadth-first transitive closure of `step` starting from `start`, excluding
    * `start` itself. `step` yields the next ring of related types (sub- or
    * super-types) for a single node; this drains it to all depths. The
-   * lower-cased-name visited set both de-duplicates and terminates inheritance
-   * cycles. Shared spine of {@link findSubtypes} / {@link findSupertypes}.
+   * stable-symbol-id visited set both de-duplicates and terminates inheritance
+   * cycles. Using the unique symbol id (not the lower-cased short name) keeps
+   * distinct nested types that share a short name (e.g. OuterOne.Child and
+   * OuterTwo.Child) as separate branches instead of collapsing them.
+   * Shared spine of {@link findSubtypes} / {@link findSupertypes}.
    */
   private collectTransitiveTypes(
     start: ApexSymbol,
     step: (type: ApexSymbol) => ApexSymbol[],
   ): ApexSymbol[] {
     const results: ApexSymbol[] = [];
-    const visited = new Set<string>([start.name.toLowerCase()]);
+    const visited = new Set<string>([start.id]);
     const stack: ApexSymbol[] = [start];
 
     while (stack.length > 0) {
       const current = stack.pop()!;
       for (const next of step(current)) {
-        const key = next.name.toLowerCase();
+        const key = next.id;
         if (visited.has(key)) {
           continue;
         }

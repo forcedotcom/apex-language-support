@@ -28,6 +28,7 @@ import {
   InstallSObjectArtifacts,
   ResolveDepUris,
   ResolveDependentUris,
+  CheckMemberConflicts,
   FindOccurrenceCandidates,
   WIRE_PROTOCOL_VERSION,
   WorkspaceBatchIngest,
@@ -1126,6 +1127,24 @@ function createDispatcher(
             new ResolveDependentUris({
               uri: prd.uri,
               symbolName: prd.symbolName,
+            }),
+          );
+        }
+        case 'CheckMemberConflicts': {
+          const cmc = params as {
+            definingTypeFqn: string;
+            newName: string;
+            memberKind: 'field' | 'method';
+            isRenamedMemberPrivate: boolean;
+            currentName?: string;
+          };
+          return sendTracedToDataOwner(
+            new CheckMemberConflicts({
+              definingTypeFqn: cmc.definingTypeFqn,
+              newName: cmc.newName,
+              memberKind: cmc.memberKind,
+              isRenamedMemberPrivate: cmc.isRenamedMemberPrivate,
+              currentName: cmc.currentName,
             }),
           );
         }

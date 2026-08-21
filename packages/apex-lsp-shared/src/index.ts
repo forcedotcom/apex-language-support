@@ -537,6 +537,7 @@ export {
   InstallSObjectArtifacts,
   ResolveDepUris,
   ResolveDependentUris,
+  CheckMemberConflicts,
   FindOccurrenceCandidates,
   EnsureWorkspaceLoaded,
   WorkspaceBatchIngest,

@@ -832,6 +832,44 @@ describe('Cross-file edge population (W-22692421)', () => {
       expect(names).toContain('Orphan');
       expect(graph.getDeferredTargetNames()).not.toContain('LateIface');
     });
+
+    it('keeps distinct nested types sharing a short name as separate branches', async () => {
+      // Regression: collectTransitiveTypes de-dups by stable symbol id, NOT by
+      // lower-cased short name. Two outer types each declare an inner class named
+      // `Child` implementing the same interface. With name-based dedup, both
+      // collapse to `child` and one branch is dropped; with id-based dedup, both
+      // are walked.
+      await addFile(
+        'public interface ISharedInner { void run(); }',
+        'file:///ISharedInner.cls',
+      );
+      await addFile(
+        'public class OuterOne { public class Child implements ISharedInner { public void run() {} } }',
+        'file:///OuterOne.cls',
+      );
+      await addFile(
+        'public class OuterTwo { public class Child implements ISharedInner { public void run() {} } }',
+        'file:///OuterTwo.cls',
+      );
+      for (const uri of [
+        'file:///ISharedInner.cls',
+        'file:///OuterOne.cls',
+        'file:///OuterTwo.cls',
+      ]) {
+        await Effect.runPromise(
+          symbolManager.resolveCrossFileReferencesForFile(uri),
+        );
+      }
+      const graph = refManager();
+      const iface = typeIn(graph, 'file:///ISharedInner.cls', 'ISharedInner');
+
+      const subtypes = graph.findSubtypes(iface);
+      const children = subtypes.filter((s) => s.name === 'Child');
+      // Both same-named inner classes must survive dedup (id-based, not name).
+      expect(children).toHaveLength(2);
+      // And they must be distinct symbols (different stable ids).
+      expect(new Set(children.map((s) => s.id)).size).toBe(2);
+    });
   });
 
   describe('deferred target disambiguation (pickDeferredTarget)', () => {

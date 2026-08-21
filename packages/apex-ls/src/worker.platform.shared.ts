@@ -74,6 +74,7 @@ import {
   isAllowedTag,
   QueryGraphData,
   DataOwnerQuerySymbolByName,
+  CheckMemberConflicts,
   FindOccurrenceCandidates,
   WIRE_PROTOCOL_VERSION,
   ApexCapabilitiesManager,
@@ -144,6 +145,7 @@ export const AllWorkerRequests = Schema.Union(
   DrainDeferredReferences,
   QueryGraphData,
   DataOwnerQuerySymbolByName,
+  CheckMemberConflicts,
   FindOccurrenceCandidates,
   CompileDocument,
   ResourceLoaderGetSymbolTable,
@@ -2282,8 +2284,12 @@ export async function recompileCursorFileAtFullDetail(
         effectiveSourceVersion = storedVersion;
       }
     }
-    const { CompilerService, FullSymbolCollectorListener, SymbolTable } =
-      await import('@salesforce/apex-lsp-parser-ast');
+    const {
+      CompilerService,
+      FullSymbolCollectorListener,
+      SymbolTable,
+      ErrorType,
+    } = await import('@salesforce/apex-lsp-parser-ast');
     const table = new SymbolTable();
     const listener = new FullSymbolCollectorListener(table);
     const compileStartedAt = performance.now();
@@ -2295,6 +2301,25 @@ export async function recompileCursorFileAtFullDetail(
       options.telemetry.compileMs = performance.now() - compileStartedAt;
     }
     const st = result?.result instanceof SymbolTable ? result.result : table;
+    // Mark parse completeness HONESTLY before this full-detail table becomes
+    // canonical and is written back to the data owner (W-23631128 review). A
+    // malformed source still RECOVERS a table that reports getDetailLevel() ===
+    // 'full', but a recovered parse can drop declarations in the damaged region.
+    // If this table is trusted as complete, a correctness-sensitive data-owner
+    // reader (CheckMemberConflicts) could approve a destructive rename against a
+    // silently-truncated member set. Only SYNTAX errors indicate structural
+    // incompleteness; benign SEMANTIC (unresolved cross-file) errors do not drop
+    // declarations, so they must NOT poison completeness. This mirrors
+    // ApexSymbolManager.enrichToLevel; the cursor recompile is the pool's only
+    // full-detail producer, and writeBackEnrichedSymbols serializes this
+    // metadata verbatim, so stamping here is what carries the signal to the owner.
+    const syntaxErrorCount = (result?.errors ?? []).filter(
+      (e) => e.type === ErrorType.Syntax,
+    ).length;
+    st.setMetadata({
+      parseCompleteness: syntaxErrorCount > 0 ? 'incomplete' : 'complete',
+      hasErrors: syntaxErrorCount > 0,
+    });
     const addStartedAt = performance.now();
     await Effect.runPromise(
       svc.symbolManager.addSymbolTable(st, uri, effectiveSourceVersion),
@@ -4398,6 +4423,43 @@ export function withWorkerRequestTracing<A, E>(
 
 const compilationHandlers = createCompilationWorkerHandlers();
 
+/**
+ * Walk the type family (ancestors and descendants) for a given type.
+ * Returns all transitive supertypes and subtypes, filtered to type symbols.
+ * Reusable helper for hierarchy-aware rename validation — will be extended
+ * in WI 5.2 (renameMethod) to handle interfaces + implementors.
+ *
+ * @param svc Data-owner services with symbolManager access
+ * @param definingType The type whose family to walk
+ * @returns Object with ancestors and descendants arrays
+ */
+function walkTypeFamily(
+  svc: DataOwnerServices,
+  definingType: ApexSymbol,
+): Effect.Effect<
+  { ancestors: ApexSymbol[]; descendants: ApexSymbol[] },
+  never,
+  never
+> {
+  return Effect.gen(function* () {
+    const { inTypeSymbolGroup } = yield* Effect.promise(
+      () => import('@salesforce/apex-lsp-parser-ast'),
+    );
+
+    const allAncestors = yield* Effect.promise(() =>
+      svc.symbolManager.findSupertypes(definingType),
+    );
+    const ancestors = allAncestors.filter(inTypeSymbolGroup);
+
+    const allDescendants = yield* Effect.promise(() =>
+      svc.symbolManager.findSubtypes(definingType),
+    );
+    const descendants = allDescendants.filter(inTypeSymbolGroup);
+
+    return { ancestors, descendants };
+  });
+}
+
 const untracedHandlers: SerializedWorkerHandlers = {
   InitializeCompilationWorker: (req) =>
     guardRole('InitializeCompilationWorker').pipe(
@@ -4948,6 +5010,301 @@ const untracedHandlers: SerializedWorkerHandlers = {
                 `scanned ${all.length} docs, ${candidates.length} candidates`,
             );
             return { candidates };
+          }),
+        ),
+      ),
+    ),
+
+  CheckMemberConflicts: (req) =>
+    guardRole('CheckMemberConflicts').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+
+            // Guard: descendant/ancestor conflict detection requires the complete
+            // inheritance cone, which only exists after endWorkspaceLoadSession
+            // resolves supertype edges (ApexSymbolManager.ts:1285-1320). If a
+            // session is still active, the graph is incomplete and findSubtypes/
+            // findSupertypes will return partial results, risking false negatives.
+            if (svc.symbolManager.isWorkspaceLoadSessionActive()) {
+              return yield* Effect.fail({
+                _tag: 'CheckMemberConflictsError' as const,
+                message:
+                  'Workspace load session still active; hierarchy graph not yet complete for conflict detection',
+              });
+            }
+
+            const { SymbolKind, SymbolVisibility, inTypeSymbolGroup } =
+              yield* Effect.promise(
+                () => import('@salesforce/apex-lsp-parser-ast'),
+              );
+
+            // Resolve the defining type by FQN
+            const definingType = yield* Effect.promise(() =>
+              svc.symbolManager.findSymbolByFQN(req.definingTypeFqn),
+            );
+
+            if (!definingType || !inTypeSymbolGroup(definingType)) {
+              return yield* Effect.fail({
+                _tag: 'CheckMemberConflictsError' as const,
+                message: `Type not found or not a type symbol: ${req.definingTypeFqn}`,
+              });
+            }
+
+            // No-op / case-only rename never conflicts with itself. The same-type
+            // lookup cannot exclude the member being renamed, so total→total or
+            // total→Total would self-conflict. When the caller supplies the
+            // member's current name, short-circuit an identical (case-insensitive)
+            // rename to conflict:false — mirrors jorje FieldRenameHandler's
+            // short-circuit. Backward-compatible: absent currentName → unchanged.
+            if (
+              req.currentName &&
+              req.newName.toLowerCase() === req.currentName.toLowerCase()
+            ) {
+              emitWorkerLog(
+                'info',
+                '[RENAME] CheckMemberConflicts: no-op/case-only rename ' +
+                  `${req.definingTypeFqn}.${req.currentName}→${req.newName}, no conflict`,
+              );
+              return { conflict: false };
+            }
+
+            const newNameLower = req.newName.toLowerCase();
+            const memberKinds =
+              req.memberKind === 'field'
+                ? [SymbolKind.Field, SymbolKind.Property]
+                : [SymbolKind.Method];
+
+            // Helper: check if a member name matches (case-insensitive)
+            const memberNameMatches = (
+              memberName: string,
+              targetName: string,
+            ): boolean => memberName.toLowerCase() === targetName;
+
+            // Helper: check if a symbol is private or default-visibility.
+            // In Apex, Default visibility (no access modifier) is effectively
+            // private for inheritance purposes — a default-visibility member is
+            // NOT visible to subclasses. jorje's !has(PRIVATE) only treats
+            // explicitly-visible (public/protected/global) members as conflicting.
+            // NOTE: The caller (4.2 renameField) must also treat Default visibility
+            // as private when computing isRenamedMemberPrivate for the descendant
+            // conflict gate.
+            const isPrivate = (symbol: ApexSymbol): boolean =>
+              symbol.modifiers.visibility === SymbolVisibility.Private ||
+              symbol.modifiers.visibility === SymbolVisibility.Default;
+
+            // Helper: check type for member with newName (as an Effect generator)
+            // NOTE: For methods, this does name-based matching only.
+            // Signature-equivalence refinement is deferred to WI 5.3 when
+            // renameMethod consumes this query with full signature checking.
+            const hasMemberNamed = (
+              type: ApexSymbol,
+              name: string,
+              kinds: (typeof SymbolKind)[keyof typeof SymbolKind][],
+              excludePrivate: boolean,
+            ) =>
+              Effect.gen(function* () {
+                // Batch-loaded workspace files are served at 'public-api' detail,
+                // which DROPS private/protected/default-visibility members from the
+                // symbol table entirely (VisibilitySymbolListener never adds them at
+                // public-api). All three checks below need non-public members:
+                //   - same-type: needs ALL members (incl. private)
+                //   - ancestor:  needs protected members present
+                //   - descendant: needs ALL members (incl. private/default)
+                // So this type's file MUST be at 'full' detail before we read it.
+                //
+                // FAIL CLOSED (W-23631128 re-review, P1): validate the CANONICAL
+                // table's own getDetailLevel() — the level of the symbols actually
+                // present — NOT the getDetailLevelForFile() side-channel. That
+                // tracker is set by enrichToLevel but is NOT downgraded when a
+                // newer, lower-detail table later replaces the enriched one, so it
+                // can read 'full' while the canonical table a reader observes is
+                // back to 'public-api'. Reading that stale-approved table would
+                // drop private/protected/default members and recreate the
+                // destructive false-negative. If the canonical table is not full
+                // and we cannot enrich it to full (retained source unavailable, or
+                // enrichment does not land at full), fail the whole query so the
+                // caller preserves uncertainty rather than treating an incomplete
+                // member view as no conflict. (enrichToLevel now also guards on the
+                // canonical level, so it cannot no-op on the stale tracker.)
+                let typeTable = yield* Effect.promise(() =>
+                  svc.symbolManager.getSymbolTableForFile(type.fileUri),
+                );
+                if (typeTable?.getDetailLevel() !== 'full') {
+                  const doc = yield* Effect.promise(() =>
+                    svc.storageManager.getStorage().getDocument(type.fileUri),
+                  );
+                  const text = doc?.getText();
+                  if (!text) {
+                    return yield* Effect.fail({
+                      _tag: 'CheckMemberConflictsError' as const,
+                      message:
+                        `Cannot verify member conflicts for ${type.fileUri}: ` +
+                        'source text unavailable to enrich to full detail, so ' +
+                        'non-public members cannot be inspected.',
+                    });
+                  }
+                  yield* svc.symbolManager.enrichToLevel(
+                    type.fileUri,
+                    'full',
+                    text,
+                  );
+                  typeTable = yield* Effect.promise(() =>
+                    svc.symbolManager.getSymbolTableForFile(type.fileUri),
+                  );
+                  if (typeTable?.getDetailLevel() !== 'full') {
+                    return yield* Effect.fail({
+                      _tag: 'CheckMemberConflictsError' as const,
+                      message:
+                        `Cannot verify member conflicts for ${type.fileUri}: ` +
+                        'enrichment did not reach full detail (canonical table at ' +
+                        `${typeTable?.getDetailLevel() ?? 'none'}); non-public ` +
+                        'members may be absent.',
+                    });
+                  }
+                }
+
+                if (!typeTable) {
+                  return yield* Effect.fail({
+                    _tag: 'CheckMemberConflictsError' as const,
+                    message: `Cannot verify member conflicts: no symbol table for ${type.fileUri}.`,
+                  });
+                }
+
+                // FAIL CLOSED on a syntax-broken / incomplete parse (W-23631128
+                // re-review, P1). A malformed source still yields a RECOVERED
+                // SymbolTable that reports getDetailLevel() === 'full', so the
+                // detail-level guard above is NOT sufficient: a recovered parse
+                // can omit declarations or whole scopes in the damaged region,
+                // making the member set we are about to read silently incomplete.
+                // enrichToLevel now records parse completeness honestly on the
+                // canonical table: a SYNTAX error → parseCompleteness
+                // 'incomplete'. We key ONLY off parseCompleteness, NOT the
+                // broader `hasErrors` flag, because other producers (e.g. the
+                // compilation worker) set hasErrors from ALL errors including
+                // benign SEMANTIC cross-file unresolved references, which do NOT
+                // drop declarations — keying off hasErrors would over-decline
+                // valid renames. parseCompleteness is set to 'incomplete' only by
+                // a genuinely structurally-broken parse. If the table we will
+                // read is explicitly incomplete, we cannot trust "no member named
+                // X" — preserve uncertainty and decline rather than approve a
+                // possibly-destructive rename.
+                const typeMeta = typeTable.getMetadata();
+                if (typeMeta.parseCompleteness === 'incomplete') {
+                  return yield* Effect.fail({
+                    _tag: 'CheckMemberConflictsError' as const,
+                    message:
+                      `Cannot verify member conflicts for ${type.fileUri}: ` +
+                      'its parse is incomplete (syntax errors present), so ' +
+                      'members may be missing from the symbol table and a ' +
+                      '"no conflict" result cannot be trusted.',
+                  });
+                }
+
+                // Members are children of the type's BLOCK scope, not the type itself.
+                // Find the block symbol (it's a child of the type with kind === 'block')
+                const blockSymbol = typeTable
+                  .getSymbolsInScope(type.id)
+                  .find((s) => s.kind === SymbolKind.Block);
+                if (!blockSymbol) {
+                  // No block scope means no members
+                  return false;
+                }
+
+                const members = typeTable.getSymbolsInScope(blockSymbol.id);
+                return members.some((m) => {
+                  if (!kinds.includes(m.kind)) return false;
+                  if (!memberNameMatches(m.name, name)) return false;
+                  if (excludePrivate && isPrivate(m)) return false;
+                  return true;
+                });
+              });
+
+            // 1. Check same-type conflict (no private filter)
+            const sameTypeConflict = yield* hasMemberNamed(
+              definingType,
+              newNameLower,
+              memberKinds,
+              false,
+            );
+            if (sameTypeConflict) {
+              emitWorkerLog(
+                'info',
+                `[RENAME] CheckMemberConflicts: conflict in same type ${req.definingTypeFqn}`,
+              );
+              return {
+                conflict: true,
+                conflictingTypeFqn: req.definingTypeFqn,
+                reason: 'same-type' as const,
+              };
+            }
+
+            // 2. Check ancestor conflict (exclude private members in ancestors)
+            const { ancestors, descendants } = yield* walkTypeFamily(
+              svc,
+              definingType,
+            );
+
+            for (const ancestor of ancestors) {
+              const ancestorConflict = yield* hasMemberNamed(
+                ancestor,
+                newNameLower,
+                memberKinds,
+                true, // Exclude private members
+              );
+              if (ancestorConflict) {
+                const ancestorFqn =
+                  ancestor.fqn ||
+                  (yield* Effect.promise(() =>
+                    svc.symbolManager.constructFQN(ancestor),
+                  ));
+                emitWorkerLog(
+                  'info',
+                  `[RENAME] CheckMemberConflicts: conflict in ancestor ${ancestorFqn}`,
+                );
+                return {
+                  conflict: true,
+                  conflictingTypeFqn: ancestorFqn,
+                  reason: 'ancestor' as const,
+                };
+              }
+            }
+
+            // 3. Check descendant conflict (only if renamed member is NOT private)
+            if (!req.isRenamedMemberPrivate) {
+              for (const descendant of descendants) {
+                const descendantConflict = yield* hasMemberNamed(
+                  descendant,
+                  newNameLower,
+                  memberKinds,
+                  false, // NO private filter on descendant members
+                );
+                if (descendantConflict) {
+                  const descendantFqn =
+                    descendant.fqn ||
+                    (yield* Effect.promise(() =>
+                      svc.symbolManager.constructFQN(descendant),
+                    ));
+                  emitWorkerLog(
+                    'info',
+                    `[RENAME] CheckMemberConflicts: conflict in descendant ${descendantFqn}`,
+                  );
+                  return {
+                    conflict: true,
+                    conflictingTypeFqn: descendantFqn,
+                    reason: 'descendant' as const,
+                  };
+                }
+              }
+            }
+
+            // No conflict found
+            emitWorkerLog(
+              'info',
+              `[RENAME] CheckMemberConflicts: no conflict for ${req.definingTypeFqn}.${req.newName}`,
+            );
+            return { conflict: false };
           }),
         ),
       ),
