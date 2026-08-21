@@ -144,15 +144,36 @@ export function findFieldOccurrences(
   //     colocated lookup, instead of scanning ALL references per candidate.
   // (b) the file's type symbols (with a body range) collected once for the
   //     enclosing-type lookup, instead of scanning ALL symbols per candidate.
+  // (c) the set of start positions that carry a FIELD_ACCESS ref for the target
+  //     field. A qualified/static/`this`/chained access (`x.total`, `Type.total`,
+  //     `this.total`, `a.b.total`) emits a FIELD_ACCESS at the field token; a
+  //     bare implicit-this / local `total` never does (it is a lone
+  //     VARIABLE_USAGE). This is the dedup-order- and text-independent signal for
+  //     "does this candidate have a receiver" — see the per-candidate gate below
+  //     (W-23631084 re-review P1). It cannot use the candidate's post-dedup
+  //     context, because at a chained final field (`a.total.total`) a
+  //     same-position VARIABLE_USAGE and FIELD_ACCESS co-exist and dedup may
+  //     surface either.
+  const targetLeaf = target.name.includes('.')
+    ? target.name.slice(target.name.lastIndexOf('.') + 1)
+    : target.name;
+  const targetLeafLower = targetLeaf.toLowerCase();
   const receiverRefsByStartPos = new Map<string, SymbolReference[]>();
+  const fieldAccessStartPos = new Set<string>();
   for (const ref of table.getAllReferences()) {
-    if (ref.context !== ReferenceContext.VARIABLE_USAGE) continue;
     const ir = ref.location?.identifierRange;
     if (!ir) continue;
     const key = `${ir.startLine}:${ir.startColumn}`;
-    const bucket = receiverRefsByStartPos.get(key);
-    if (bucket) bucket.push(ref);
-    else receiverRefsByStartPos.set(key, [ref]);
+    if (ref.context === ReferenceContext.VARIABLE_USAGE) {
+      const bucket = receiverRefsByStartPos.get(key);
+      if (bucket) bucket.push(ref);
+      else receiverRefsByStartPos.set(key, [ref]);
+    } else if (
+      ref.context === ReferenceContext.FIELD_ACCESS &&
+      ref.name.toLowerCase() === targetLeafLower
+    ) {
+      fieldAccessStartPos.add(key);
+    }
   }
   const typeSymbols: TypeSymbol[] = [];
   for (const sym of table.getAllSymbols()) {
@@ -167,20 +188,39 @@ export function findFieldOccurrences(
   for (const candidate of candidates) {
     // Look for co-located receivers: VARIABLE_USAGE references at the SAME start
     // position (assignment/read/arg forms all emit this flat structure).
-    const receiverRefs = findColocatedReceiverRefs(
-      receiverRefsByStartPos,
-      candidate.identifierRange,
-      target.name,
-    );
+    // Only a qualified/static/`this`/chained access (`receiver.total`,
+    // `Type.total`, `this.total`, `a.b.total`) has co-located receiver
+    // VARIABLE_USAGEs — and each such access emits a FIELD_ACCESS at the field
+    // token. A bare implicit-this / local `total` is itself a lone VARIABLE_USAGE
+    // at this position (no FIELD_ACCESS), so its OWN entry would sit in the
+    // receiver bucket. Gating on "is there a FIELD_ACCESS here" (rather than the
+    // candidate's post-dedup context or field-name text) keeps that
+    // self-reference out WITHOUT collapsing a genuine `a.total.total` chain whose
+    // immediate receiver is also named `total` — at that chained final field a
+    // same-position VARIABLE_USAGE and FIELD_ACCESS co-exist and dedup may
+    // surface either as the candidate (W-23631084 re-review P1).
+    const startKey = `${candidate.identifierRange.startLine}:${candidate.identifierRange.startColumn}`;
+    const receiverRefs = fieldAccessStartPos.has(startKey)
+      ? findColocatedReceiverRefs(
+          receiverRefsByStartPos,
+          candidate.identifierRange,
+        )
+      : [];
 
     if (receiverRefs.length >= 2) {
-      // Case 0: CHAINED access (`a.inner.total`). The co-located receivers are
-      // the ROOT (`a`) and the immediate receiver (`inner`); the parser emits
-      // them flat, and we cannot reliably attribute the immediate member-access
-      // receiver's declared type standalone. Classifying by the root would treat
-      // a real inherited/target reference as unrelated (e.g. `Container a;
-      // a.inner.total` where `inner` is the declaring type) and silently drop it
-      // while the declaration renames. So decline (W-23631086 re-review P1).
+      // Case 0: CHAINED access (`a.inner.total`). The parser emits one co-located
+      // receiver VARIABLE_USAGE PER chain element at the field token — the ROOT
+      // (`a`) AND the immediate receiver (`inner`) — so a count of ≥2 is the
+      // parser-owned chain signal (W-23631084 re-review P1). We cannot reliably
+      // attribute the immediate member-access receiver's declared type
+      // standalone. Classifying by the root (or by any single collapsed receiver)
+      // would treat a real inherited/target reference as unrelated (e.g.
+      // `Container a; a.inner.total` where `inner` is the declaring type) and
+      // silently drop it while the declaration renames. So decline. NOTE: the
+      // count is taken over the RAW co-located entries (see
+      // findColocatedReceiverRefs) — deduping by name or dropping a field-named
+      // entry would collapse `a.a.total` / `a.total.total` back to one apparent
+      // receiver and re-open this hole.
       unsafe.push({
         uri: fileUri,
         identifierRange: candidate.identifierRange,
@@ -326,51 +366,53 @@ export function findFieldOccurrences(
 }
 
 /**
- * Find a co-located receiver reference for a field access, using a precomputed
- * position → VARIABLE_USAGE index (Finding #6: O(1) per candidate).
+ * Collect the co-located receiver references for a field access, using a
+ * precomputed position → VARIABLE_USAGE index (Finding #6: O(1) per candidate).
  *
  * For a qualified field access like `acct.total` (in ANY form: assignment LHS,
  * read RHS, method arg) — AND for a STATIC access like `Account.total` — the
  * parser emits flat co-located references: a `total` FIELD_ACCESS AND a receiver
- * VARIABLE_USAGE (`acct` / `Account`), BOTH at the SAME start position. This is
- * the reliable, form-independent signal. For a static access the receiver's
- * VARIABLE_USAGE names the class; {@link resolveReceiverType} classifies that as
- * a static type qualifier (finding #4).
+ * VARIABLE_USAGE (`acct` / `Account`), BOTH stamped at the SAME start position
+ * (the field token). This is the reliable, form-independent signal. For a static
+ * access the receiver's VARIABLE_USAGE names the class; {@link resolveReceiverType}
+ * classifies that as a static type qualifier (finding #4).
  *
- * A CHAINED access like `a.inner.total` emits MULTIPLE co-located receiver
- * VARIABLE_USAGEs at the field token — the root (`a`) AND the immediate receiver
- * (`inner`) — so returning the first would pick the ROOT, not the receiver of
- * `total` (W-23631086 re-review P1). We therefore return ALL distinct co-located
- * receivers (deduped by name; getAllReferences can repeat) so the caller can
- * detect a chain (≥2) and decline rather than mis-classify by the root.
+ * A CHAINED access like `a.inner.total` emits ONE co-located receiver
+ * VARIABLE_USAGE PER chain element at the field token — e.g. the root (`a`) AND
+ * the immediate receiver (`inner`). This count is the parser-owned chain
+ * identity: simple/static/`this`/`super` access emits exactly one; a chain emits
+ * two or more (verified across every access form). The caller uses the COUNT to
+ * detect a chain (≥2) and decline, because the immediate member-access receiver's
+ * declared type cannot be reliably attributed standalone.
+ *
+ * CRITICAL (W-23631084 re-review P1): this returns the RAW co-located entries —
+ * it does NOT deduplicate by identifier text and does NOT drop an entry whose
+ * name equals the field. Both of those text-based transforms silently collapse a
+ * genuine chain to one apparent receiver and re-open the destructive
+ * root-receiver misclassification:
+ *  - name dedup collapses `a.a.total` (root `a` + immediate `a`) to a single `a`;
+ *  - field-name exclusion drops the immediate receiver in `a.total.total`
+ *    (`Container.total` named like the target field), leaving only the root `a`.
+ * The parser does not emit spurious duplicate receiver entries for a simple
+ * access (each simple form yields exactly one), so a raw count is both correct
+ * and safe. The caller only invokes this for a FIELD_ACCESS candidate; a bare
+ * implicit-this / local `total` is a VARIABLE_USAGE whose own entry would
+ * otherwise appear here, so context gating (not field-name text) is what keeps
+ * that self-reference out of the receiver set.
  *
  * @param receiverRefsByStartPos VARIABLE_USAGE refs indexed by "startLine:startColumn".
  * @param fieldRange The field token's identifier range from findOccurrencesInFile.
- * @param fieldName The field name (to exclude it from the receiver match).
- * @returns Distinct co-located VARIABLE_USAGE receiver refs (empty = implicit-this).
+ * @returns Raw co-located VARIABLE_USAGE receiver refs (empty = implicit-this).
  */
 function findColocatedReceiverRefs(
   receiverRefsByStartPos: Map<string, SymbolReference[]>,
   fieldRange: { startLine: number; startColumn: number },
-  fieldName: string,
 ): SymbolReference[] {
-  const bucket = receiverRefsByStartPos.get(
-    `${fieldRange.startLine}:${fieldRange.startColumn}`,
+  return (
+    receiverRefsByStartPos.get(
+      `${fieldRange.startLine}:${fieldRange.startColumn}`,
+    ) ?? []
   );
-  if (!bucket) return [];
-
-  const fieldNameLower = fieldName.toLowerCase();
-  const distinct: SymbolReference[] = [];
-  const seenNames = new Set<string>();
-  for (const ref of bucket) {
-    const nameLower = ref.name.toLowerCase();
-    // Name must NOT be the field name (the receiver is a different identifier).
-    if (nameLower === fieldNameLower) continue;
-    if (seenNames.has(nameLower)) continue;
-    seenNames.add(nameLower);
-    distinct.push(ref);
-  }
-  return distinct;
 }
 
 /**
