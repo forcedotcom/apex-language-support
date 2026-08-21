@@ -2284,8 +2284,12 @@ export async function recompileCursorFileAtFullDetail(
         effectiveSourceVersion = storedVersion;
       }
     }
-    const { CompilerService, FullSymbolCollectorListener, SymbolTable } =
-      await import('@salesforce/apex-lsp-parser-ast');
+    const {
+      CompilerService,
+      FullSymbolCollectorListener,
+      SymbolTable,
+      ErrorType,
+    } = await import('@salesforce/apex-lsp-parser-ast');
     const table = new SymbolTable();
     const listener = new FullSymbolCollectorListener(table);
     const compileStartedAt = performance.now();
@@ -2297,6 +2301,25 @@ export async function recompileCursorFileAtFullDetail(
       options.telemetry.compileMs = performance.now() - compileStartedAt;
     }
     const st = result?.result instanceof SymbolTable ? result.result : table;
+    // Mark parse completeness HONESTLY before this full-detail table becomes
+    // canonical and is written back to the data owner (W-23631128 review). A
+    // malformed source still RECOVERS a table that reports getDetailLevel() ===
+    // 'full', but a recovered parse can drop declarations in the damaged region.
+    // If this table is trusted as complete, a correctness-sensitive data-owner
+    // reader (CheckMemberConflicts) could approve a destructive rename against a
+    // silently-truncated member set. Only SYNTAX errors indicate structural
+    // incompleteness; benign SEMANTIC (unresolved cross-file) errors do not drop
+    // declarations, so they must NOT poison completeness. This mirrors
+    // ApexSymbolManager.enrichToLevel; the cursor recompile is the pool's only
+    // full-detail producer, and writeBackEnrichedSymbols serializes this
+    // metadata verbatim, so stamping here is what carries the signal to the owner.
+    const syntaxErrorCount = (result?.errors ?? []).filter(
+      (e) => e.type === ErrorType.Syntax,
+    ).length;
+    st.setMetadata({
+      parseCompleteness: syntaxErrorCount > 0 ? 'incomplete' : 'complete',
+      hasErrors: syntaxErrorCount > 0,
+    });
     const addStartedAt = performance.now();
     await Effect.runPromise(
       svc.symbolManager.addSymbolTable(st, uri, effectiveSourceVersion),

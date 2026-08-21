@@ -95,6 +95,47 @@ describe('recompileCursorFileAtFullDetail content guard', () => {
     expect(resolveCrossFileReferencesForFile).not.toHaveBeenCalled();
   });
 
+  it('stamps parseCompleteness=incomplete for a syntax-broken source (W-23631128)', async () => {
+    // A malformed source RECOVERS a full-detail table, but its parse dropped
+    // declarations. This full table is written back to the data owner, where
+    // CheckMemberConflicts reads it — so it must be marked incomplete here (the
+    // pool's only full-detail producer) or the owner would trust a truncated
+    // member set and could approve a destructive rename. Only SYNTAX errors mark
+    // incompleteness; benign semantic errors must not.
+    const broken = `public class Broken {
+  public String keep;
+  public void bad() {
+    visible = ;
+  }
+}`;
+    const recompiled = await recompileCursorFileAtFullDetail(svc, URI, broken);
+    expect(recompiled).toBe(true);
+    expect(addSymbolTable).toHaveBeenCalledTimes(1);
+    const table = addSymbolTable.mock.calls[0][0] as {
+      getMetadata: () => { parseCompleteness: string };
+    };
+    expect(table.getMetadata().parseCompleteness).toBe('incomplete');
+  });
+
+  it('stamps parseCompleteness=complete for a clean source with a benign semantic error (W-23631128)', async () => {
+    // Referencing an undeclared cross-file type yields a benign SEMANTIC error
+    // but no syntax error — the parse is structurally complete and must NOT be
+    // marked incomplete (that would over-decline valid renames).
+    const clean = `public class Clean {
+  public String keep;
+  public void use() {
+    SomeExternalType t = new SomeExternalType();
+  }
+}`;
+    const recompiled = await recompileCursorFileAtFullDetail(svc, URI, clean);
+    expect(recompiled).toBe(true);
+    expect(addSymbolTable).toHaveBeenCalledTimes(1);
+    const table = addSymbolTable.mock.calls[0][0] as {
+      getMetadata: () => { parseCompleteness: string };
+    };
+    expect(table.getMetadata().parseCompleteness).not.toBe('incomplete');
+  });
+
   it('reuses unchanged full-detail content in the same worker', async () => {
     let currentTable: unknown;
     addSymbolTable.mockImplementation((table: unknown) => {
