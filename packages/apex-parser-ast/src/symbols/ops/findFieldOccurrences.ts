@@ -60,10 +60,6 @@ const isVariableLike = (symbol: ApexSymbol): boolean =>
   symbol.kind === 'field' ||
   symbol.kind === 'property';
 
-/** The leaf identifier of a possibly-dotted qualified name (`a.b.c` → `c`). */
-const leafOf = (name: string): string =>
-  name.includes('.') ? name.slice(name.lastIndexOf('.') + 1) : name;
-
 /**
  * Normalize an FQN for case-insensitive, block-artifact-insensitive comparison.
  *
@@ -169,13 +165,33 @@ export function findFieldOccurrences(
   }
 
   for (const candidate of candidates) {
-    // Look for a co-located receiver: a VARIABLE_USAGE reference at the SAME
-    // start position (assignment/read/arg forms all emit this flat structure).
-    const receiverRef = findColocatedReceiverRef(
+    // Look for co-located receivers: VARIABLE_USAGE references at the SAME start
+    // position (assignment/read/arg forms all emit this flat structure).
+    const receiverRefs = findColocatedReceiverRefs(
       receiverRefsByStartPos,
       candidate.identifierRange,
       target.name,
     );
+
+    if (receiverRefs.length >= 2) {
+      // Case 0: CHAINED access (`a.inner.total`). The co-located receivers are
+      // the ROOT (`a`) and the immediate receiver (`inner`); the parser emits
+      // them flat, and we cannot reliably attribute the immediate member-access
+      // receiver's declared type standalone. Classifying by the root would treat
+      // a real inherited/target reference as unrelated (e.g. `Container a;
+      // a.inner.total` where `inner` is the declaring type) and silently drop it
+      // while the declaration renames. So decline (W-23631086 re-review P1).
+      unsafe.push({
+        uri: fileUri,
+        identifierRange: candidate.identifierRange,
+        reason: `chained-receiver-unprovable:${receiverRefs
+          .map((r) => r.name)
+          .join('.')}`,
+      });
+      continue;
+    }
+
+    const receiverRef = receiverRefs[0] ?? null;
 
     if (receiverRef) {
       // Case 1: Qualified field access (`receiver.field`).
@@ -222,7 +238,7 @@ export function findFieldOccurrences(
         //    reach the declaring type; this parse can't refute it → decline.
         // This trades some cross-hierarchy renames (which now report "cannot
         // safely rename") for never emitting a broken partial edit.
-        const receiverTypeSym = findLocalType(typeSymbols, receiverType);
+        const receiverTypeSym = findLocalType(table, typeSymbols, receiverType);
         if (receiverTypeSym && !receiverTypeSym.superClass) {
           skipped.push({
             uri: fileUri,
@@ -321,28 +337,40 @@ export function findFieldOccurrences(
  * VARIABLE_USAGE names the class; {@link resolveReceiverType} classifies that as
  * a static type qualifier (finding #4).
  *
+ * A CHAINED access like `a.inner.total` emits MULTIPLE co-located receiver
+ * VARIABLE_USAGEs at the field token — the root (`a`) AND the immediate receiver
+ * (`inner`) — so returning the first would pick the ROOT, not the receiver of
+ * `total` (W-23631086 re-review P1). We therefore return ALL distinct co-located
+ * receivers (deduped by name; getAllReferences can repeat) so the caller can
+ * detect a chain (≥2) and decline rather than mis-classify by the root.
+ *
  * @param receiverRefsByStartPos VARIABLE_USAGE refs indexed by "startLine:startColumn".
  * @param fieldRange The field token's identifier range from findOccurrencesInFile.
  * @param fieldName The field name (to exclude it from the receiver match).
- * @returns The co-located VARIABLE_USAGE receiver ref, or null (implicit-this).
+ * @returns Distinct co-located VARIABLE_USAGE receiver refs (empty = implicit-this).
  */
-function findColocatedReceiverRef(
+function findColocatedReceiverRefs(
   receiverRefsByStartPos: Map<string, SymbolReference[]>,
   fieldRange: { startLine: number; startColumn: number },
   fieldName: string,
-): SymbolReference | null {
+): SymbolReference[] {
   const bucket = receiverRefsByStartPos.get(
     `${fieldRange.startLine}:${fieldRange.startColumn}`,
   );
-  if (!bucket) return null;
+  if (!bucket) return [];
 
   const fieldNameLower = fieldName.toLowerCase();
+  const distinct: SymbolReference[] = [];
+  const seenNames = new Set<string>();
   for (const ref of bucket) {
+    const nameLower = ref.name.toLowerCase();
     // Name must NOT be the field name (the receiver is a different identifier).
-    if (ref.name.toLowerCase() === fieldNameLower) continue;
-    return ref;
+    if (nameLower === fieldNameLower) continue;
+    if (seenNames.has(nameLower)) continue;
+    seenNames.add(nameLower);
+    distinct.push(ref);
   }
-  return null;
+  return distinct;
 }
 
 /**
@@ -438,19 +466,43 @@ function typeStringOf(symbol: ApexSymbol): string | undefined {
 }
 
 /**
- * Find a type (class/interface) declared in THIS standalone file whose leaf name
- * matches `typeName` (which may be a dotted `Outer.Inner`), case-insensitively.
- * Used to decide whether a mismatched receiver type is PROVABLY unrelated: only
- * a locally-declared type reveals its `superClass`, letting us rule out the
- * subtype cone. A type absent here has an unknown hierarchy → not provable.
+ * Find the type (class/interface) declared in THIS standalone file that the
+ * receiver's declared `typeName` refers to, for the "provably unrelated" check:
+ * only a locally-declared type reveals its `superClass`, letting us rule out the
+ * declaring type's subtype cone. A type absent here has an unknown hierarchy, so
+ * the caller must treat it as unprovable (unsafe).
+ *
+ * Matching is by CANONICAL FQN, not by leaf name (W-23631086 re-review P1). A
+ * leaf-name match is ambiguous when two nested types share a short name (e.g.
+ * `OuterOne.Child` and `OuterTwo.Child`): returning the first would let an
+ * unrelated `OuterOne.Child` (no superclass) mask an actual `OuterTwo.Child
+ * extends Base`, dropping a real occurrence. So:
+ *  - prefer an exact canonical-FQN match (covers qualified receiver types and
+ *    top-level types, whose FQN equals their leaf);
+ *  - fall back to a leaf match ONLY when it is UNIQUE in this file;
+ *  - otherwise return null → the caller treats the receiver as unprovable
+ *    (unsafe → decline).
  */
 function findLocalType(
+  table: SymbolTable,
   typeSymbols: TypeSymbol[],
   typeName: string,
 ): TypeSymbol | null {
-  const leaf = leafOf(typeName).toLowerCase();
-  for (const sym of typeSymbols) {
-    if (sym.name.toLowerCase() === leaf) return sym;
+  const normReceiver = normalizeFqn(typeName);
+  const fqnMatches = typeSymbols.filter(
+    (sym) => computeTypeFqn(table, sym) === normReceiver,
+  );
+  if (fqnMatches.length === 1) return fqnMatches[0];
+  if (fqnMatches.length > 1) return null; // ambiguous FQN (shouldn't happen)
+
+  // No exact FQN match. Only fall back to a leaf match when it is UNIQUE —
+  // an ambiguous short name cannot prove the receiver's hierarchy.
+  if (!typeName.includes('.')) {
+    const leaf = typeName.toLowerCase();
+    const leafMatches = typeSymbols.filter(
+      (sym) => sym.name.toLowerCase() === leaf,
+    );
+    if (leafMatches.length === 1) return leafMatches[0];
   }
   return null;
 }
