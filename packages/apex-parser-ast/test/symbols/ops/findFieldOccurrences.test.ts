@@ -144,21 +144,15 @@ describe('findFieldOccurrences', () => {
       'Account',
     );
 
-    // Chained `a.inner.total`: the immediate receiver of `total` is `inner` (a
-    // field). It is never a real Account.total occurrence — either the receiver
-    // resolves to a non-local type whose hierarchy we can't see
-    // (`receiver-subtype-unprovable` → unsafe) or it has no resolvable type at
-    // all (`unresolvable-receiver` → unsafe). Both are non-occurrences.
+    // Chained `a.inner.total` emits co-located receivers for BOTH the root `a`
+    // and the immediate receiver `inner`, so it is classified as a chained access
+    // (`chained-receiver-unprovable`) and declined — never a real Account.total
+    // occurrence and never a safe skip.
     expect(result.occurrences.length).toBe(0);
-    const notes = [...result.skipped, ...result.unsafe];
-    expect(notes.length).toBeGreaterThanOrEqual(1);
+    expect(result.skipped.length).toBe(0);
+    expect(result.unsafe.length).toBeGreaterThanOrEqual(1);
     expect(
-      notes.some(
-        (n) =>
-          n.reason.includes('unresolvable-receiver') ||
-          n.reason.includes('receiver-subtype-unprovable') ||
-          n.reason.includes('receiver-type-mismatch'),
-      ),
+      result.unsafe.some((n) => n.reason.includes('chained-receiver')),
     ).toBe(true);
   });
 
@@ -593,5 +587,100 @@ describe('findFieldOccurrences', () => {
         u.reason.startsWith('receiver-subtype-unprovable'),
       ),
     ).toBe(true);
+  });
+
+  // --- W-23631086 re-review P1: chained receivers must not be classified by the
+  // ROOT receiver. `a.inner.total` emits co-located receivers for BOTH `a` (root)
+  // and `inner` (immediate); classifying by `a` (a local Container with no
+  // superclass) would treat a real `inner.total` (inner: Account) as unrelated
+  // and skip it. A chained access must be `unsafe` → decline.
+
+  it('flags a chained field access as unsafe (root receiver must not classify it)', () => {
+    // `inner` is the immediate receiver and is typed Account (the declaring
+    // type), so `a.inner.total` IS Account.total — it must NOT be dropped as a
+    // Container mismatch while renaming Account.total.
+    const src = `public class Caller {
+    public class Container {
+        public Account inner;
+    }
+    public void t() {
+        Container a = new Container();
+        a.inner.total = 5;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Caller.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Caller.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    expect(result.occurrences.length).toBe(0);
+    expect(result.skipped.length).toBe(0);
+    expect(result.unsafe.length).toBeGreaterThanOrEqual(1);
+    expect(
+      result.unsafe.every((u) => u.reason.startsWith('chained-receiver')),
+    ).toBe(true);
+  });
+
+  it('declines a chained access whose leaf receiver IS the declaring type', () => {
+    // Same shape, renaming the field on the type the leaf receiver resolves to.
+    // The occurrence is real but unprovable standalone → unsafe (never skipped).
+    const src = `public class Caller {
+    public class Wrapper {
+        public Account acct;
+    }
+    public void t() {
+        Wrapper w = new Wrapper();
+        w.acct.total = 7;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Caller.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Caller.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    expect(result.occurrences.length).toBe(0);
+    expect(result.skipped.length).toBe(0);
+    expect(result.unsafe.length).toBeGreaterThanOrEqual(1);
+  });
+
+  // --- W-23631086 re-review P1: findLocalType must not prove a hierarchy
+  // mismatch by an AMBIGUOUS leaf name. Two nested `Child` types where one
+  // extends the declaring type: matching the first (no-superclass) one would let
+  // the real subclass receiver be skipped.
+
+  it('flags a repeated-inner-name subclass receiver as unsafe (no leaf-name false skip)', () => {
+    // OuterOne.Child (no superclass) is declared BEFORE OuterTwo.Child extends
+    // Base. `c` is OuterTwo.Child, so `c.total` may inherit Base.total. A leaf
+    // lookup would pick OuterOne.Child and wrongly skip; the FQN/ambiguity guard
+    // must classify it unsafe.
+    const src = `public class Holder {
+    public class OuterOne {
+        public class Child {}
+    }
+    public class OuterTwo {
+        public class Child extends Base {}
+    }
+    public void t() {
+        OuterTwo.Child c = new OuterTwo.Child();
+        c.total = 5;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Holder.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Holder.cls',
+      { name: 'total', kind: 'field' },
+      'Base',
+    );
+
+    expect(result.occurrences.length).toBe(0);
+    expect(result.skipped.length).toBe(0);
+    expect(result.unsafe.length).toBeGreaterThanOrEqual(1);
   });
 });
