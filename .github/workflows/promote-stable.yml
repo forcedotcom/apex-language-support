@@ -30,5 +30,6 @@ jobs:
       vsix-name-pattern: 'apex-language-server-extension-*.vsix'
       exclude-web-vsix: 'true'
       extensions-root: 'packages'
+      required-ci-checks: '["CI Complete"]'
       dry-run: ${{ inputs.dry-run || 'false' }}
     secrets: inherit
