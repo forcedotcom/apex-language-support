@@ -649,6 +649,74 @@ describe('findFieldOccurrences', () => {
     expect(result.unsafe.length).toBeGreaterThanOrEqual(1);
   });
 
+  // --- W-23631084 re-review P1: chain detection must count the RAW co-located
+  // receivers, not distinct identifier text. Name dedup and field-name exclusion
+  // each collapse a genuine chain to one apparent receiver and re-open the
+  // root-receiver misclassification.
+
+  it('declines a repeated-name chain (a.a.total) — name dedup must not collapse it', () => {
+    // Container has `Account a`; the local is also `a`, so BOTH chain receivers
+    // are named `a`. A name-deduped receiver set would leave one `a` (Container,
+    // no superclass) and wrongly skip, dropping the real `a.a.total` (Account)
+    // while renaming Account.total. The raw count is 2 → chain → unsafe.
+    const src = `public class Caller {
+    public class Container {
+        public Account a;
+    }
+    public void t() {
+        Container a = new Container();
+        a.a.total = 5;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Caller.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Caller.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    expect(result.occurrences.length).toBe(0);
+    expect(result.skipped.length).toBe(0);
+    expect(result.unsafe.length).toBeGreaterThanOrEqual(1);
+    expect(
+      result.unsafe.every((u) => u.reason.startsWith('chained-receiver')),
+    ).toBe(true);
+  });
+
+  it('declines a chain whose immediate receiver is named like the field (a.total.total)', () => {
+    // Container has `Account total`; the immediate receiver `total` is named like
+    // the target field. A field-name exclusion would drop it, leaving only the
+    // root `a` (Container, no superclass) and wrongly skip, dropping the real
+    // `a.total.total` (Account). The raw count keeps both → chain → unsafe.
+    const src = `public class Caller {
+    public class Container {
+        public Account total;
+    }
+    public void t() {
+        Container a = new Container();
+        a.total.total = 5;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Caller.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Caller.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    // The final `.total` (on the Account) is the chained, unprovable reference.
+    expect(
+      result.unsafe.some((u) => u.reason.startsWith('chained-receiver')),
+    ).toBe(true);
+    // It must NOT be silently skipped as a Container mismatch.
+    expect(
+      result.skipped.some((s) => s.reason.startsWith('chained-receiver')),
+    ).toBe(false);
+    expect(result.occurrences.length).toBe(0);
+  });
+
   // --- W-23631086 re-review P1: findLocalType must not prove a hierarchy
   // mismatch by an AMBIGUOUS leaf name. Two nested `Child` types where one
   // extends the declaring type: matching the first (no-superclass) one would let
