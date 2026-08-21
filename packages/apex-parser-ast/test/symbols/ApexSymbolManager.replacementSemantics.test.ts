@@ -343,6 +343,44 @@ describe('Apex symbol replacement semantics', () => {
     expect(finalTable?.getDetailLevel()).toBe('full');
   });
 
+  it('marks a syntax-broken enrichment as incomplete but a clean one as complete (W-23631128)', async () => {
+    // W-23631128 re-review (P1): a malformed source still RECOVERS a table that
+    // reports getDetailLevel() === 'full', so a detail-level check alone cannot
+    // tell a correctness-sensitive reader (CheckMemberConflicts) that the parse
+    // dropped declarations. enrichToLevel now records completeness honestly from
+    // SYNTAX errors — 'incomplete' when present, 'complete' when clean — while
+    // NOT poisoning completeness with benign SEMANTIC (cross-file) errors.
+    const brokenUri = 'file:///test/BrokenEnrich.cls';
+    const brokenCode = `public class BrokenEnrich {
+    public Integer existingField;
+    public void broken() {
+        visible = ;
+    }
+}`;
+    await Effect.runPromise(
+      manager.enrichToLevel(brokenUri, 'full', brokenCode),
+    );
+    const brokenTable = await manager.getSymbolTableForFile(brokenUri);
+    // Recovered table still reports full detail...
+    expect(brokenTable?.getDetailLevel()).toBe('full');
+    // ...but its parse is honestly marked incomplete so a reader can fail closed.
+    expect(brokenTable?.getMetadata().parseCompleteness).toBe('incomplete');
+
+    // A clean source that references an UNRESOLVED cross-file type produces a
+    // benign SEMANTIC error but no syntax error — it must stay 'complete'.
+    const cleanUri = 'file:///test/CleanEnrich.cls';
+    const cleanCode = `public class CleanEnrich {
+    public Integer existingField;
+    public void use() {
+        SomeExternalType t = new SomeExternalType();
+    }
+}`;
+    await Effect.runPromise(manager.enrichToLevel(cleanUri, 'full', cleanCode));
+    const cleanTable = await manager.getSymbolTableForFile(cleanUri);
+    expect(cleanTable?.getDetailLevel()).toBe('full');
+    expect(cleanTable?.getMetadata().parseCompleteness).not.toBe('incomplete');
+  });
+
   it('keeps semantic representation idempotent across structural variants', async () => {
     const fileUri = 'file:///test/FormattingVariant.cls';
     const compactCode = `

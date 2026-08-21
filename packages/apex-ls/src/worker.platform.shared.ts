@@ -5149,6 +5149,36 @@ const untracedHandlers: SerializedWorkerHandlers = {
                   });
                 }
 
+                // FAIL CLOSED on a syntax-broken / incomplete parse (W-23631128
+                // re-review, P1). A malformed source still yields a RECOVERED
+                // SymbolTable that reports getDetailLevel() === 'full', so the
+                // detail-level guard above is NOT sufficient: a recovered parse
+                // can omit declarations or whole scopes in the damaged region,
+                // making the member set we are about to read silently incomplete.
+                // enrichToLevel now records parse completeness honestly on the
+                // canonical table: a SYNTAX error → parseCompleteness
+                // 'incomplete'. We key ONLY off parseCompleteness, NOT the
+                // broader `hasErrors` flag, because other producers (e.g. the
+                // compilation worker) set hasErrors from ALL errors including
+                // benign SEMANTIC cross-file unresolved references, which do NOT
+                // drop declarations — keying off hasErrors would over-decline
+                // valid renames. parseCompleteness is set to 'incomplete' only by
+                // a genuinely structurally-broken parse. If the table we will
+                // read is explicitly incomplete, we cannot trust "no member named
+                // X" — preserve uncertainty and decline rather than approve a
+                // possibly-destructive rename.
+                const typeMeta = typeTable.getMetadata();
+                if (typeMeta.parseCompleteness === 'incomplete') {
+                  return yield* Effect.fail({
+                    _tag: 'CheckMemberConflictsError' as const,
+                    message:
+                      `Cannot verify member conflicts for ${type.fileUri}: ` +
+                      'its parse is incomplete (syntax errors present), so ' +
+                      'members may be missing from the symbol table and a ' +
+                      '"no conflict" result cannot be trusted.',
+                  });
+                }
+
                 // Members are children of the type's BLOCK scope, not the type itself.
                 // Find the block symbol (it's a child of the type with kind === 'block')
                 const blockSymbol = typeTable

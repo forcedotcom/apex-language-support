@@ -127,6 +127,19 @@ const NO_OP_SRC = `public class noOp {
     public String total;
 }`;
 
+// A syntax-broken class: a normal field plus a malformed method body. Compilation
+// RECOVERS a SymbolTable that reports getDetailLevel() === 'full' but whose parse
+// carries a syntax error, so its member set may be silently incomplete. The
+// conflict query must fail closed on it rather than trust "no conflict"
+// (W-23631128 re-review, P1 — the diagnostic-return path, not missing source).
+const BROKEN_URI = 'file:///test/brokenType.cls';
+const BROKEN_SRC = `public class brokenType {
+    public String existingField;
+    public void broken() {
+        visible = ;
+    }
+}`;
+
 // One combined workspace containing every fixture. Ingested once.
 const WORKSPACE_ENTRIES = [
   { uri: BASE_URI, content: BASE_SRC, languageId: 'apex', version: 1 },
@@ -199,6 +212,7 @@ const WORKSPACE_ENTRIES = [
     version: 1,
   },
   { uri: NO_OP_URI, content: NO_OP_SRC, languageId: 'apex', version: 1 },
+  { uri: BROKEN_URI, content: BROKEN_SRC, languageId: 'apex', version: 1 },
 ];
 
 type ConflictResult = {
@@ -382,6 +396,24 @@ describe('CheckMemberConflicts data-owner query', () => {
       runConflictQuery({
         definingTypeFqn: 'nosuchtype',
         newName: 'field1',
+        memberKind: 'field',
+        isRenamedMemberPrivate: false,
+      }),
+    ).rejects.toThrow(/CheckMemberConflictsError/);
+  });
+
+  it('fails closed when the inspected type has a syntax-broken (recovered) parse', async () => {
+    // brokenType RECOVERS a table that reports full detail, but its parse carries
+    // a syntax error, so declarations may be missing. Enrichment now records that
+    // incompleteness honestly and the query declines rather than returning
+    // conflict:false from an untrustworthy member set (W-23631128 re-review P1 —
+    // the diagnostic-return path, distinct from the missing-source path). The
+    // FQN resolves (the class recovered), so a rejection here is specifically the
+    // incomplete-parse guard, not a type-not-found error.
+    await expect(
+      runConflictQuery({
+        definingTypeFqn: 'brokentype',
+        newName: 'brandNewName',
         memberKind: 'field',
         isRenamedMemberPrivate: false,
       }),
