@@ -717,6 +717,113 @@ describe('findFieldOccurrences', () => {
     expect(result.occurrences.length).toBe(0);
   });
 
+  // --- W-23631084 re-review P1 (second finding): a chained access must decline
+  // in EVERY access form, not just the assignment-LHS write. For a READ /
+  // argument / return / condition / `this.`-rooted chain the parser stamps only
+  // the ROOT (or nothing) as a co-located receiver, so a count-only heuristic
+  // would mis-classify the leaf by its root receiver — dropping a real reference
+  // (dangling) or renaming an unrelated one (corruption). Detection uses the
+  // parser's whole-expression `chainNodes` (length ≥ 3) which is form-independent.
+
+  // Each case declares `Container.inner : Account` so that `a.inner.total` (or
+  // `this.inner.total`) IS a genuine `Account.total` reference that must NOT be
+  // dropped while renaming Account.total. The root `a`/`this` resolves to
+  // Container/enclosing (no relation to Account), which is exactly the misleading
+  // classification the fix must avoid.
+  const chainReadForms: Array<{ label: string; body: string }> = [
+    { label: 'read RHS', body: 'Integer x = a.inner.total;' },
+    { label: 'method argument', body: 'sink(a.inner.total);' },
+    { label: 'binary expression', body: 'Integer x = a.inner.total + 1;' },
+    { label: 'ternary', body: 'Integer x = true ? a.inner.total : 0;' },
+  ];
+  for (const form of chainReadForms) {
+    it(`declines a chained access in ${form.label} form (not just write LHS)`, () => {
+      const src = `public class Caller {
+    public class Container {
+        public Account inner;
+    }
+    public void sink(Integer i) {}
+    public void t() {
+        Container a = new Container();
+        ${form.body}
+    }
+}`;
+      const table = parseSource(src, 'file:///test/Caller.cls');
+      const result = findFieldOccurrences(
+        table,
+        'file:///test/Caller.cls',
+        { name: 'total', kind: 'field' },
+        'Account',
+      );
+
+      expect(result.occurrences.length).toBe(0);
+      // Must be classified unsafe (decline), never a silent skip.
+      expect(
+        result.skipped.some((s) => s.reason.startsWith('chained-receiver')),
+      ).toBe(false);
+      expect(
+        result.unsafe.some((u) => u.reason.startsWith('chained-receiver')),
+      ).toBe(true);
+    });
+  }
+
+  it('declines a `this.`-rooted chained read (this.inner.total)', () => {
+    // `this.inner.total` co-locates NO receiver VARIABLE_USAGE at the field token
+    // (the root is `this`), so a count-only heuristic would treat it as an
+    // implicit-this access on the enclosing type and drop it. The length-≥3
+    // chainNodes signal catches it.
+    const src = `public class Caller {
+    public Account inner;
+    public void t() {
+        Integer x = this.inner.total;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Caller.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Caller.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    expect(result.occurrences.length).toBe(0);
+    expect(
+      result.skipped.some((s) => s.reason.startsWith('chained-receiver')),
+    ).toBe(false);
+    expect(
+      result.unsafe.some((u) => u.reason.startsWith('chained-receiver')),
+    ).toBe(true);
+  });
+
+  it('declines a chained read whose ROOT type IS the declaring type (no over-rename)', () => {
+    // Root `a` is Account (the declaring type) but the immediate receiver `inner`
+    // is a Container, so `a.inner.total` is Container.total, NOT Account.total.
+    // Classifying by the root would wrongly RENAME this unrelated token
+    // (corruption). It must decline as a chain instead.
+    const src = `public class Caller {
+    public class Container {
+        public Integer total;
+    }
+    public void t() {
+        Account a = new Account();
+        Integer x = a.inner.total;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Caller.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Caller.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    // Never a genuine occurrence — must not rename an unrelated Container.total.
+    expect(result.occurrences.length).toBe(0);
+    expect(
+      result.unsafe.some((u) => u.reason.startsWith('chained-receiver')),
+    ).toBe(true);
+  });
+
   // --- W-23631086 re-review P1: findLocalType must not prove a hierarchy
   // mismatch by an AMBIGUOUS leaf name. Two nested `Child` types where one
   // extends the declaring type: matching the first (no-superclass) one would let

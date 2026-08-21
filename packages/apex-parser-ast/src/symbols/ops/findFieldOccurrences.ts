@@ -154,13 +154,43 @@ export function findFieldOccurrences(
   //     context, because at a chained final field (`a.total.total`) a
   //     same-position VARIABLE_USAGE and FIELD_ACCESS co-exist and dedup may
   //     surface either.
+  // (d) the set of start positions that are the LEAF of a MULTI-HOP member-access
+  //     chain (`a.b.total`, `a.getX().total`, `this.b.total`, deep `a.b.c.total`).
+  //     The parser emits a whole-expression reference whose `chainNodes` array
+  //     lists every hop (root … leaf); a multi-hop chain has length ≥ 3 (root +
+  //     ≥1 intermediate + the field leaf), while a simple qualified access
+  //     (`a.total`) has length 2 and a bare access has none. This is the
+  //     form-INDEPENDENT chain signal (W-23631084 re-review P1, second finding):
+  //     the co-located-receiver COUNT only reveals a chain for an assignment-LHS
+  //     write (which stamps two receiver VARIABLE_USAGEs at the field token); for
+  //     a READ / argument / return / condition / `this.`-rooted chain the parser
+  //     stamps only the ROOT as a co-located VARIABLE_USAGE (count 1, or 0 for
+  //     `this.`), so counting alone would mis-classify the leaf by its root
+  //     receiver and silently drop or corrupt a real reference. Keying off the
+  //     leaf of a length-≥3 chainNodes array catches every access form.
   const targetLeaf = target.name.includes('.')
     ? target.name.slice(target.name.lastIndexOf('.') + 1)
     : target.name;
   const targetLeafLower = targetLeaf.toLowerCase();
   const receiverRefsByStartPos = new Map<string, SymbolReference[]>();
   const fieldAccessStartPos = new Set<string>();
+  const multiHopChainLeafPos = new Set<string>();
   for (const ref of table.getAllReferences()) {
+    // (d) record multi-hop chain leaves regardless of this ref's own context —
+    // the chain lives on the whole-expression ref, whose leaf chainNode carries
+    // the field token's position and FIELD_ACCESS context.
+    const chain = ref.chainNodes;
+    if (chain && chain.length >= 3) {
+      const leaf = chain[chain.length - 1];
+      const lir = leaf?.location?.identifierRange;
+      if (
+        lir &&
+        leaf.context === ReferenceContext.FIELD_ACCESS &&
+        leaf.name.toLowerCase() === targetLeafLower
+      ) {
+        multiHopChainLeafPos.add(`${lir.startLine}:${lir.startColumn}`);
+      }
+    }
     const ir = ref.location?.identifierRange;
     if (!ir) continue;
     const key = `${ir.startLine}:${ir.startColumn}`;
@@ -207,26 +237,35 @@ export function findFieldOccurrences(
         )
       : [];
 
-    if (receiverRefs.length >= 2) {
-      // Case 0: CHAINED access (`a.inner.total`). The parser emits one co-located
-      // receiver VARIABLE_USAGE PER chain element at the field token — the ROOT
-      // (`a`) AND the immediate receiver (`inner`) — so a count of ≥2 is the
-      // parser-owned chain signal (W-23631084 re-review P1). We cannot reliably
-      // attribute the immediate member-access receiver's declared type
-      // standalone. Classifying by the root (or by any single collapsed receiver)
-      // would treat a real inherited/target reference as unrelated (e.g.
-      // `Container a; a.inner.total` where `inner` is the declaring type) and
-      // silently drop it while the declaration renames. So decline. NOTE: the
-      // count is taken over the RAW co-located entries (see
-      // findColocatedReceiverRefs) — deduping by name or dropping a field-named
-      // entry would collapse `a.a.total` / `a.total.total` back to one apparent
-      // receiver and re-open this hole.
+    if (receiverRefs.length >= 2 || multiHopChainLeafPos.has(startKey)) {
+      // Case 0: CHAINED access (`a.inner.total`). This is the target field
+      // reached through a MULTI-HOP member access, whose immediate receiver's
+      // declared type cannot be reliably attributed from this standalone parse.
+      // Classifying by the root (or by any single collapsed receiver) would treat
+      // a real inherited/target reference as unrelated (e.g. `Container a;
+      // a.inner.total` where `inner` is the declaring type) and silently drop it
+      // — or, when the root happens to BE the declaring type, rename an unrelated
+      // `inner.total` — while the declaration renames. So decline.
+      //
+      // Two complementary parser-owned signals detect the chain across ALL access
+      // forms (W-23631084 re-review P1):
+      //  - `multiHopChainLeafPos`: the candidate is the leaf of a length-≥3
+      //    `chainNodes` array. This is form-INDEPENDENT and is the signal for
+      //    READ / argument / return / condition / `this.`-rooted chains, where
+      //    the parser stamps only the root (or nothing) as a co-located receiver.
+      //  - `receiverRefs.length >= 2`: an assignment-LHS write stamps one
+      //    co-located receiver VARIABLE_USAGE per hop at the field token and does
+      //    NOT emit a whole-expression chainNodes ref, so the raw co-located count
+      //    (no name-dedup, no field-name exclusion — see findColocatedReceiverRefs)
+      //    is what catches `a.a.total` / `a.total.total` write forms.
+      const chainDesc =
+        receiverRefs.length >= 2
+          ? receiverRefs.map((r) => r.name).join('.')
+          : 'multi-hop-member-access';
       unsafe.push({
         uri: fileUri,
         identifierRange: candidate.identifierRange,
-        reason: `chained-receiver-unprovable:${receiverRefs
-          .map((r) => r.name)
-          .join('.')}`,
+        reason: `chained-receiver-unprovable:${chainDesc}`,
       });
       continue;
     }
