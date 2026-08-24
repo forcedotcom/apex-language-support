@@ -2619,6 +2619,32 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
           return nestedBase;
         }
 
+        // Constructor-result receiver: `new Account().total`. Without this, the
+        // NewExpression base yields no identifier, `finalizeChainScope` bails on
+        // the empty base, and the `.total` field leaf (already pushed to the chain
+        // scope) is silently DROPPED — leaving the field access entirely absent
+        // from the semantic model, so a rename can dangle it (W-23631084 review).
+        // Return the constructed type's leaf name so the chain finalizes and the
+        // field leaf is emitted for occurrence classification.
+        if (isContextType(leftExpression, NewExpressionContext)) {
+          const created = (leftExpression as NewExpressionContext)
+            .creator?.()
+            ?.createdName?.()
+            ?.getText?.();
+          if (created) {
+            // Strip generic arguments (`Account<Foo>` → `Account`) and take the
+            // leaf of a qualified name (`ns.Account` → `Account`).
+            const bare = created.replace(/<.*>$/s, '');
+            const leaf = bare.includes('.')
+              ? bare.slice(bare.lastIndexOf('.') + 1)
+              : bare;
+            this.logger.debug(
+              () => `[EXTRACT_BASE] NewExpression base resolved to "${leaf}"`,
+            );
+            return leaf;
+          }
+        }
+
         // Use extractIdentifiersFromExpression to get only identifiers, not method calls
         const identifiers =
           this.extractIdentifiersFromExpression(leftExpression);

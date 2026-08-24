@@ -1238,5 +1238,80 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       const errResult = result as { error: { code: number; message: string } };
       expect(errResult.error.message).toContain('Cannot safely rename');
     }, 120_000);
+
+    it('declines when a candidate references the field via a constructor-result receiver (W-23631084)', async () => {
+      const ACCOUNT_URI = 'file:///test/AccountCr.cls';
+      const ACCOUNT_SRC = `public class AccountCr {
+    public Integer total;
+}`;
+      // Caller reaches the field through a CONSTRUCTOR result
+      // (`new AccountCr().total`). The parser now represents this as a multi-hop
+      // chain leaf that cannot be attributed standalone, so the whole rename must
+      // decline — never a declaration-only partial edit that dangles this
+      // reference.
+      const CALLER_URI = 'file:///test/CallerCr.cls';
+      const CALLER_SRC = `public class CallerCr {
+    public void use() {
+        Integer x = new AccountCr().total;
+    }
+}`;
+      const SOURCES: Record<string, string> = {
+        [ACCOUNT_URI]: ACCOUNT_SRC,
+        [CALLER_URI]: CALLER_SRC,
+      };
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        for (const uri of [ACCOUNT_URI, CALLER_URI]) {
+          yield* Effect.promise(() =>
+            dispatcher.dispatch('documentOpen', {
+              document: {
+                uri,
+                languageId: 'apex',
+                version: 1,
+                getText: () => SOURCES[uri],
+              },
+              textDocument: { uri },
+              text: SOURCES[uri],
+            }),
+          );
+        }
+
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: ACCOUNT_URI },
+            position: { line: 1, character: 19 }, // on `total` declaration
+            newName: 'amount',
+            content: ACCOUNT_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-field:ctor-receiver] ${JSON.stringify(result)}`);
+
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('error');
+      expect(result).not.toHaveProperty('changes');
+      const errResult = result as { error: { code: number; message: string } };
+      expect(errResult.error.message).toContain('Cannot safely rename');
+    }, 120_000);
   });
 });

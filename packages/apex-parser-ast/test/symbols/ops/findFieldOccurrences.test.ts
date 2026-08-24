@@ -913,6 +913,103 @@ describe('findFieldOccurrences', () => {
     ).toBe(true);
   });
 
+  // --- W-23631084 re-review P1: a CONSTRUCTOR-result field receiver
+  // (`new Account().total`) was entirely absent from the semantic model — the
+  // parser dropped the `.total` leaf, so no candidate surfaced and the rename
+  // could dangle it. The parser now emits it as a multi-hop chain leaf; it must
+  // decline in every access form and never be dropped or renamed.
+
+  it('declines a constructor-result receiver read (new Account().total)', () => {
+    const src = `public class Caller {
+    public void t() {
+        Integer x = new Account().total;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Caller.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Caller.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    expect(result.occurrences.length).toBe(0);
+    expect(result.skipped.length).toBe(0);
+    expect(
+      result.unsafe.some((u) => u.reason.startsWith('chained-receiver')),
+    ).toBe(true);
+  });
+
+  it('declines a constructor-result receiver write (new Account().total = 5)', () => {
+    const src = `public class Caller {
+    public void t() {
+        new Account().total = 5;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Caller.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Caller.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    expect(result.occurrences.length).toBe(0);
+    expect(result.skipped.length).toBe(0);
+    expect(
+      result.unsafe.some((u) => u.reason.startsWith('chained-receiver')),
+    ).toBe(true);
+  });
+
+  it('does NOT rename a constructor-result receiver inside the declaring type (new Other().total)', () => {
+    // Inside Account, `new Other().total` is Other.total via the constructor
+    // result, NOT Account.total. It must decline, never be renamed as an
+    // occurrence of Account.total (corruption).
+    const src = `public class Account {
+    public void t() {
+        Integer x = new Other().total;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Account.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Account.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    expect(result.occurrences.length).toBe(0);
+    expect(
+      result.unsafe.some((u) => u.reason.startsWith('chained-receiver')),
+    ).toBe(true);
+  });
+
+  it('declines a constructor-result receiver on a local nested type', () => {
+    // The declaring type is declared locally (nested); `new Account().total`
+    // still resolves through a constructor result whose member access cannot be
+    // attributed standalone → decline.
+    const src = `public class Holder {
+    public class Account {
+        public Integer total;
+    }
+    public void t() {
+        Integer x = new Account().total;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Holder.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Holder.cls',
+      { name: 'total', kind: 'field' },
+      'Holder.Account',
+    );
+
+    expect(result.occurrences.length).toBe(0);
+    expect(
+      result.unsafe.some((u) => u.reason.startsWith('chained-receiver')),
+    ).toBe(true);
+  });
+
   // --- W-23631086 re-review P1: findLocalType must not prove a hierarchy
   // mismatch by an AMBIGUOUS leaf name. Two nested `Child` types where one
   // extends the declaring type: matching the first (no-superclass) one would let
