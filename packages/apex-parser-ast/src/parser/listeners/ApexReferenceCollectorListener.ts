@@ -68,6 +68,14 @@ interface ChainScope {
   finalAccess?: 'read' | 'write' | 'readwrite';
   nodeAccesses?: ('read' | 'write' | 'readwrite')[];
   baseSemanticContext?: SymbolReferenceSemanticContext;
+  // Structural receiver hop for a member access whose left expression is NOT a
+  // lexical identifier but a NewExpression (constructor result) — e.g.
+  // `new Account().total`. There is no identifier base to route through the
+  // lexical `createChainRootReference` path, so the receiver is represented
+  // STRUCTURALLY here using the constructor's real parser-owned identifier range
+  // (built in createNewChainScope, consumed in finalizeChainScope). Present only
+  // for the constructor-result case; undefined for ordinary identifier-based chains.
+  structuralReceiver?: SymbolReference;
 }
 
 /**
@@ -938,6 +946,18 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
   enterAnyId(ctx: AnyIdContext): void {
     try {
       if (this.shouldSuppress(ctx)) {
+        return;
+      }
+
+      // Grammar: idCreatedNamePair: anyId (LT typeList GT)? — an anyId whose
+      // direct parent is IdCreatedNamePair is a CONSTRUCTOR TYPE identifier (the
+      // `Account` in `new Account()`), not a dot-member. A genuine member-access
+      // leaf's parent is a DotExpression (dotExpression: expression DOT anyId).
+      // Constructor type identifiers are captured elsewhere
+      // (captureConstructorCallReference / buildConstructorReceiverNode); pushing
+      // them into the active chain would fabricate a spurious doubled hop
+      // (`Account.Account.total`). Skip them here.
+      if (ctx.parentCtx?.constructor.name === 'IdCreatedNamePairContext') {
         return;
       }
 
@@ -1940,6 +1960,25 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     const finalAccess = this.currentLhsAccess || 'read';
 
     const indexedAccess = indexedAccessSemantic(ctx.expression());
+
+    // Grammar: dotExpression: expression (DOT | QUESTIONDOT) (dotMethodCall | anyId)
+    // When the left `expression` is a NewExpression (constructor result) there is
+    // no lexical identifier base — extractBaseExpressionFromParser returns '' and
+    // the chain would be dropped (its `.field` leaf lost). Capture the receiver
+    // hop STRUCTURALLY from the constructor's real identifier range so the leaf is
+    // preserved as a clean member-access chain (see finalizeChainScope).
+    let structuralReceiver: SymbolReference | undefined;
+    const expressions = (ctx as any).expression?.();
+    const leftExpression =
+      Array.isArray(expressions) && expressions.length > 0
+        ? expressions[0]
+        : (expressions ?? null);
+    const constructorReceiver = this.unwrapToNewExpression(leftExpression);
+    if (constructorReceiver) {
+      structuralReceiver =
+        this.buildConstructorReceiverNode(constructorReceiver) ?? undefined;
+    }
+
     return {
       isActive: true,
       baseExpression: this.extractBaseExpressionFromParser(ctx),
@@ -1948,13 +1987,119 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
       depth: 0,
       finalAccess,
       baseSemanticContext: indexedAccess ? { indexedAccess } : undefined,
+      structuralReceiver,
     };
+  }
+
+  /**
+   * Build the structural receiver hop for a constructor-result member access
+   * (`new Account().total`). Represents the receiver using the SAME parser-owned
+   * identifier extraction as the standalone CONSTRUCTOR_CALL reference
+   * (captureConstructorCallReference) — the createdName idCreatedNamePair
+   * anyId()s and their SymbolLocations — never a type-name string routed through
+   * the lexical identifier-base path, and never regex/getText() text heuristics.
+   * The node's range is the constructor type identifier (e.g. the `Account`
+   * token), so NO reference covers the `new` keyword.
+   *
+   * Grammar: newExpression: NEW creator ;
+   *          creator: createdName (noRest | classCreatorRest | ...) ;
+   *          createdName: idCreatedNamePair (DOT idCreatedNamePair)* ;
+   *          idCreatedNamePair: anyId (LT typeList GT)?
+   *
+   * Returns null for collection creators (new List<>/Set<>/Map<>) and any shape
+   * without an identifier pair; the caller then leaves the chain unrepresented
+   * (unchanged prior behavior) rather than fabricating a receiver.
+   */
+  private buildConstructorReceiverNode(
+    ctx: NewExpressionContext,
+  ): SymbolReference | null {
+    try {
+      const creator = ctx.creator();
+      if (!creator) return null;
+      const createdName = creator.createdName();
+      if (!createdName) return null;
+
+      const idCreatedNamePairs = createdName.idCreatedNamePair_list();
+      if (!idCreatedNamePairs || idCreatedNamePairs.length === 0) return null;
+
+      const typeParts: string[] = [];
+      let baseLocation: SymbolLocation | null = null;
+      for (const pair of idCreatedNamePairs) {
+        const anyId = pair.anyId();
+        if (!anyId) continue;
+        typeParts.push(anyId.getText());
+        if (!baseLocation) {
+          baseLocation = this.getLocationForReference(anyId);
+        }
+      }
+      if (typeParts.length === 0 || !baseLocation) return null;
+
+      return new EnhancedSymbolReference(
+        typeParts.join('.'),
+        baseLocation,
+        ReferenceContext.CONSTRUCTOR_CALL,
+        {
+          parentContext: this.getCurrentMethodName(),
+          access: 'read',
+        },
+      );
+    } catch (error) {
+      this.logger.warn(
+        () => `Error building constructor receiver node: ${error}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Resolve the NewExpression at the head of a member-access receiver, unwrapping
+   * parentheses so a PARENTHESIZED constructor result (`(new Account()).total`) is
+   * recognized the same as a bare one (`new Account().total`). Both drop the
+   * `.field` leaf without structural handling.
+   *
+   * Grammar: subExpression: LPAREN expression RPAREN — unwrap SubExpression
+   * (recursively, for `((new Account())).total`) and stop at the first
+   * NewExpression. Returns null for any other left-expression shape (variable,
+   * method result, cast, array/indexed access), which are represented by their
+   * own listeners and are NOT constructor receivers.
+   */
+  private unwrapToNewExpression(
+    expr: ParserRuleContext | null | undefined,
+  ): NewExpressionContext | null {
+    let current: ParserRuleContext | null | undefined = expr;
+    while (current) {
+      if (isContextType(current, NewExpressionContext)) {
+        return current as NewExpressionContext;
+      }
+      if (isContextType(current, SubExpressionContext)) {
+        current = (current as SubExpressionContext).expression();
+        continue;
+      }
+      return null;
+    }
+    return null;
   }
 
   private finalizeChainScope(chainScope: ChainScope): void {
     if (!chainScope.isActive) return;
     chainScope.isActive = false;
-    if (!chainScope.baseExpression) return;
+
+    if (!chainScope.baseExpression) {
+      // Constructor-result receiver (`new Account().total`): the left expression
+      // is a NewExpression, so there is no lexical identifier base. Represent the
+      // receiver STRUCTURALLY using the constructor's real identifier range
+      // (captured in createNewChainScope) and emit a clean member-access chain via
+      // SymbolReferenceFactory.createChainedExpressionReference, which builds the
+      // final ref purely from node ranges. Do NOT route through
+      // createChainRootReference (the lexical identifier-base path): that would
+      // fabricate a doubled `Account.Account` hop, a baseVarRef spanning the `new`
+      // keyword, and a lexical CLASS/VAR base — the reference corruption the
+      // reviewer rejected.
+      if (chainScope.structuralReceiver && chainScope.chainNodes.length > 0) {
+        this.createStructuralReceiverChainReference(chainScope);
+      }
+      return;
+    }
 
     // Even if there are no chain nodes, we might still need to create a reference
     // for the base expression (e.g., FileUtilities.createFile() where baseExpression='FileUtilities')
@@ -1964,6 +2109,89 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     }
     // Note: If chainNodes.length === 0, the base expression might still be captured
     // by other listeners (e.g., enterIdPrimary), so we don't need to create a reference here
+  }
+
+  /**
+   * Emit a clean member-access chain for a constructor-result receiver
+   * (`new Account().total`), mirroring the method-result chain shape
+   * (`getAccount().total` → chainNodes [receiver CHAIN_STEP, total FIELD_ACCESS]).
+   *
+   * The receiver hop is the constructor node built in buildConstructorReceiverNode
+   * (context CONSTRUCTOR_CALL, at the real `Account` token range); the leaf(s) are
+   * the collected member chainNodes (the `total` FIELD_ACCESS at its true range).
+   * The final ref is built by createChainedExpressionReference, whose location is
+   * computed purely from node ranges (base node → leaf) — so no reference is
+   * fabricated over the `new` keyword and no duplicate constructor hop is emitted.
+   * The final ref's name is the full dotted expression (e.g. `Account.total`), NOT
+   * the bare leaf, so no standalone top-level FIELD_ACCESS `total` is introduced;
+   * the leaf remains discoverable only as the chain's leaf chainNode.
+   *
+   * The pre-existing standalone CONSTRUCTOR_CALL reference for `new Account()`
+   * (emitted by captureConstructorCallReference) is left untouched.
+   */
+  private createStructuralReceiverChainReference(chainScope: ChainScope): void {
+    try {
+      const { structuralReceiver, chainNodes } = chainScope;
+      if (!structuralReceiver || chainNodes.length === 0) return;
+
+      const finalAccess = chainScope.finalAccess || 'read';
+
+      // Receiver + intermediate hops are always 'read'; the final leaf carries the
+      // overall chain access (write/readwrite for an assignment LHS).
+      const memberNodesWithAccess = chainNodes.map((node, index) => {
+        const isFinal = index === chainNodes.length - 1;
+        const nodeAccess = isFinal ? finalAccess : 'read';
+        if (node.access !== nodeAccess) {
+          return new EnhancedSymbolReference(
+            node.name,
+            node.location,
+            node.context,
+            {
+              resolvedSymbolId: node.resolvedSymbolId,
+              parentContext: node.parentContext,
+              access: nodeAccess,
+              isStatic: node.isStatic,
+              semanticContext: node.semanticContext,
+              literalValue: node.literalValue,
+              literalType: node.literalType,
+              argumentCount: node.argumentCount,
+              argumentSemantics: node.argumentSemantics,
+              argumentTypes: node.argumentTypes,
+            },
+          );
+        }
+        return node;
+      });
+
+      const nodes = [structuralReceiver, ...memberNodesWithAccess];
+      const finalNode = nodes[nodes.length - 1];
+      const fullExpression = nodes.map((n) => n.name).join('.');
+
+      // chainedExpression only supplies the full-expression NAME to the factory;
+      // its range/access/context for the final ref are taken from the leaf node.
+      const chainedExpression = new EnhancedSymbolReference(
+        fullExpression,
+        finalNode.location,
+        finalNode.context,
+        {
+          parentContext: this.getCurrentMethodName(),
+          access: finalAccess,
+          isStatic: finalNode.isStatic,
+        },
+      );
+
+      const finalRef = SymbolReferenceFactory.createChainedExpressionReference(
+        nodes,
+        chainedExpression,
+        this.getCurrentMethodName(),
+      );
+
+      this.symbolTable.addTypeReference(finalRef);
+    } catch (error) {
+      this.logger.warn(
+        () => `Error creating structural receiver chain reference: ${error}`,
+      );
+    }
   }
 
   private createChainRootReference(chainScope: ChainScope): void {
@@ -2617,32 +2845,6 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
               `[EXTRACT_BASE] Recursively extracted base from nested DotExpression: "${nestedBase}"`,
           );
           return nestedBase;
-        }
-
-        // Constructor-result receiver: `new Account().total`. Without this, the
-        // NewExpression base yields no identifier, `finalizeChainScope` bails on
-        // the empty base, and the `.total` field leaf (already pushed to the chain
-        // scope) is silently DROPPED — leaving the field access entirely absent
-        // from the semantic model, so a rename can dangle it (W-23631084 review).
-        // Return the constructed type's leaf name so the chain finalizes and the
-        // field leaf is emitted for occurrence classification.
-        if (isContextType(leftExpression, NewExpressionContext)) {
-          const created = (leftExpression as NewExpressionContext)
-            .creator?.()
-            ?.createdName?.()
-            ?.getText?.();
-          if (created) {
-            // Strip generic arguments (`Account<Foo>` → `Account`) and take the
-            // leaf of a qualified name (`ns.Account` → `Account`).
-            const bare = created.replace(/<.*>$/s, '');
-            const leaf = bare.includes('.')
-              ? bare.slice(bare.lastIndexOf('.') + 1)
-              : bare;
-            this.logger.debug(
-              () => `[EXTRACT_BASE] NewExpression base resolved to "${leaf}"`,
-            );
-            return leaf;
-          }
         }
 
         // Use extractIdentifiersFromExpression to get only identifiers, not method calls

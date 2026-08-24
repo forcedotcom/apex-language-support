@@ -916,7 +916,11 @@ describe('findFieldOccurrences', () => {
   // --- W-23631084 re-review P1: a CONSTRUCTOR-result field receiver
   // (`new Account().total`) was entirely absent from the semantic model — the
   // parser dropped the `.total` leaf, so no candidate surfaced and the rename
-  // could dangle it. The parser now emits it as a multi-hop chain leaf; it must
+  // could dangle it. The parser now represents it structurally as a chain whose
+  // receiver hop is the constructor at its real range, so the field leaf is a
+  // chain leaf with a NON-VARIABLE receiver — classified exactly like the
+  // method-result and cast cases (`non-variable-receiver-unprovable`), never a
+  // multi-hop `chained-receiver` (the emission is a clean 2-node chain). It must
   // decline in every access form and never be dropped or renamed.
 
   it('declines a constructor-result receiver read (new Account().total)', () => {
@@ -936,7 +940,9 @@ describe('findFieldOccurrences', () => {
     expect(result.occurrences.length).toBe(0);
     expect(result.skipped.length).toBe(0);
     expect(
-      result.unsafe.some((u) => u.reason.startsWith('chained-receiver')),
+      result.unsafe.some(
+        (u) => u.reason === 'non-variable-receiver-unprovable',
+      ),
     ).toBe(true);
   });
 
@@ -957,7 +963,9 @@ describe('findFieldOccurrences', () => {
     expect(result.occurrences.length).toBe(0);
     expect(result.skipped.length).toBe(0);
     expect(
-      result.unsafe.some((u) => u.reason.startsWith('chained-receiver')),
+      result.unsafe.some(
+        (u) => u.reason === 'non-variable-receiver-unprovable',
+      ),
     ).toBe(true);
   });
 
@@ -980,7 +988,9 @@ describe('findFieldOccurrences', () => {
 
     expect(result.occurrences.length).toBe(0);
     expect(
-      result.unsafe.some((u) => u.reason.startsWith('chained-receiver')),
+      result.unsafe.some(
+        (u) => u.reason === 'non-variable-receiver-unprovable',
+      ),
     ).toBe(true);
   });
 
@@ -1006,7 +1016,9 @@ describe('findFieldOccurrences', () => {
 
     expect(result.occurrences.length).toBe(0);
     expect(
-      result.unsafe.some((u) => u.reason.startsWith('chained-receiver')),
+      result.unsafe.some(
+        (u) => u.reason === 'non-variable-receiver-unprovable',
+      ),
     ).toBe(true);
   });
 
