@@ -1161,5 +1161,82 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       const errResult = result as { error: { code: number; message: string } };
       expect(errResult.error.message).toContain('Cannot safely rename');
     }, 120_000);
+
+    it('declines when a candidate references the field via a method-result receiver (W-23631084)', async () => {
+      const ACCOUNT_URI = 'file:///test/AccountMr.cls';
+      const ACCOUNT_SRC = `public class AccountMr {
+    public Integer total;
+}`;
+      // Caller reaches the field through a method RESULT (`getAccount().total`),
+      // a qualified access whose receiver type cannot be proven standalone. It
+      // must be classified unsafe so the whole rename declines — never a partial
+      // edit that renames the declaration and leaves this reference dangling.
+      const CALLER_URI = 'file:///test/CallerMr.cls';
+      const CALLER_SRC = `public class CallerMr {
+    public AccountMr getAccount() { return null; }
+    public void use() {
+        Integer x = getAccount().total;
+    }
+}`;
+      const SOURCES: Record<string, string> = {
+        [ACCOUNT_URI]: ACCOUNT_SRC,
+        [CALLER_URI]: CALLER_SRC,
+      };
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        for (const uri of [ACCOUNT_URI, CALLER_URI]) {
+          yield* Effect.promise(() =>
+            dispatcher.dispatch('documentOpen', {
+              document: {
+                uri,
+                languageId: 'apex',
+                version: 1,
+                getText: () => SOURCES[uri],
+              },
+              textDocument: { uri },
+              text: SOURCES[uri],
+            }),
+          );
+        }
+
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: ACCOUNT_URI },
+            position: { line: 1, character: 19 }, // on `total` declaration
+            newName: 'amount',
+            content: ACCOUNT_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-field:method-receiver] ${JSON.stringify(result)}`);
+
+      // Declines with an error — never a partial edit that renames the
+      // declaration while `getAccount().total` is left dangling.
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('error');
+      expect(result).not.toHaveProperty('changes');
+      const errResult = result as { error: { code: number; message: string } };
+      expect(errResult.error.message).toContain('Cannot safely rename');
+    }, 120_000);
   });
 });

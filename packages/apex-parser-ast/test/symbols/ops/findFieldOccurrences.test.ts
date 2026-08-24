@@ -824,6 +824,95 @@ describe('findFieldOccurrences', () => {
     ).toBe(true);
   });
 
+  // --- W-23631084 re-review P1: a NON-VARIABLE immediate receiver (method /
+  // constructor result, cast) is a qualified access, NOT implicit-`this`. Its
+  // receiver type can't be established standalone, so it must decline — never be
+  // dropped (dangling) or rewritten (corruption).
+
+  it('declines a method-result receiver read (getAccount().total)', () => {
+    // `getAccount().total` in an unrelated Caller: renaming Account.total, this
+    // IS a real Account.total reference. It has no co-located VARIABLE_USAGE
+    // receiver (the receiver is a method result), so it must NOT be dropped as an
+    // implicit-`this` access on Caller. Decline.
+    const src = `public class Caller {
+    public Account getAccount() { return null; }
+    public void t() {
+        Integer x = getAccount().total;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Caller.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Caller.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    expect(result.occurrences.length).toBe(0);
+    expect(
+      result.skipped.some((s) => s.reason.startsWith('implicit-this')),
+    ).toBe(false);
+    expect(
+      result.unsafe.some(
+        (u) => u.reason === 'non-variable-receiver-unprovable',
+      ),
+    ).toBe(true);
+  });
+
+  it('does NOT rename a method-result receiver inside the declaring type (getOther().total)', () => {
+    // Inside Account, `getOther().total` is Other.total (via the method result),
+    // NOT Account.total. Classifying by the enclosing type (Account == declaring)
+    // would wrongly RENAME this unrelated token. It must decline instead.
+    const src = `public class Account {
+    public Other getOther() { return null; }
+    public void t() {
+        Integer x = getOther().total;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Account.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Account.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    // Must NOT rewrite the unrelated Other.total token.
+    expect(result.occurrences.length).toBe(0);
+    expect(
+      result.unsafe.some(
+        (u) => u.reason === 'non-variable-receiver-unprovable',
+      ),
+    ).toBe(true);
+  });
+
+  it('declines a cast-result receiver read (((Account)o).total)', () => {
+    // A cast receiver: the operand `o` is Object, cast to Account. Its provable
+    // relation to the declaring type is not establishable standalone → decline.
+    const src = `public class Caller {
+    public void t(Object o) {
+        Integer x = ((Account) o).total;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Caller.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Caller.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    expect(result.occurrences.length).toBe(0);
+    expect(
+      result.skipped.some((s) => s.reason.startsWith('implicit-this')),
+    ).toBe(false);
+    expect(
+      result.unsafe.some(
+        (u) => u.reason === 'non-variable-receiver-unprovable',
+      ),
+    ).toBe(true);
+  });
+
   // --- W-23631086 re-review P1: findLocalType must not prove a hierarchy
   // mismatch by an AMBIGUOUS leaf name. Two nested `Child` types where one
   // extends the declaring type: matching the first (no-superclass) one would let

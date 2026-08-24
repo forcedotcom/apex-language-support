@@ -175,12 +175,24 @@ export function findFieldOccurrences(
   const receiverRefsByStartPos = new Map<string, SymbolReference[]>();
   const fieldAccessStartPos = new Set<string>();
   const multiHopChainLeafPos = new Set<string>();
+  // (e) the set of start positions that are the leaf of ANY member-access chain
+  //     (`chainNodes.length >= 2`) whose leaf is the target field. This is a
+  //     superset of (d): length 2 is a SINGLE-hop qualified access whose receiver
+  //     is a NON-VARIABLE expression — a method/constructor result or cast
+  //     (`getAccount().total`, `new Account().total`, `((Account)o).total`). In
+  //     the READ form the parser emits ONLY this whole-expression chain ref (no
+  //     top-level FIELD_ACCESS and no co-located VARIABLE_USAGE at the leaf), so
+  //     such a candidate would otherwise fall through to the bare/implicit-`this`
+  //     branch and be dropped (unrelated enclosing type) or corrupted (enclosing
+  //     type IS the declaring type). The receiver's declared type cannot be
+  //     established from a standalone parse, so we decline (W-23631084 review).
+  const chainLeafPos = new Set<string>();
   for (const ref of table.getAllReferences()) {
-    // (d) record multi-hop chain leaves regardless of this ref's own context —
-    // the chain lives on the whole-expression ref, whose leaf chainNode carries
-    // the field token's position and FIELD_ACCESS context.
+    // (d)/(e) record chain leaves regardless of this ref's own context — the
+    // chain lives on the whole-expression ref, whose leaf chainNode carries the
+    // field token's position and FIELD_ACCESS context.
     const chain = ref.chainNodes;
-    if (chain && chain.length >= 3) {
+    if (chain && chain.length >= 2) {
       const leaf = chain[chain.length - 1];
       const lir = leaf?.location?.identifierRange;
       if (
@@ -188,7 +200,9 @@ export function findFieldOccurrences(
         leaf.context === ReferenceContext.FIELD_ACCESS &&
         leaf.name.toLowerCase() === targetLeafLower
       ) {
-        multiHopChainLeafPos.add(`${lir.startLine}:${lir.startColumn}`);
+        const leafKey = `${lir.startLine}:${lir.startColumn}`;
+        chainLeafPos.add(leafKey);
+        if (chain.length >= 3) multiHopChainLeafPos.add(leafKey);
       }
     }
     const ir = ref.location?.identifierRange;
@@ -332,6 +346,28 @@ export function findFieldOccurrences(
           });
         }
       }
+    } else if (
+      !fieldAccessStartPos.has(startKey) &&
+      chainLeafPos.has(startKey)
+    ) {
+      // Case 1b: QUALIFIED access whose immediate receiver is a NON-VARIABLE
+      // expression — a method/constructor result or cast (`getAccount().total`,
+      // `new Account().total`, `((Account)o).total`). The parser represents these
+      // ONLY as a whole-expression chain ref (this candidate is its leaf), with
+      // NO top-level FIELD_ACCESS and NO co-located VARIABLE_USAGE receiver — so
+      // it is NOT a bare implicit-`this` access and must not fall through to Case
+      // 2. Its receiver's declared type cannot be established from this standalone
+      // parse (the result type of a method/constructor, or a cast target that may
+      // itself be a subtype), so it MIGHT be the target field. Silently treating
+      // it as implicit-`this` would drop the reference (unrelated enclosing type)
+      // or rewrite an unrelated token (enclosing type IS the declaring type).
+      // Classify UNSAFE → decline (W-23631084 review: getAccount().total).
+      unsafe.push({
+        uri: fileUri,
+        identifierRange: candidate.identifierRange,
+        reason: 'non-variable-receiver-unprovable',
+      });
+      continue;
     } else {
       // Case 2: Unqualified usage (bare `field`, implicit-this).
       // GUARD (critical): a bare `total` may be a LOCAL variable or parameter
