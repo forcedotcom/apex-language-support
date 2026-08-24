@@ -381,6 +381,38 @@ describe('Apex symbol replacement semantics', () => {
     expect(cleanTable?.getMetadata().parseCompleteness).not.toBe('incomplete');
   });
 
+  it('re-parses a full table with UNKNOWN completeness to establish it (W-23631128)', async () => {
+    // W-23631128 re-review (P1): a full table can arrive from a producer that
+    // never established completeness — a raw cursor recompile written back via
+    // UpdateSymbolSubset lands at full detail with parseCompleteness 'unknown'.
+    // enrichToLevel MUST NOT short-circuit on such a table just because it is
+    // already at the target level: it re-parses to stamp completeness honestly so
+    // a correctness-sensitive reader can require 'complete' rather than trust
+    // 'unknown'. Once stamped, subsequent enrichment short-circuits normally.
+    const fileUri = 'file:///test/UnknownFull.cls';
+    const code = `public class UnknownFull {
+    public Integer visible;
+    private Integer secret;
+    public void use() {
+        secret = 1;
+    }
+}`;
+    // Install a FULL table WITHOUT stamping completeness (mirrors a raw compile +
+    // addSymbolTable write-back). The canonical table is full but 'unknown'.
+    const rawFull = compile(code, fileUri);
+    await Effect.runPromise(manager.addSymbolTable(rawFull, fileUri));
+    const before = await manager.getSymbolTableForFile(fileUri);
+    expect(before?.getDetailLevel()).toBe('full');
+    expect(before?.getMetadata().parseCompleteness).toBe('unknown');
+
+    // enrichToLevel(full) must re-parse (not no-op on the already-full table) and
+    // establish an honest completeness for this clean source.
+    await Effect.runPromise(manager.enrichToLevel(fileUri, 'full', code));
+    const after = await manager.getSymbolTableForFile(fileUri);
+    expect(after?.getDetailLevel()).toBe('full');
+    expect(after?.getMetadata().parseCompleteness).toBe('complete');
+  });
+
   it('keeps semantic representation idempotent across structural variants', async () => {
     const fileUri = 'file:///test/FormattingVariant.cls';
     const compactCode = `

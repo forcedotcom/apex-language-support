@@ -7640,15 +7640,25 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       // getDetailLevel() reflects the symbols actually present, so it never goes
       // stale relative to what a reader will observe.
       const canonicalLevel = existingSymbolTable?.getDetailLevel() ?? null;
+      // A table whose parse completeness is still 'unknown' must NOT short-circuit
+      // even when it already sits at/above the target level (W-23631128 re-review
+      // P1). A full table can arrive from a producer that never established
+      // completeness (e.g. a write-back of a raw cursor recompile), so the
+      // correctness-sensitive reader cannot trust it. Re-parsing here lets the
+      // stamping below establish 'complete'/'incomplete' honestly. Once stamped,
+      // subsequent calls short-circuit normally.
+      const canonicalCompleteness =
+        existingSymbolTable?.getMetadata().parseCompleteness ?? 'unknown';
       if (
         canonicalLevel &&
         self.getLayerOrderIndex(canonicalLevel) >=
-          self.getLayerOrderIndex(targetLevel)
+          self.getLayerOrderIndex(targetLevel) &&
+        canonicalCompleteness !== 'unknown'
       ) {
         self.logger.debug(
           () =>
-            `File ${fileUri} canonical table already at level ${canonicalLevel}, ` +
-            `skipping enrichment to ${targetLevel}`,
+            `File ${fileUri} canonical table already at level ${canonicalLevel} ` +
+            `(completeness ${canonicalCompleteness}), skipping enrichment to ${targetLevel}`,
         );
         return;
       }

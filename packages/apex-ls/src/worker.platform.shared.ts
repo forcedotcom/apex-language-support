@@ -5114,24 +5114,41 @@ const untracedHandlers: SerializedWorkerHandlers = {
                 //   - descendant: needs ALL members (incl. private/default)
                 // So this type's file MUST be at 'full' detail before we read it.
                 //
-                // FAIL CLOSED (W-23631128 re-review, P1): validate the CANONICAL
-                // table's own getDetailLevel() — the level of the symbols actually
-                // present — NOT the getDetailLevelForFile() side-channel. That
-                // tracker is set by enrichToLevel but is NOT downgraded when a
-                // newer, lower-detail table later replaces the enriched one, so it
-                // can read 'full' while the canonical table a reader observes is
-                // back to 'public-api'. Reading that stale-approved table would
-                // drop private/protected/default members and recreate the
-                // destructive false-negative. If the canonical table is not full
-                // and we cannot enrich it to full (retained source unavailable, or
-                // enrichment does not land at full), fail the whole query so the
-                // caller preserves uncertainty rather than treating an incomplete
-                // member view as no conflict. (enrichToLevel now also guards on the
-                // canonical level, so it cannot no-op on the stale tracker.)
+                // FAIL CLOSED (W-23631128 re-review, P1): require the CANONICAL
+                // table to be BOTH full-detail AND a KNOWN-complete parse before
+                // reading members. Two independent hazards make full-detail alone
+                // insufficient:
+                //   (1) getDetailLevel() derives from the symbols actually present
+                //       (not the stale getDetailLevelForFile() side-channel), so a
+                //       newer public-api table that replaced an enriched one is
+                //       observed at its true 'public-api' level.
+                //   (2) A malformed source still yields a RECOVERED table that
+                //       reports 'full' but silently dropped declarations, AND a
+                //       full table can arrive from a producer that never
+                //       established completeness at the protocol boundary — a raw
+                //       cursor recompile written back via UpdateSymbolSubset lands
+                //       as full + parseCompleteness='unknown'. `SymbolTable`
+                //       defaults completeness to 'unknown', so trusting anything
+                //       other than an explicit 'complete' fails OPEN.
+                // So we require parseCompleteness === 'complete'. When the table is
+                // not full+complete we (re-)enrich from retained source to
+                // ESTABLISH completeness (enrichToLevel re-parses a full/unknown
+                // table for exactly this reason and stamps 'complete'/'incomplete'
+                // from SYNTAX errors — benign SEMANTIC cross-file errors do not
+                // drop declarations and do not mark incompleteness, so clean files
+                // are not over-declined). If retained source is unavailable, or
+                // enrichment cannot reach full+complete (e.g. the source is
+                // syntax-broken → 'incomplete'), fail the whole query so the caller
+                // preserves uncertainty rather than trusting a truncated set.
                 let typeTable = yield* Effect.promise(() =>
                   svc.symbolManager.getSymbolTableForFile(type.fileUri),
                 );
-                if (typeTable?.getDetailLevel() !== 'full') {
+                const isFullAndComplete = (
+                  t: typeof typeTable | null | undefined,
+                ): boolean =>
+                  t?.getDetailLevel() === 'full' &&
+                  t.getMetadata().parseCompleteness === 'complete';
+                if (!isFullAndComplete(typeTable)) {
                   const doc = yield* Effect.promise(() =>
                     svc.storageManager.getStorage().getDocument(type.fileUri),
                   );
@@ -5141,8 +5158,9 @@ const untracedHandlers: SerializedWorkerHandlers = {
                       _tag: 'CheckMemberConflictsError' as const,
                       message:
                         `Cannot verify member conflicts for ${type.fileUri}: ` +
-                        'source text unavailable to enrich to full detail, so ' +
-                        'non-public members cannot be inspected.',
+                        'source text unavailable to establish a complete ' +
+                        'full-detail parse, so non-public members cannot be ' +
+                        'reliably inspected.',
                     });
                   }
                   yield* svc.symbolManager.enrichToLevel(
@@ -5153,14 +5171,19 @@ const untracedHandlers: SerializedWorkerHandlers = {
                   typeTable = yield* Effect.promise(() =>
                     svc.symbolManager.getSymbolTableForFile(type.fileUri),
                   );
-                  if (typeTable?.getDetailLevel() !== 'full') {
+                  if (!isFullAndComplete(typeTable)) {
                     return yield* Effect.fail({
                       _tag: 'CheckMemberConflictsError' as const,
                       message:
                         `Cannot verify member conflicts for ${type.fileUri}: ` +
-                        'enrichment did not reach full detail (canonical table at ' +
-                        `${typeTable?.getDetailLevel() ?? 'none'}); non-public ` +
-                        'members may be absent.',
+                        'could not establish a complete full-detail parse ' +
+                        '(canonical table at ' +
+                        `${typeTable?.getDetailLevel() ?? 'none'} / ` +
+                        `${
+                          typeTable?.getMetadata().parseCompleteness ??
+                          'unknown'
+                        }); the member set may be incomplete, so a "no conflict" ` +
+                        'result cannot be trusted.',
                     });
                   }
                 }
@@ -5169,36 +5192,6 @@ const untracedHandlers: SerializedWorkerHandlers = {
                   return yield* Effect.fail({
                     _tag: 'CheckMemberConflictsError' as const,
                     message: `Cannot verify member conflicts: no symbol table for ${type.fileUri}.`,
-                  });
-                }
-
-                // FAIL CLOSED on a syntax-broken / incomplete parse (W-23631128
-                // re-review, P1). A malformed source still yields a RECOVERED
-                // SymbolTable that reports getDetailLevel() === 'full', so the
-                // detail-level guard above is NOT sufficient: a recovered parse
-                // can omit declarations or whole scopes in the damaged region,
-                // making the member set we are about to read silently incomplete.
-                // enrichToLevel now records parse completeness honestly on the
-                // canonical table: a SYNTAX error → parseCompleteness
-                // 'incomplete'. We key ONLY off parseCompleteness, NOT the
-                // broader `hasErrors` flag, because other producers (e.g. the
-                // compilation worker) set hasErrors from ALL errors including
-                // benign SEMANTIC cross-file unresolved references, which do NOT
-                // drop declarations — keying off hasErrors would over-decline
-                // valid renames. parseCompleteness is set to 'incomplete' only by
-                // a genuinely structurally-broken parse. If the table we will
-                // read is explicitly incomplete, we cannot trust "no member named
-                // X" — preserve uncertainty and decline rather than approve a
-                // possibly-destructive rename.
-                const typeMeta = typeTable.getMetadata();
-                if (typeMeta.parseCompleteness === 'incomplete') {
-                  return yield* Effect.fail({
-                    _tag: 'CheckMemberConflictsError' as const,
-                    message:
-                      `Cannot verify member conflicts for ${type.fileUri}: ` +
-                      'its parse is incomplete (syntax errors present), so ' +
-                      'members may be missing from the symbol table and a ' +
-                      '"no conflict" result cannot be trusted.',
                   });
                 }
 
