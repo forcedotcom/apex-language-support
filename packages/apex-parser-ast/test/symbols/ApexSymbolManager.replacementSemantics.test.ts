@@ -287,6 +287,132 @@ describe('Apex symbol replacement semantics', () => {
     expect(afterFullAgain.totalReferences).toBe(afterFull.totalReferences);
   });
 
+  it('re-enriches when a newer public-API table downgraded the canonical below full (W-23631128)', async () => {
+    // W-23631128 re-review (P1): enrichToLevel used to guard its no-op on the
+    // fileDetailLevels side-channel (getDetailLevelForFile), which is set by
+    // enrichToLevel but NOT reconciled when a newer, lower-detail table later
+    // replaces the enriched one. So the tracker could read 'full' while the
+    // canonical table a reader observes was back to 'public-api', and enrichment
+    // wrongly no-opped — leaving non-public members absent. enrichToLevel now
+    // guards on the CANONICAL table's own getDetailLevel(), so it re-enriches.
+    const fileUri = 'file:///test/EnrichReplace.cls';
+    const code = `public class EnrichReplace {
+    public Integer visible;
+    private Integer secret;
+    public void use() {
+        secret = 1;
+    }
+}`;
+
+    // 1. Enrich to full: both the canonical table AND the tracker are 'full'.
+    await Effect.runPromise(manager.enrichToLevel(fileUri, 'full', code));
+    expect(
+      (await manager.getSymbolTableForFile(fileUri))?.getDetailLevel(),
+    ).toBe('full');
+    expect(await manager.getDetailLevelForFile(fileUri)).toBe('full');
+
+    // 2. A newer PUBLIC-API table replaces the canonical (as a workspace re-scan
+    //    / batch compile would). addSymbolTable does not touch the tracker, so it
+    //    stays stale at 'full' while the canonical table drops to 'public-api'.
+    const publicApiListener = new ApexSymbolCollectorListener(
+      undefined,
+      'public-api',
+    );
+    const publicApiCompiled = compilerService.compile(
+      code,
+      fileUri,
+      publicApiListener,
+    );
+    if (!publicApiCompiled.result) {
+      throw new Error('Failed to compile public-api table');
+    }
+    await Effect.runPromise(
+      manager.addSymbolTable(publicApiCompiled.result, fileUri, 2),
+    );
+
+    // The divergence the re-review flagged: tracker stale-high, canonical low.
+    expect(
+      (await manager.getSymbolTableForFile(fileUri))?.getDetailLevel(),
+    ).toBe('public-api');
+    expect(await manager.getDetailLevelForFile(fileUri)).toBe('full');
+
+    // 3. enrichToLevel must NOT no-op on the stale tracker — guarding on the
+    //    canonical level, it re-enriches the observable table back to full.
+    await Effect.runPromise(manager.enrichToLevel(fileUri, 'full', code));
+    const finalTable = await manager.getSymbolTableForFile(fileUri);
+    expect(finalTable?.getDetailLevel()).toBe('full');
+  });
+
+  it('marks a syntax-broken enrichment as incomplete but a clean one as complete (W-23631128)', async () => {
+    // W-23631128 re-review (P1): a malformed source still RECOVERS a table that
+    // reports getDetailLevel() === 'full', so a detail-level check alone cannot
+    // tell a correctness-sensitive reader (CheckMemberConflicts) that the parse
+    // dropped declarations. enrichToLevel now records completeness honestly from
+    // SYNTAX errors — 'incomplete' when present, 'complete' when clean — while
+    // NOT poisoning completeness with benign SEMANTIC (cross-file) errors.
+    const brokenUri = 'file:///test/BrokenEnrich.cls';
+    const brokenCode = `public class BrokenEnrich {
+    public Integer existingField;
+    public void broken() {
+        visible = ;
+    }
+}`;
+    await Effect.runPromise(
+      manager.enrichToLevel(brokenUri, 'full', brokenCode),
+    );
+    const brokenTable = await manager.getSymbolTableForFile(brokenUri);
+    // Recovered table still reports full detail...
+    expect(brokenTable?.getDetailLevel()).toBe('full');
+    // ...but its parse is honestly marked incomplete so a reader can fail closed.
+    expect(brokenTable?.getMetadata().parseCompleteness).toBe('incomplete');
+
+    // A clean source that references an UNRESOLVED cross-file type produces a
+    // benign SEMANTIC error but no syntax error — it must stay 'complete'.
+    const cleanUri = 'file:///test/CleanEnrich.cls';
+    const cleanCode = `public class CleanEnrich {
+    public Integer existingField;
+    public void use() {
+        SomeExternalType t = new SomeExternalType();
+    }
+}`;
+    await Effect.runPromise(manager.enrichToLevel(cleanUri, 'full', cleanCode));
+    const cleanTable = await manager.getSymbolTableForFile(cleanUri);
+    expect(cleanTable?.getDetailLevel()).toBe('full');
+    expect(cleanTable?.getMetadata().parseCompleteness).not.toBe('incomplete');
+  });
+
+  it('re-parses a full table with UNKNOWN completeness to establish it (W-23631128)', async () => {
+    // W-23631128 re-review (P1): a full table can arrive from a producer that
+    // never established completeness — a raw cursor recompile written back via
+    // UpdateSymbolSubset lands at full detail with parseCompleteness 'unknown'.
+    // enrichToLevel MUST NOT short-circuit on such a table just because it is
+    // already at the target level: it re-parses to stamp completeness honestly so
+    // a correctness-sensitive reader can require 'complete' rather than trust
+    // 'unknown'. Once stamped, subsequent enrichment short-circuits normally.
+    const fileUri = 'file:///test/UnknownFull.cls';
+    const code = `public class UnknownFull {
+    public Integer visible;
+    private Integer secret;
+    public void use() {
+        secret = 1;
+    }
+}`;
+    // Install a FULL table WITHOUT stamping completeness (mirrors a raw compile +
+    // addSymbolTable write-back). The canonical table is full but 'unknown'.
+    const rawFull = compile(code, fileUri);
+    await Effect.runPromise(manager.addSymbolTable(rawFull, fileUri));
+    const before = await manager.getSymbolTableForFile(fileUri);
+    expect(before?.getDetailLevel()).toBe('full');
+    expect(before?.getMetadata().parseCompleteness).toBe('unknown');
+
+    // enrichToLevel(full) must re-parse (not no-op on the already-full table) and
+    // establish an honest completeness for this clean source.
+    await Effect.runPromise(manager.enrichToLevel(fileUri, 'full', code));
+    const after = await manager.getSymbolTableForFile(fileUri);
+    expect(after?.getDetailLevel()).toBe('full');
+    expect(after?.getMetadata().parseCompleteness).toBe('complete');
+  });
+
   it('keeps semantic representation idempotent across structural variants', async () => {
     const fileUri = 'file:///test/FormattingVariant.cls';
     const compactCode = `
