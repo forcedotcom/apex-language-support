@@ -1056,4 +1056,50 @@ describe('findFieldOccurrences', () => {
     expect(result.skipped.length).toBe(0);
     expect(result.unsafe.length).toBeGreaterThanOrEqual(1);
   });
+
+  it('does not attribute a single-line nested-class bare usage to the outer type', () => {
+    // Outer and Inner both declare `total`. When outer + nested class sit on ONE
+    // line, both symbol ranges have line-span 0; a line-span selector would pick
+    // the FIRST (outer) type and wrongly count Inner.f()'s bare `total` as an
+    // Outer.total usage. Column-aware innermost selection must resolve the bare
+    // access to Inner, so Outer.total sees 0 occurrences (W-23631084 review).
+    // Single logical line (no newline) so outer + nested class share line 1.
+    const src =
+      'public class Outer { public Integer total; ' +
+      'public class Inner { public Integer total; ' +
+      'public void f() { total = 5; } } }';
+    const table = parseSource(src, 'file:///test/Outer.cls');
+
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Outer.cls',
+      { name: 'total', kind: 'field' },
+      'Outer',
+    );
+
+    // The bare `total = 5` inside Inner.f() must NOT be attributed to Outer.total.
+    expect(result.occurrences.length).toBe(0);
+  });
+
+  it('attributes a single-line nested-class bare usage to the inner type', () => {
+    // Companion to the Outer case: renaming Inner.total must find the bare
+    // `total = 5` inside Inner.f().
+    // Single logical line (no newline) so outer + nested class share line 1.
+    const src =
+      'public class Outer { public Integer total; ' +
+      'public class Inner { public Integer total; ' +
+      'public void f() { total = 5; } } }';
+    const table = parseSource(src, 'file:///test/Outer.cls');
+
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Outer.cls',
+      { name: 'total', kind: 'field' },
+      'Outer.Inner',
+    );
+
+    // Inner's declaration + the bare `total = 5` in Inner.f() are Inner.total.
+    expect(result.occurrences.length).toBeGreaterThanOrEqual(1);
+    expect(result.skipped.length).toBe(0);
+  });
 });

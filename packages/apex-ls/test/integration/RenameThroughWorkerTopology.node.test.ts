@@ -1018,10 +1018,12 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
     }, 120_000);
 
     // W-23631086 review finding #5: the cursor URI must ALWAYS be scanned with
-    // the live buffer, even when the data-owner prefilter does not return it.
-    // Here the cursor file is NEVER documentOpen'd (so FindOccurrenceCandidates,
-    // which scans only stored docs, cannot return it), yet its implicit-this
-    // usages must still be found and renamed via the inserted cursor buffer.
+    // the live buffer, even when the data-owner does not return it as a stored
+    // candidate. Rename now requests the FULL stored document set (skipTextFilter,
+    // W-23631084 review), but the cursor file can still be ABSENT from the store —
+    // an unsaved/newly-modified buffer that was never documentOpen'd. An empty (or
+    // cursor-less) stored set is NOT a decline: the live cursor buffer is inserted
+    // and scanned, so its implicit-this usages are still found and renamed.
     it('scans the cursor buffer even when absent from the candidate set', async () => {
       const UNOPENED_URI = 'file:///test/Unopened.cls';
       const UNOPENED_SRC = `public class Unopened {
@@ -1049,7 +1051,8 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
         yield* runRemoteStdlibWarmupPhase(topology, 1);
 
         // Deliberately do NOT documentOpen UNOPENED_URI — it is absent from the
-        // data-owner store, so the prefilter cannot return it as a candidate.
+        // data-owner store, so the document-set query cannot return it. Its
+        // occurrences must still be found via the inserted live cursor buffer.
         const result = yield* Effect.promise(() =>
           dispatcher.dispatch('rename', {
             textDocument: { uri: UNOPENED_URI },
@@ -1070,7 +1073,7 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       expect(edit?.changes).toBeDefined();
 
       // The cursor file's declaration + two implicit-this usages are renamed,
-      // even though the prefilter never returned it.
+      // even though the data owner never returned it as a stored candidate.
       const edits = edit!.changes![UNOPENED_URI];
       expect(edits).toBeDefined();
       expect(edits.length).toBeGreaterThanOrEqual(3);

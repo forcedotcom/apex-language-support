@@ -4027,13 +4027,47 @@ async function resolveFieldRename(
       return { error: { code: -32602, message: validation.message } };
     }
 
-    // Stage 5: phase-1 lexical prefilter across the workspace (data-owner),
-    // overriding the cursor file with the live buffer for fidelity.
-    const scan = (await requestCoordinatorAssistancePromiseShared(
-      'dataOwner:FindOccurrenceCandidates',
-      { symbolName: target.name },
-      true,
-    )) as { candidates?: Array<{ uri: string; content: string }> };
+    // Stage 5: obtain the FULL set of stored workspace documents from the data
+    // owner, WITHOUT the raw-text word-boundary prefilter (skipTextFilter: true).
+    // Rename candidate discovery no longer depends on a raw-text regex prefilter
+    // (W-23631084 review, blocking design violation): a `\b<name>\b` false
+    // negative would silently drop a file and dangle a reference after the
+    // declaration renames. Instead we conservatively parse every stored doc —
+    // phase-2 (below) does a standalone parse + parser-owned occurrence
+    // classification per candidate and declines on any unsafe/unprovable
+    // reference, so widening the candidate set to "all stored docs" is
+    // correct-by-construction (no regex can drop a file). find-references is
+    // untouched: it omits the flag and keeps its intentional textMentionsSymbol
+    // prefilter. RESIDUAL CAVEAT: only LOADED/stored docs are scanned — a
+    // workspace file the data owner never loaded is out of scope here (a
+    // workspace-load-completeness limit shared with find-references), not a regex
+    // gap. The cursor file is overridden with the live buffer for fidelity below.
+    let scan: { candidates?: Array<{ uri: string; content: string }> };
+    try {
+      scan = (await requestCoordinatorAssistancePromiseShared(
+        'dataOwner:FindOccurrenceCandidates',
+        { symbolName: target.name, skipTextFilter: true },
+        true,
+      )) as { candidates?: Array<{ uri: string; content: string }> };
+    } catch (err) {
+      // The full stored-document set could not be obtained (query failure). We
+      // cannot verify the workspace is free of references to the field, so we
+      // must NOT proceed on a partial/absent set and emit a broken partial edit.
+      // Preserve uncertainty → decline (W-23631084 review).
+      const message =
+        `Cannot verify references to '${target.name}': the workspace document ` +
+        'set could not be retrieved, so this rename cannot be applied safely. ' +
+        `(${err})`;
+      emitWorkerLog('warn', `[RENAME] declined field rename — ${message}`);
+      return { error: { code: -32600, message } }; // InvalidRequest
+    }
+    // An EMPTY stored set is NOT a failure: with skipTextFilter the data owner
+    // returns every stored doc, so empty simply means the store holds no OTHER
+    // files. The cursor file's live buffer is always available (req.content) and
+    // is scanned unconditionally below (finding #5), so an unopened/unsaved
+    // cursor file with an empty store still renames its own occurrences. Only a
+    // query ERROR (handled above) is genuine unavailability that forces a
+    // decline; an empty result must fall through to the cursor-buffer scan.
     const rawCandidates = scan?.candidates ?? [];
     let candidates: Array<{ uri: string; content: string }> = rawCandidates;
     if (typeof req.content === 'string') {
@@ -4047,14 +4081,14 @@ async function resolveFieldRename(
         }
         return c;
       });
-      // Finding #5 (W-23631086 review): the prefilter scans only the
-      // data-owner's STORED docs whose text mentions the name, so the cursor
-      // file can be ABSENT — an unsaved/newly-modified buffer, or one whose
-      // stored text doesn't mention the name. If we don't scan it, its
-      // occurrences are silently missed while the declaration renames → a
-      // dangling partial edit. Always ensure the cursor URI is scanned with the
-      // live buffer content. The Stage 6 loop dedups by uri via `seen`, so this
-      // never double-scans when the file was present.
+      // Finding #5 (W-23631086 review): the data owner returns only STORED docs
+      // (now the FULL stored set, since rename skips the text prefilter), so the
+      // cursor file can still be ABSENT — an unsaved/newly-modified buffer the
+      // data owner has never stored. If we don't scan it, its occurrences are
+      // silently missed while the declaration renames → a dangling partial edit.
+      // Always ensure the cursor URI is scanned with the live buffer content. The
+      // Stage 6 loop dedups by uri via `seen`, so this never double-scans when the
+      // file was present.
       if (!cursorPresent) {
         candidates = [{ uri, content: req.content }, ...candidates];
       }
@@ -5343,19 +5377,31 @@ const untracedHandlers: SerializedWorkerHandlers = {
         dataOwnerRead(
           Effect.gen(function* () {
             const svc = yield* ensureDataOwnerServices;
-            const { textMentionsSymbol } = yield* Effect.promise(
-              () => import('@salesforce/apex-lsp-parser-ast'),
-            );
             const all = yield* Effect.promise(() =>
               svc.storageManager.getStorage().getAllDocumentContents(),
             );
-            const candidates = all.filter((d) =>
-              textMentionsSymbol(d.content, req.symbolName),
-            );
+            // `skipTextFilter` (renameField) OPTS OUT of the raw-text
+            // word-boundary prefilter and returns ALL stored docs. Rename
+            // candidate discovery must NOT depend on a raw-text regex prefilter:
+            // a false negative would silently drop a file and dangle a reference
+            // after the declaration renames. Phase-2 parses every returned doc and
+            // declines on any unprovable reference, so widening to "all stored
+            // docs" is correct-by-construction. find-references leaves the flag
+            // unset and keeps the intentional textMentionsSymbol prefilter.
+            let candidates = all;
+            if (!req.skipTextFilter) {
+              const { textMentionsSymbol } = yield* Effect.promise(
+                () => import('@salesforce/apex-lsp-parser-ast'),
+              );
+              candidates = all.filter((d) =>
+                textMentionsSymbol(d.content, req.symbolName),
+              );
+            }
             emitWorkerLog(
               'info',
               `[REFERENCES] FindOccurrenceCandidates: symbol=${req.symbolName} ` +
-                `scanned ${all.length} docs, ${candidates.length} candidates`,
+                `scanned ${all.length} docs, ${candidates.length} candidates` +
+                (req.skipTextFilter ? ' (text prefilter skipped)' : ''),
             );
             return { candidates };
           }),

@@ -646,17 +646,29 @@ function enclosingTypeCouldInherit(enclosingType: TypeSymbol | null): boolean {
  * precomputed type-symbol list (Finding #6).
  *
  * Returns the INNERMOST containing type: with nested types, both the outer and
- * inner class ranges contain an inner-class position. Picking the smallest-range
- * match ensures a bare usage inside `Outer.Inner` resolves to `Inner`, not
- * `Outer` — otherwise renaming `Outer.total` would wrongly match `Inner`'s
- * same-named field usages.
+ * inner class ranges contain an inner-class position. The innermost is the type
+ * whose (column-aware) range OPENS LATEST — for properly-nested types the
+ * latest-opening type is the deepest one. Selecting by latest start position
+ * (startLine, then startColumn), with an earliest-end tie-break, ensures a bare
+ * usage inside `Outer.Inner` resolves to `Inner`, not `Outer` — otherwise
+ * renaming `Outer.total` would wrongly match `Inner`'s same-named field usages.
+ *
+ * A LINE-only span comparison is insufficient: when an outer class and a nested
+ * class sit on ONE line, both ranges have line-span 0 and the outer (first-seen)
+ * type would win, wrongly attributing an inner-class usage to the outer type.
+ * Full column-aware ranges disambiguate the single-line case.
  */
 function getEnclosingType(
   typeSymbols: TypeSymbol[],
   range: { startLine: number; startColumn: number },
 ): TypeSymbol | null {
   let best: TypeSymbol | null = null;
-  let bestSpan = Infinity;
+  let bestBody: {
+    startLine: number;
+    startColumn: number;
+    endLine: number;
+    endColumn: number;
+  } | null = null;
   for (const sym of typeSymbols) {
     const body = sym.location?.symbolRange;
     if (!body) continue;
@@ -667,12 +679,28 @@ function getEnclosingType(
     const beforeEnd =
       range.startLine < body.endLine ||
       (range.startLine === body.endLine && range.startColumn <= body.endColumn);
-    if (afterStart && beforeEnd) {
-      const span = body.endLine - body.startLine;
-      if (span < bestSpan) {
-        bestSpan = span;
-        best = sym;
-      }
+    if (!afterStart || !beforeEnd) continue;
+    if (bestBody === null) {
+      best = sym;
+      bestBody = body;
+      continue;
+    }
+    // Prefer the type whose range opens LATEST (deepest nesting).
+    const startsLater =
+      body.startLine > bestBody.startLine ||
+      (body.startLine === bestBody.startLine &&
+        body.startColumn > bestBody.startColumn);
+    const startsSame =
+      body.startLine === bestBody.startLine &&
+      body.startColumn === bestBody.startColumn;
+    // Tie-break equal starts by the EARLIEST end (tightest range).
+    const endsEarlier =
+      body.endLine < bestBody.endLine ||
+      (body.endLine === bestBody.endLine &&
+        body.endColumn < bestBody.endColumn);
+    if (startsLater || (startsSame && endsEarlier)) {
+      best = sym;
+      bestBody = body;
     }
   }
   return best;
