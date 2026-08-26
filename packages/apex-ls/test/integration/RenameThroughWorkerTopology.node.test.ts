@@ -663,6 +663,81 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       expect(otherEdits).toBeUndefined();
     }, 120_000);
 
+    it('renames despite an unrelated unparseable file that never mentions the field (W-23631084 review)', async () => {
+      // renameField now scans EVERY stored doc (no raw-text prefilter). The
+      // phase-2 "broken candidate → decline" guard is narrowed by a LEXER check:
+      // a syntactically-broken file that does not even tokenize the field name
+      // cannot reference it and must NOT block the rename. Here BrokenUnrelated
+      // fails to parse and never mentions `total`, so Account.total still renames.
+      const BROKEN_UNRELATED_URI = 'file:///test/BrokenUnrelated.cls';
+      const BROKEN_UNRELATED_SRC = `public class BrokenUnrelated {
+    public void oops() {
+        Integer qty = ;
+    }
+}`;
+      const sources: Record<string, string> = {
+        [ACCOUNT_URI]: ACCOUNT_SRC,
+        [BROKEN_UNRELATED_URI]: BROKEN_UNRELATED_SRC,
+      };
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => sources[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        for (const uri of [ACCOUNT_URI, BROKEN_UNRELATED_URI]) {
+          yield* Effect.promise(() =>
+            dispatcher.dispatch('documentOpen', {
+              document: {
+                uri,
+                languageId: 'apex',
+                version: 1,
+                getText: () => sources[uri],
+              },
+              textDocument: { uri },
+              text: sources[uri],
+            }),
+          );
+        }
+
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: ACCOUNT_URI },
+            position: { line: 1, character: 23 }, // on Account.total decl
+            newName: 'amount',
+            content: ACCOUNT_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-field:broken-unrelated] ${JSON.stringify(result)}`);
+
+      // The unrelated broken file did not force a decline — Account.total renamed.
+      const edit = result as {
+        changes?: Record<string, Array<{ range: any; newText: string }>>;
+        error?: unknown;
+      } | null;
+      expect(edit?.error).toBeUndefined();
+      expect(edit?.changes).toBeDefined();
+      expect(edit!.changes![ACCOUNT_URI]).toBeDefined();
+      expect(edit!.changes![BROKEN_UNRELATED_URI]).toBeUndefined();
+    }, 120_000);
+
     it('declines rename when another file has an unprovable non-local receiver (W-23631086 #1)', async () => {
       // Renaming Other.total. Caller.cls contains `acct.total` where `acct` is
       // typed `Account` — a type NOT declared in Caller.cls. Standalone, this

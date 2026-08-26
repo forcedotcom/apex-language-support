@@ -3978,6 +3978,7 @@ async function resolveFieldRename(
     SymbolKind,
     SymbolTable,
     findFieldOccurrences,
+    lexMentionsIdentifier,
     validateRenameName,
   } = await import('@salesforce/apex-lsp-parser-ast');
 
@@ -4143,6 +4144,20 @@ async function resolveFieldRename(
           !(compiled?.result instanceof SymbolTable) ||
           syntaxErrorCount > 0
         ) {
+          // A broken parse only endangers THIS rename if the candidate could
+          // actually reference the field. Since renameField now scans EVERY
+          // stored doc (no raw-text prefilter, W-23631084 review), an
+          // unconditional decline here would let one unparseable file ANYWHERE
+          // in the workspace block every field rename. A field reference always
+          // emits an identifier token equal to the field name, so if the LEXER
+          // (parser-owned, not regex) finds no such token, the file provably
+          // cannot reference the field and is safe to skip. If the token IS
+          // present (or lexing itself failed → conservative), keep the
+          // fail-closed decline (the broken parse may have dropped the
+          // occurrence we would need to rewrite).
+          if (!lexMentionsIdentifier(candidate.content, target.name)) {
+            continue;
+          }
           const detail = !(compiled?.result instanceof SymbolTable)
             ? 'no-result'
             : `${syntaxErrorCount} syntax error(s)`;

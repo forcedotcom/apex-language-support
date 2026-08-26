@@ -154,6 +154,7 @@ export {
   escapeForRegExp,
   textMentionsSymbol,
 } from './symbols/ops/textMentionsSymbol';
+export { lexMentionsIdentifier } from './symbols/ops/lexMentionsIdentifier';
 export {
   findOccurrencesInFile,
   type OccurrenceMatch,
