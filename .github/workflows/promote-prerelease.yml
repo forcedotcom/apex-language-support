@@ -26,11 +26,33 @@ permissions:
   actions: read
 
 jobs:
-  promote:
-    # TODO: Change to @main once feat/add-vscode-extension-ci is merged
-    uses: salesforcecli/github-workflows/.github/workflows/vscode-promote-prerelease.yml@main
+  # Step 1: Find nightly candidate (THIS REPO CONTROLS CRITERIA)
+  find-nightly:
+    uses: salesforcecli/github-workflows/.github/workflows/vscode-find-nightly-candidate.yml@ms/caller-call-ci-status-check
     with:
       min-tag-age-days: ${{ inputs.min-tag-age-days || '7' }}
+
+  # Step 2: Gate-check CI status (THIS REPO CONTROLS CRITERIA)
+  gate-check:
+    needs: find-nightly
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check CI status
+        uses: salesforcecli/github-workflows/.github/actions/vscode/check-ci-status@ms/caller-call-ci-status-check
+        with:
+          commit-sha: ${{ needs.find-nightly.outputs.commit-sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          required-checks: '["CI Complete"]'
+
+  # Step 3: Promote to marketplace (only runs if gate-check passed)
+  promote:
+    needs: [find-nightly, gate-check]
+    uses: salesforcecli/github-workflows/.github/workflows/vscode-promote-prerelease.yml@ms/caller-call-ci-status-check
+    with:
+      release-tag: ${{ needs.find-nightly.outputs.nightly-tag }}
       vsix-name-pattern: 'apex-language-server-extension-*.vsix'
       exclude-web-vsix: 'true'
       extension-name: 'apex-lsp-vscode-extension'
