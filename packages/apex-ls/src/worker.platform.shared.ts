@@ -5392,6 +5392,31 @@ const untracedHandlers: SerializedWorkerHandlers = {
         dataOwnerRead(
           Effect.gen(function* () {
             const svc = yield* ensureDataOwnerServices;
+
+            // `skipTextFilter` (renameField) treats the returned document set as
+            // the COMPLETE reference set: phase-2 parses each candidate and the
+            // rename proceeds on the result. During an active workspace-load
+            // session the store holds only a PARTIAL workspace — files that
+            // reference the field may not have arrived yet — so returning the
+            // current store would let renameField edit a declaration while
+            // leaving those not-yet-loaded references dangling (W-23631084
+            // review, P1). Fail closed (as CheckMemberConflicts already does)
+            // so resolveFieldRename's Stage 5 declines and preserves
+            // uncertainty. find-references (no skipTextFilter) is a best-effort
+            // discovery pass and is intentionally unaffected.
+            if (
+              req.skipTextFilter &&
+              svc.symbolManager.isWorkspaceLoadSessionActive()
+            ) {
+              return yield* Effect.fail({
+                _tag: 'FindOccurrenceCandidatesError' as const,
+                message:
+                  'Workspace load session still active; the stored document ' +
+                  'set is incomplete, so a complete reference set for rename ' +
+                  'cannot be guaranteed.',
+              });
+            }
+
             const all = yield* Effect.promise(() =>
               svc.storageManager.getStorage().getAllDocumentContents(),
             );

@@ -738,6 +738,74 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       expect(edit!.changes![BROKEN_UNRELATED_URI]).toBeUndefined();
     }, 120_000);
 
+    it('declines while a workspace-load session is still active (W-23631084 review)', async () => {
+      // During an active workspace-load session the data-owner store is only a
+      // PARTIAL workspace: files referencing the field may not have arrived yet.
+      // renameField must NOT treat the current store as the complete reference
+      // set and edit the declaration (leaving not-yet-loaded references stale).
+      // FindOccurrenceCandidates fails closed for skipTextFilter while a load
+      // session is active, so the rename declines. LoadingBase is a plain final
+      // class, so the local conflict fallback would otherwise proceed — this
+      // proves the completeness guard, not the conflict check.
+      const LOADING_BASE_URI = 'file:///test/LoadingBase.cls';
+      const LOADING_BASE_SRC = `public class LoadingBase {
+    public Integer total;
+
+    public void bump() {
+        total = total + 1;
+    }
+}`;
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+          uri === LOADING_BASE_URI ? LOADING_BASE_SRC : undefined,
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        // Begin a workspace-load session and leave it ACTIVE (never drained).
+        const session = dispatcher.createWorkspaceLoadSessionDispatcher();
+        yield* Effect.promise(() =>
+          session({
+            _tag: 'BeginWorkspaceLoadSession',
+            sessionId: 'active-load-rename-session',
+          }),
+        );
+
+        // Rename LoadingBase.total using the live cursor buffer while the store
+        // is mid-load (nothing else stored).
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: LOADING_BASE_URI },
+            position: { line: 1, character: 23 }, // on LoadingBase.total decl
+            newName: 'amount',
+            content: LOADING_BASE_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-field:active-load] ${JSON.stringify(result)}`);
+
+      // Not a WorkspaceEdit — a RenameErrorResult declining while incomplete.
+      const errorResult = result as {
+        error?: { code: number; message: string };
+        changes?: unknown;
+      } | null;
+      expect(errorResult?.changes).toBeUndefined();
+      expect(errorResult?.error).toBeDefined();
+    }, 120_000);
+
     it('declines rename when another file has an unprovable non-local receiver (W-23631086 #1)', async () => {
       // Renaming Other.total. Caller.cls contains `acct.total` where `acct` is
       // typed `Account` — a type NOT declared in Caller.cls. Standalone, this
