@@ -3905,6 +3905,395 @@ async function resolvePrepareRenameForLocal(req: PositionReq): Promise<{
   }
 }
 
+/**
+ * Resolve the declaring-type FQN for the field/property under the cursor
+ * (W-23631084 / W-23631086 review finding #2). Walks from the cursor symbol up
+ * to its enclosing TypeSymbol via `getContainingType` and returns that type's
+ * fully-qualified name — the string `findFieldOccurrences` disambiguates
+ * candidate receivers against.
+ *
+ * Returning the FQN (not the short `.name`) is required to distinguish a nested
+ * `OuterOne.Inner.total` from `OuterTwo.Inner.total`: the short name `Inner` is
+ * identical for both, so a short-name anchor would rename the wrong class's
+ * field. `findFieldOccurrences` compares FQN-to-FQN (case-insensitive, with the
+ * block-scope name duplication normalized), so producer and consumer must both
+ * speak FQN. Prefer the graph's `.fqn` (the normalized/lowercased index FQN);
+ * fall back to `constructFQN` when it is absent.
+ *
+ * @returns The declaring type's FQN, or `null` if it can't be determined.
+ */
+async function getDeclaringTypeForCursor(
+  svc: RequestServices,
+  uri: string,
+  position: { line: number; character: number },
+): Promise<string | null> {
+  try {
+    const parserPosition = {
+      line: position.line + 1,
+      character: position.character,
+    };
+    const symbol = await resolveCursorSymbol(svc, uri, parserPosition);
+    if (!symbol) return null;
+    const containingType = await svc.symbolManager.getContainingType(symbol);
+    if (!containingType) return null;
+    return (
+      containingType.fqn ??
+      (await svc.symbolManager.constructFQN(containingType)) ??
+      containingType.name ??
+      null
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Build a rename `WorkspaceEdit` for a FIELD or PROPERTY under the cursor
+ * (W-23631084). Unlike renameLocal (single-file, lexically scoped), a field is
+ * class-scoped and cross-file addressable, so this runs the workspace-wide
+ * two-phase scan (coordinator lexical prefilter → per-file standalone parse),
+ * then disambiguates each candidate occurrence by its receiver's declared type
+ * so `Acct.total` is renamed while an unrelated `Other.total` is not.
+ *
+ * Occurrences whose receiver can't be resolved locally (a chained `a.b.total`,
+ * or a receiver whose type is only known cross-file) are conservatively SKIPPED
+ * — never renamed — and counted so the (partial) edit is at least logged. See
+ * `findFieldOccurrences`.
+ *
+ * Returns `null` when the cursor isn't on a renamable field (a local/method/type
+ * cursor falls through to its own kind), or a `RenameErrorResult` when the field
+ * resolves but the newName is invalid.
+ *
+ * @param svc Request-pool worker services (needed for the workspace scan).
+ * @param req The rename request (cursor position + newName + live cursor text).
+ */
+async function resolveFieldRename(
+  svc: RequestServices,
+  req: RenameReq,
+): Promise<WorkspaceEditResult | RenameErrorResult | null> {
+  const {
+    CompilerService,
+    ErrorType,
+    FullSymbolCollectorListener,
+    SymbolKind,
+    SymbolTable,
+    findFieldOccurrences,
+    lexMentionsIdentifier,
+    validateRenameName,
+  } = await import('@salesforce/apex-lsp-parser-ast');
+
+  const uri = req.textDocument.uri;
+
+  try {
+    // Stage 1: recompile the cursor file so the cursor symbol resolves, then
+    // load its referenced types (the cursor field may be declared elsewhere).
+    const cursorTextAvailable = typeof req.content === 'string';
+    const cursorRecompiled = await recompileCursorFileAtFullDetail(
+      svc,
+      uri,
+      req.content,
+      { resolveCrossFileReferences: false },
+    );
+    if (!cursorRecompiled && !cursorTextAvailable) return null;
+    await loadReferencedTypesForFile(svc, uri);
+
+    // Stage 2: confirm the cursor is on a field/property.
+    const target = await targetSymbolForCursor(svc, uri, req.position);
+    if (!target?.name) return null;
+    if (target.kind !== 'field' && target.kind !== 'property') return null;
+
+    // Stage 3: the field's declaring type — the disambiguation anchor.
+    const declaringType = await getDeclaringTypeForCursor(
+      svc,
+      uri,
+      req.position,
+    );
+    if (!declaringType) {
+      emitWorkerLog(
+        'warn',
+        `[RENAME] cannot determine declaring type for field '${target.name}' in ${uri}`,
+      );
+      return null;
+    }
+
+    // Stage 4: validate the newName (same rules as renameLocal). An invalid
+    // name is a RenameErrorResult (→ LSP ResponseError), not null. target.kind
+    // is a plain string from targetSymbolForCursor but is already narrowed to
+    // 'field'/'property' above, which are exactly SymbolKind.Field/.Property.
+    const validation = validateRenameName(
+      req.newName,
+      target.kind === 'property' ? SymbolKind.Property : SymbolKind.Field,
+    );
+    if (!validation.ok) {
+      return { error: { code: -32602, message: validation.message } };
+    }
+
+    // Stage 5: obtain the FULL set of stored workspace documents from the data
+    // owner, WITHOUT the raw-text word-boundary prefilter (skipTextFilter: true).
+    // Rename candidate discovery no longer depends on a raw-text regex prefilter
+    // (W-23631084 review, blocking design violation): a `\b<name>\b` false
+    // negative would silently drop a file and dangle a reference after the
+    // declaration renames. Instead we conservatively parse every stored doc —
+    // phase-2 (below) does a standalone parse + parser-owned occurrence
+    // classification per candidate and declines on any unsafe/unprovable
+    // reference, so widening the candidate set to "all stored docs" is
+    // correct-by-construction (no regex can drop a file). find-references is
+    // untouched: it omits the flag and keeps its intentional textMentionsSymbol
+    // prefilter. RESIDUAL CAVEAT: only LOADED/stored docs are scanned — a
+    // workspace file the data owner never loaded is out of scope here (a
+    // workspace-load-completeness limit shared with find-references), not a regex
+    // gap. The cursor file is overridden with the live buffer for fidelity below.
+    let scan: { candidates?: Array<{ uri: string; content: string }> };
+    try {
+      scan = (await requestCoordinatorAssistancePromiseShared(
+        'dataOwner:FindOccurrenceCandidates',
+        { symbolName: target.name, skipTextFilter: true },
+        true,
+      )) as { candidates?: Array<{ uri: string; content: string }> };
+    } catch (err) {
+      // The full stored-document set could not be obtained (query failure). We
+      // cannot verify the workspace is free of references to the field, so we
+      // must NOT proceed on a partial/absent set and emit a broken partial edit.
+      // Preserve uncertainty → decline (W-23631084 review).
+      const message =
+        `Cannot verify references to '${target.name}': the workspace document ` +
+        'set could not be retrieved, so this rename cannot be applied safely. ' +
+        `(${err})`;
+      emitWorkerLog('warn', `[RENAME] declined field rename — ${message}`);
+      return { error: { code: -32600, message } }; // InvalidRequest
+    }
+    // An EMPTY stored set is NOT a failure: with skipTextFilter the data owner
+    // returns every stored doc, so empty simply means the store holds no OTHER
+    // files. The cursor file's live buffer is always available (req.content) and
+    // is scanned unconditionally below (finding #5), so an unopened/unsaved
+    // cursor file with an empty store still renames its own occurrences. Only a
+    // query ERROR (handled above) is genuine unavailability that forces a
+    // decline; an empty result must fall through to the cursor-buffer scan.
+    const rawCandidates = scan?.candidates ?? [];
+    let candidates: Array<{ uri: string; content: string }> = rawCandidates;
+    if (typeof req.content === 'string') {
+      // Override the cursor file with the live buffer when the prefilter already
+      // returned it, so we scan the unsaved edits rather than stored text.
+      let cursorPresent = false;
+      candidates = rawCandidates.map((c) => {
+        if (c.uri === uri) {
+          cursorPresent = true;
+          return { ...c, content: req.content as string };
+        }
+        return c;
+      });
+      // Finding #5 (W-23631086 review): the data owner returns only STORED docs
+      // (now the FULL stored set, since rename skips the text prefilter), so the
+      // cursor file can still be ABSENT — an unsaved/newly-modified buffer the
+      // data owner has never stored. If we don't scan it, its occurrences are
+      // silently missed while the declaration renames → a dangling partial edit.
+      // Always ensure the cursor URI is scanned with the live buffer content. The
+      // Stage 6 loop dedups by uri via `seen`, so this never double-scans when the
+      // file was present.
+      if (!cursorPresent) {
+        candidates = [{ uri, content: req.content }, ...candidates];
+      }
+    }
+
+    // Stage 6: phase-2 standalone parse + receiver-type disambiguation per
+    // candidate file.
+    // NOTE (Finding #6, W-23631086 review): the reviewer asked for cooperative
+    // cancellation between candidate files. There is no CancellationToken in
+    // this path — RenameReq is `PositionReq & { newName }` and nothing threads a
+    // token to the worker — so there is no infra to check here. Cancellation for
+    // this request kind would need to be added upstream (the pool-side dispatch
+    // pattern documented in the worker-pool-cancellation memory: debounce before
+    // dispatch). Not inventing it here.
+    const allOccurrences: Array<{ uri: string; range: OccurrenceRange }> = [];
+    let totalSkipped = 0;
+    const unsafeOccurrences: Array<{ uri: string; reason: string }> = [];
+    const seen = new Set<string>();
+    for (const candidate of candidates) {
+      if (seen.has(candidate.uri)) continue;
+      seen.add(candidate.uri);
+      try {
+        const t = new SymbolTable();
+        const listener = new FullSymbolCollectorListener(t);
+        const compiled = new CompilerService().compile(
+          candidate.content,
+          candidate.uri,
+          listener,
+          { collectReferences: true, resolveReferences: true },
+        );
+
+        // Finding #2 (W-23631086 re-review): CompilerService.compile RECOVERS
+        // from malformed Apex — it returns a (partial) SymbolTable plus a
+        // non-empty `errors` array rather than throwing. A candidate that
+        // lexically mentions the field but failed to PARSE cleanly may have
+        // DROPPED the very occurrence we need to rewrite, so its symbol table is
+        // an incomplete view. Treating that as "no occurrences" and still
+        // renaming the declaration would emit a broken partial edit. Treat any
+        // candidate with SYNTAX errors (or no SymbolTable) as UNSAFE → decline,
+        // exactly like a thrown scan failure.
+        //
+        // Count ONLY syntax errors: a standalone single-file parse cannot resolve
+        // cross-file references, so `errors` routinely contains benign SEMANTIC
+        // (unresolved-reference) entries for otherwise-valid files. Declining on
+        // those would reject nearly every real multi-file rename. Syntax errors,
+        // by contrast, mean the parse tree itself is broken and occurrences may
+        // be missing.
+        const syntaxErrorCount = (compiled?.errors ?? []).filter(
+          (e) => e.type === ErrorType.Syntax,
+        ).length;
+        if (
+          !(compiled?.result instanceof SymbolTable) ||
+          syntaxErrorCount > 0
+        ) {
+          // A broken parse only endangers THIS rename if the candidate could
+          // actually reference the field. Since renameField now scans EVERY
+          // stored doc (no raw-text prefilter, W-23631084 review), an
+          // unconditional decline here would let one unparseable file ANYWHERE
+          // in the workspace block every field rename. A field reference always
+          // emits an identifier token equal to the field name, so if the LEXER
+          // (parser-owned, not regex) finds no such token, the file provably
+          // cannot reference the field and is safe to skip. If the token IS
+          // present (or lexing itself failed → conservative), keep the
+          // fail-closed decline (the broken parse may have dropped the
+          // occurrence we would need to rewrite).
+          if (!lexMentionsIdentifier(candidate.content, target.name)) {
+            continue;
+          }
+          const detail = !(compiled?.result instanceof SymbolTable)
+            ? 'no-result'
+            : `${syntaxErrorCount} syntax error(s)`;
+          emitWorkerLog(
+            'warn',
+            `[RENAME] field phase2 candidate ${candidate.uri} did not parse ` +
+              `cleanly (${detail}); declining to avoid a partial edit`,
+          );
+          unsafeOccurrences.push({
+            uri: candidate.uri,
+            reason: `candidate-parse-incomplete:${detail}`,
+          });
+          continue;
+        }
+        const table: InstanceType<typeof SymbolTable> = compiled.result;
+
+        const { occurrences, skipped, unsafe } = findFieldOccurrences(
+          table,
+          candidate.uri,
+          target,
+          declaringType,
+        );
+        for (const occ of occurrences) {
+          allOccurrences.push({ uri: occ.uri, range: occ.identifierRange });
+        }
+        totalSkipped += skipped.length;
+        for (const u of unsafe) {
+          unsafeOccurrences.push({ uri: candidate.uri, reason: u.reason });
+        }
+      } catch (err) {
+        // Finding #3 (W-23631086 review): a candidate we could not parse/scan
+        // might CONTAIN a reference to the target field. Silently continuing and
+        // still returning a WorkspaceEdit would rename the declaration (and other
+        // files) while leaving this file's references dangling — a broken partial
+        // edit. Treat any scan failure as UNSAFE so the existing "decline whole
+        // rename if unsafe" logic fires, rather than emitting a partial edit.
+        emitWorkerLog(
+          'warn',
+          `[RENAME] field phase2 scan failed for ${candidate.uri}: ${err}`,
+        );
+        unsafeOccurrences.push({
+          uri: candidate.uri,
+          reason: `candidate-scan-failed: ${err}`,
+        });
+      }
+    }
+
+    // Decline the whole rename if ANY candidate held a same-named field access we
+    // couldn't prove is unrelated (a possible INHERITED reference — `super.field`
+    // or a bare inherited field in a subclass — or an unresolvable receiver).
+    // Applying edits while silently omitting those would emit a broken partial
+    // WorkspaceEdit that leaves references dangling. Establishing the inheritance
+    // relationship needs the cross-file graph this pool path lacks, so we decline
+    // rather than corrupt (W-23631084 review). Return a RenameErrorResult so the
+    // client shows a rename-failure toast instead of applying a partial edit.
+    if (unsafeOccurrences.length > 0) {
+      const sample = unsafeOccurrences
+        .slice(0, 3)
+        .map((u) => `${u.uri} (${u.reason})`)
+        .join(', ');
+      const message =
+        `Cannot safely rename '${target.name}': ${unsafeOccurrences.length} ` +
+        'reference(s) may target an inherited or cross-file member that this ' +
+        'rename cannot resolve without risking a broken partial edit. ' +
+        `Examples: ${sample}.`;
+      emitWorkerLog('warn', `[RENAME] declined field rename — ${message}`);
+      return { error: { code: -32600, message } }; // InvalidRequest
+    }
+
+    // Include the field's own declaration token. findOccurrencesInFile matches
+    // only FIELD_ACCESS / VARIABLE_USAGE references, never the declaration
+    // (which is a symbol, not a reference), so it must be added explicitly —
+    // otherwise a field used only via implicit-this in its own file would
+    // rename the usages but leave the declaration untouched. Deduped by the
+    // position set in Stage 7.
+    const declaration = await declarationLocationForCursor(
+      svc,
+      uri,
+      req.position,
+    );
+    if (declaration) {
+      allOccurrences.push({
+        uri: declaration.uri,
+        range: declaration.identifierRange,
+      });
+    }
+
+    if (allOccurrences.length === 0) return null;
+
+    emitWorkerLog(
+      'info',
+      `[RENAME] field '${declaringType}.${target.name}' → '${req.newName}': ` +
+        `${allOccurrences.length} edit(s), ${totalSkipped} skipped ` +
+        '(unresolvable receiver)',
+    );
+
+    // Stage 7: assemble the multi-file WorkspaceEdit (parser 1-based line →
+    // LSP 0-based). Dedup edits per URI by position — the parser emits a token
+    // more than once and candidate files can overlap.
+    const changes: Record<
+      string,
+      Array<{
+        range: {
+          start: { line: number; character: number };
+          end: { line: number; character: number };
+        };
+        newText: string;
+      }>
+    > = {};
+    const seenEdits = new Set<string>();
+    for (const occ of allOccurrences) {
+      const r = occ.range;
+      const key =
+        `${occ.uri}\x1f${r.startLine}:${r.startColumn}:` +
+        `${r.endLine}:${r.endColumn}`;
+      if (seenEdits.has(key)) continue;
+      seenEdits.add(key);
+      (changes[occ.uri] ??= []).push({
+        range: {
+          start: {
+            line: occ.range.startLine - 1,
+            character: occ.range.startColumn,
+          },
+          end: { line: occ.range.endLine - 1, character: occ.range.endColumn },
+        },
+        newText: req.newName,
+      });
+    }
+
+    return { changes };
+  } catch (err) {
+    emitWorkerLog('warn', `[RENAME] field rename failed for ${uri}: ${err}`);
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Enrichment dispatch handlers (Step 11 on the original file)
 // ---------------------------------------------------------------------------
@@ -4212,7 +4601,15 @@ const requestHandlers = {
   // rename"); the field/method/type kinds land in later groups.
   DispatchRename: requestHandler<RenameReq>(
     'DispatchRename',
-    async (_svc, req) => resolveLocalRename(req),
+    async (svc, req) => {
+      // renameLocal first (single-file, no svc needed). A `null` result means
+      // the cursor isn't a local — fall through to renameField (W-23631084),
+      // which needs `svc` for the workspace-wide two-phase scan. A field/method/
+      // type cursor that isn't a field still returns null from both.
+      const local = await resolveLocalRename(req);
+      if (local !== null) return local;
+      return resolveFieldRename(svc, req);
+    },
   ),
   // W-23631080: prepareRename for locals. Returns the identifier range +
   // placeholder of the renamable local under the cursor, or `null` when the
@@ -4995,19 +5392,56 @@ const untracedHandlers: SerializedWorkerHandlers = {
         dataOwnerRead(
           Effect.gen(function* () {
             const svc = yield* ensureDataOwnerServices;
-            const { textMentionsSymbol } = yield* Effect.promise(
-              () => import('@salesforce/apex-lsp-parser-ast'),
-            );
+
+            // `skipTextFilter` (renameField) treats the returned document set as
+            // the COMPLETE reference set: phase-2 parses each candidate and the
+            // rename proceeds on the result. During an active workspace-load
+            // session the store holds only a PARTIAL workspace — files that
+            // reference the field may not have arrived yet — so returning the
+            // current store would let renameField edit a declaration while
+            // leaving those not-yet-loaded references dangling (W-23631084
+            // review, P1). Fail closed (as CheckMemberConflicts already does)
+            // so resolveFieldRename's Stage 5 declines and preserves
+            // uncertainty. find-references (no skipTextFilter) is a best-effort
+            // discovery pass and is intentionally unaffected.
+            if (
+              req.skipTextFilter &&
+              svc.symbolManager.isWorkspaceLoadSessionActive()
+            ) {
+              return yield* Effect.fail({
+                _tag: 'FindOccurrenceCandidatesError' as const,
+                message:
+                  'Workspace load session still active; the stored document ' +
+                  'set is incomplete, so a complete reference set for rename ' +
+                  'cannot be guaranteed.',
+              });
+            }
+
             const all = yield* Effect.promise(() =>
               svc.storageManager.getStorage().getAllDocumentContents(),
             );
-            const candidates = all.filter((d) =>
-              textMentionsSymbol(d.content, req.symbolName),
-            );
+            // `skipTextFilter` (renameField) OPTS OUT of the raw-text
+            // word-boundary prefilter and returns ALL stored docs. Rename
+            // candidate discovery must NOT depend on a raw-text regex prefilter:
+            // a false negative would silently drop a file and dangle a reference
+            // after the declaration renames. Phase-2 parses every returned doc and
+            // declines on any unprovable reference, so widening to "all stored
+            // docs" is correct-by-construction. find-references leaves the flag
+            // unset and keeps the intentional textMentionsSymbol prefilter.
+            let candidates = all;
+            if (!req.skipTextFilter) {
+              const { textMentionsSymbol } = yield* Effect.promise(
+                () => import('@salesforce/apex-lsp-parser-ast'),
+              );
+              candidates = all.filter((d) =>
+                textMentionsSymbol(d.content, req.symbolName),
+              );
+            }
             emitWorkerLog(
               'info',
               `[REFERENCES] FindOccurrenceCandidates: symbol=${req.symbolName} ` +
-                `scanned ${all.length} docs, ${candidates.length} candidates`,
+                `scanned ${all.length} docs, ${candidates.length} candidates` +
+                (req.skipTextFilter ? ' (text prefilter skipped)' : ''),
             );
             return { candidates };
           }),

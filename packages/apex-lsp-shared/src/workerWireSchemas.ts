@@ -1026,6 +1026,15 @@ export class ResolveDependentUris extends Schema.TaggedRequest<ResolveDependentU
 // {uri, content} pairs. This is phase-1 of find-references: a cheap textual
 // pre-filter that narrows the set of files worth parsing before the precise
 // symbol-resolution pass runs.
+//
+// `skipTextFilter` OPTS OUT of that raw-text word-boundary prefilter and returns
+// ALL stored documents. renameField sets this true: for the correctness-critical
+// rename path, candidate discovery must NOT depend on a raw-text regex prefilter
+// (a false negative would silently drop a file and leave a dangling reference
+// after the declaration renames). Phase-2 parses every returned document and
+// declines on any unprovable reference, so widening to "all stored docs" is
+// correct-by-construction. Default (undefined/false) preserves the existing
+// filtered behavior for find-references, which intentionally keeps the prefilter.
 // ---------------------------------------------------------------------------
 
 export class FindOccurrenceCandidates extends Schema.TaggedRequest<FindOccurrenceCandidates>()(
@@ -1042,6 +1051,7 @@ export class FindOccurrenceCandidates extends Schema.TaggedRequest<FindOccurrenc
     }),
     payload: {
       symbolName: Schema.String,
+      skipTextFilter: Schema.optional(Schema.Boolean),
     },
   },
 ) {}

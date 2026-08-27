@@ -1149,10 +1149,14 @@ function createDispatcher(
           );
         }
         case 'FindOccurrenceCandidates': {
-          const pfc = params as { symbolName: string };
+          const pfc = params as {
+            symbolName: string;
+            skipTextFilter?: boolean;
+          };
           return sendTracedToDataOwner(
             new FindOccurrenceCandidates({
               symbolName: pfc.symbolName,
+              skipTextFilter: pfc.skipTextFilter,
             }),
           );
         }

@@ -154,6 +154,7 @@ export {
   escapeForRegExp,
   textMentionsSymbol,
 } from './symbols/ops/textMentionsSymbol';
+export { lexMentionsIdentifier } from './symbols/ops/lexMentionsIdentifier';
 export {
   findOccurrencesInFile,
   type OccurrenceMatch,
@@ -162,6 +163,10 @@ export {
   findLocalOccurrences,
   type LocalOccurrences,
 } from './symbols/ops/findLocalOccurrences';
+export {
+  findFieldOccurrences,
+  type FieldOccurrenceResult,
+} from './symbols/ops/findFieldOccurrences';
 export {
   validateRenameName,
   type ValidateRenameNameResult,

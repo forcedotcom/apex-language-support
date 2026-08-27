@@ -549,4 +549,999 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
 
     expect(result).toBeNull();
   }, 120_000);
+
+  // W-23631084: Field rename tests (4.1)
+  describe('renameField cross-file with receiver-type disambiguation (W-23631084)', () => {
+    // Account.cls declares a `total` field, used in Caller.cls as `acct.total`.
+    const ACCOUNT_URI = 'file:///test/Account.cls';
+    const ACCOUNT_SRC = `public class Account {
+    public Integer total;
+
+    public void increment() {
+        total = total + 1;
+    }
+}`;
+
+    // Caller.cls uses Account.total as `acct.total`.
+    const CALLER_URI = 'file:///test/Caller.cls';
+    const CALLER_SRC = `public class Caller {
+    public void process() {
+        Account acct = new Account();
+        acct.total = 10;
+        Integer x = acct.total;
+    }
+}`;
+
+    // Other.cls has an unrelated `total` field that should NOT be renamed.
+    const OTHER_URI = 'file:///test/Other.cls';
+    const OTHER_SRC = `public class Other {
+    public Integer total;
+
+    public void use() {
+        Other other = new Other();
+        other.total = 99;
+    }
+}`;
+
+    const FIELD_SOURCES: Record<string, string> = {
+      [ACCOUNT_URI]: ACCOUNT_SRC,
+      [CALLER_URI]: CALLER_SRC,
+      [OTHER_URI]: OTHER_SRC,
+    };
+
+    it('renames a field across files, disambiguating by receiver type', async () => {
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => FIELD_SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        // Open all files.
+        for (const uri of [ACCOUNT_URI, CALLER_URI, OTHER_URI]) {
+          yield* Effect.promise(() =>
+            dispatcher.dispatch('documentOpen', {
+              document: {
+                uri,
+                languageId: 'apex',
+                version: 1,
+                getText: () => FIELD_SOURCES[uri],
+              },
+              textDocument: { uri },
+              text: FIELD_SOURCES[uri],
+            }),
+          );
+        }
+
+        // Cursor on Account.total declaration (line 1, char 23).
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: ACCOUNT_URI },
+            position: { line: 1, character: 23 },
+            newName: 'amount',
+            content: ACCOUNT_SRC,
+          }),
+        );
+
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-field] ${JSON.stringify(result)}`);
+
+      // A multi-file WorkspaceEdit came back.
+      const edit = result as {
+        changes?: Record<string, Array<{ range: any; newText: string }>>;
+      } | null;
+      expect(edit?.changes).toBeDefined();
+
+      // Account.cls: declaration + implicit-this usages.
+      const accountEdits = edit!.changes![ACCOUNT_URI];
+      expect(accountEdits).toBeDefined();
+      expect(accountEdits.length).toBeGreaterThan(0);
+      accountEdits.forEach((e) => expect(e.newText).toBe('amount'));
+
+      // Caller.cls: acct.total usages.
+      const callerEdits = edit!.changes![CALLER_URI];
+      expect(callerEdits).toBeDefined();
+      expect(callerEdits.length).toBeGreaterThan(0);
+      callerEdits.forEach((e) => expect(e.newText).toBe('amount'));
+
+      // Other.cls: should NOT be renamed (different receiver type).
+      const otherEdits = edit!.changes![OTHER_URI];
+      expect(otherEdits).toBeUndefined();
+    }, 120_000);
+
+    it('renames despite an unrelated unparseable file that never mentions the field (W-23631084 review)', async () => {
+      // renameField now scans EVERY stored doc (no raw-text prefilter). The
+      // phase-2 "broken candidate → decline" guard is narrowed by a LEXER check:
+      // a syntactically-broken file that does not even tokenize the field name
+      // cannot reference it and must NOT block the rename. Here BrokenUnrelated
+      // fails to parse and never mentions `total`, so Account.total still renames.
+      const BROKEN_UNRELATED_URI = 'file:///test/BrokenUnrelated.cls';
+      const BROKEN_UNRELATED_SRC = `public class BrokenUnrelated {
+    public void oops() {
+        Integer qty = ;
+    }
+}`;
+      const sources: Record<string, string> = {
+        [ACCOUNT_URI]: ACCOUNT_SRC,
+        [BROKEN_UNRELATED_URI]: BROKEN_UNRELATED_SRC,
+      };
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => sources[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        for (const uri of [ACCOUNT_URI, BROKEN_UNRELATED_URI]) {
+          yield* Effect.promise(() =>
+            dispatcher.dispatch('documentOpen', {
+              document: {
+                uri,
+                languageId: 'apex',
+                version: 1,
+                getText: () => sources[uri],
+              },
+              textDocument: { uri },
+              text: sources[uri],
+            }),
+          );
+        }
+
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: ACCOUNT_URI },
+            position: { line: 1, character: 23 }, // on Account.total decl
+            newName: 'amount',
+            content: ACCOUNT_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-field:broken-unrelated] ${JSON.stringify(result)}`);
+
+      // The unrelated broken file did not force a decline — Account.total renamed.
+      const edit = result as {
+        changes?: Record<string, Array<{ range: any; newText: string }>>;
+        error?: unknown;
+      } | null;
+      expect(edit?.error).toBeUndefined();
+      expect(edit?.changes).toBeDefined();
+      expect(edit!.changes![ACCOUNT_URI]).toBeDefined();
+      expect(edit!.changes![BROKEN_UNRELATED_URI]).toBeUndefined();
+    }, 120_000);
+
+    it('declines while a workspace-load session is still active (W-23631084 review)', async () => {
+      // During an active workspace-load session the data-owner store is only a
+      // PARTIAL workspace: files referencing the field may not have arrived yet.
+      // renameField must NOT treat the current store as the complete reference
+      // set and edit the declaration (leaving not-yet-loaded references stale).
+      // FindOccurrenceCandidates fails closed for skipTextFilter while a load
+      // session is active, so the rename declines. LoadingBase is a plain final
+      // class, so the local conflict fallback would otherwise proceed — this
+      // proves the completeness guard, not the conflict check.
+      const LOADING_BASE_URI = 'file:///test/LoadingBase.cls';
+      const LOADING_BASE_SRC = `public class LoadingBase {
+    public Integer total;
+
+    public void bump() {
+        total = total + 1;
+    }
+}`;
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+          uri === LOADING_BASE_URI ? LOADING_BASE_SRC : undefined,
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        // Begin a workspace-load session and leave it ACTIVE (never drained).
+        const session = dispatcher.createWorkspaceLoadSessionDispatcher();
+        yield* Effect.promise(() =>
+          session({
+            _tag: 'BeginWorkspaceLoadSession',
+            sessionId: 'active-load-rename-session',
+          }),
+        );
+
+        // Rename LoadingBase.total using the live cursor buffer while the store
+        // is mid-load (nothing else stored).
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: LOADING_BASE_URI },
+            position: { line: 1, character: 23 }, // on LoadingBase.total decl
+            newName: 'amount',
+            content: LOADING_BASE_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-field:active-load] ${JSON.stringify(result)}`);
+
+      // Not a WorkspaceEdit — a RenameErrorResult declining while incomplete.
+      const errorResult = result as {
+        error?: { code: number; message: string };
+        changes?: unknown;
+      } | null;
+      expect(errorResult?.changes).toBeUndefined();
+      expect(errorResult?.error).toBeDefined();
+    }, 120_000);
+
+    it('declines rename when another file has an unprovable non-local receiver (W-23631086 #1)', async () => {
+      // Renaming Other.total. Caller.cls contains `acct.total` where `acct` is
+      // typed `Account` — a type NOT declared in Caller.cls. Standalone, this
+      // parse cannot prove Account is outside Other's subtype cone (Account could
+      // `extends Other` in Account.cls), so `acct.total` MIGHT be an inherited
+      // Other.total. Renaming Other.total's declaration while dropping it would
+      // emit a broken partial edit, so the whole rename must DECLINE rather than
+      // silently skip the unprovable receiver. (Proving the cone needs the
+      // data-owner hierarchy graph this pool path does not have.)
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => FIELD_SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        for (const uri of [ACCOUNT_URI, CALLER_URI, OTHER_URI]) {
+          yield* Effect.promise(() =>
+            dispatcher.dispatch('documentOpen', {
+              document: {
+                uri,
+                languageId: 'apex',
+                version: 1,
+                getText: () => FIELD_SOURCES[uri],
+              },
+              textDocument: { uri },
+              text: FIELD_SOURCES[uri],
+            }),
+          );
+        }
+
+        // Rename Other.total (not Account.total).
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: OTHER_URI },
+            position: { line: 1, character: 23 },
+            newName: 'count',
+            content: OTHER_SRC,
+          }),
+        );
+
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+
+      // Declines with an error — never a partial WorkspaceEdit that renames
+      // Other.total while leaving Caller's acct.total (an unprovable receiver)
+      // dangling.
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('error');
+      expect(result).not.toHaveProperty('changes');
+      const errResult = result as { error: { code: number; message: string } };
+      expect(errResult.error.message).toContain('Cannot safely rename');
+    }, 120_000);
+
+    it('handles implicit-this usage inside the declaring class', async () => {
+      const IMPLICIT_URI = 'file:///test/ImplicitThis.cls';
+      const IMPLICIT_SRC = `public class ImplicitThis {
+    public Integer value;
+
+    public void useIt() {
+        value = 5;
+        Integer x = value;
+    }
+}`;
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+          uri === IMPLICIT_URI ? IMPLICIT_SRC : FIELD_SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        yield* Effect.promise(() =>
+          dispatcher.dispatch('documentOpen', {
+            document: {
+              uri: IMPLICIT_URI,
+              languageId: 'apex',
+              version: 1,
+              getText: () => IMPLICIT_SRC,
+            },
+            textDocument: { uri: IMPLICIT_URI },
+            text: IMPLICIT_SRC,
+          }),
+        );
+
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: IMPLICIT_URI },
+            position: { line: 1, character: 23 },
+            newName: 'newValue',
+            content: IMPLICIT_SRC,
+          }),
+        );
+
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+
+      const edit = result as {
+        changes?: Record<string, Array<{ range: any; newText: string }>>;
+      } | null;
+      expect(edit?.changes).toBeDefined();
+
+      const edits = edit!.changes![IMPLICIT_URI];
+      expect(edits).toBeDefined();
+      // Declaration + 2 implicit-this usages.
+      expect(edits.length).toBeGreaterThanOrEqual(3);
+      edits.forEach((e) => expect(e.newText).toBe('newValue'));
+    }, 120_000);
+
+    it('rejects invalid newName for a field (W-23631084 validation)', async () => {
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => FIELD_SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        yield* Effect.promise(() =>
+          dispatcher.dispatch('documentOpen', {
+            document: {
+              uri: ACCOUNT_URI,
+              languageId: 'apex',
+              version: 1,
+              getText: () => ACCOUNT_SRC,
+            },
+            textDocument: { uri: ACCOUNT_URI },
+            text: ACCOUNT_SRC,
+          }),
+        );
+
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: ACCOUNT_URI },
+            position: { line: 1, character: 23 },
+            newName: 'class', // reserved keyword
+            content: ACCOUNT_SRC,
+          }),
+        );
+
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('error');
+      const errResult = result as { error: { code: number; message: string } };
+      expect(errResult.error).toHaveProperty('message');
+      expect(errResult.error.message).toContain('keyword');
+    }, 120_000);
+
+    // W-23631084 review regression: renaming a field whose subclass references it
+    // via `super.field` or a bare inherited access must DECLINE (no partial edit),
+    // because the single-file standalone scan cannot resolve the subclass→ancestor
+    // relationship and would otherwise rename the declaration while leaving the
+    // subclass references dangling.
+    it('declines renaming a field referenced by a subclass via super/inherited access', async () => {
+      const BASE_URI = 'file:///test/Base.cls';
+      const BASE_SRC = `public class Base {
+    public Integer total;
+}`;
+      const CHILD_URI = 'file:///test/Child.cls';
+      const CHILD_SRC = `public class Child extends Base {
+    public void bump() {
+        super.total = 1;
+        total = total + 1;
+    }
+}`;
+      const INHERIT_SOURCES: Record<string, string> = {
+        [BASE_URI]: BASE_SRC,
+        [CHILD_URI]: CHILD_SRC,
+      };
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => INHERIT_SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        for (const uri of [BASE_URI, CHILD_URI]) {
+          yield* Effect.promise(() =>
+            dispatcher.dispatch('documentOpen', {
+              document: {
+                uri,
+                languageId: 'apex',
+                version: 1,
+                getText: () => INHERIT_SOURCES[uri],
+              },
+              textDocument: { uri },
+              text: INHERIT_SOURCES[uri],
+            }),
+          );
+        }
+
+        // Cursor on Base.total declaration (line 1, char 19).
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: BASE_URI },
+            position: { line: 1, character: 19 },
+            newName: 'amount',
+            content: BASE_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+
+      // Must decline with an error — NOT a partial WorkspaceEdit that renames
+      // Base.total's declaration while leaving Child's super.total / bare total
+      // dangling.
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('error');
+      expect(result).not.toHaveProperty('changes');
+      const errResult = result as { error: { code: number; message: string } };
+      expect(errResult.error.message).toContain('Cannot safely rename');
+    }, 120_000);
+
+    // W-23631086 review finding #2: the declaring-type anchor must be an FQN, not
+    // the short type name. Two outer classes each hold an inner `Inner` with a
+    // `total` field; renaming OuterOne.Inner.total must NOT touch
+    // OuterTwo.Inner.total (the short name `Inner` is identical for both).
+    it('does NOT rename a same-named inner field of a DIFFERENT outer class (FQN anchor)', async () => {
+      const OUTER_ONE_URI = 'file:///test/OuterOne.cls';
+      const OUTER_ONE_SRC = `public class OuterOne {
+    public class Inner {
+        public Integer total;
+        public void f() {
+            total = 1;
+        }
+    }
+}`;
+      const OUTER_TWO_URI = 'file:///test/OuterTwo.cls';
+      const OUTER_TWO_SRC = `public class OuterTwo {
+    public class Inner {
+        public Integer total;
+        public void f() {
+            total = 2;
+        }
+    }
+}`;
+      const NESTED_SOURCES: Record<string, string> = {
+        [OUTER_ONE_URI]: OUTER_ONE_SRC,
+        [OUTER_TWO_URI]: OUTER_TWO_SRC,
+      };
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => NESTED_SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        for (const uri of [OUTER_ONE_URI, OUTER_TWO_URI]) {
+          yield* Effect.promise(() =>
+            dispatcher.dispatch('documentOpen', {
+              document: {
+                uri,
+                languageId: 'apex',
+                version: 1,
+                getText: () => NESTED_SOURCES[uri],
+              },
+              textDocument: { uri },
+              text: NESTED_SOURCES[uri],
+            }),
+          );
+        }
+
+        // Cursor on OuterOne.Inner.total declaration (line 2, char 24).
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: OUTER_ONE_URI },
+            position: { line: 2, character: 24 },
+            newName: 'amount',
+            content: OUTER_ONE_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-field:nested-fqn] ${JSON.stringify(result)}`);
+
+      const edit = result as {
+        changes?: Record<string, Array<{ range: any; newText: string }>>;
+      } | null;
+      expect(edit?.changes).toBeDefined();
+
+      // OuterOne.cls is renamed (declaration + implicit-this usage).
+      const oneEdits = edit!.changes![OUTER_ONE_URI];
+      expect(oneEdits).toBeDefined();
+      expect(oneEdits.length).toBeGreaterThan(0);
+      // OuterTwo.cls's same-named inner field must be untouched.
+      expect(edit!.changes![OUTER_TWO_URI]).toBeUndefined();
+    }, 120_000);
+
+    // W-23631084 P1: an IN-FILE-resolvable static qualifier (`Account.total`
+    // inside a NESTED class of `Account`) must be renamed end-to-end without a
+    // partial/corrupt edit. The parser emits the qualifier as a CLASS_REFERENCE
+    // co-located at the field token (not a VARIABLE_USAGE), which findFieldOccurrences
+    // now recognizes as a static access of the declaring type. Before the fix this
+    // access was dropped (classified implicit-`this` on the unrelated enclosing
+    // Helper), so renaming the declaration left `Account.total` dangling.
+    it('renames an inner-class access of the OUTER type static field (no partial edit)', async () => {
+      const OUTER_STATIC_URI = 'file:///test/OuterStatic.cls';
+      const OUTER_STATIC_SRC = `public class Account {
+    public static Integer total;
+    public class Helper {
+        void m() {
+            Account.total = 5;
+        }
+    }
+}`;
+      const sources: Record<string, string> = {
+        [OUTER_STATIC_URI]: OUTER_STATIC_SRC,
+      };
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => sources[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        yield* Effect.promise(() =>
+          dispatcher.dispatch('documentOpen', {
+            document: {
+              uri: OUTER_STATIC_URI,
+              languageId: 'apex',
+              version: 1,
+              getText: () => OUTER_STATIC_SRC,
+            },
+            textDocument: { uri: OUTER_STATIC_URI },
+            text: OUTER_STATIC_SRC,
+          }),
+        );
+
+        // Cursor on the Account.total declaration (line 1, char 26 = `total`).
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: OUTER_STATIC_URI },
+            position: { line: 1, character: 26 },
+            newName: 'amount',
+            content: OUTER_STATIC_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-field:outer-static] ${JSON.stringify(result)}`);
+
+      // A WorkspaceEdit came back (NOT a decline / error).
+      const edit = result as {
+        changes?: Record<string, Array<{ range: any; newText: string }>>;
+        error?: unknown;
+      } | null;
+      expect(edit?.error).toBeUndefined();
+      expect(edit?.changes).toBeDefined();
+
+      const edits = edit!.changes![OUTER_STATIC_URI];
+      expect(edits).toBeDefined();
+      // Declaration (line 1) + the static `Account.total` access inside Helper
+      // (line 4) are both renamed — the inner-class access is NOT dangled.
+      expect(edits.length).toBeGreaterThanOrEqual(2);
+      edits.forEach((e) => expect(e.newText).toBe('amount'));
+      expect(edits.some((e) => e.range.start.line === 4)).toBe(true);
+    }, 120_000);
+
+    // W-23631086 review finding #5: the cursor URI must ALWAYS be scanned with
+    // the live buffer, even when the data-owner does not return it as a stored
+    // candidate. Rename now requests the FULL stored document set (skipTextFilter,
+    // W-23631084 review), but the cursor file can still be ABSENT from the store —
+    // an unsaved/newly-modified buffer that was never documentOpen'd. An empty (or
+    // cursor-less) stored set is NOT a decline: the live cursor buffer is inserted
+    // and scanned, so its implicit-this usages are still found and renamed.
+    it('scans the cursor buffer even when absent from the candidate set', async () => {
+      const UNOPENED_URI = 'file:///test/Unopened.cls';
+      const UNOPENED_SRC = `public class Unopened {
+    public Integer total;
+
+    public void bump() {
+        total = total + 1;
+    }
+}`;
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+          uri === UNOPENED_URI ? UNOPENED_SRC : FIELD_SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        // Deliberately do NOT documentOpen UNOPENED_URI — it is absent from the
+        // data-owner store, so the document-set query cannot return it. Its
+        // occurrences must still be found via the inserted live cursor buffer.
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: UNOPENED_URI },
+            position: { line: 1, character: 23 }, // on `total` declaration
+            newName: 'amount',
+            content: UNOPENED_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-field:cursor-absent] ${JSON.stringify(result)}`);
+
+      const edit = result as {
+        changes?: Record<string, Array<{ range: any; newText: string }>>;
+      } | null;
+      expect(edit?.changes).toBeDefined();
+
+      // The cursor file's declaration + two implicit-this usages are renamed,
+      // even though the data owner never returned it as a stored candidate.
+      const edits = edit!.changes![UNOPENED_URI];
+      expect(edits).toBeDefined();
+      expect(edits.length).toBeGreaterThanOrEqual(3);
+      edits.forEach((e) => expect(e.newText).toBe('amount'));
+    }, 120_000);
+
+    // W-23631086 review finding #2: CompilerService.compile RECOVERS from
+    // malformed Apex — it returns a partial SymbolTable plus a non-empty errors
+    // array rather than throwing. A candidate that lexically mentions the field
+    // but failed to parse cleanly may have DROPPED the occurrence we need to
+    // rewrite, so its symbol table is an incomplete semantic view. The rename
+    // must decline (not silently skip it and emit a partial edit) even though no
+    // exception is thrown.
+    it('declines when a candidate file compiles with parser errors (diagnostic path)', async () => {
+      const CLEAN_URI = 'file:///test/CleanField.cls';
+      const CLEAN_SRC = `public class CleanField {
+    public Integer total;
+}`;
+      // Broken.cls lexically contains `total` but does not parse cleanly (missing
+      // semicolon + malformed method), so compile returns errors and a partial
+      // table in which the `total` reference may be absent.
+      const BROKEN_URI = 'file:///test/Broken.cls';
+      const BROKEN_SRC = `public class Broken {
+    public void oops() {
+        Integer total = 1
+        total = total +
+    }
+`;
+      const BROKEN_SOURCES: Record<string, string> = {
+        [CLEAN_URI]: CLEAN_SRC,
+        [BROKEN_URI]: BROKEN_SRC,
+      };
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => BROKEN_SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        for (const uri of [CLEAN_URI, BROKEN_URI]) {
+          yield* Effect.promise(() =>
+            dispatcher.dispatch('documentOpen', {
+              document: {
+                uri,
+                languageId: 'apex',
+                version: 1,
+                getText: () => BROKEN_SOURCES[uri],
+              },
+              textDocument: { uri },
+              text: BROKEN_SOURCES[uri],
+            }),
+          );
+        }
+
+        // Rename CleanField.total — Broken.cls is a candidate (mentions `total`)
+        // but compiles with errors.
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: CLEAN_URI },
+            position: { line: 1, character: 19 }, // on `total` declaration
+            newName: 'amount',
+            content: CLEAN_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-field:broken-candidate] ${JSON.stringify(result)}`);
+
+      // Declines with an error — never a partial edit that renames the clean
+      // declaration while the broken candidate's occurrences go unanalyzed.
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('error');
+      expect(result).not.toHaveProperty('changes');
+      const errResult = result as { error: { code: number; message: string } };
+      expect(errResult.error.message).toContain('Cannot safely rename');
+    }, 120_000);
+
+    it('declines when a candidate references the field via a method-result receiver (W-23631084)', async () => {
+      const ACCOUNT_URI = 'file:///test/AccountMr.cls';
+      const ACCOUNT_SRC = `public class AccountMr {
+    public Integer total;
+}`;
+      // Caller reaches the field through a method RESULT (`getAccount().total`),
+      // a qualified access whose receiver type cannot be proven standalone. It
+      // must be classified unsafe so the whole rename declines — never a partial
+      // edit that renames the declaration and leaves this reference dangling.
+      const CALLER_URI = 'file:///test/CallerMr.cls';
+      const CALLER_SRC = `public class CallerMr {
+    public AccountMr getAccount() { return null; }
+    public void use() {
+        Integer x = getAccount().total;
+    }
+}`;
+      const SOURCES: Record<string, string> = {
+        [ACCOUNT_URI]: ACCOUNT_SRC,
+        [CALLER_URI]: CALLER_SRC,
+      };
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        for (const uri of [ACCOUNT_URI, CALLER_URI]) {
+          yield* Effect.promise(() =>
+            dispatcher.dispatch('documentOpen', {
+              document: {
+                uri,
+                languageId: 'apex',
+                version: 1,
+                getText: () => SOURCES[uri],
+              },
+              textDocument: { uri },
+              text: SOURCES[uri],
+            }),
+          );
+        }
+
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: ACCOUNT_URI },
+            position: { line: 1, character: 19 }, // on `total` declaration
+            newName: 'amount',
+            content: ACCOUNT_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-field:method-receiver] ${JSON.stringify(result)}`);
+
+      // Declines with an error — never a partial edit that renames the
+      // declaration while `getAccount().total` is left dangling.
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('error');
+      expect(result).not.toHaveProperty('changes');
+      const errResult = result as { error: { code: number; message: string } };
+      expect(errResult.error.message).toContain('Cannot safely rename');
+    }, 120_000);
+
+    it('declines when a candidate references the field via a constructor-result receiver (W-23631084)', async () => {
+      const ACCOUNT_URI = 'file:///test/AccountCr.cls';
+      const ACCOUNT_SRC = `public class AccountCr {
+    public Integer total;
+}`;
+      // Caller reaches the field through a CONSTRUCTOR result
+      // (`new AccountCr().total`). The parser now represents this as a multi-hop
+      // chain leaf that cannot be attributed standalone, so the whole rename must
+      // decline — never a declaration-only partial edit that dangles this
+      // reference.
+      const CALLER_URI = 'file:///test/CallerCr.cls';
+      const CALLER_SRC = `public class CallerCr {
+    public void use() {
+        Integer x = new AccountCr().total;
+    }
+}`;
+      const SOURCES: Record<string, string> = {
+        [ACCOUNT_URI]: ACCOUNT_SRC,
+        [CALLER_URI]: CALLER_SRC,
+      };
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        for (const uri of [ACCOUNT_URI, CALLER_URI]) {
+          yield* Effect.promise(() =>
+            dispatcher.dispatch('documentOpen', {
+              document: {
+                uri,
+                languageId: 'apex',
+                version: 1,
+                getText: () => SOURCES[uri],
+              },
+              textDocument: { uri },
+              text: SOURCES[uri],
+            }),
+          );
+        }
+
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: ACCOUNT_URI },
+            position: { line: 1, character: 19 }, // on `total` declaration
+            newName: 'amount',
+            content: ACCOUNT_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-field:ctor-receiver] ${JSON.stringify(result)}`);
+
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('error');
+      expect(result).not.toHaveProperty('changes');
+      const errResult = result as { error: { code: number; message: string } };
+      expect(errResult.error.message).toContain('Cannot safely rename');
+    }, 120_000);
+  });
 });
