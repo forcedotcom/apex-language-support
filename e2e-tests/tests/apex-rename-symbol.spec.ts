@@ -224,3 +224,173 @@ test.describe('Apex Rename Symbol', () => {
     });
   });
 });
+
+/**
+ * E2E tests for textDocument/rename of FIELDS (W-23631087 / 4.3) — renameField
+ * for instance fields, single-file and cross-file.
+ *
+ * Field rename is driven through the SAME editor path as renameLocal: position
+ * the cursor on a field, press F2, type a new name, confirm (Enter), and assert
+ * the applied WorkspaceEdit. It exercises more of the stack than renameLocal,
+ * though — the worker's `resolveFieldRename` runs the workspace-wide two-phase
+ * scan (data-owner candidate discovery + per-candidate standalone parse with
+ * receiver-type disambiguation), so the cross-file case proves the multi-file
+ * WorkspaceEdit end-to-end.
+ *
+ * prepareRename gates F2: because `renameProvider: { prepareProvider: true }` is
+ * advertised, VS Code fires `textDocument/prepareRename` FIRST and only opens
+ * the rename box if it returns a range containing the cursor. Field support was
+ * added to `DispatchPrepareRename` in this story (W-23631087) — before it, a
+ * field cursor returned null and F2 showed "The element can't be renamed". Like
+ * the renameLocal tests, each test warms the request pool with a documentSymbol
+ * probe (live-required, no graph fallback) so prepareRename can parse the live
+ * buffer before F2.
+ *
+ * @group rename
+ */
+test.describe('Apex Rename Symbol - Field', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  test('renames a field declaration and its this-qualified and implicit-this usages', async ({
+    apexEditor,
+    outlineView,
+  }) => {
+    await test.step('Open the field rename fixture', async () => {
+      await apexEditor.openFile('RenameFieldSample.cls');
+      await apexEditor.waitForLanguageServerReady();
+    });
+
+    await test.step('Warm the request pool for prepareRename', async () => {
+      // F2's prepareRename needs this file's live buffer threaded to the pool.
+      // documentSymbol (live-required, no graph fallback) populates only once the
+      // live content is threadable — exactly prepareRename's precondition. Gate on
+      // a symbol from THIS file before F2 (see the renameLocal tests for why a
+      // ready-gate or hover probe is the wrong signal).
+      await outlineView.open();
+      const mainClass = await outlineView.findSymbol(
+        'RenameFieldSample',
+        20000,
+      );
+      expect(
+        mainClass,
+        'Outline (documentSymbol) must resolve RenameFieldSample before F2',
+      ).not.toBeNull();
+    });
+
+    await test.step('Position on the `counter` field declaration', async () => {
+      // Line 6 is `    public Integer counter = 0;` — `counter` occupies columns
+      // 20-26. Position at column 22 (INSIDE the token) via Go-to-Line; an
+      // in-word column avoids prepareRename's half-open [start, end) boundary
+      // (a cursor one past the last character is NOT contained → "can't be
+      // renamed"), the same hazard the renameLocal tests document.
+      await apexEditor.goToPosition(6, 22);
+    });
+
+    await test.step('Rename `counter` to `tally`', async () => {
+      await apexEditor.rename('tally');
+    });
+
+    await test.step('Assert the declaration and all field usages are renamed', async () => {
+      await apexEditor.waitForContentToInclude('tally');
+
+      const content = await apexEditor.getContent();
+      // Monaco renders indentation with non-breaking spaces (U+00A0); normalize
+      // to regular spaces so the structural assertions match reliably.
+      const normalized = content.replace(/ /g, ' ');
+
+      // Declaration: `public Integer tally = 0;`
+      expect(normalized).toMatch(/public\s+Integer\s+tally\s*=\s*0\s*;/);
+      // this-qualified read+write: `this.tally = this.tally + 1;`
+      expect(normalized).toMatch(/this\.tally\s*=\s*this\.tally\s*\+\s*1\s*;/);
+      // implicit-this read: `return tally;`
+      expect(normalized).toMatch(/return\s+tally\s*;/);
+
+      // The old name must be gone from the CLASS BODY. The leading comment
+      // mentions `counter`, so slice from the class declaration to exclude it —
+      // asserting on whole content would false-positive on the comment prose.
+      const classBody = normalized.slice(
+        normalized.indexOf('public with sharing class'),
+      );
+      expect(classBody).not.toContain('counter');
+    });
+  });
+
+  test('renames a field across files (declaration + cross-file field access)', async ({
+    apexEditor,
+    outlineView,
+  }) => {
+    await test.step('Open the consumer and declaring files', async () => {
+      // Open the consumer first so the workspace ingests the cross-file usage,
+      // then the declaring file where we invoke the rename (mirrors the
+      // cross-file find-references test's open order).
+      await apexEditor.openFile('RenameFieldClient.cls');
+      await apexEditor.waitForLanguageServerReady();
+      await apexEditor.openFile('RenameFieldModel.cls');
+      await apexEditor.waitForLanguageServerReady();
+    });
+
+    await test.step('Wait for full workspace ingestion', async () => {
+      // Cross-file renameField discovers candidates through the data-owner's
+      // stored document set. During an active workspace-load session that set is
+      // only PARTIAL, and the rename correctly DECLINES rather than emit a
+      // partial edit (W-23631084 review). Gate on full ingestion so the consumer
+      // file is stored and the cross-file occurrence is found — the same gate the
+      // cross-file goto/find-references tests use before their first cross-file
+      // request.
+      await apexEditor.waitForWorkspaceReady();
+    });
+
+    await test.step('Warm the request pool for prepareRename on the declaring file', async () => {
+      await apexEditor.openFile('RenameFieldModel.cls');
+      await outlineView.open();
+      const mainClass = await outlineView.findSymbol('RenameFieldModel', 20000);
+      expect(
+        mainClass,
+        'Outline (documentSymbol) must resolve RenameFieldModel before F2',
+      ).not.toBeNull();
+    });
+
+    await test.step('Position on the `quantity` field declaration', async () => {
+      // Line 6 is `    public Integer quantity = 0;` — `quantity` occupies
+      // columns 20-27. Position at column 23 (INSIDE the token).
+      await apexEditor.goToPosition(6, 23);
+    });
+
+    await test.step('Rename `quantity` to `amount`', async () => {
+      await apexEditor.rename('amount');
+    });
+
+    await test.step('Assert the declaration is renamed in RenameFieldModel', async () => {
+      await apexEditor.waitForContentToInclude('amount');
+      const content = await apexEditor.getContent();
+      const normalized = content.replace(/ /g, ' ');
+      expect(normalized).toMatch(/public\s+Integer\s+amount\s*=\s*0\s*;/);
+      const classBody = normalized.slice(
+        normalized.indexOf('public with sharing class'),
+      );
+      expect(classBody).not.toContain('quantity');
+    });
+
+    await test.step('Assert the cross-file usages are renamed in RenameFieldClient', async () => {
+      // The WorkspaceEdit spans both files. Switch to the consumer tab and wait
+      // for the applied edit to surface, then assert both field accesses.
+      await apexEditor.openFile('RenameFieldClient.cls');
+      await apexEditor.waitForContentToInclude('model.amount');
+
+      const content = await apexEditor.getContent();
+      const normalized = content.replace(/ /g, ' ');
+
+      // Write: `model.amount = 5;`
+      expect(normalized).toMatch(/model\.amount\s*=\s*5\s*;/);
+      // Read: `return model.amount;`
+      expect(normalized).toMatch(/return\s+model\.amount\s*;/);
+
+      // The old field name must be gone from the class body (the leading comment
+      // mentions `quantity`, so slice from the class declaration to exclude it).
+      const classBody = normalized.slice(
+        normalized.indexOf('public with sharing class'),
+      );
+      expect(classBody).not.toContain('quantity');
+    });
+  });
+});

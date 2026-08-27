@@ -550,6 +550,155 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
     expect(result).toBeNull();
   }, 120_000);
 
+  // W-23631087 (4.3): prepareRename must recognize FIELDS, not just locals.
+  // resolveFieldRename supports fields end-to-end, but until the field branch was
+  // added to DispatchPrepareRename, F2 on a field returned null and VS Code
+  // refused to open the rename box (prepareProvider is advertised, so it gates
+  // F2) — making field rename unreachable through the editor. These two tests
+  // prove prepareRename returns the cursor-containing identifier range for a
+  // field declaration AND a field usage.
+  const PREP_FIELD_URI = 'file:///test/PrepareField.cls';
+  const PREP_FIELD_SRC = `public class PrepareField {
+    public Integer value;
+
+    public void useIt() {
+        value = 5;
+        Integer x = value;
+    }
+}`;
+
+  it('returns prepareRename range for a field DECLARATION cursor (W-23631087)', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+        uri === PREP_FIELD_URI ? PREP_FIELD_SRC : undefined,
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: PREP_FIELD_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => PREP_FIELD_SRC,
+          },
+          textDocument: { uri: PREP_FIELD_URI },
+          text: PREP_FIELD_SRC,
+        }),
+      );
+
+      // Cursor on the `value` DECLARATION (LSP line 1 `    public Integer value;`,
+      // char 23 — inside the `value` token). A field declaration carries no
+      // field-access reference, so this exercises the getSymbolAtPosition branch.
+      const result = yield* Effect.promise(() =>
+        dispatcher.dispatch('prepareRename', {
+          textDocument: { uri: PREP_FIELD_URI },
+          position: { line: 1, character: 23 },
+          content: PREP_FIELD_SRC,
+        }),
+      );
+
+      return { result };
+    }).pipe(Effect.scoped);
+
+    const { result } = await Effect.runPromise(program);
+    logger.debug(
+      `[prepare-rename:field-declaration] ${JSON.stringify(result)}`,
+    );
+
+    expect(result).not.toBeNull();
+    expect(result).toHaveProperty('range');
+    const prepareInfo = result as {
+      range: {
+        start: { line: number; character: number };
+        end: { line: number; character: number };
+      };
+      placeholder: string;
+    };
+    // The declaration is on LSP line 1, and the range must CONTAIN the cursor
+    // (char 23) — VS Code rejects a prepareRename range that doesn't.
+    expect(prepareInfo.range.start.line).toBe(1);
+    expect(prepareInfo.range.end.line).toBe(1);
+    expect(prepareInfo.range.start.character).toBeLessThanOrEqual(23);
+    expect(prepareInfo.range.end.character).toBeGreaterThan(23);
+    expect(prepareInfo.placeholder).toBe('value');
+  }, 120_000);
+
+  it('returns prepareRename range for a field USAGE cursor (W-23631087)', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+        uri === PREP_FIELD_URI ? PREP_FIELD_SRC : undefined,
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: PREP_FIELD_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => PREP_FIELD_SRC,
+          },
+          textDocument: { uri: PREP_FIELD_URI },
+          text: PREP_FIELD_SRC,
+        }),
+      );
+
+      // Cursor on the implicit-this `value` USAGE (LSP line 4 `        value = 5;`,
+      // char 10 — inside the `value` token). prepareRename must return THIS usage
+      // token's range (VS Code requires the range to contain the cursor), not the
+      // declaration's — exercising the exactCursorReference branch.
+      const result = yield* Effect.promise(() =>
+        dispatcher.dispatch('prepareRename', {
+          textDocument: { uri: PREP_FIELD_URI },
+          position: { line: 4, character: 10 },
+          content: PREP_FIELD_SRC,
+        }),
+      );
+
+      return { result };
+    }).pipe(Effect.scoped);
+
+    const { result } = await Effect.runPromise(program);
+    logger.debug(`[prepare-rename:field-usage] ${JSON.stringify(result)}`);
+
+    expect(result).not.toBeNull();
+    expect(result).toHaveProperty('range');
+    const prepareInfo = result as {
+      range: {
+        start: { line: number; character: number };
+        end: { line: number; character: number };
+      };
+      placeholder: string;
+    };
+    // The usage is on LSP line 4, and the returned range must contain the cursor.
+    expect(prepareInfo.range.start.line).toBe(4);
+    expect(prepareInfo.range.end.line).toBe(4);
+    expect(prepareInfo.range.start.character).toBeLessThanOrEqual(10);
+    expect(prepareInfo.range.end.character).toBeGreaterThan(10);
+    expect(prepareInfo.placeholder).toBe('value');
+  }, 120_000);
+
   // W-23631084: Field rename tests (4.1)
   describe('renameField cross-file with receiver-type disambiguation (W-23631084)', () => {
     // Account.cls declares a `total` field, used in Caller.cls as `acct.total`.
@@ -804,6 +953,21 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       } | null;
       expect(errorResult?.changes).toBeUndefined();
       expect(errorResult?.error).toBeDefined();
+      // Nit (W-23631084 final review): assert the decline is the ACTIVE-LOAD
+      // completeness guard, not just any error. A bare `error).toBeDefined()`
+      // would pass if an unrelated earlier failure (e.g. a validation decline or
+      // a thrown exception elsewhere) aborted the rename, so it would not prove
+      // this test still exercises the intended guard. Key off the guard's
+      // own signal: the -32600 InvalidRequest code and the active-load message
+      // ("Workspace load session still active" + "incomplete"), which
+      // FindOccurrenceCandidates raises and resolveFieldRename surfaces verbatim
+      // through the Stage-5 decline. If the guard regresses or a different path
+      // declines, these fail loudly.
+      expect(errorResult?.error?.code).toBe(-32600);
+      expect(errorResult?.error?.message).toMatch(
+        /workspace load session still active/i,
+      );
+      expect(errorResult?.error?.message).toMatch(/incomplete/i);
     }, 120_000);
 
     it('declines rename when another file has an unprovable non-local receiver (W-23631086 #1)', async () => {

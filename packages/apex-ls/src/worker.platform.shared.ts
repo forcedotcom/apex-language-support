@@ -3907,6 +3907,124 @@ async function resolvePrepareRenameForLocal(req: PositionReq): Promise<{
 }
 
 /**
+ * Resolve prepareRename for a FIELD or PROPERTY (W-23631087 / 4.3).
+ *
+ * renameField (resolveFieldRename) handles fields end-to-end, but prepareRename
+ * previously recognized ONLY locals — {@link resolvePrepareRenameForLocal}'s
+ * findLocalOccurrences returns null for a field cursor. Because the server
+ * advertises `renameProvider: { prepareProvider: true }`, VS Code fires
+ * prepareRename FIRST on F2 and REFUSES to open the rename box when it returns
+ * null, so field rename was unreachable through the editor even though the
+ * engine fully supports it (verified: F2 on a field showed "The element can't
+ * be renamed").
+ *
+ * This resolves the field/property cursor to the identifier range the cursor
+ * sits in, using the SAME svc primitives resolveFieldRename uses (Stage 1
+ * recompile + targetSymbolForCursor + the exactCursorReference/getSymbolAtPosition
+ * resolution). Sharing the resolution path means prepareRename accepts exactly
+ * the field cursors the rename can service — no accept-then-decline or
+ * decline-then-accept drift between the two requests.
+ *
+ * Like the local path, it returns the range CONTAINING the cursor — a USAGE
+ * token (`this.total`, bare `total`, `x.total`) when the cursor is on one, else
+ * the DECLARATION identifier (a field declaration carries no field-access
+ * reference). VS Code rejects a prepareRename range that does not contain the
+ * cursor, so an unresolvable cursor returns null rather than a stray range.
+ *
+ * @param svc The request-pool services (cursor resolution + type loading).
+ * @param req The position request (cursor position + live cursor text).
+ * @returns `{ range, placeholder }` where `range` contains the cursor, or `null`.
+ */
+async function resolvePrepareRenameForField(
+  svc: RequestServices,
+  req: PositionReq,
+): Promise<{
+  range: {
+    start: { line: number; character: number };
+    end: { line: number; character: number };
+  };
+  placeholder: string;
+} | null> {
+  const uri = req.textDocument.uri;
+  try {
+    // Stage 1 (mirrors resolveFieldRename): recompile the cursor file at full
+    // detail so the live buffer's references/declarations resolve, then load
+    // referenced types so a cursor on a cross-file field USAGE still resolves to
+    // its (possibly cross-file) declaring symbol — the resolution that confirms
+    // kind === 'field'. Ingestion-independent: driven by the live buffer.
+    const cursorTextAvailable = typeof req.content === 'string';
+    const cursorRecompiled = await recompileCursorFileAtFullDetail(
+      svc,
+      uri,
+      req.content,
+      { resolveCrossFileReferences: false },
+    );
+    if (!cursorRecompiled && !cursorTextAvailable) return null;
+    await loadReferencedTypesForFile(svc, uri);
+
+    // Confirm the cursor is on a field/property — the same gate resolveFieldRename
+    // Stage 2 applies. Anything else (local, type, method, keyword) → null so the
+    // caller reports "can't be renamed" rather than opening a box the rename
+    // engine would then decline.
+    const target = await targetSymbolForCursor(svc, uri, req.position);
+    if (!target?.name) return null;
+    if (target.kind !== 'field' && target.kind !== 'property') return null;
+
+    // LSP (0-based line) → parser (1-based line, 0-based column).
+    const parserPosition = {
+      line: req.position.line + 1,
+      character: req.position.character,
+    };
+
+    // Prefer the exact parser reference under the cursor — a USAGE token such as
+    // `this.total`, a bare `total`, or `x.total`. exactCursorReference already
+    // filters to references whose identifier token contains the cursor, so its
+    // range is guaranteed to contain the cursor.
+    const references = await svc.symbolManager.getReferencesAtPosition(
+      uri,
+      parserPosition,
+    );
+    const selected = exactCursorReference(references ?? [], parserPosition);
+    let cursorRange = selected.reference?.location?.identifierRange;
+
+    // No field-access reference at the cursor → the cursor is on the field's
+    // own DECLARATION identifier (declarations carry no field-access reference).
+    // Take the declaration's identifier range, but only when it contains the
+    // cursor (VS Code requires prepareRename's range to contain the cursor).
+    if (!cursorRange) {
+      const declaration = await svc.symbolManager.getSymbolAtPosition(
+        uri,
+        parserPosition,
+        'precise',
+      );
+      const declRange = declaration?.location?.identifierRange;
+      if (declRange && positionInRange(parserPosition, declRange)) {
+        cursorRange = declRange;
+      }
+    }
+
+    if (!cursorRange) return null;
+
+    return {
+      range: {
+        start: {
+          line: cursorRange.startLine - 1,
+          character: cursorRange.startColumn,
+        },
+        end: {
+          line: cursorRange.endLine - 1,
+          character: cursorRange.endColumn,
+        },
+      },
+      placeholder: target.name,
+    };
+  } catch (err) {
+    emitWorkerLog('warn', `[PREPARE_RENAME] field failed for ${uri}: ${err}`);
+    return null;
+  }
+}
+
+/**
  * Resolve the field/property under the cursor to its declaring-type FQN AND
  * whether the field itself is effectively private (W-23631084 / W-23631086).
  * renameField needs BOTH: the declaring type anchors receiver disambiguation
@@ -4888,12 +5006,19 @@ const requestHandlers = {
       return resolveFieldRename(svc, req);
     },
   ),
-  // W-23631080: prepareRename for locals. Returns the identifier range +
-  // placeholder of the renamable local under the cursor, or `null` when the
-  // cursor doesn't land on a renamable local.
+  // prepareRename for locals (W-23631080) and fields/properties (W-23631087).
+  // Returns the identifier range + placeholder of the renamable symbol under the
+  // cursor, or `null` when the cursor doesn't land on one. Try the local path
+  // first (cheap standalone parse); a field cursor returns null there, so fall
+  // through to the field path (recompile + svc resolution). Without the field
+  // branch, F2 on a field returns null → VS Code shows "The element can't be
+  // renamed" and never opens the rename box, so renameField is unreachable
+  // through the editor even though resolveFieldRename supports it.
   DispatchPrepareRename: requestHandler<PositionReq>(
     'DispatchPrepareRename',
-    async (_svc, req) => resolvePrepareRenameForLocal(req),
+    async (svc, req) =>
+      (await resolvePrepareRenameForLocal(req)) ??
+      (await resolvePrepareRenameForField(svc, req)),
   ),
   DispatchImplementation: effectRequestHandler<PositionReq>(
     'DispatchImplementation',
