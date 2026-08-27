@@ -175,6 +175,22 @@ export function findFieldOccurrences(
   const receiverRefsByStartPos = new Map<string, SymbolReference[]>();
   const fieldAccessStartPos = new Set<string>();
   const multiHopChainLeafPos = new Set<string>();
+  // (f) co-located STATIC TYPE QUALIFIERs indexed by field-access start position.
+  //     When a static class qualifier resolves WITHIN this standalone-parsed file,
+  //     the parser emits it as a CLASS_REFERENCE (NOT a VARIABLE_USAGE) stamped at
+  //     the field-access start position — the qualifier `Account` in
+  //     `Account.total` sits at the SAME start position as the `total`
+  //     FIELD_ACCESS, exactly like the flat co-located VARIABLE_USAGE receiver of
+  //     an instance access. The VARIABLE_USAGE receiver index (a) therefore never
+  //     captures it, so without this index an in-file-resolvable `Type.field`
+  //     access has no apparent receiver and falls through to Case 2 (bare
+  //     implicit-`this`), where it is mis-classified by the ENCLOSING type —
+  //     silently dropped (declaring type unrelated to the enclosing type) or, when
+  //     the enclosing type IS the declaring type, an UNRELATED sibling's static
+  //     field is wrongly renamed (W-23631084 P1 fix). A CROSS-FILE / unknown
+  //     qualifier is instead emitted as a VARIABLE_USAGE and stays on the receiver
+  //     path (Case 1), so this index only ever holds in-file-resolvable qualifiers.
+  const staticQualifierByStartPos = new Map<string, SymbolReference>();
   // (e) the set of start positions that are the leaf of ANY member-access chain
   //     (`chainNodes.length >= 2`) whose leaf is the target field. This is a
   //     superset of (d): length 2 is a SINGLE-hop qualified access whose receiver
@@ -217,6 +233,20 @@ export function findFieldOccurrences(
       ref.name.toLowerCase() === targetLeafLower
     ) {
       fieldAccessStartPos.add(key);
+    } else if (ref.context === ReferenceContext.CLASS_REFERENCE) {
+      // A static TYPE qualifier co-located with a field access (see index (f)).
+      // `this`/`super` are also emitted as CLASS_REFERENCE but at the RECEIVER
+      // token position (not the field token) and are keyword receivers handled by
+      // the VARIABLE_USAGE path, so exclude them — this index is only for concrete
+      // type qualifiers. First-writer-wins (a simple `Type.field` emits one).
+      const nameLower = ref.name.toLowerCase();
+      if (
+        nameLower !== 'this' &&
+        nameLower !== 'super' &&
+        !staticQualifierByStartPos.has(key)
+      ) {
+        staticQualifierByStartPos.set(key, ref);
+      }
     }
   }
   const typeSymbols: TypeSymbol[] = [];
@@ -346,6 +376,55 @@ export function findFieldOccurrences(
           });
         }
       }
+    } else if (staticQualifierByStartPos.has(startKey)) {
+      // Case 1c: STATIC field access through an IN-FILE-RESOLVABLE type qualifier
+      // (`Account.total`), where the qualifier `Account` resolves to a type
+      // declared in THIS standalone file. The parser emits that qualifier as a
+      // CLASS_REFERENCE co-located at the field-access start position (index (f)),
+      // NOT a VARIABLE_USAGE, so there is no co-located receiver here and it would
+      // otherwise fall through to the bare implicit-`this` Case 2 and be
+      // mis-classified by the enclosing type. Chain detection (Case 0) and the
+      // variable-receiver path (Case 1) have already run, so reaching here means a
+      // single-hop static qualifier with no variable receiver — resolve the
+      // qualifier to its type FQN and compare to the declaring type, using the SAME
+      // computeTypeFqn/normalizeFqn machinery the receiver path uses.
+      const qualifierRef = staticQualifierByStartPos.get(startKey)!;
+      const qualifierType = resolveStaticQualifierType(
+        qualifierRef,
+        table,
+        typeSymbols,
+      );
+      if (qualifierType === null) {
+        // The qualifier did not resolve to a concrete in-file type (e.g. an
+        // unresolved CLASS_REFERENCE). Treat it as an unprovable receiver → UNSAFE
+        // (decline), matching how other unprovable receivers are handled: it MIGHT
+        // be the target type, and dropping it while renaming the declaration would
+        // dangle the reference.
+        unsafe.push({
+          uri: fileUri,
+          identifierRange: candidate.identifierRange,
+          reason: 'static-qualifier-unresolvable',
+        });
+      } else if (normalizeFqn(qualifierType) === declaringTypeNorm) {
+        // Qualifier IS the declaring type → a genuine static access of the target
+        // field (Manifestation A / same-type self-reference).
+        occurrences.push(candidate);
+      } else {
+        // Qualifier resolves in-file to a DIFFERENT concrete type. Unlike an
+        // instance receiver, a static qualifier names the type EXACTLY — a static
+        // field access binds to the qualifier type itself, and Apex resolves a
+        // static member on the named type, so this provably targets that other
+        // type's static field, NOT the declaring type's. Safe to SKIP (never
+        // rename it, never decline the whole rename) — this is what keeps an
+        // unrelated sibling `Root.Account.total` from corrupting a `Root.Foo.total`
+        // rename (Manifestation B).
+        skipped.push({
+          uri: fileUri,
+          identifierRange: candidate.identifierRange,
+          reason: `static-qualifier-unrelated-type:${qualifierType}`,
+        });
+      }
+      continue;
     } else if (
       !fieldAccessStartPos.has(startKey) &&
       chainLeafPos.has(startKey)
@@ -572,6 +651,39 @@ function resolveReceiverType(
   // target field (rename it); a mismatch is subject to the same subtype-cone
   // caution as an instance receiver (finding #1).
   return receiverRef.name;
+}
+
+/**
+ * Resolve a co-located STATIC TYPE QUALIFIER's declared type FQN.
+ *
+ * The qualifier `Account` in `Account.total` is emitted as a CLASS_REFERENCE the
+ * parser resolved (during standalone reference resolution) to a type symbol in
+ * this file's table. Read that resolved type symbol and compute its normalized,
+ * block-artifact-free FQN with the SAME machinery the receiver path uses
+ * ({@link computeTypeFqn}) so a nested qualifier (`Root.Account`) compares
+ * correctly. When the CLASS_REFERENCE carries no resolved symbol, fall back to a
+ * unique local-type lookup by the qualifier name ({@link findLocalType}).
+ *
+ * Returns `null` when the qualifier cannot be resolved to a concrete type
+ * declared in THIS file — the caller then treats it as an unprovable receiver
+ * (UNSAFE → decline). A cross-file/unknown qualifier never reaches here: the
+ * parser emits those as a VARIABLE_USAGE handled by {@link resolveReceiverType}.
+ */
+function resolveStaticQualifierType(
+  qualifierRef: SymbolReference,
+  table: SymbolTable,
+  typeSymbols: TypeSymbol[],
+): string | null {
+  if (qualifierRef.resolvedSymbolId) {
+    const symbol = table.getSymbolById(qualifierRef.resolvedSymbolId);
+    if (symbol && (symbol.kind === 'class' || symbol.kind === 'interface')) {
+      return computeTypeFqn(table, symbol as TypeSymbol);
+    }
+  }
+  // No resolved symbol on the reference — try a unique local-type match by name
+  // (also FQN-anchored / ambiguity-guarded, see findLocalType).
+  const local = findLocalType(table, typeSymbols, qualifierRef.name);
+  return local ? computeTypeFqn(table, local) : null;
 }
 
 /** Read a variable-like symbol's declared type string (prefers FQN-ish form). */

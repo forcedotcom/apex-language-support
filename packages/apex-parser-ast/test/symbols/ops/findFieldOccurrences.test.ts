@@ -559,6 +559,128 @@ describe('findFieldOccurrences', () => {
     expect(result.unsafe[0].reason).toContain('receiver-subtype-unprovable');
   });
 
+  // --- W-23631084 P1: IN-FILE-resolvable static qualifier (`Type.field`) --------
+  // When the static qualifier type resolves WITHIN this standalone-parsed file the
+  // parser emits it as a CLASS_REFERENCE (not a VARIABLE_USAGE) co-located at the
+  // field-access start position. Before the fix that receiver was invisible to the
+  // VARIABLE_USAGE receiver index, so the access fell through to the bare
+  // implicit-`this` branch and was classified by the ENCLOSING type — dropping a
+  // real occurrence (Manifestation A) or renaming an unrelated sibling's static
+  // field (Manifestation B).
+
+  it('finds an inner-class access of the OUTER type static field (Manifestation A)', () => {
+    // `Account.total` inside the nested Helper IS Account.total (Account is the
+    // declaring type). The qualifier `Account` resolves in-file to a CLASS_REFERENCE
+    // co-located at the `total` token; without the static-qualifier index this fell
+    // to Case 2 and was skipped as `implicit-this-unrelated-type:Helper`.
+    const src = `public class Account {
+    public static Integer total;
+    public class Helper {
+        void m() { Account.total = 5; }
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Account.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Account.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    // The declaration + the `Account.total` static access inside Helper.
+    expect(result.occurrences.length).toBeGreaterThanOrEqual(1);
+    expect(result.skipped.length).toBe(0);
+    expect(result.unsafe.length).toBe(0);
+    // The static access inside Helper (line 4) is among the occurrences.
+    expect(
+      result.occurrences.some((o) => o.identifierRange.startLine === 4),
+    ).toBe(true);
+  });
+
+  it('does NOT rename an unrelated sibling static access (Manifestation B)', () => {
+    // Renaming Root.Foo.total. `Account.total` targets Root.Account (a DIFFERENT
+    // type), so it must be a proven SKIP (never renamed, never declining the whole
+    // rename); only `this.total` (Foo's own field) is a real occurrence. Before the
+    // fix, the sibling `Account.total` was mis-attributed to the enclosing Foo (the
+    // declaring type) and wrongly renamed.
+    const src = `public class Root {
+    public class Account { public static Integer total; }
+    public class Foo {
+        Integer total;
+        void m() { Account.total = 3; this.total = 9; }
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Root.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Root.cls',
+      { name: 'total', kind: 'field' },
+      'Root.Foo',
+    );
+
+    // `Account.total` (Root.Account) is provably a different type's static field →
+    // skipped, NOT unsafe and NOT renamed.
+    expect(result.unsafe.length).toBe(0);
+    expect(
+      result.skipped.some((s) =>
+        s.reason.startsWith('static-qualifier-unrelated-type'),
+      ),
+    ).toBe(true);
+    // Only `this.total` (Foo's own field) survives as an occurrence — the sibling
+    // `Account.total` was renamed before the fix (2 occurrences), now it is not.
+    expect(result.occurrences.length).toBe(1);
+  });
+
+  it('matches a same-type static self-reference (`Account.total` inside Account)', () => {
+    // A static access of the enclosing/declaring type via its own name resolves
+    // in-file to the declaring type → occurrence.
+    const src = `public class Account {
+    public static Integer total;
+    public void t() {
+        Account.total = 5;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Account.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Account.cls',
+      { name: 'total', kind: 'field' },
+      'Account',
+    );
+
+    expect(result.occurrences.length).toBeGreaterThanOrEqual(1);
+    expect(result.skipped.length).toBe(0);
+    expect(result.unsafe.length).toBe(0);
+    expect(
+      result.occurrences.some((o) => o.identifierRange.startLine === 4),
+    ).toBe(true);
+  });
+
+  it('declines a chained static access `Outer.Inner.total` (regression guard)', () => {
+    // A multi-hop static chain must remain UNSAFE — the single-static-qualifier
+    // branch must not swallow it; chain detection (chainNodes length ≥ 3) fires
+    // first.
+    const src = `public class Caller {
+    public class Outer { public class Inner { public static Integer total; } }
+    public void t() {
+        Integer x = Outer.Inner.total;
+    }
+}`;
+    const table = parseSource(src, 'file:///test/Caller.cls');
+    const result = findFieldOccurrences(
+      table,
+      'file:///test/Caller.cls',
+      { name: 'total', kind: 'field' },
+      'Caller.Outer.Inner',
+    );
+
+    expect(result.occurrences.length).toBe(0);
+    expect(result.skipped.length).toBe(0);
+    expect(
+      result.unsafe.some((u) => u.reason.startsWith('chained-receiver')),
+    ).toBe(true);
+  });
+
   it('flags a cross-file subclass receiver (declaration not in this file) as unsafe', () => {
     // The reviewer's exact reproduction: a plain caller file with `Child c;
     // c.total` where `Child` is declared ELSEWHERE (Child.cls, `Child extends

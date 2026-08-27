@@ -1160,6 +1160,90 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       expect(edit!.changes![OUTER_TWO_URI]).toBeUndefined();
     }, 120_000);
 
+    // W-23631084 P1: an IN-FILE-resolvable static qualifier (`Account.total`
+    // inside a NESTED class of `Account`) must be renamed end-to-end without a
+    // partial/corrupt edit. The parser emits the qualifier as a CLASS_REFERENCE
+    // co-located at the field token (not a VARIABLE_USAGE), which findFieldOccurrences
+    // now recognizes as a static access of the declaring type. Before the fix this
+    // access was dropped (classified implicit-`this` on the unrelated enclosing
+    // Helper), so renaming the declaration left `Account.total` dangling.
+    it('renames an inner-class access of the OUTER type static field (no partial edit)', async () => {
+      const OUTER_STATIC_URI = 'file:///test/OuterStatic.cls';
+      const OUTER_STATIC_SRC = `public class Account {
+    public static Integer total;
+    public class Helper {
+        void m() {
+            Account.total = 5;
+        }
+    }
+}`;
+      const sources: Record<string, string> = {
+        [OUTER_STATIC_URI]: OUTER_STATIC_SRC,
+      };
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => sources[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        yield* Effect.promise(() =>
+          dispatcher.dispatch('documentOpen', {
+            document: {
+              uri: OUTER_STATIC_URI,
+              languageId: 'apex',
+              version: 1,
+              getText: () => OUTER_STATIC_SRC,
+            },
+            textDocument: { uri: OUTER_STATIC_URI },
+            text: OUTER_STATIC_SRC,
+          }),
+        );
+
+        // Cursor on the Account.total declaration (line 1, char 26 = `total`).
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: OUTER_STATIC_URI },
+            position: { line: 1, character: 26 },
+            newName: 'amount',
+            content: OUTER_STATIC_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-field:outer-static] ${JSON.stringify(result)}`);
+
+      // A WorkspaceEdit came back (NOT a decline / error).
+      const edit = result as {
+        changes?: Record<string, Array<{ range: any; newText: string }>>;
+        error?: unknown;
+      } | null;
+      expect(edit?.error).toBeUndefined();
+      expect(edit?.changes).toBeDefined();
+
+      const edits = edit!.changes![OUTER_STATIC_URI];
+      expect(edits).toBeDefined();
+      // Declaration (line 1) + the static `Account.total` access inside Helper
+      // (line 4) are both renamed — the inner-class access is NOT dangled.
+      expect(edits.length).toBeGreaterThanOrEqual(2);
+      edits.forEach((e) => expect(e.newText).toBe('amount'));
+      expect(edits.some((e) => e.range.start.line === 4)).toBe(true);
+    }, 120_000);
+
     // W-23631086 review finding #5: the cursor URI must ALWAYS be scanned with
     // the live buffer, even when the data-owner does not return it as a stored
     // candidate. Rename now requests the FULL stored document set (skipTextFilter,
