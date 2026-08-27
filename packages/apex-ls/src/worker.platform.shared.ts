@@ -96,6 +96,7 @@ import type {
   DetailLevel,
   SerializedSymbolTableData,
   SymbolReference,
+  TypeSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
 import {
   composeSObjectSymbolTable,
@@ -3906,28 +3907,38 @@ async function resolvePrepareRenameForLocal(req: PositionReq): Promise<{
 }
 
 /**
- * Resolve the declaring-type FQN for the field/property under the cursor
- * (W-23631084 / W-23631086 review finding #2). Walks from the cursor symbol up
- * to its enclosing TypeSymbol via `getContainingType` and returns that type's
- * fully-qualified name — the string `findFieldOccurrences` disambiguates
- * candidate receivers against.
+ * Resolve the field/property under the cursor to its declaring-type FQN AND
+ * whether the field itself is effectively private (W-23631084 / W-23631086).
+ * renameField needs BOTH: the declaring type anchors receiver disambiguation
+ * (4.1) and the CheckMemberConflicts query (4.0); the private-ness gates the
+ * descendant conflict check per jorje (a private field's descendant same-name
+ * collision is NOT an error — `FieldRenameHandler.java:275`). One cursor
+ * resolution serves both, avoiding a duplicate lookup.
  *
- * Returning the FQN (not the short `.name`) is required to distinguish a nested
- * `OuterOne.Inner.total` from `OuterTwo.Inner.total`: the short name `Inner` is
- * identical for both, so a short-name anchor would rename the wrong class's
- * field. `findFieldOccurrences` compares FQN-to-FQN (case-insensitive, with the
- * block-scope name duplication normalized), so producer and consumer must both
- * speak FQN. Prefer the graph's `.fqn` (the normalized/lowercased index FQN);
- * fall back to `constructFQN` when it is absent.
+ * Returning the FQN (not the short `.name`, W-23631086 review finding #2) is
+ * required to distinguish a nested `OuterOne.Inner.total` from
+ * `OuterTwo.Inner.total`: the short name `Inner` is identical for both, so a
+ * short-name anchor would rename the wrong class's field. `findFieldOccurrences`
+ * compares FQN-to-FQN (case-insensitive, with the block-scope name duplication
+ * normalized), so producer and consumer must both speak FQN. Prefer the graph's
+ * `.fqn` (the normalized/lowercased index FQN); fall back to `constructFQN` when
+ * it is absent.
  *
- * @returns The declaring type's FQN, or `null` if it can't be determined.
+ * In Apex a member with no access modifier has `Default` visibility, which is
+ * effectively private for inheritance — treated as private here, matching the
+ * CheckMemberConflicts handler's own rule (W-23631128).
+ *
+ * @returns `{ declaringTypeFqn, isPrivate }`, or `null` when the cursor doesn't
+ * resolve to a symbol with a determinable containing type.
  */
-async function getDeclaringTypeForCursor(
+async function resolveFieldContextForCursor(
   svc: RequestServices,
   uri: string,
   position: { line: number; character: number },
-): Promise<string | null> {
+): Promise<{ declaringTypeFqn: string; isPrivate: boolean } | null> {
   try {
+    const { SymbolVisibility } =
+      await import('@salesforce/apex-lsp-parser-ast');
     const parserPosition = {
       line: position.line + 1,
       character: position.character,
@@ -3936,15 +3947,179 @@ async function getDeclaringTypeForCursor(
     if (!symbol) return null;
     const containingType = await svc.symbolManager.getContainingType(symbol);
     if (!containingType) return null;
-    return (
+    const declaringTypeFqn =
       containingType.fqn ??
       (await svc.symbolManager.constructFQN(containingType)) ??
       containingType.name ??
-      null
-    );
+      null;
+    if (!declaringTypeFqn) return null;
+    const visibility = symbol.modifiers?.visibility;
+    const isPrivate =
+      visibility === SymbolVisibility.Private ||
+      visibility === SymbolVisibility.Default;
+    return { declaringTypeFqn, isPrivate };
   } catch {
     return null;
   }
+}
+
+/**
+ * LOCAL, parser-owned fallback for Stage 4.5 when the authoritative
+ * `dataOwner:CheckMemberConflicts` query is unavailable (W-23631086 review, P1).
+ *
+ * The data-owner query FAILS CLOSED — a rejection never means "no conflict", it
+ * means the workspace graph cannot answer (most often the declaring type lives
+ * in an unopened/unsaved buffer that never reached the data-owner store). The
+ * previous behavior converted that rejection into a fail-open rename, but the
+ * Stage 6 occurrence scan only classifies REFERENCES; it does NOT detect a
+ * same-type/ancestor/descendant DECLARATION-name collision. Proceeding blindly
+ * could therefore rename `total`→`amount` in a type that already declares
+ * `amount`, producing two `amount` declarations, and it bypasses ancestor/
+ * descendant collision protection entirely.
+ *
+ * So instead of trusting the occurrence scan, we run an equivalent check against
+ * the request pool's OWN symbol state — the cursor file was parsed at full
+ * detail in Stage 1 (recompileCursorFileAtFullDetail) and its referenced types
+ * were loaded (loadReferencedTypesForFile). We resolve the declaring TypeSymbol
+ * locally (mirroring resolveFieldContextForCursor's cursor→containing-type
+ * walk), read its declared members from its BLOCK scope (mirroring the
+ * CheckMemberConflicts handler's getTypeMembers reader), and decide:
+ *
+ *   - declaring type not locally resolvable        → 'decline' (preserve
+ *                                                     uncertainty; do NOT proceed)
+ *   - a same-type Field/Property (other than the
+ *     renamed field) already named `newName`       → 'decline' (closes the
+ *                                                     duplicate-declaration
+ *                                                     corruption)
+ *   - the type could participate in a hierarchy we
+ *     cannot verify locally (superClass, OR any
+ *     interfaces, OR is virtual/abstract so it can
+ *     be subclassed and have descendants)          → 'decline' (an ancestor or
+ *                                                     descendant could declare
+ *                                                     `newName`; the request pool
+ *                                                     lacks the cross-file graph)
+ *   - locally resolvable, no same-type collision,
+ *     and cannot participate in a hierarchy (no
+ *     extends/implements, not virtual/abstract)    → 'proceed' (a plain
+ *                                                     `public class Foo {…}`
+ *                                                     cannot be subclassed in
+ *                                                     Apex, so only same-type
+ *                                                     collisions are possible and
+ *                                                     we ruled them out)
+ *
+ * @returns `{ decision: 'proceed' }` or `{ decision: 'decline', message }`.
+ */
+async function verifyFieldRenameLocally(
+  svc: RequestServices,
+  uri: string,
+  position: { line: number; character: number },
+  newName: string,
+): Promise<{ decision: 'proceed' } | { decision: 'decline'; message: string }> {
+  const parserPosition = {
+    line: position.line + 1,
+    character: position.character,
+  };
+
+  // Resolve the cursor field symbol and its declaring type from the request
+  // pool's OWN graph (mirrors resolveFieldContextForCursor's walk).
+  const fieldSymbol = await resolveCursorSymbol(svc, uri, parserPosition);
+  const declaringTypeSym = fieldSymbol
+    ? await svc.symbolManager.getContainingType(fieldSymbol)
+    : null;
+  if (!fieldSymbol || !declaringTypeSym) {
+    return {
+      decision: 'decline',
+      message:
+        `Cannot rename '${newName}': the declaring type could not be ` +
+        'resolved locally to verify member conflicts, so this rename cannot ' +
+        'be applied safely.',
+    };
+  }
+
+  const typeName = declaringTypeSym.fqn ?? declaringTypeSym.name;
+
+  // Read the declaring type's declared members from its BLOCK scope — members
+  // are children of the type's block, not the type itself (mirrors the
+  // CheckMemberConflicts handler's getTypeMembers reader).
+  const table = await svc.symbolManager.getSymbolTableForFile(
+    declaringTypeSym.fileUri,
+  );
+
+  // Gate on a full + KNOWN-complete parse before trusting "no collision"
+  // (W-23631086 review, P3 — mirrors the authoritative handler's isFullAndComplete
+  // guard). A public-api table DROPS private/default members and a truncated or
+  // unknown-completeness parse can silently omit declarations, so reading members
+  // from anything less than full+complete could miss a real same-type collision
+  // and wrongly PROCEED — the exact corruption this fallback exists to prevent.
+  // For the primary scenario (the cursor file IS the declaring type) Stage 1's
+  // recompileCursorFileAtFullDetail guarantees full+complete; when it cannot be
+  // established (e.g. the declaring type is a reduced-detail cross-file copy) we
+  // preserve uncertainty and decline rather than trust a partial member set.
+  const localIsFullAndComplete =
+    table?.getDetailLevel() === 'full' &&
+    table.getMetadata().parseCompleteness === 'complete';
+  if (!localIsFullAndComplete) {
+    return {
+      decision: 'decline',
+      message:
+        `Cannot rename '${fieldSymbol.name}' to '${newName}': the declaring ` +
+        `type '${typeName}' could not be established at full detail locally ` +
+        '(the member set may be incomplete), so a member conflict cannot be ' +
+        'ruled out and this rename cannot be applied safely.',
+    };
+  }
+
+  const blockSymbol = table
+    .getSymbolsInScope(declaringTypeSym.id)
+    .find((s) => s.kind === SymbolKind.Block);
+  const members = blockSymbol ? table.getSymbolsInScope(blockSymbol.id) : [];
+
+  // SAME-TYPE collision: any Field/Property OTHER than the renamed field whose
+  // name equals newName (case-insensitive). This closes the
+  // duplicate-declaration corruption the reviewer flagged.
+  const newNameLower = newName.toLowerCase();
+  const collision = members.find(
+    (m) =>
+      (m.kind === SymbolKind.Field || m.kind === SymbolKind.Property) &&
+      m.id !== fieldSymbol.id &&
+      m.name.toLowerCase() === newNameLower,
+  );
+  if (collision) {
+    return {
+      decision: 'decline',
+      message:
+        `Cannot rename '${fieldSymbol.name}' to '${newName}': a member named ` +
+        `'${newName}' already exists in type '${typeName}'.`,
+    };
+  }
+
+  // HIERARCHY uncertainty: if the declaring type could participate in a
+  // hierarchy we cannot verify with only the request pool's local graph, decline
+  // — an ancestor could declare newName (non-private), or a descendant could
+  // (when the renamed field is non-private). superClass/interfaces come from the
+  // TypeSymbol; virtual/abstract from its modifiers (see enclosingTypeCouldInherit
+  // in findFieldOccurrences.ts, which checks superClass alone for field reads).
+  const typeSym = declaringTypeSym as TypeSymbol;
+  const hasSuperClass = !!typeSym.superClass;
+  const implementsInterfaces =
+    Array.isArray(typeSym.interfaces) && typeSym.interfaces.length > 0;
+  const couldBeSubclassed =
+    !!declaringTypeSym.modifiers?.isVirtual ||
+    !!declaringTypeSym.modifiers?.isAbstract;
+  if (hasSuperClass || implementsInterfaces || couldBeSubclassed) {
+    return {
+      decision: 'decline',
+      message:
+        `Cannot rename '${fieldSymbol.name}' to '${newName}': type ` +
+        `'${typeName}' participates in a class hierarchy that cannot be ` +
+        'verified locally, so an ancestor or descendant conflict cannot be ' +
+        'ruled out and this rename cannot be applied safely.',
+    };
+  }
+
+  // Locally resolvable, no same-type collision, and cannot participate in a
+  // hierarchy → only same-type collisions were possible and we ruled them out.
+  return { decision: 'proceed' };
 }
 
 /**
@@ -4002,19 +4177,22 @@ async function resolveFieldRename(
     if (!target?.name) return null;
     if (target.kind !== 'field' && target.kind !== 'property') return null;
 
-    // Stage 3: the field's declaring type — the disambiguation anchor.
-    const declaringType = await getDeclaringTypeForCursor(
+    // Stage 3: the field's declaring type (disambiguation anchor for 4.1 +
+    // CheckMemberConflicts) and its effective visibility (gates the descendant
+    // conflict check in Stage 4.5).
+    const fieldContext = await resolveFieldContextForCursor(
       svc,
       uri,
       req.position,
     );
-    if (!declaringType) {
+    if (!fieldContext) {
       emitWorkerLog(
         'warn',
         `[RENAME] cannot determine declaring type for field '${target.name}' in ${uri}`,
       );
       return null;
     }
+    const { declaringTypeFqn: declaringType, isPrivate } = fieldContext;
 
     // Stage 4: validate the newName (same rules as renameLocal). An invalid
     // name is a RenameErrorResult (→ LSP ResponseError), not null. target.kind
@@ -4026,6 +4204,105 @@ async function resolveFieldRename(
     );
     if (!validation.ok) {
       return { error: { code: -32602, message: validation.message } };
+    }
+
+    // Stage 4.5: hierarchy-aware conflict detection (W-23631086). Skip the query
+    // for a no-op rename (newName equals the current name, case-insensitive) —
+    // jorje short-circuits this (FieldRenameHandler.java:199) and it would
+    // otherwise self-report a same-type conflict. Otherwise ask the data-owner's
+    // CheckMemberConflicts query (4.0, complete workspace graph) whether the new
+    // name collides in the same type, a non-private ancestor member, or — only
+    // when the renamed field is NOT private — a descendant member. A genuine
+    // hierarchy DECLARATION collision is a hard error (ResponseError); use-site
+    // lexical shadowing is handled by 4.1's rewrite, not here.
+    if (req.newName.toLowerCase() !== target.name.toLowerCase()) {
+      // The query FAILS CLOSED internally — it rejects rather than ever
+      // returning a false "no conflict" from a truncated member set
+      // (W-23631128). A rejection here therefore means the data-owner graph
+      // cannot answer for this type right now — most commonly because the
+      // declaring type lives in an unopened/unsaved buffer that never reached
+      // the data-owner store (the same "cursor file absent from the candidate
+      // set" case Stage 5 handles).
+      //
+      // We must NOT blindly fail open on that rejection (W-23631086 review,
+      // P1): the Stage 6 occurrence scan only classifies REFERENCES, so it
+      // would NOT catch a same-type/ancestor/descendant DECLARATION-name
+      // collision — proceeding could rename `total`→`amount` in a type that
+      // already declares `amount`, minting a duplicate declaration, and would
+      // bypass ancestor/descendant protection. Instead, on a query error we run
+      // verifyFieldRenameLocally — an equivalent PARSER-OWNED check against the
+      // request pool's own full-detail symbol state — which declines when the
+      // declaring type is unresolvable, when there is a local same-type
+      // collision, or when the type could participate in a hierarchy we cannot
+      // verify locally, and proceeds ONLY for a locally-resolvable, hierarchy-
+      // free type with no same-type collision. A DEFINITIVE query verdict is
+      // still honored exactly as before: conflict:true declines, conflict:false
+      // proceeds.
+      let conflict:
+        | {
+            conflict?: boolean;
+            conflictingTypeFqn?: string;
+            reason?: 'same-type' | 'ancestor' | 'descendant';
+          }
+        | null
+        | undefined;
+      try {
+        conflict = (await requestCoordinatorAssistancePromiseShared(
+          'dataOwner:CheckMemberConflicts',
+          {
+            definingTypeFqn: declaringType,
+            newName: req.newName,
+            memberKind: 'field',
+            isRenamedMemberPrivate: isPrivate,
+            // Pass the current name so the data-owner can (a) short-circuit a
+            // no-op/case-only rename authoritatively and (b) locate the member
+            // being renamed to self-verify its effective visibility rather than
+            // trusting isRenamedMemberPrivate blindly (W-23631086 review).
+            currentName: target.name,
+          },
+          true,
+        )) as {
+          conflict?: boolean;
+          conflictingTypeFqn?: string;
+          reason?: 'same-type' | 'ancestor' | 'descendant';
+        } | null;
+      } catch (err) {
+        // Query unavailable → run the local, parser-owned check instead of
+        // failing open (W-23631086 review, P1). It DECLINES on any uncertainty
+        // (declaring type unresolvable, local same-type collision, or an
+        // unverifiable hierarchy) and only PROCEEDS for a locally-resolvable,
+        // hierarchy-free type with no same-type collision.
+        emitWorkerLog(
+          'warn',
+          '[RENAME] conflict pre-check unavailable for ' +
+            `'${declaringType}.${target.name}' → '${req.newName}'; falling ` +
+            `back to a local parser-owned conflict check: ${err}`,
+        );
+        const local = await verifyFieldRenameLocally(
+          svc,
+          uri,
+          req.position,
+          req.newName,
+        );
+        if (local.decision === 'decline') {
+          emitWorkerLog('warn', `[RENAME] ${local.message}`);
+          return { error: { code: -32600, message: local.message } }; // InvalidRequest
+        }
+        conflict = null;
+      }
+      if (conflict?.conflict) {
+        const where =
+          conflict.reason === 'same-type'
+            ? `type '${conflict.conflictingTypeFqn ?? declaringType}'`
+            : `${conflict.reason ?? 'related'} type '${
+                conflict.conflictingTypeFqn ?? '?'
+              }'`;
+        const message =
+          `Cannot rename '${target.name}' to '${req.newName}': a member ` +
+          `named '${req.newName}' already exists in ${where}.`;
+        emitWorkerLog('warn', `[RENAME] ${message}`);
+        return { error: { code: -32600, message } }; // InvalidRequest
+      }
     }
 
     // Stage 5: obtain the FULL set of stored workspace documents from the data
@@ -5528,16 +5805,13 @@ const untracedHandlers: SerializedWorkerHandlers = {
               symbol.modifiers.visibility === SymbolVisibility.Private ||
               symbol.modifiers.visibility === SymbolVisibility.Default;
 
-            // Helper: check type for member with newName (as an Effect generator)
-            // NOTE: For methods, this does name-based matching only.
-            // Signature-equivalence refinement is deferred to WI 5.3 when
-            // renameMethod consumes this query with full signature checking.
-            const hasMemberNamed = (
-              type: ApexSymbol,
-              name: string,
-              kinds: (typeof SymbolKind)[keyof typeof SymbolKind][],
-              excludePrivate: boolean,
-            ) =>
+            // Helper: resolve a type's declared members from its BLOCK scope,
+            // guaranteeing the canonical table is full-detail AND known-complete
+            // first (see the fail-closed rationale below). Returns [] when the
+            // type has no block scope (no members). Shared by hasMemberNamed and
+            // the renamed-member visibility self-verify, so both read the exact
+            // same trusted member set.
+            const getTypeMembers = (type: ApexSymbol) =>
               Effect.gen(function* () {
                 // Batch-loaded workspace files are served at 'public-api' detail,
                 // which DROPS private/protected/default-visibility members from the
@@ -5636,10 +5910,24 @@ const untracedHandlers: SerializedWorkerHandlers = {
                   .find((s) => s.kind === SymbolKind.Block);
                 if (!blockSymbol) {
                   // No block scope means no members
-                  return false;
+                  return [] as ApexSymbol[];
                 }
 
-                const members = typeTable.getSymbolsInScope(blockSymbol.id);
+                return typeTable.getSymbolsInScope(blockSymbol.id);
+              });
+
+            // Helper: check type for member with newName (as an Effect generator)
+            // NOTE: For methods, this does name-based matching only.
+            // Signature-equivalence refinement is deferred to WI 5.3 when
+            // renameMethod consumes this query with full signature checking.
+            const hasMemberNamed = (
+              type: ApexSymbol,
+              name: string,
+              kinds: (typeof SymbolKind)[keyof typeof SymbolKind][],
+              excludePrivate: boolean,
+            ) =>
+              Effect.gen(function* () {
+                const members = yield* getTypeMembers(type);
                 return members.some((m) => {
                   if (!kinds.includes(m.kind)) return false;
                   if (!memberNameMatches(m.name, name)) return false;
@@ -5647,6 +5935,56 @@ const untracedHandlers: SerializedWorkerHandlers = {
                   return true;
                 });
               });
+
+            // 0. Self-verify the renamed member's effective visibility instead
+            // of blindly trusting the caller's isRenamedMemberPrivate
+            // (W-23631086 review, P2). The descendant conflict gate hinges on
+            // this one bit: if a caller UNDER-reports privacy (claims private
+            // when the field is actually public/protected/global), the
+            // descendant walk is skipped and a real subclass collision goes
+            // unreported — a destructive rename. When the caller identifies the
+            // member (currentName), read its ACTUAL visibility from the same
+            // full+complete defining-type table used for conflict checks, treat
+            // Default as private (Apex inheritance semantics, matching isPrivate
+            // above), and FAIL CLOSED on any disagreement — an inconsistent
+            // request must not silently skip a hierarchy check. When currentName
+            // is absent (legacy caller), fall back to the wire value unchanged.
+            let effectiveRenamedMemberPrivate = req.isRenamedMemberPrivate;
+            if (req.currentName) {
+              const definingMembers = yield* getTypeMembers(definingType);
+              const currentNameLower = req.currentName.toLowerCase();
+              const renamedMember = definingMembers.find(
+                (m) =>
+                  memberKinds.includes(m.kind) &&
+                  memberNameMatches(m.name, currentNameLower),
+              );
+              if (!renamedMember) {
+                return yield* Effect.fail({
+                  _tag: 'CheckMemberConflictsError' as const,
+                  message:
+                    'Cannot verify member conflicts: the member being renamed ' +
+                    `('${req.currentName}') was not found in ` +
+                    `${req.definingTypeFqn}, so its visibility cannot be ` +
+                    'confirmed and the descendant conflict gate cannot be ' +
+                    'trusted.',
+                });
+              }
+              const verifiedPrivate = isPrivate(renamedMember);
+              if (verifiedPrivate !== req.isRenamedMemberPrivate) {
+                return yield* Effect.fail({
+                  _tag: 'CheckMemberConflictsError' as const,
+                  message:
+                    `Refusing to check conflicts for ${req.definingTypeFqn}.` +
+                    `${req.currentName}: caller reported ` +
+                    `isRenamedMemberPrivate=${req.isRenamedMemberPrivate} but ` +
+                    'the member is actually ' +
+                    `${verifiedPrivate ? 'private/default' : 'externally visible'}` +
+                    '; failing closed rather than skipping a hierarchy check on ' +
+                    'a stale visibility claim.',
+                });
+              }
+              effectiveRenamedMemberPrivate = verifiedPrivate;
+            }
 
             // 1. Check same-type conflict (no private filter)
             const sameTypeConflict = yield* hasMemberNamed(
@@ -5698,8 +6036,10 @@ const untracedHandlers: SerializedWorkerHandlers = {
               }
             }
 
-            // 3. Check descendant conflict (only if renamed member is NOT private)
-            if (!req.isRenamedMemberPrivate) {
+            // 3. Check descendant conflict (only if renamed member is NOT
+            // private). Gate on the self-verified visibility (step 0), NOT the
+            // raw wire value.
+            if (!effectiveRenamedMemberPrivate) {
               for (const descendant of descendants) {
                 const descendantConflict = yield* hasMemberNamed(
                   descendant,

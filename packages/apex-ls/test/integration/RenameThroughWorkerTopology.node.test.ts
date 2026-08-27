@@ -1544,4 +1544,160 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       expect(errResult.error.message).toContain('Cannot safely rename');
     }, 120_000);
   });
+
+  describe('renameField hierarchy conflict detection (W-23631086)', () => {
+    // A class with TWO fields: renaming one to the other's name is a same-type
+    // declaration collision — CheckMemberConflicts (4.0) must reject it.
+    const CONFLICT_URI = 'file:///test/ConflictSample.cls';
+    const CONFLICT_SRC = `public class ConflictSample {
+    public Integer total;
+    public Integer amount;
+
+    public void use() {
+        total = 1;
+        amount = 2;
+    }
+}`;
+
+    const CONFLICT_SOURCES: Record<string, string> = {
+      [CONFLICT_URI]: CONFLICT_SRC,
+    };
+
+    const runRename = (newName: string) =>
+      Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => CONFLICT_SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        yield* Effect.promise(() =>
+          dispatcher.dispatch('documentOpen', {
+            document: {
+              uri: CONFLICT_URI,
+              languageId: 'apex',
+              version: 1,
+              getText: () => CONFLICT_SRC,
+            },
+            textDocument: { uri: CONFLICT_URI },
+            text: CONFLICT_SRC,
+          }),
+        );
+
+        // Cursor on the `total` field declaration (line 1, char 19).
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: CONFLICT_URI },
+            position: { line: 1, character: 19 },
+            newName,
+            content: CONFLICT_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+    it('rejects a rename that collides with a same-type field', async () => {
+      // Renaming `total` → `amount` collides with the sibling field `amount`.
+      const { result } = await Effect.runPromise(runRename('amount'));
+
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('error');
+      const errResult = result as { error: { code: number; message: string } };
+      expect(errResult.error).toHaveProperty('message');
+      // The message names the colliding new name; it is NOT a WorkspaceEdit.
+      expect(errResult.error.message).toContain('amount');
+      expect(result).not.toHaveProperty('changes');
+    }, 120_000);
+
+    it('allows a rename to a non-colliding name', async () => {
+      // `quantity` collides with nothing → a real WorkspaceEdit, no error.
+      const { result } = await Effect.runPromise(runRename('quantity'));
+
+      const edit = result as {
+        changes?: Record<string, unknown>;
+        error?: unknown;
+      } | null;
+      expect(edit).not.toBeNull();
+      expect(edit?.error).toBeUndefined();
+      expect(edit?.changes).toBeDefined();
+      expect(Object.keys(edit!.changes!)).toContain(CONFLICT_URI);
+    }, 120_000);
+
+    // W-23631086 review (P1): when CheckMemberConflicts (4.0) is UNAVAILABLE —
+    // the declaring type never reached the data-owner store because it was never
+    // documentOpen'd — the query FAILS CLOSED (rejects). The old catch failed
+    // OPEN and proceeded, but the Stage 6 occurrence scan only classifies
+    // REFERENCES, so renaming `total`→`amount` in a class that already declares
+    // BOTH would have minted a duplicate `amount` declaration. The catch now runs
+    // a local, parser-owned same-type check against the live cursor buffer and
+    // DECLINES, so NO WorkspaceEdit is produced.
+    it('declines a same-type collision when the conflict query is unavailable', async () => {
+      const UNSTORED_URI = 'file:///test/UnstoredConflict.cls';
+      // Plain class (not virtual/abstract, no extends/implements) declaring BOTH
+      // `total` and `amount`. Deliberately NOT documentOpen'd below.
+      const UNSTORED_SRC = `public class UnstoredConflict {
+    public Integer total;
+    public Integer amount;
+
+    public void use() {
+        total = 1;
+        amount = 2;
+    }
+}`;
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+          uri === UNSTORED_URI ? UNSTORED_SRC : CONFLICT_SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        // Deliberately do NOT documentOpen UNSTORED_URI — it never reaches the
+        // data-owner store, so CheckMemberConflicts rejects and the catch runs
+        // the local parser-owned check against the live buffer below.
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: UNSTORED_URI },
+            position: { line: 1, character: 19 }, // on `total` declaration
+            newName: 'amount',
+            content: UNSTORED_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(
+        `[rename-field:unstored-same-type-collision] ${JSON.stringify(result)}`,
+      );
+
+      // Same-type collision detected locally → RenameErrorResult, no edit.
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('error');
+      const errResult = result as { error: { code: number; message: string } };
+      expect(errResult.error.code).toBe(-32600);
+      expect(errResult.error.message).toContain('amount');
+      expect(result).not.toHaveProperty('changes');
+    }, 120_000);
+  });
 });

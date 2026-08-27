@@ -127,6 +127,21 @@ const NO_OP_SRC = `public class noOp {
     public String total;
 }`;
 
+// A parent whose renamed member is genuinely PRIVATE, with a descendant that
+// declares a field of the would-be new name. Exercises the renamed-member
+// visibility SELF-VERIFY (W-23631086 review P2): when the caller correctly
+// reports the field private, the descendant collision is gated off; when the
+// caller LIES about the visibility, the query fails closed rather than skipping
+// (or wrongly applying) the descendant hierarchy check.
+const PRIV_PARENT_URI = 'file:///test/privParent.cls';
+const PRIV_PARENT_SRC = `public virtual class privParent {
+    private String secret;
+}`;
+const PRIV_CHILD_URI = 'file:///test/privChild.cls';
+const PRIV_CHILD_SRC = `public class privChild extends privParent {
+    public String promoted;
+}`;
+
 // A syntax-broken class: a normal field plus a malformed method body. Compilation
 // RECOVERS a SymbolTable that reports getDetailLevel() === 'full' but whose parse
 // carries a syntax error, so its member set may be silently incomplete. The
@@ -212,6 +227,18 @@ const WORKSPACE_ENTRIES = [
     version: 1,
   },
   { uri: NO_OP_URI, content: NO_OP_SRC, languageId: 'apex', version: 1 },
+  {
+    uri: PRIV_PARENT_URI,
+    content: PRIV_PARENT_SRC,
+    languageId: 'apex',
+    version: 1,
+  },
+  {
+    uri: PRIV_CHILD_URI,
+    content: PRIV_CHILD_SRC,
+    languageId: 'apex',
+    version: 1,
+  },
   { uri: BROKEN_URI, content: BROKEN_SRC, languageId: 'apex', version: 1 },
 ];
 
@@ -532,5 +559,85 @@ describe('CheckMemberConflicts data-owner query', () => {
     });
 
     expect(result.conflict).toBe(false);
+  });
+
+  // --- W-23631086 review P2: self-verify the renamed member's visibility -----
+  // The descendant conflict gate hinges on whether the renamed member is
+  // private. The query no longer trusts the caller's isRenamedMemberPrivate
+  // blindly: when currentName is supplied it reads the member's ACTUAL
+  // visibility from the defining type and fails closed on any disagreement.
+
+  it('applies the descendant check when the self-verified member is non-private', async () => {
+    // middle.middleField is genuinely public; the caller agrees (false). The
+    // descendant `child.childField` collision must be reported — proving the
+    // gate runs off the self-verified (matching) visibility.
+    const result = await runConflictQuery({
+      definingTypeFqn: 'middle',
+      newName: 'childField',
+      memberKind: 'field',
+      isRenamedMemberPrivate: false,
+      currentName: 'middleField',
+    });
+
+    expect(result.conflict).toBe(true);
+    expect(result.reason).toBe('descendant');
+    expect(result.conflictingTypeFqn).toBe('child');
+  });
+
+  it('skips the descendant check when the self-verified member is private', async () => {
+    // privParent.secret is genuinely private; the caller agrees (true). The
+    // descendant `privChild.promoted` collision is correctly gated OFF.
+    const result = await runConflictQuery({
+      definingTypeFqn: 'privParent',
+      newName: 'promoted',
+      memberKind: 'field',
+      isRenamedMemberPrivate: true,
+      currentName: 'secret',
+    });
+
+    expect(result.conflict).toBe(false);
+  });
+
+  it('fails closed when the caller under-reports visibility (claims private, actually public)', async () => {
+    // middle.middleField is public, but the caller claims private. Trusting that
+    // lie would skip the descendant walk and miss `child.childField`. The query
+    // must fail closed instead.
+    await expect(
+      runConflictQuery({
+        definingTypeFqn: 'middle',
+        newName: 'childField',
+        memberKind: 'field',
+        isRenamedMemberPrivate: true,
+        currentName: 'middleField',
+      }),
+    ).rejects.toThrow(/CheckMemberConflictsError/);
+  });
+
+  it('fails closed when the caller over-reports visibility (claims public, actually private)', async () => {
+    // privParent.secret is private, but the caller claims public. The query
+    // must fail closed rather than run a descendant walk on a false premise.
+    await expect(
+      runConflictQuery({
+        definingTypeFqn: 'privParent',
+        newName: 'promoted',
+        memberKind: 'field',
+        isRenamedMemberPrivate: false,
+        currentName: 'secret',
+      }),
+    ).rejects.toThrow(/CheckMemberConflictsError/);
+  });
+
+  it('fails closed when the renamed member (currentName) is not found in the type', async () => {
+    // No member named 'ghostField' exists in middle → its visibility cannot be
+    // verified, so the query declines rather than guessing.
+    await expect(
+      runConflictQuery({
+        definingTypeFqn: 'middle',
+        newName: 'anything',
+        memberKind: 'field',
+        isRenamedMemberPrivate: false,
+        currentName: 'ghostField',
+      }),
+    ).rejects.toThrow(/CheckMemberConflictsError/);
   });
 });
