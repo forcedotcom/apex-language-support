@@ -1,7 +1,5 @@
-// Fixture for renameField e2e (W-23631087 / 4.3). The instance field `counter`
-// is declared once and referenced via this.counter and bare (implicit-this)
-// counter, so renaming it exercises the declaration + this-qualified +
-// implicit-this occurrence classification end-to-end through F2.
+// renameField e2e fixture (W-23631087): field `counter` used via this.counter
+// and bare (implicit-this) counter — exercises the declaration + both forms.
 public with sharing class RenameFieldSample {
     public Integer counter = 0;
 
