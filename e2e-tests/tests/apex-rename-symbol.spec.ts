@@ -373,7 +373,9 @@ test.describe('Apex Rename Symbol - Field', () => {
 
     await test.step('Assert the cross-file usages are renamed in RenameFieldClient', async () => {
       // The WorkspaceEdit spans both files. Switch to the consumer tab and wait
-      // for the applied edit to surface, then assert both field accesses.
+      // for the applied edit to surface, then assert both field accesses. (The
+      // editor locator excludes the lingering Monaco rename widget — see
+      // BasePage — so switching files after a rename is safe.)
       await apexEditor.openFile('RenameFieldClient.cls');
       await apexEditor.waitForContentToInclude('model.amount');
 

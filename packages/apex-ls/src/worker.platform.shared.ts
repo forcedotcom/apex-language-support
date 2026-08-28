@@ -3415,6 +3415,57 @@ export async function declarationLocationForCursor(
 }
 
 /**
+ * The declaration identifier range of a field/property, taken from a STANDALONE
+ * parse of the declaring file (W-23631087).
+ *
+ * The graph-stored field symbol's `identifierRange` cannot be trusted for the
+ * declaration edit: under full workspace ingestion it can span the field's TYPE
+ * token instead of the field NAME, so using it renames `Integer` instead of the
+ * field (the exact corruption the renameField e2e caught). findFieldOccurrences
+ * already derives the USAGE ranges from a standalone parse; the declaration must
+ * come from the SAME source so the edits are consistent. Locates the field by
+ * name (Apex identifiers are case-insensitive), disambiguating by declaring-type
+ * leaf when several types in the file declare the same field name. Returns the
+ * parser-owned identifier range, or null when the field isn't found (caller then
+ * keeps the resolved range as a best-effort fallback).
+ */
+function fieldDeclarationRangeFromParse(
+  table: {
+    getAllSymbols?: () => Array<{
+      name?: string;
+      kind?: unknown;
+      parentId?: string;
+      location?: { identifierRange?: OccurrenceRange };
+    }>;
+    getSymbolById?: (id: string) => { name?: string } | undefined;
+  },
+  fieldName: string,
+  declaringTypeFqn: string,
+): OccurrenceRange | null {
+  const targetName = fieldName.toLowerCase();
+  const fields = (table.getAllSymbols?.() ?? []).filter((s) => {
+    const kind = String(s?.kind).toLowerCase();
+    return (
+      s?.name?.toLowerCase() === targetName &&
+      (kind === 'field' || kind === 'property') &&
+      !!s.location?.identifierRange
+    );
+  });
+  if (fields.length === 0) return null;
+  if (fields.length === 1) return fields[0].location!.identifierRange!;
+  // Several same-named fields (e.g. nested types) → pick the one whose immediate
+  // containing type matches the declaring type's leaf name.
+  const declLeaf = declaringTypeFqn.split('.').pop()?.toLowerCase();
+  for (const f of fields) {
+    const parent = f.parentId ? table.getSymbolById?.(f.parentId) : undefined;
+    if (parent?.name?.toLowerCase() === declLeaf) {
+      return f.location!.identifierRange!;
+    }
+  }
+  return fields[0].location!.identifierRange!;
+}
+
+/**
  * The resolved target symbol plus every occurrence of it across the workspace,
  * as produced by {@link resolveOccurrencesForCursor}. `null` occurrences here
  * never happen — the helper returns the whole struct as `null` instead — but
@@ -4634,10 +4685,43 @@ async function resolveFieldRename(
       req.position,
     );
     if (declaration) {
-      allOccurrences.push({
-        uri: declaration.uri,
-        range: declaration.identifierRange,
-      });
+      // The resolved (graph) range can span the field's TYPE token rather than
+      // its NAME under full workspace ingestion, which would corrupt the
+      // declaration edit (rename `Integer` instead of the field — caught by the
+      // renameField e2e). Recompute the declaration token range from a STANDALONE
+      // parse of the declaring file — the same source findFieldOccurrences uses
+      // for the (correct) usage ranges — so declaration and usages stay
+      // consistent. Fall back to the resolved range only if the field can't be
+      // located in the standalone parse (W-23631087).
+      let declRange = declaration.identifierRange;
+      const declContent =
+        declaration.uri === uri && typeof req.content === 'string'
+          ? req.content
+          : candidates.find((c) => c.uri === declaration.uri)?.content;
+      if (declContent) {
+        try {
+          const declTable = new SymbolTable();
+          const declCompiled = new CompilerService().compile(
+            declContent,
+            declaration.uri,
+            new FullSymbolCollectorListener(declTable),
+            { collectReferences: true, resolveReferences: true },
+          );
+          const parsedDeclTable =
+            declCompiled?.result instanceof SymbolTable
+              ? declCompiled.result
+              : declTable;
+          const standaloneRange = fieldDeclarationRangeFromParse(
+            parsedDeclTable as never,
+            target.name,
+            declaringType,
+          );
+          if (standaloneRange) declRange = standaloneRange;
+        } catch {
+          // Keep the resolved range if the standalone re-parse fails.
+        }
+      }
+      allOccurrences.push({ uri: declaration.uri, range: declRange });
     }
 
     if (allOccurrences.length === 0) return null;
