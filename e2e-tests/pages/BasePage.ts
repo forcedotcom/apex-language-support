@@ -30,12 +30,10 @@ export class BasePage {
   constructor(page: Page) {
     this.page = page;
     this.workbench = page.locator(SELECTORS.WORKBENCH);
-    // Exclude the Monaco rename widget: it carries the `.monaco-editor` class
-    // (`.monaco-editor.rename-box`) and Monaco keeps it in the DOM after the
-    // first rename, so an unscoped `.monaco-editor` locator would resolve to TWO
-    // elements once any rename has run — breaking `editor.waitFor()` (e.g. in
-    // openFile) with a strict-mode violation when switching files post-rename.
-    // The rename-box is never the editor we want, so excluding it is always safe.
+    // Exclude the Monaco rename widget (`.monaco-editor.rename-box`), which stays
+    // in the DOM after the first rename. Without this, `.monaco-editor` matches
+    // two elements post-rename and `editor.waitFor()` (openFile) hits a
+    // strict-mode violation when switching files. It's never the editor we want.
     this.editor = page.locator(`${SELECTORS.MONACO_EDITOR}:not(.rename-box)`);
     this.explorer = page.locator(SELECTORS.EXPLORER);
     this.sidebar = page.locator(SELECTORS.SIDEBAR);
