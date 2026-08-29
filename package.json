@@ -81,7 +81,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^20.19.43",
     "@types/semver": "^7.8.0",
-    "@types/vscode": "1.120.0",
+    "@types/vscode": "1.134.0",
     "@typescript-eslint/eslint-plugin": "^8.67.0",
     "@typescript-eslint/parser": "^8.66.0",
     "@vscode/test-web": "^0.0.81",
