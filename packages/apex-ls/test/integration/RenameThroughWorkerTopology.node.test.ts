@@ -550,9 +550,8 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
     expect(result).toBeNull();
   }, 120_000);
 
-  // W-23631087: prepareRename must recognize FIELDS, not just locals — otherwise
-  // F2 on a field returns null and VS Code won't open the rename box. These prove
-  // it returns the cursor-containing range for a field declaration AND a usage.
+  // W-23631087: prepareRename must recognize FIELDS, not just locals (else F2 on
+  // a field won't open the box). Covers a declaration cursor AND a usage cursor.
   const PREP_FIELD_URI = 'file:///test/PrepareField.cls';
   const PREP_FIELD_SRC = `public class PrepareField {
     public Integer value;
@@ -593,8 +592,7 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
         }),
       );
 
-      // Cursor on the `value` DECLARATION (LSP line 1, char 23) — no field-access
-      // reference there, so this exercises the getSymbolAtPosition branch.
+      // `value` DECLARATION (LSP line 1, char 23) — exercises getSymbolAtPosition.
       const result = yield* Effect.promise(() =>
         dispatcher.dispatch('prepareRename', {
           textDocument: { uri: PREP_FIELD_URI },
@@ -620,8 +618,7 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       };
       placeholder: string;
     };
-    // The declaration is on LSP line 1, and the range must CONTAIN the cursor
-    // (char 23) — VS Code rejects a prepareRename range that doesn't.
+    // On LSP line 1, and the range must contain the cursor (char 23).
     expect(prepareInfo.range.start.line).toBe(1);
     expect(prepareInfo.range.end.line).toBe(1);
     expect(prepareInfo.range.start.character).toBeLessThanOrEqual(23);
@@ -659,9 +656,8 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
         }),
       );
 
-      // Cursor on the `value` USAGE (LSP line 4, char 10). prepareRename must
-      // return the usage token's range, not the declaration's — exercising the
-      // exactCursorReference branch.
+      // `value` USAGE (LSP line 4, char 10) — must return the usage range, not the
+      // declaration's (exercises exactCursorReference).
       const result = yield* Effect.promise(() =>
         dispatcher.dispatch('prepareRename', {
           textDocument: { uri: PREP_FIELD_URI },
@@ -947,10 +943,9 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       } | null;
       expect(errorResult?.changes).toBeUndefined();
       expect(errorResult?.error).toBeDefined();
-      // Nit (W-23631084 final review): assert this is the ACTIVE-LOAD guard, not
-      // just any error — a bare `toBeDefined()` would pass on an unrelated
-      // failure. Key off the guard's own signal (-32600 + the active-load
-      // message) so a regression or a different decline path fails loudly.
+      // Nit (W-23631084 review): assert this is the ACTIVE-LOAD guard, not any
+      // error — key off its signal (-32600 + the active-load message) so a
+      // regression or different decline path fails loudly.
       expect(errorResult?.error?.code).toBe(-32600);
       expect(errorResult?.error?.message).toMatch(
         /workspace load session still active/i,

@@ -107,8 +107,7 @@ test.describe('Apex Rename Symbol', () => {
       await apexEditor.waitForContentToInclude('renamed');
 
       const content = await apexEditor.getContent();
-      // Monaco renders indentation with non-breaking spaces (U+00A0); normalize
-      // to regular spaces so the structural assertions match reliably.
+      // Normalize non-breaking-space indentation (U+00A0) so the regexes match.
       const normalized = content.replace(/ /g, ' ');
 
       // The declaration is now `Integer renamed = 0;`
@@ -226,13 +225,9 @@ test.describe('Apex Rename Symbol', () => {
 });
 
 /**
- * E2E tests for textDocument/rename of FIELDS (W-23631087) — single-file and
- * cross-file, driven through F2 like the renameLocal tests. The cross-file case
- * proves the multi-file WorkspaceEdit from `resolveFieldRename`'s workspace scan.
- *
- * F2 fires prepareRename first (prepareProvider is advertised); field support
- * was added to DispatchPrepareRename in this story (before it, F2 on a field
- * showed "The element can't be renamed"). Each test warms the pool with a
+ * E2E for textDocument/rename of FIELDS (W-23631087) — single-file + cross-file
+ * via F2, like the renameLocal tests. F2 fires prepareRename first; field support
+ * was added to DispatchPrepareRename here. Each test warms the pool with a
  * documentSymbol probe so prepareRename can parse the live buffer before F2.
  *
  * @group rename
@@ -250,8 +245,7 @@ test.describe('Apex Rename Symbol - Field', () => {
     });
 
     await test.step('Warm the request pool for prepareRename', async () => {
-      // documentSymbol threads this file's live buffer to the pool — exactly
-      // prepareRename's precondition (see the renameLocal tests for the rationale).
+      // documentSymbol threads the live buffer to the pool — prepareRename's precondition.
       await outlineView.open();
       const mainClass = await outlineView.findSymbol(
         'RenameFieldSample',
@@ -264,8 +258,7 @@ test.describe('Apex Rename Symbol - Field', () => {
     });
 
     await test.step('Position on the `counter` field declaration', async () => {
-      // Line 4 `    public Integer counter = 0;` — column 22 is inside `counter`.
-      // An in-word column avoids prepareRename's half-open [start, end) boundary.
+      // Line 4, column 22 is inside `counter` (in-word avoids prepareRename's boundary).
       await apexEditor.goToPosition(4, 22);
     });
 
@@ -277,8 +270,7 @@ test.describe('Apex Rename Symbol - Field', () => {
       await apexEditor.waitForContentToInclude('tally');
 
       const content = await apexEditor.getContent();
-      // Monaco renders indentation with non-breaking spaces (U+00A0); normalize
-      // to regular spaces so the structural assertions match reliably.
+      // Normalize non-breaking-space indentation (U+00A0) so the regexes match.
       const normalized = content.replace(/ /g, ' ');
 
       // Declaration: `public Integer tally = 0;`
@@ -288,8 +280,7 @@ test.describe('Apex Rename Symbol - Field', () => {
       // implicit-this read: `return tally;`
       expect(normalized).toMatch(/return\s+tally\s*;/);
 
-      // Old name gone — slice from the class decl so the leading comment (which
-      // mentions `counter`) doesn't false-positive.
+      // Old name gone (slice past the comment that also says `counter`).
       const classBody = normalized.slice(
         normalized.indexOf('public with sharing class'),
       );
@@ -302,8 +293,7 @@ test.describe('Apex Rename Symbol - Field', () => {
     outlineView,
   }) => {
     await test.step('Open the consumer and declaring files', async () => {
-      // Consumer first so its cross-file usage is ingested, then the declaring
-      // file where we invoke the rename (mirrors the cross-file find-refs test).
+      // Consumer first so its usage is ingested, then the declaring file (rename source).
       await apexEditor.openFile('RenameFieldClient.cls');
       await apexEditor.waitForLanguageServerReady();
       await apexEditor.openFile('RenameFieldModel.cls');
@@ -311,9 +301,8 @@ test.describe('Apex Rename Symbol - Field', () => {
     });
 
     await test.step('Wait for full workspace ingestion', async () => {
-      // renameField declines rather than emit a partial edit while the workspace
-      // is mid-load (W-23631084). Gate on full ingestion so the consumer file is
-      // stored and its cross-file occurrence is found.
+      // renameField declines mid-load rather than emit a partial edit (W-23631084);
+      // gate on full ingestion so the consumer file is stored.
       await apexEditor.waitForWorkspaceReady();
     });
 
@@ -328,7 +317,7 @@ test.describe('Apex Rename Symbol - Field', () => {
     });
 
     await test.step('Position on the `quantity` field declaration', async () => {
-      // Line 4 `    public Integer quantity = 0;` — column 23 is inside `quantity`.
+      // Line 4, column 23 is inside `quantity`.
       await apexEditor.goToPosition(4, 23);
     });
 
