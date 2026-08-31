@@ -168,6 +168,13 @@ export {
   type FieldOccurrenceResult,
 } from './symbols/ops/findFieldOccurrences';
 export {
+  findMethodOccurrences,
+  type MethodOccurrenceResult,
+  type MethodOccurrenceCandidateNote,
+  type MethodRenameTarget,
+  type FindMethodOccurrencesOptions,
+} from './symbols/ops/findMethodOccurrences';
+export {
   validateRenameName,
   type ValidateRenameNameResult,
 } from './symbols/ops/validateRenameName';
