@@ -3415,12 +3415,10 @@ export async function declarationLocationForCursor(
 }
 
 /**
- * Field/property declaration identifier range from a STANDALONE parse of the
- * declaring file (W-23631087). The graph symbol's `identifierRange` can span the
- * field's TYPE token under full ingestion (which renamed `Integer` instead of
- * the field — caught by the e2e), so the declaration must come from the same
- * parse findFieldOccurrences uses for usages. Disambiguates same-named fields by
- * declaring-type leaf; null when not found (caller falls back to the graph range).
+ * Field/property declaration range from a STANDALONE parse of the declaring file
+ * (W-23631087). The graph symbol's `identifierRange` can span the field's TYPE
+ * token under full ingestion (renaming `Integer` instead of the field), so the
+ * declaration must come from the same parse findFieldOccurrences uses for usages.
  */
 function fieldDeclarationRangeFromParse(
   table: {
@@ -3950,14 +3948,11 @@ async function resolvePrepareRenameForLocal(req: PositionReq): Promise<{
 }
 
 /**
- * prepareRename for a FIELD/PROPERTY (W-23631087). prepareRename previously
- * recognized only locals, so with `prepareProvider` advertised VS Code fired
- * prepareRename on F2, got null for a field, and refused to open the rename box
- * ("The element can't be renamed") even though resolveFieldRename supports it.
- * Resolves via the SAME svc primitives resolveFieldRename uses, so prepareRename
- * accepts exactly the field cursors the rename can service (no accept/decline
- * drift). Returns the range CONTAINING the cursor (usage token or declaration
- * identifier), or null — VS Code rejects a range that doesn't contain the cursor.
+ * prepareRename for a FIELD/PROPERTY (W-23631087). Locals-only prepareRename
+ * returned null for a field, so with `prepareProvider` advertised VS Code
+ * wouldn't open the rename box on F2. Resolves via the same svc primitives
+ * resolveFieldRename uses (no accept/decline drift), returning the cursor-
+ * containing range (usage token or declaration), or null.
  */
 async function resolvePrepareRenameForField(
   svc: RequestServices,
@@ -3971,8 +3966,7 @@ async function resolvePrepareRenameForField(
 } | null> {
   const uri = req.textDocument.uri;
   try {
-    // Recompile the cursor file + load referenced types so the cursor resolves
-    // (mirrors resolveFieldRename Stage 1; driven by the live buffer).
+    // Recompile + load referenced types so the cursor resolves (Stage 1).
     const cursorTextAvailable = typeof req.content === 'string';
     const cursorRecompiled = await recompileCursorFileAtFullDetail(
       svc,
@@ -3983,8 +3977,7 @@ async function resolvePrepareRenameForField(
     if (!cursorRecompiled && !cursorTextAvailable) return null;
     await loadReferencedTypesForFile(svc, uri);
 
-    // Gate on field/property (same as resolveFieldRename Stage 2); anything else
-    // → null, so the caller reports "can't be renamed" instead of a dead box.
+    // Gate on field/property; anything else → null ("can't be renamed").
     const target = await targetSymbolForCursor(svc, uri, req.position);
     if (!target?.name) return null;
     if (target.kind !== 'field' && target.kind !== 'property') return null;
@@ -3995,8 +3988,7 @@ async function resolvePrepareRenameForField(
       character: req.position.character,
     };
 
-    // Prefer the usage token under the cursor (`this.total`, `total`, `x.total`);
-    // exactCursorReference already narrows to references containing the cursor.
+    // Prefer the usage token under the cursor; exactCursorReference narrows to it.
     const references = await svc.symbolManager.getReferencesAtPosition(
       uri,
       parserPosition,
@@ -4004,8 +3996,7 @@ async function resolvePrepareRenameForField(
     const selected = exactCursorReference(references ?? [], parserPosition);
     let cursorRange = selected.reference?.location?.identifierRange;
 
-    // No usage reference → cursor is on the declaration identifier itself. Use
-    // its range only when it contains the cursor (VS Code requires that).
+    // Else the cursor is on the declaration; use its range if it contains the cursor.
     if (!cursorRange) {
       const declaration = await svc.symbolManager.getSymbolAtPosition(
         uri,
@@ -4649,10 +4640,8 @@ async function resolveFieldRename(
       req.position,
     );
     if (declaration) {
-      // The graph range can span the field's TYPE token under full ingestion,
-      // corrupting the declaration edit; recompute from a standalone parse of the
-      // declaring file (as findFieldOccurrences does for usages). See
-      // fieldDeclarationRangeFromParse (W-23631087).
+      // The graph range can span the TYPE token under full ingestion; recompute
+      // from a standalone parse (see fieldDeclarationRangeFromParse, W-23631087).
       let declRange = declaration.identifierRange;
       const declContent =
         declaration.uri === uri && typeof req.content === 'string'
@@ -5050,10 +5039,8 @@ const requestHandlers = {
       return resolveFieldRename(svc, req);
     },
   ),
-  // prepareRename for locals (W-23631080) + fields/properties (W-23631087).
-  // Local path first (cheap standalone parse); a field cursor returns null there
-  // and falls through to the field path. Without it, F2 on a field can't open
-  // the rename box even though resolveFieldRename supports the rename.
+  // prepareRename for locals (W-23631080) + fields (W-23631087). Local path
+  // first; a field cursor falls through to the field path (else F2 can't open).
   DispatchPrepareRename: requestHandler<PositionReq>(
     'DispatchPrepareRename',
     async (svc, req) =>
