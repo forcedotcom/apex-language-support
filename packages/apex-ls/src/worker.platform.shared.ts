@@ -4311,6 +4311,13 @@ async function resolveMethodContextForCursor(
     };
     const symbol = await resolveCursorSymbol(svc, uri, parserPosition);
     if (!symbol) return null;
+    // Provenance guard (W-23631087 review, P1): only a method declared in a
+    // user-owned Apex source is renamable. A stdlib/generated-SObject method
+    // resolves to a synthetic URI and must not produce a WorkspaceEdit — return
+    // null so resolveMethodRename declines (mirrors the field-side guard).
+    if (!isUserOwnedApexUri((symbol as { fileUri?: string }).fileUri)) {
+      return null;
+    }
     const containingType = await svc.symbolManager.getContainingType(symbol);
     if (!containingType) return null;
     const declaringTypeFqn =
