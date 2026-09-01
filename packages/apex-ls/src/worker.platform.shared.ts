@@ -105,7 +105,7 @@ import {
   SymbolKind,
   SymbolTable,
 } from '@salesforce/apex-lsp-parser-ast';
-import { getLogger } from '@salesforce/apex-lsp-shared';
+import { getLogger, getAllImmutableSchemes } from '@salesforce/apex-lsp-shared';
 import {
   CompilationWorkerPool,
   type CompilationWorkerPoolService,
@@ -3452,7 +3452,10 @@ function fieldDeclarationRangeFromParse(
       return f.location!.identifierRange!;
     }
   }
-  return fields[0].location!.identifierRange!;
+  // Ambiguous same-named fields with no declaring-type match: return null so the
+  // caller FAILS CLOSED (declines) rather than guessing the first match and
+  // possibly renaming the wrong field's declaration (W-23631087 review).
+  return null;
 }
 
 /**
@@ -3948,22 +3951,33 @@ async function resolvePrepareRenameForLocal(req: PositionReq): Promise<{
 }
 
 /**
+ * A rename target must live in a USER-OWNED Apex source (W-23631087 review). A
+ * declaration in a synthetic URI — stdlib (`apexlib://`), generated SObject
+ * (`apex-sobject://`), or any other non-workspace scheme — is not editable and
+ * must never be offered for rename. Uses a POSITIVE allowlist of the immutable
+ * document-selector schemes VS Code opens user Apex docs under (`file`,
+ * `vscode-test-web`, `memfs`, `reefs`), so an unknown/future synthetic scheme
+ * fails CLOSED rather than slipping through a negative check.
+ */
+const USER_OWNED_URI_SCHEMES: ReadonlySet<string> = new Set(
+  getAllImmutableSchemes(),
+);
+const isUserOwnedApexUri = (uri: string | undefined): boolean => {
+  if (!uri) return false;
+  const colon = uri.indexOf(':');
+  if (colon <= 0) return false;
+  return USER_OWNED_URI_SCHEMES.has(uri.slice(0, colon));
+};
+
+/**
  * prepareRename for a FIELD/PROPERTY (W-23631087). Locals-only prepareRename
  * returned null for a field, so with `prepareProvider` advertised VS Code
  * wouldn't open the rename box on F2. Resolves via the same svc primitives
  * resolveFieldRename uses (no accept/decline drift), returning the cursor-
- * containing range (usage token or declaration), or null.
+ * containing range (usage token or declaration), or null. Only user-owned
+ * sources are renamable — a stdlib/generated-SObject DECLARATION is rejected
+ * even when the cursor sits on a usage in an editable file.
  */
-/**
- * A rename target must live in a USER-OWNED Apex source (W-23631087 review). A
- * synthetic stdlib URI (`apexlib://`) or a generated-SObject URI
- * (`apex-sobject://`) is not editable, so members declared there must never be
- * offered for rename. User workspace docs use `file://` (desktop) or `memfs://`
- * (web), so a negative check on the synthetic schemes avoids breaking either.
- */
-const isUserOwnedApexUri = (uri: string | undefined): boolean =>
-  !!uri && !uri.startsWith('apexlib://') && !uri.startsWith('apex-sobject://');
-
 async function resolvePrepareRenameForField(
   svc: RequestServices,
   req: PositionReq,
@@ -4713,9 +4727,10 @@ async function resolveFieldRename(
       }
       if (!declRange) {
         const message =
-          `Cannot safely rename '${target.name}': its declaration range could ` +
-          'not be verified from a standalone parse, so the rename is declined ' +
-          'rather than risk corrupting the declaration.';
+          `Cannot safely rename '${target.name}': its declaration could not be ` +
+          'located in a loaded, parseable source (the declaring file may be ' +
+          'unloaded, unparseable, or its declaration ambiguous), so the rename ' +
+          'is declined rather than risk corrupting the declaration.';
         emitWorkerLog('warn', `[RENAME] declined field rename — ${message}`);
         return { error: { code: -32600, message } };
       }
