@@ -76,6 +76,7 @@ import {
   DataOwnerQuerySymbolByName,
   CheckMemberConflicts,
   FindOccurrenceCandidates,
+  ResolveMethodRenameFamily,
   WIRE_PROTOCOL_VERSION,
   ApexCapabilitiesManager,
   ApexSettingsManager,
@@ -151,6 +152,7 @@ export const AllWorkerRequests = Schema.Union(
   DataOwnerQuerySymbolByName,
   CheckMemberConflicts,
   FindOccurrenceCandidates,
+  ResolveMethodRenameFamily,
   CompileDocument,
   ResourceLoaderGetSymbolTable,
   ResourceLoaderGetSymbolTables,
@@ -5454,6 +5456,73 @@ function walkTypeFamily(
   });
 }
 
+/**
+ * Read a type's declared members from its BLOCK scope, guaranteeing the canonical
+ * table is FULL-detail AND known-complete first. Batch-loaded files are served at
+ * public-api detail (which drops private/protected/default members) and a
+ * recovered/unknown table can silently drop declarations, so a naive read risks a
+ * truncated set. (Re-)enriches from retained source to establish completeness, and
+ * FAILS (with a message) when it cannot — callers preserve uncertainty rather than
+ * trust an incomplete set. Shared by CheckMemberConflicts (4.0 conflict verdict)
+ * and ResolveMethodRenameFamily (5.2 override discovery); callers re-tag the
+ * string failure to their own error type.
+ */
+function getTypeMembersFullDetail(
+  svc: DataOwnerServices,
+  type: ApexSymbol,
+): Effect.Effect<ApexSymbol[], string, never> {
+  return Effect.gen(function* () {
+    const { SymbolKind } = yield* Effect.promise(
+      () => import('@salesforce/apex-lsp-parser-ast'),
+    );
+    let typeTable = yield* Effect.promise(() =>
+      svc.symbolManager.getSymbolTableForFile(type.fileUri),
+    );
+    const isFullAndComplete = (
+      t: typeof typeTable | null | undefined,
+    ): boolean =>
+      t?.getDetailLevel() === 'full' &&
+      t.getMetadata().parseCompleteness === 'complete';
+    if (!isFullAndComplete(typeTable)) {
+      const doc = yield* Effect.promise(() =>
+        svc.storageManager.getStorage().getDocument(type.fileUri),
+      );
+      const text = doc?.getText();
+      if (!text) {
+        return yield* Effect.fail(
+          `Cannot read members for ${type.fileUri}: source text unavailable to ` +
+            'establish a complete full-detail parse, so non-public members ' +
+            'cannot be reliably inspected.',
+        );
+      }
+      yield* svc.symbolManager.enrichToLevel(type.fileUri, 'full', text);
+      typeTable = yield* Effect.promise(() =>
+        svc.symbolManager.getSymbolTableForFile(type.fileUri),
+      );
+      if (!isFullAndComplete(typeTable)) {
+        return yield* Effect.fail(
+          `Cannot read members for ${type.fileUri}: could not establish a ` +
+            'complete full-detail parse (canonical table at ' +
+            `${typeTable?.getDetailLevel() ?? 'none'} / ` +
+            `${typeTable?.getMetadata().parseCompleteness ?? 'unknown'}); the ` +
+            'member set may be incomplete.',
+        );
+      }
+    }
+    if (!typeTable) {
+      return yield* Effect.fail(
+        `Cannot read members: no symbol table for ${type.fileUri}.`,
+      );
+    }
+    // Members are children of the type's BLOCK scope, not the type itself.
+    const blockSymbol = typeTable
+      .getSymbolsInScope(type.id)
+      .find((s) => s.kind === SymbolKind.Block);
+    if (!blockSymbol) return [] as ApexSymbol[];
+    return typeTable.getSymbolsInScope(blockSymbol.id);
+  });
+}
+
 const untracedHandlers: SerializedWorkerHandlers = {
   InitializeCompilationWorker: (req) =>
     guardRole('InitializeCompilationWorker').pipe(
@@ -6125,116 +6194,17 @@ const untracedHandlers: SerializedWorkerHandlers = {
               symbol.modifiers.visibility === SymbolVisibility.Private ||
               symbol.modifiers.visibility === SymbolVisibility.Default;
 
-            // Helper: resolve a type's declared members from its BLOCK scope,
-            // guaranteeing the canonical table is full-detail AND known-complete
-            // first (see the fail-closed rationale below). Returns [] when the
-            // type has no block scope (no members). Shared by hasMemberNamed and
-            // the renamed-member visibility self-verify, so both read the exact
-            // same trusted member set.
+            // Resolve a type's full+complete member set (fails closed on an
+            // unverifiable/truncated parse — see getTypeMembersFullDetail). Shared
+            // with ResolveMethodRenameFamily via that module helper; re-tag its
+            // string failure to this query's error type.
             const getTypeMembers = (type: ApexSymbol) =>
-              Effect.gen(function* () {
-                // Batch-loaded workspace files are served at 'public-api' detail,
-                // which DROPS private/protected/default-visibility members from the
-                // symbol table entirely (VisibilitySymbolListener never adds them at
-                // public-api). All three checks below need non-public members:
-                //   - same-type: needs ALL members (incl. private)
-                //   - ancestor:  needs protected members present
-                //   - descendant: needs ALL members (incl. private/default)
-                // So this type's file MUST be at 'full' detail before we read it.
-                //
-                // FAIL CLOSED (W-23631128 re-review, P1): require the CANONICAL
-                // table to be BOTH full-detail AND a KNOWN-complete parse before
-                // reading members. Two independent hazards make full-detail alone
-                // insufficient:
-                //   (1) getDetailLevel() derives from the symbols actually present
-                //       (not the stale getDetailLevelForFile() side-channel), so a
-                //       newer public-api table that replaced an enriched one is
-                //       observed at its true 'public-api' level.
-                //   (2) A malformed source still yields a RECOVERED table that
-                //       reports 'full' but silently dropped declarations, AND a
-                //       full table can arrive from a producer that never
-                //       established completeness at the protocol boundary — a raw
-                //       cursor recompile written back via UpdateSymbolSubset lands
-                //       as full + parseCompleteness='unknown'. `SymbolTable`
-                //       defaults completeness to 'unknown', so trusting anything
-                //       other than an explicit 'complete' fails OPEN.
-                // So we require parseCompleteness === 'complete'. When the table is
-                // not full+complete we (re-)enrich from retained source to
-                // ESTABLISH completeness (enrichToLevel re-parses a full/unknown
-                // table for exactly this reason and stamps 'complete'/'incomplete'
-                // from SYNTAX errors — benign SEMANTIC cross-file errors do not
-                // drop declarations and do not mark incompleteness, so clean files
-                // are not over-declined). If retained source is unavailable, or
-                // enrichment cannot reach full+complete (e.g. the source is
-                // syntax-broken → 'incomplete'), fail the whole query so the caller
-                // preserves uncertainty rather than trusting a truncated set.
-                let typeTable = yield* Effect.promise(() =>
-                  svc.symbolManager.getSymbolTableForFile(type.fileUri),
-                );
-                const isFullAndComplete = (
-                  t: typeof typeTable | null | undefined,
-                ): boolean =>
-                  t?.getDetailLevel() === 'full' &&
-                  t.getMetadata().parseCompleteness === 'complete';
-                if (!isFullAndComplete(typeTable)) {
-                  const doc = yield* Effect.promise(() =>
-                    svc.storageManager.getStorage().getDocument(type.fileUri),
-                  );
-                  const text = doc?.getText();
-                  if (!text) {
-                    return yield* Effect.fail({
-                      _tag: 'CheckMemberConflictsError' as const,
-                      message:
-                        `Cannot verify member conflicts for ${type.fileUri}: ` +
-                        'source text unavailable to establish a complete ' +
-                        'full-detail parse, so non-public members cannot be ' +
-                        'reliably inspected.',
-                    });
-                  }
-                  yield* svc.symbolManager.enrichToLevel(
-                    type.fileUri,
-                    'full',
-                    text,
-                  );
-                  typeTable = yield* Effect.promise(() =>
-                    svc.symbolManager.getSymbolTableForFile(type.fileUri),
-                  );
-                  if (!isFullAndComplete(typeTable)) {
-                    return yield* Effect.fail({
-                      _tag: 'CheckMemberConflictsError' as const,
-                      message:
-                        `Cannot verify member conflicts for ${type.fileUri}: ` +
-                        'could not establish a complete full-detail parse ' +
-                        '(canonical table at ' +
-                        `${typeTable?.getDetailLevel() ?? 'none'} / ` +
-                        `${
-                          typeTable?.getMetadata().parseCompleteness ??
-                          'unknown'
-                        }); the member set may be incomplete, so a "no conflict" ` +
-                        'result cannot be trusted.',
-                    });
-                  }
-                }
-
-                if (!typeTable) {
-                  return yield* Effect.fail({
-                    _tag: 'CheckMemberConflictsError' as const,
-                    message: `Cannot verify member conflicts: no symbol table for ${type.fileUri}.`,
-                  });
-                }
-
-                // Members are children of the type's BLOCK scope, not the type itself.
-                // Find the block symbol (it's a child of the type with kind === 'block')
-                const blockSymbol = typeTable
-                  .getSymbolsInScope(type.id)
-                  .find((s) => s.kind === SymbolKind.Block);
-                if (!blockSymbol) {
-                  // No block scope means no members
-                  return [] as ApexSymbol[];
-                }
-
-                return typeTable.getSymbolsInScope(blockSymbol.id);
-              });
+              getTypeMembersFullDetail(svc, type).pipe(
+                Effect.mapError((message) => ({
+                  _tag: 'CheckMemberConflictsError' as const,
+                  message,
+                })),
+              );
 
             // Helper: check type for member with newName (as an Effect generator)
             // NOTE: For methods, this does name-based matching only.
@@ -6392,6 +6362,107 @@ const untracedHandlers: SerializedWorkerHandlers = {
               `[RENAME] CheckMemberConflicts: no conflict for ${req.definingTypeFqn}.${req.newName}`,
             );
             return { conflict: false };
+          }),
+        ),
+      ),
+    ),
+
+  // renameMethod edit-target discovery (WI 5.2). Returns the type-family cone
+  // (FQNs) whose calls the pool accepts as occurrences, plus each family type
+  // that DECLARES a signature-matching method (an override site the rename must
+  // rewrite). Runs on the data owner because only its post-load graph has the
+  // complete subtype/implementor cone.
+  ResolveMethodRenameFamily: (req) =>
+    guardRole('ResolveMethodRenameFamily').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+
+            // Same completeness precondition as CheckMemberConflicts: the family
+            // walk needs the resolved inheritance cone, which only exists after
+            // endWorkspaceLoadSession. Mid-load, findSubtypes/findSupertypes are
+            // partial → we would miss override sites (a dangling partial rename).
+            if (svc.symbolManager.isWorkspaceLoadSessionActive()) {
+              return yield* Effect.fail({
+                _tag: 'ResolveMethodRenameFamilyError' as const,
+                message:
+                  'Workspace load session still active; hierarchy graph not ' +
+                  'yet complete for method family resolution',
+              });
+            }
+
+            const { SymbolKind, inTypeSymbolGroup, doesSignatureMatch } =
+              yield* Effect.promise(
+                () => import('@salesforce/apex-lsp-parser-ast'),
+              );
+
+            const definingType = yield* Effect.promise(() =>
+              svc.symbolManager.findSymbolByFQN(req.definingTypeFqn),
+            );
+            if (!definingType || !inTypeSymbolGroup(definingType)) {
+              return yield* Effect.fail({
+                _tag: 'ResolveMethodRenameFamilyError' as const,
+                message: `Type not found or not a type symbol: ${req.definingTypeFqn}`,
+              });
+            }
+
+            // Static methods are not inherited, so the family is the declaring
+            // type alone. Instance methods fan out over the whole cone; ancestors
+            // fold in extended/implemented interfaces and descendants fold in
+            // implementors (findSupertypes/findSubtypes read both edge kinds).
+            const family: ApexSymbol[] = [definingType];
+            if (!req.isStatic) {
+              const { ancestors, descendants } = yield* walkTypeFamily(
+                svc,
+                definingType,
+              );
+              family.push(...ancestors, ...descendants);
+            }
+
+            const methodNameLower = req.methodName.toLowerCase();
+            const familyFqns: string[] = [];
+            const overrideSites: Array<{ typeFqn: string; fileUri: string }> =
+              [];
+            const seen = new Set<string>();
+
+            for (const type of family) {
+              const typeFqn =
+                type.fqn ||
+                (yield* Effect.promise(() =>
+                  svc.symbolManager.constructFQN(type),
+                ));
+              if (!typeFqn || seen.has(typeFqn)) continue;
+              seen.add(typeFqn);
+              familyFqns.push(typeFqn);
+
+              // Does this type DECLARE a signature-matching method to rename?
+              const members = yield* getTypeMembersFullDetail(svc, type).pipe(
+                Effect.mapError((message) => ({
+                  _tag: 'ResolveMethodRenameFamilyError' as const,
+                  message,
+                })),
+              );
+              const declares = members.some(
+                (m) =>
+                  m.kind === SymbolKind.Method &&
+                  m.name.toLowerCase() === methodNameLower &&
+                  (req.signature
+                    ? doesSignatureMatch(m, req.methodName, [...req.signature])
+                    : true),
+              );
+              if (declares && type.fileUri) {
+                overrideSites.push({ typeFqn, fileUri: type.fileUri });
+              }
+            }
+
+            emitWorkerLog(
+              'info',
+              `[RENAME] ResolveMethodRenameFamily: ${req.definingTypeFqn}.` +
+                `${req.methodName} → ${familyFqns.length} family type(s), ` +
+                `${overrideSites.length} override site(s)`,
+            );
+            return { familyFqns, overrideSites };
           }),
         ),
       ),
