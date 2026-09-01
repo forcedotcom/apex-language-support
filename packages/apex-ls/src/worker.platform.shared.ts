@@ -3545,6 +3545,67 @@ export function fieldRenameDeclarationDecision(
 }
 
 /**
+ * Method declaration name-token range from a STANDALONE parse of the declaring
+ * file (W-23631132) — the method analogue of {@link fieldDeclarationRangeFromParse}.
+ * The graph range can span the RETURN-TYPE token under full ingestion, so the
+ * declaration must come from the same parse the occurrence scan uses. Overloads
+ * are disambiguated by signature (parameter type strings); works for no-body
+ * (abstract/interface) declarations since it reads the method symbol, not a body.
+ */
+function methodDeclarationRangeFromParse(
+  table: {
+    getAllSymbols?: () => Array<{
+      name?: string;
+      kind?: unknown;
+      parentId?: string;
+      parameters?: Array<{
+        type?: { name?: string; originalTypeString?: string };
+      }>;
+      location?: { identifierRange?: OccurrenceRange };
+    }>;
+    getSymbolById?: (id: string) => { name?: string } | undefined;
+  },
+  methodName: string,
+  declaringTypeFqn: string,
+  signature?: string[],
+): OccurrenceRange | null {
+  const targetName = methodName.toLowerCase();
+  let methods = (table.getAllSymbols?.() ?? []).filter((s) => {
+    const kind = String(s?.kind).toLowerCase();
+    return (
+      s?.name?.toLowerCase() === targetName &&
+      kind === 'method' &&
+      !!s.location?.identifierRange
+    );
+  });
+  if (methods.length === 0) return null;
+  // Disambiguate overloads by parameter-type signature (case-insensitive).
+  if (methods.length > 1 && signature) {
+    const sigMatches = methods.filter((m) => {
+      const params = m.parameters ?? [];
+      if (params.length !== signature.length) return false;
+      return params.every(
+        (p, i) =>
+          (p.type?.originalTypeString ?? p.type?.name ?? '').toLowerCase() ===
+          signature[i].toLowerCase(),
+      );
+    });
+    if (sigMatches.length >= 1) methods = sigMatches;
+  }
+  if (methods.length === 1) return methods[0].location!.identifierRange!;
+  // Still ambiguous (same-named + same-signature in nested types) → declaring
+  // type leaf, then best-effort first match.
+  const declLeaf = declaringTypeFqn.split('.').pop()?.toLowerCase();
+  for (const m of methods) {
+    const parent = m.parentId ? table.getSymbolById?.(m.parentId) : undefined;
+    if (parent?.name?.toLowerCase() === declLeaf) {
+      return m.location!.identifierRange!;
+    }
+  }
+  return methods[0].location!.identifierRange!;
+}
+
+/**
  * The resolved target symbol plus every occurrence of it across the workspace,
  * as produced by {@link resolveOccurrencesForCursor}. `null` occurrences here
  * never happen — the helper returns the whole struct as `null` instead — but
@@ -4228,6 +4289,56 @@ async function resolveFieldContextForCursor(
 }
 
 /**
+ * Resolve the method under the cursor to its declaring-type FQN, parameter-type
+ * signature, and static-ness (W-23631132). renameMethod needs all three: the FQN
+ * anchors the family walk + occurrence matching, the signature disambiguates
+ * overloads, and static-ness decides whether the rename fans out over the
+ * inheritance cone (instance) or stays same-type (static).
+ */
+async function resolveMethodContextForCursor(
+  svc: RequestServices,
+  uri: string,
+  position: { line: number; character: number },
+): Promise<{
+  declaringTypeFqn: string;
+  signature: string[];
+  isStatic: boolean;
+} | null> {
+  try {
+    const parserPosition = {
+      line: position.line + 1,
+      character: position.character,
+    };
+    const symbol = await resolveCursorSymbol(svc, uri, parserPosition);
+    if (!symbol) return null;
+    const containingType = await svc.symbolManager.getContainingType(symbol);
+    if (!containingType) return null;
+    const declaringTypeFqn =
+      containingType.fqn ??
+      (await svc.symbolManager.constructFQN(containingType)) ??
+      containingType.name ??
+      null;
+    if (!declaringTypeFqn) return null;
+    const methodSym = symbol as {
+      parameters?: Array<{
+        type?: { name?: string; originalTypeString?: string };
+      }>;
+      modifiers?: { isStatic?: boolean };
+    };
+    const signature = (methodSym.parameters ?? []).map(
+      (p) => p.type?.originalTypeString ?? p.type?.name ?? '',
+    );
+    return {
+      declaringTypeFqn,
+      signature,
+      isStatic: methodSym.modifiers?.isStatic === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * LOCAL, parser-owned fallback for Stage 4.5 when the authoritative
  * `dataOwner:CheckMemberConflicts` query is unavailable (W-23631086 review, P1).
  *
@@ -4892,6 +5003,316 @@ async function resolveFieldRename(
   }
 }
 
+/**
+ * renameMethod WorkspaceEdit construction (WI 5.2). Renames a method's
+ * declaration + every call across the type family, plus every override
+ * declaration (Child.foo(), interface impls). Mirrors resolveFieldRename's
+ * pool-side scan, but the family knowledge comes from the data-owner assist
+ * `dataOwner:ResolveMethodRenameFamily` (the pool graph can't see unloaded
+ * subtypes/implementors):
+ *
+ *   - CALLS: FindOccurrenceCandidates (all stored docs) → per-candidate
+ *     findMethodOccurrences, keeping occurrences whose receiver FQN ∈ the family
+ *     cone; any unprovable occurrence → decline (no partial edit).
+ *   - DECLARATIONS: for each override site the assist returns, recompute the
+ *     name-token range from a standalone parse (methodDeclarationRangeFromParse)
+ *     so a graph range that spans the return-type token never corrupts the edit.
+ *
+ * Conflict detection + validation wiring is WI 5.3; this slice is pure edit
+ * construction. Constructors are not methods here (renameType territory).
+ */
+async function resolveMethodRename(
+  svc: RequestServices,
+  req: RenameReq,
+): Promise<WorkspaceEditResult | RenameErrorResult | null> {
+  const {
+    CompilerService,
+    ErrorType,
+    FullSymbolCollectorListener,
+    SymbolKind,
+    SymbolTable,
+    findMethodOccurrences,
+    lexMentionsIdentifier,
+    validateRenameName,
+  } = await import('@salesforce/apex-lsp-parser-ast');
+
+  const uri = req.textDocument.uri;
+
+  try {
+    // Stage 1: recompile the cursor file, then load its referenced types.
+    const cursorTextAvailable = typeof req.content === 'string';
+    const cursorRecompiled = await recompileCursorFileAtFullDetail(
+      svc,
+      uri,
+      req.content,
+      { resolveCrossFileReferences: false },
+    );
+    if (!cursorRecompiled && !cursorTextAvailable) return null;
+    await loadReferencedTypesForFile(svc, uri);
+
+    // Stage 2: confirm the cursor is on a method (constructors resolve to a
+    // different kind and fall through — renameType handles them, not here).
+    const target = await targetSymbolForCursor(svc, uri, req.position);
+    if (!target?.name) return null;
+    if (target.kind !== 'method') return null;
+
+    // Stage 3: declaring-type FQN + parameter signature + static-ness.
+    const ctx = await resolveMethodContextForCursor(svc, uri, req.position);
+    if (!ctx) {
+      emitWorkerLog(
+        'warn',
+        `[RENAME] cannot determine method context for '${target.name}' in ${uri}`,
+      );
+      return null;
+    }
+    const { declaringTypeFqn: declaringType, signature, isStatic } = ctx;
+    const methodTarget = {
+      name: target.name,
+      kind: 'method' as const,
+      signature,
+    };
+
+    // Stage 4: validate the newName. Invalid → RenameErrorResult, not null.
+    const validation = validateRenameName(req.newName, SymbolKind.Method);
+    if (!validation.ok) {
+      return { error: { code: -32602, message: validation.message } };
+    }
+
+    // (Stage 4.5 conflict detection deferred to WI 5.3.)
+
+    // Stage 5a: resolve the type family + override declaration sites on the
+    // data-owner's complete graph. On failure we cannot know the override set,
+    // so we must decline rather than emit a declaration-only partial edit.
+    let family: {
+      familyFqns?: string[];
+      overrideSites?: Array<{ typeFqn: string; fileUri: string }>;
+    };
+    try {
+      family = (await requestCoordinatorAssistancePromiseShared(
+        'dataOwner:ResolveMethodRenameFamily',
+        {
+          definingTypeFqn: declaringType,
+          methodName: target.name,
+          signature,
+          isStatic,
+        },
+        true,
+      )) as {
+        familyFqns?: string[];
+        overrideSites?: Array<{ typeFqn: string; fileUri: string }>;
+      };
+    } catch (err) {
+      const message =
+        `Cannot resolve the type family for '${declaringType}.${target.name}': ` +
+        "the method's overrides/implementors could not be determined, so this " +
+        `rename cannot be applied safely. (${err})`;
+      emitWorkerLog('warn', `[RENAME] declined method rename — ${message}`);
+      return { error: { code: -32600, message } };
+    }
+    const familyFqns = new Set<string>(family?.familyFqns ?? [declaringType]);
+    const overrideSites = family?.overrideSites ?? [];
+
+    // Stage 5b: candidate discovery — ALL stored docs (no raw-text prefilter),
+    // same correctness rationale as resolveFieldRename.
+    let scan: { candidates?: Array<{ uri: string; content: string }> };
+    try {
+      scan = (await requestCoordinatorAssistancePromiseShared(
+        'dataOwner:FindOccurrenceCandidates',
+        { symbolName: target.name, skipTextFilter: true },
+        true,
+      )) as { candidates?: Array<{ uri: string; content: string }> };
+    } catch (err) {
+      const message =
+        `Cannot verify references to '${target.name}': the workspace document ` +
+        'set could not be retrieved, so this rename cannot be applied safely. ' +
+        `(${err})`;
+      emitWorkerLog('warn', `[RENAME] declined method rename — ${message}`);
+      return { error: { code: -32600, message } };
+    }
+    const rawCandidates = scan?.candidates ?? [];
+    let candidates: Array<{ uri: string; content: string }> = rawCandidates;
+    if (typeof req.content === 'string') {
+      let cursorPresent = false;
+      candidates = rawCandidates.map((c) => {
+        if (c.uri === uri) {
+          cursorPresent = true;
+          return { ...c, content: req.content as string };
+        }
+        return c;
+      });
+      if (!cursorPresent) {
+        candidates = [{ uri, content: req.content }, ...candidates];
+      }
+    }
+    const contentByUri = new Map(candidates.map((c) => [c.uri, c.content]));
+
+    // Stage 6: per-candidate standalone parse + method occurrence classification.
+    const allOccurrences: Array<{ uri: string; range: OccurrenceRange }> = [];
+    let totalSkipped = 0;
+    const unsafeOccurrences: Array<{ uri: string; reason: string }> = [];
+    const seen = new Set<string>();
+    for (const candidate of candidates) {
+      if (seen.has(candidate.uri)) continue;
+      seen.add(candidate.uri);
+      try {
+        const t = new SymbolTable();
+        const compiled = new CompilerService().compile(
+          candidate.content,
+          candidate.uri,
+          new FullSymbolCollectorListener(t),
+          { collectReferences: true, resolveReferences: true },
+        );
+        const syntaxErrorCount = (compiled?.errors ?? []).filter(
+          (e) => e.type === ErrorType.Syntax,
+        ).length;
+        if (
+          !(compiled?.result instanceof SymbolTable) ||
+          syntaxErrorCount > 0
+        ) {
+          // A broken parse only endangers this rename if the file could mention
+          // the method; a lexer check (parser-owned, not regex) lets us skip
+          // provably-unrelated broken files rather than block every rename.
+          if (!lexMentionsIdentifier(candidate.content, target.name)) continue;
+          const detail = !(compiled?.result instanceof SymbolTable)
+            ? 'no-result'
+            : `${syntaxErrorCount} syntax error(s)`;
+          unsafeOccurrences.push({
+            uri: candidate.uri,
+            reason: `candidate-parse-incomplete:${detail}`,
+          });
+          continue;
+        }
+        const { occurrences, skipped, unsafe } = findMethodOccurrences(
+          compiled.result,
+          candidate.uri,
+          methodTarget,
+          declaringType,
+          { familyFqns },
+        );
+        for (const occ of occurrences) {
+          allOccurrences.push({ uri: occ.uri, range: occ.identifierRange });
+        }
+        totalSkipped += skipped.length;
+        for (const u of unsafe) {
+          unsafeOccurrences.push({ uri: candidate.uri, reason: u.reason });
+        }
+      } catch (err) {
+        unsafeOccurrences.push({
+          uri: candidate.uri,
+          reason: `candidate-scan-failed: ${err}`,
+        });
+      }
+    }
+
+    // Override DECLARATIONS: findMethodOccurrences matches CALLS only, so each
+    // family override's declaration token is added here from a standalone parse
+    // of its file. A missing override-site file (the family says a signature-
+    // matching method is declared there but its content is unavailable) means we
+    // cannot rewrite that declaration → decline rather than emit a partial edit.
+    for (const site of overrideSites) {
+      const content = contentByUri.get(site.fileUri);
+      if (content === undefined) {
+        unsafeOccurrences.push({
+          uri: site.fileUri,
+          reason: 'override-declaration-content-unavailable',
+        });
+        continue;
+      }
+      try {
+        const declTable = new SymbolTable();
+        const declCompiled = new CompilerService().compile(
+          content,
+          site.fileUri,
+          new FullSymbolCollectorListener(declTable),
+          { collectReferences: true, resolveReferences: true },
+        );
+        const parsed =
+          declCompiled?.result instanceof SymbolTable
+            ? declCompiled.result
+            : declTable;
+        const range = methodDeclarationRangeFromParse(
+          parsed as never,
+          target.name,
+          site.typeFqn,
+          signature,
+        );
+        if (range) {
+          allOccurrences.push({ uri: site.fileUri, range });
+        } else {
+          unsafeOccurrences.push({
+            uri: site.fileUri,
+            reason: `override-declaration-not-found:${site.typeFqn}`,
+          });
+        }
+      } catch (err) {
+        unsafeOccurrences.push({
+          uri: site.fileUri,
+          reason: `override-declaration-scan-failed: ${err}`,
+        });
+      }
+    }
+
+    // Decline the whole rename if ANY occurrence/declaration was unprovable —
+    // applying edits while omitting one would emit a broken partial WorkspaceEdit.
+    if (unsafeOccurrences.length > 0) {
+      const sample = unsafeOccurrences
+        .slice(0, 3)
+        .map((u) => `${u.uri} (${u.reason})`)
+        .join(', ');
+      const message =
+        `Cannot safely rename '${target.name}': ${unsafeOccurrences.length} ` +
+        'occurrence(s) or override declaration(s) could not be resolved without ' +
+        `risking a broken partial edit. Examples: ${sample}.`;
+      emitWorkerLog('warn', `[RENAME] declined method rename — ${message}`);
+      return { error: { code: -32600, message } };
+    }
+
+    if (allOccurrences.length === 0) return null;
+
+    emitWorkerLog(
+      'info',
+      `[RENAME] method '${declaringType}.${target.name}' → '${req.newName}': ` +
+        `${allOccurrences.length} edit(s) across ${familyFqns.size} family ` +
+        `type(s), ${overrideSites.length} declaration site(s), ` +
+        `${totalSkipped} skipped`,
+    );
+
+    // Stage 7: assemble the multi-file WorkspaceEdit (parser 1-based → LSP
+    // 0-based), deduped per URI by position.
+    const changes: Record<
+      string,
+      Array<{
+        range: {
+          start: { line: number; character: number };
+          end: { line: number; character: number };
+        };
+        newText: string;
+      }>
+    > = {};
+    const seenEdits = new Set<string>();
+    for (const occ of allOccurrences) {
+      const r = occ.range;
+      const key =
+        `${occ.uri}\x1f${r.startLine}:${r.startColumn}:` +
+        `${r.endLine}:${r.endColumn}`;
+      if (seenEdits.has(key)) continue;
+      seenEdits.add(key);
+      (changes[occ.uri] ??= []).push({
+        range: {
+          start: { line: r.startLine - 1, character: r.startColumn },
+          end: { line: r.endLine - 1, character: r.endColumn },
+        },
+        newText: req.newName,
+      });
+    }
+
+    return { changes };
+  } catch (err) {
+    emitWorkerLog('warn', `[RENAME] method rename failed for ${uri}: ${err}`);
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Enrichment dispatch handlers (Step 11 on the original file)
 // ---------------------------------------------------------------------------
@@ -5200,13 +5621,17 @@ const requestHandlers = {
   DispatchRename: requestHandler<RenameReq>(
     'DispatchRename',
     async (svc, req) => {
-      // renameLocal first (single-file, no svc needed). A `null` result means
-      // the cursor isn't a local — fall through to renameField (W-23631084),
-      // which needs `svc` for the workspace-wide two-phase scan. A field/method/
-      // type cursor that isn't a field still returns null from both.
+      // renameLocal first (single-file, no svc needed). A `null` means the
+      // cursor isn't a local → fall through to renameField (W-23631084), then
+      // renameMethod (W-23631132) — both use `svc` for the workspace-wide scan.
+      // A type/constructor cursor returns null from all three (renameType TBD).
       const local = await resolveLocalRename(req);
       if (local !== null) return local;
-      return resolveFieldRename(svc, req);
+      // Only a `null` (not-my-kind) may fall through; a RenameErrorResult must
+      // return so a field/method name-conflict isn't retried as another kind.
+      const field = await resolveFieldRename(svc, req);
+      if (field !== null) return field;
+      return resolveMethodRename(svc, req);
     },
   ),
   // prepareRename for locals (W-23631080) + fields (W-23631087). Local path
