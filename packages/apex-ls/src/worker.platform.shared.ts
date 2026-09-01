@@ -3954,6 +3954,16 @@ async function resolvePrepareRenameForLocal(req: PositionReq): Promise<{
  * resolveFieldRename uses (no accept/decline drift), returning the cursor-
  * containing range (usage token or declaration), or null.
  */
+/**
+ * A rename target must live in a USER-OWNED Apex source (W-23631087 review). A
+ * synthetic stdlib URI (`apexlib://`) or a generated-SObject URI
+ * (`apex-sobject://`) is not editable, so members declared there must never be
+ * offered for rename. User workspace docs use `file://` (desktop) or `memfs://`
+ * (web), so a negative check on the synthetic schemes avoids breaking either.
+ */
+const isUserOwnedApexUri = (uri: string | undefined): boolean =>
+  !!uri && !uri.startsWith('apexlib://') && !uri.startsWith('apex-sobject://');
+
 async function resolvePrepareRenameForField(
   svc: RequestServices,
   req: PositionReq,
@@ -3977,16 +3987,24 @@ async function resolvePrepareRenameForField(
     if (!cursorRecompiled && !cursorTextAvailable) return null;
     await loadReferencedTypesForFile(svc, uri);
 
-    // Gate on field/property; anything else → null ("can't be renamed").
-    const target = await targetSymbolForCursor(svc, uri, req.position);
-    if (!target?.name) return null;
-    if (target.kind !== 'field' && target.kind !== 'property') return null;
-
     // LSP (0-based line) → parser (1-based line, 0-based column).
     const parserPosition = {
       line: req.position.line + 1,
       character: req.position.character,
     };
+
+    // Resolve the cursor's declaration symbol to gate on BOTH kind and source
+    // provenance (W-23631087 review, P1): only a field/property declared in a
+    // USER-OWNED Apex source is renamable. A stdlib (`apexlib://`) or generated-
+    // SObject (`apex-sobject://`) member must not be advertised as renamable, or
+    // F2 would open the rename box on something we cannot (and must not) edit.
+    const symbol = await resolveCursorSymbol(svc, uri, parserPosition);
+    if (!symbol?.name) return null;
+    const kind = typeof symbol.kind === 'string' ? symbol.kind : undefined;
+    if (kind !== 'field' && kind !== 'property') return null;
+    if (!isUserOwnedApexUri((symbol as { fileUri?: string }).fileUri)) {
+      return null;
+    }
 
     // Prefer the usage token under the cursor; exactCursorReference narrows to it.
     const references = await svc.symbolManager.getReferencesAtPosition(
@@ -3996,20 +4014,33 @@ async function resolvePrepareRenameForField(
     const selected = exactCursorReference(references ?? [], parserPosition);
     let cursorRange = selected.reference?.location?.identifierRange;
 
-    // Else the cursor is on the declaration; use its range if it contains the cursor.
+    // Else the cursor is on the declaration identifier itself.
     if (!cursorRange) {
       const declaration = await svc.symbolManager.getSymbolAtPosition(
         uri,
         parserPosition,
         'precise',
       );
-      const declRange = declaration?.location?.identifierRange;
-      if (declRange && positionInRange(parserPosition, declRange)) {
-        cursorRange = declRange;
-      }
+      cursorRange = declaration?.location?.identifierRange;
     }
 
-    if (!cursorRange) return null;
+    // Half-open containment (W-23631087 review, P2): parser identifier ranges are
+    // [start, end), so a cursor AT endColumn sits one past the identifier and must
+    // be rejected — matching resolvePrepareRenameForLocal. `positionInRange` uses
+    // an INCLUSIVE end (`> endColumn`), which would wrongly accept that cursor, so
+    // verify half-open containment here before returning any range.
+    const containsCursor = (r: OccurrenceRange): boolean => {
+      const afterStart =
+        r.startLine < parserPosition.line ||
+        (r.startLine === parserPosition.line &&
+          r.startColumn <= parserPosition.character);
+      const beforeEnd =
+        r.endLine > parserPosition.line ||
+        (r.endLine === parserPosition.line &&
+          r.endColumn > parserPosition.character);
+      return afterStart && beforeEnd;
+    };
+    if (!cursorRange || !containsCursor(cursorRange)) return null;
 
     return {
       range: {
@@ -4022,7 +4053,7 @@ async function resolvePrepareRenameForField(
           character: cursorRange.endColumn,
         },
       },
-      placeholder: target.name,
+      placeholder: symbol.name,
     };
   } catch (err) {
     emitWorkerLog('warn', `[PREPARE_RENAME] field failed for ${uri}: ${err}`);
@@ -4069,6 +4100,13 @@ async function resolveFieldContextForCursor(
     };
     const symbol = await resolveCursorSymbol(svc, uri, parserPosition);
     if (!symbol) return null;
+    // Provenance guard (W-23631087 review, P1): only a field declared in a
+    // user-owned Apex source is renamable. A stdlib/generated-SObject field
+    // resolves to a synthetic URI and must not produce a WorkspaceEdit — return
+    // null so resolveFieldRename declines (mirrors the prepare-side guard).
+    if (!isUserOwnedApexUri((symbol as { fileUri?: string }).fileUri)) {
+      return null;
+    }
     const containingType = await svc.symbolManager.getContainingType(symbol);
     if (!containingType) return null;
     const declaringTypeFqn =
@@ -4640,13 +4678,17 @@ async function resolveFieldRename(
       req.position,
     );
     if (declaration) {
-      // The graph range can span the TYPE token under full ingestion; recompute
-      // from a standalone parse (see fieldDeclarationRangeFromParse, W-23631087).
-      let declRange = declaration.identifierRange;
+      // The graph range can span the field's TYPE token under full ingestion, so
+      // it must NOT be trusted. Recompute the declaration range from a standalone
+      // parse of the declaring file; if that verified range is unavailable (no
+      // content, parse failure, or no match) FAIL CLOSED — emitting the graph
+      // range risks renaming the type token (`Integer`) instead of the field
+      // (W-23631087 review, P1). Never fall back to the suspect range.
       const declContent =
         declaration.uri === uri && typeof req.content === 'string'
           ? req.content
           : candidates.find((c) => c.uri === declaration.uri)?.content;
+      let declRange: OccurrenceRange | null = null;
       if (declContent) {
         try {
           const declTable = new SymbolTable();
@@ -4660,15 +4702,22 @@ async function resolveFieldRename(
             declCompiled?.result instanceof SymbolTable
               ? declCompiled.result
               : declTable;
-          const standaloneRange = fieldDeclarationRangeFromParse(
+          declRange = fieldDeclarationRangeFromParse(
             parsedDeclTable as never,
             target.name,
             declaringType,
           );
-          if (standaloneRange) declRange = standaloneRange;
         } catch {
-          // Keep the resolved range if the standalone re-parse fails.
+          declRange = null;
         }
+      }
+      if (!declRange) {
+        const message =
+          `Cannot safely rename '${target.name}': its declaration range could ` +
+          'not be verified from a standalone parse, so the rename is declined ' +
+          'rather than risk corrupting the declaration.';
+        emitWorkerLog('warn', `[RENAME] declined field rename — ${message}`);
+        return { error: { code: -32600, message } };
       }
       allOccurrences.push({ uri: declaration.uri, range: declRange });
     }

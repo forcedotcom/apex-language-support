@@ -626,6 +626,57 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
     expect(prepareInfo.placeholder).toBe('value');
   }, 120_000);
 
+  it('returns null from field prepareRename at the identifier-end boundary (W-23631087 review)', async () => {
+    // `value` on LSP line 1 occupies chars 19-24; the identifier range is half-open
+    // [19, 24), so a cursor at char 24 sits one past the last char and must be
+    // REJECTED (mirrors resolvePrepareRenameForLocal). Guards against the inclusive
+    // positionInRange end check accepting a cursor immediately after the identifier.
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+        uri === PREP_FIELD_URI ? PREP_FIELD_SRC : undefined,
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: PREP_FIELD_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => PREP_FIELD_SRC,
+          },
+          textDocument: { uri: PREP_FIELD_URI },
+          text: PREP_FIELD_SRC,
+        }),
+      );
+
+      const result = yield* Effect.promise(() =>
+        dispatcher.dispatch('prepareRename', {
+          textDocument: { uri: PREP_FIELD_URI },
+          position: { line: 1, character: 24 }, // one past `value`
+          content: PREP_FIELD_SRC,
+        }),
+      );
+
+      return { result };
+    }).pipe(Effect.scoped);
+
+    const { result } = await Effect.runPromise(program);
+    logger.debug(`[prepare-rename:field-boundary] ${JSON.stringify(result)}`);
+
+    expect(result).toBeNull();
+  }, 120_000);
+
   it('returns prepareRename range for a field USAGE cursor (W-23631087)', async () => {
     const program = Effect.gen(function* () {
       const topology = yield* initializeTopology({
