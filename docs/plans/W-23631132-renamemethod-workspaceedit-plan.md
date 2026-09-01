@@ -114,12 +114,14 @@ cursor's parameter types are available from the resolved `MethodSymbol`), declin
 ambiguity; (b) handle **no-body** declarations — abstract/interface methods end in `;`,
 not a `{ }` body — so don't assume a body token exists.
 
-## Qualify-on-conflict
+## Qualify-on-conflict — DEFERRED (follow-up)
 
-Emit `OuterType.newName` for a static-method-in-outer-class shadow. May start
-**minimal = decline on conflict** (matching renameField, which has no qualify rewrite);
-the full rewrite can follow. Document whichever is shipped — don't claim a rewrite that
-isn't implemented.
+**Not implemented in 5.2**, matching the renameField precedent: 4.1 explicitly
+deferred the equivalent field rewrite (`shouldQualifyOnConflict` returns false —
+epic plan 4.1 item iii), so renameField ships without it. The `OuterType.newName`
+static-method-in-outer-class shadow rewrite is a follow-up enhancement; deferring
+it keeps renameMethod consistent with renameField. Note conflict *detection*
+itself is 5.3, so 5.2 has no conflict handling to qualify around yet.
 
 ## Tests (5.2 verification)
 
@@ -149,11 +151,18 @@ isn't implemented.
 - **Edge cases to cover:** interface `default` methods (have bodies, callable),
   abstract methods (no body), `super.foo()`, constructor routing (declined here).
 
-## Slices (build order)
+## Slices (build order / status)
 
-1. `findMethodOccurrences` op + unit tests (parser-ast; no cross-worker deps). ← first
-2. `dataOwner:ResolveMethodRenameFamily` assist + wire schema + coordinator route.
-3. `resolveMethodRename` in the worker + `methodDeclarationRangeFromParse`; fan-out
-   assembly; dispatch fall-through.
-4. Worker-topology tests.
-5. Qualify-on-conflict emission (or documented minimal-decline).
+1. ✅ **DONE** — `findMethodOccurrences` op + 17 unit tests (parser-ast).
+2. ✅ **DONE** — `dataOwner:ResolveMethodRenameFamily` assist + wire schema +
+   coordinator route; extracted the shared `getTypeMembersFullDetail` reader.
+3. ✅ **DONE** — `resolveMethodRename` + `resolveMethodContextForCursor` +
+   `methodDeclarationRangeFromParse`; fan-out assembly; dispatch fall-through
+   (local → field → method) + single-file smoke topology test.
+4. ✅ **DONE** — `RenameMethodThroughWorkerTopology.node.test.ts`: cross-file
+   override, interface implementer, static, overload disambiguation, unsafe→decline.
+5. ⏸️ **DEFERRED** — qualify-on-conflict (see that section; matches the renameField
+   deferral). renameMethod 5.2 is substantively complete without it.
+
+**Not in 5.2 (later WIs):** conflict-detection + validation wiring + method
+`prepareRename` (5.3); editor F2 e2e (5.4).
