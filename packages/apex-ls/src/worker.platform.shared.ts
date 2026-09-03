@@ -3420,6 +3420,93 @@ export async function declarationLocationForCursor(
 }
 
 /**
+ * A minimal SymbolTable view for declaration-range disambiguation: enough to
+ * walk the parent chain from a member to its enclosing type(s).
+ */
+type DeclParseTable = {
+  getSymbolById?: (
+    id: string,
+  ) =>
+    | { id?: string; name?: string; kind?: unknown; parentId?: string }
+    | undefined;
+};
+
+/**
+ * Owning TYPE FQN path (leaf-last, lowercased) for a member symbol from a
+ * standalone parse: walk its parent chain, collecting enclosing TYPE names and
+ * skipping the generated class-body BLOCK symbols. Shared by field/method
+ * declaration disambiguation.
+ */
+function ownerTypePathFromParse(
+  table: DeclParseTable,
+  member: { parentId?: string },
+): string[] {
+  const path: string[] = [];
+  const seen = new Set<string>();
+  let cur = member.parentId
+    ? table.getSymbolById?.(member.parentId)
+    : undefined;
+  let hops = 0;
+  while (cur && hops < 50) {
+    if (cur.id) {
+      if (seen.has(cur.id)) break;
+      seen.add(cur.id);
+    }
+    const kind = String(cur.kind).toLowerCase();
+    if (
+      cur.name &&
+      (kind === 'class' ||
+        kind === 'interface' ||
+        kind === 'enum' ||
+        kind === 'trigger')
+    ) {
+      path.unshift(cur.name.toLowerCase());
+    }
+    cur = cur.parentId ? table.getSymbolById?.(cur.parentId) : undefined;
+    hops++;
+  }
+  return path;
+}
+
+/** True when `suffix` is a non-empty tail of `path` (lowercased segment arrays). */
+function isFqnPathSuffix(path: string[], suffix: string[]): boolean {
+  if (suffix.length === 0 || suffix.length > path.length) return false;
+  for (let i = 1; i <= suffix.length; i++) {
+    if (path[path.length - i] !== suffix[suffix.length - i]) return false;
+  }
+  return true;
+}
+
+/**
+ * Among same-named declaration `members` (fields, or method overloads already
+ * narrowed by signature), the UNIQUE one whose owning-type FQN is a suffix of
+ * `declaringTypeFqn` (namespace-tolerant — the graph FQN may carry a namespace
+ * the standalone parse can't see). Returns its identifier range, or null when
+ * there is no unique match so the caller FAILS CLOSED (declines): two types in
+ * different branches can share a leaf name (`A.Dup` vs `B.Dup`), so a leaf-only
+ * comparison could rewrite the wrong declaration.
+ */
+function uniqueDeclarationRangeByOwningFqn(
+  table: DeclParseTable,
+  members: Array<{
+    parentId?: string;
+    location?: { identifierRange?: OccurrenceRange };
+  }>,
+  declaringTypeFqn: string,
+): OccurrenceRange | null {
+  const requestedPath = declaringTypeFqn
+    .split('.')
+    .map((s) => s.toLowerCase())
+    .filter(Boolean);
+  if (requestedPath.length === 0) return null;
+  const matches = members.filter((m) =>
+    isFqnPathSuffix(requestedPath, ownerTypePathFromParse(table, m)),
+  );
+  if (matches.length === 1) return matches[0].location!.identifierRange!;
+  return null;
+}
+
+/**
  * Field/property declaration range from a STANDALONE parse of the declaring file
  * (W-23631087). The graph symbol's `identifierRange` can span the field's TYPE
  * token under full ingestion (renaming `Integer` instead of the field), so the
@@ -3440,12 +3527,7 @@ export function fieldDeclarationRangeFromParse(
       parentId?: string;
       location?: { identifierRange?: OccurrenceRange };
     }>;
-    getSymbolById?: (
-      id: string,
-    ) =>
-      | { id?: string; name?: string; kind?: unknown; parentId?: string }
-      | undefined;
-  },
+  } & DeclParseTable,
   fieldName: string,
   declaringTypeFqn: string,
 ): OccurrenceRange | null {
@@ -3460,63 +3542,9 @@ export function fieldDeclarationRangeFromParse(
   });
   if (fields.length === 0) return null;
   if (fields.length === 1) return fields[0].location!.identifierRange!;
-
-  // Same-named fields across nested/sibling types in one file. Disambiguate by
-  // the OWNING TYPE FQN, not just the immediate type leaf: two types in
-  // different branches can share a leaf name (`A.Dup` vs `B.Dup`), so a
-  // leaf-only comparison could match the wrong declaration. Walk each field's
-  // parent chain (fields are parented to a generated class-body BLOCK symbol,
-  // whose own parent is the type symbol — so skip everything but type symbols)
-  // to build its owning type path, then keep the field whose path is a suffix of
-  // the requested FQN (the graph FQN may carry a namespace the standalone parse
-  // can't see). A non-unique / no match → null so the caller FAILS CLOSED
-  // (declines) rather than guessing (W-23631087 review).
-  const requestedPath = declaringTypeFqn
-    .split('.')
-    .map((s) => s.toLowerCase())
-    .filter(Boolean);
-  if (requestedPath.length === 0) return null;
-
-  const ownerTypePath = (field: { parentId?: string }): string[] => {
-    const path: string[] = [];
-    const seen = new Set<string>();
-    let cur = field.parentId
-      ? table.getSymbolById?.(field.parentId)
-      : undefined;
-    let hops = 0;
-    while (cur && hops < 50) {
-      if (cur.id) {
-        if (seen.has(cur.id)) break;
-        seen.add(cur.id);
-      }
-      const kind = String(cur.kind).toLowerCase();
-      if (
-        cur.name &&
-        (kind === 'class' ||
-          kind === 'interface' ||
-          kind === 'enum' ||
-          kind === 'trigger')
-      ) {
-        path.unshift(cur.name.toLowerCase());
-      }
-      cur = cur.parentId ? table.getSymbolById?.(cur.parentId) : undefined;
-      hops++;
-    }
-    return path;
-  };
-  const isSuffix = (path: string[], suffix: string[]): boolean => {
-    if (suffix.length === 0 || suffix.length > path.length) return false;
-    for (let i = 1; i <= suffix.length; i++) {
-      if (path[path.length - i] !== suffix[suffix.length - i]) return false;
-    }
-    return true;
-  };
-
-  const matches = fields.filter((f) =>
-    isSuffix(requestedPath, ownerTypePath(f)),
-  );
-  if (matches.length === 1) return matches[0].location!.identifierRange!;
-  return null;
+  // Same-named fields across nested/sibling types in one file — disambiguate by
+  // owning-type FQN; ambiguity fails closed (W-23631087 review).
+  return uniqueDeclarationRangeByOwningFqn(table, fields, declaringTypeFqn);
 }
 
 /**
@@ -3555,6 +3583,7 @@ export function fieldRenameDeclarationDecision(
 function methodDeclarationRangeFromParse(
   table: {
     getAllSymbols?: () => Array<{
+      id?: string;
       name?: string;
       kind?: unknown;
       parentId?: string;
@@ -3563,8 +3592,7 @@ function methodDeclarationRangeFromParse(
       }>;
       location?: { identifierRange?: OccurrenceRange };
     }>;
-    getSymbolById?: (id: string) => { name?: string } | undefined;
-  },
+  } & DeclParseTable,
   methodName: string,
   declaringTypeFqn: string,
   signature?: string[],
@@ -3593,16 +3621,11 @@ function methodDeclarationRangeFromParse(
     if (sigMatches.length >= 1) methods = sigMatches;
   }
   if (methods.length === 1) return methods[0].location!.identifierRange!;
-  // Still ambiguous (same-named + same-signature in nested types) → declaring
-  // type leaf, then best-effort first match.
-  const declLeaf = declaringTypeFqn.split('.').pop()?.toLowerCase();
-  for (const m of methods) {
-    const parent = m.parentId ? table.getSymbolById?.(m.parentId) : undefined;
-    if (parent?.name?.toLowerCase() === declLeaf) {
-      return m.location!.identifierRange!;
-    }
-  }
-  return methods[0].location!.identifierRange!;
+  // Multiple same-name (+ same-signature) methods across nested/sibling types in
+  // one file — disambiguate by owning-type FQN; ambiguity fails closed to null so
+  // the caller declines rather than guessing methods[0] and rewriting the wrong
+  // declaration (review P2).
+  return uniqueDeclarationRangeByOwningFqn(table, methods, declaringTypeFqn);
 }
 
 /**
@@ -5073,6 +5096,18 @@ async function resolveMethodRename(
       return null;
     }
     const { declaringTypeFqn: declaringType, signature, isStatic } = ctx;
+    // An empty signature slot means a parameter's declared type could not be read
+    // (parse degradation). doesSignatureMatch would then fail to match the real
+    // overload, silently dropping its declaration from the override set while
+    // still renaming calls (a partial edit). FAIL CLOSED (review P3).
+    if (signature.some((s) => s === '')) {
+      const message =
+        `Cannot safely rename '${declaringType}.${target.name}': a parameter ` +
+        "type in the method's signature could not be resolved, so its overload " +
+        'cannot be disambiguated. The rename is declined.';
+      emitWorkerLog('warn', `[RENAME] declined method rename — ${message}`);
+      return { error: { code: -32600, message } };
+    }
     const methodTarget = {
       name: target.name,
       kind: 'method' as const,
@@ -5093,6 +5128,7 @@ async function resolveMethodRename(
     let family: {
       familyFqns?: string[];
       overrideSites?: Array<{ typeFqn: string; fileUri: string }>;
+      targetArityAmbiguous?: boolean;
     };
     try {
       family = (await requestCoordinatorAssistancePromiseShared(
@@ -5107,6 +5143,7 @@ async function resolveMethodRename(
       )) as {
         familyFqns?: string[];
         overrideSites?: Array<{ typeFqn: string; fileUri: string }>;
+        targetArityAmbiguous?: boolean;
       };
     } catch (err) {
       const message =
@@ -5118,6 +5155,7 @@ async function resolveMethodRename(
     }
     const familyFqns = new Set<string>(family?.familyFqns ?? [declaringType]);
     const overrideSites = family?.overrideSites ?? [];
+    const familyArityAmbiguous = family?.targetArityAmbiguous === true;
 
     // Stage 5b: candidate discovery — ALL stored docs (no raw-text prefilter),
     // same correctness rationale as resolveFieldRename.
@@ -5194,7 +5232,7 @@ async function resolveMethodRename(
           candidate.uri,
           methodTarget,
           declaringType,
-          { familyFqns },
+          { familyFqns, familyArityAmbiguous },
         );
         for (const occ of occurrences) {
           allOccurrences.push({ uri: occ.uri, range: occ.identifierRange });
@@ -6839,6 +6877,36 @@ const untracedHandlers: SerializedWorkerHandlers = {
               });
             }
 
+            const methodNameLower = req.methodName.toLowerCase();
+            const targetArity = req.signature?.length;
+
+            // Read a type's full+complete members once (cached by symbol ref —
+            // ancestors are visited both when seeding introducers and in the main
+            // loop, and re-enrichment is not free).
+            const membersCache = new Map<ApexSymbol, ApexSymbol[]>();
+            const membersOf = (type: ApexSymbol) =>
+              Effect.gen(function* () {
+                const cached = membersCache.get(type);
+                if (cached) return cached;
+                const members = yield* getTypeMembersFullDetail(svc, type).pipe(
+                  Effect.mapError((message) => ({
+                    _tag: 'ResolveMethodRenameFamilyError' as const,
+                    message,
+                  })),
+                );
+                membersCache.set(type, members);
+                return members;
+              });
+            const declaresTargetSig = (members: ApexSymbol[]): boolean =>
+              members.some(
+                (m) =>
+                  m.kind === SymbolKind.Method &&
+                  m.name.toLowerCase() === methodNameLower &&
+                  (req.signature
+                    ? doesSignatureMatch(m, req.methodName, [...req.signature])
+                    : true),
+              );
+
             // Static methods are not inherited, so the family is the declaring
             // type alone. Instance methods fan out over the whole cone; ancestors
             // fold in extended/implemented interfaces and descendants fold in
@@ -6850,13 +6918,50 @@ const untracedHandlers: SerializedWorkerHandlers = {
                 definingType,
               );
               family.push(...ancestors, ...descendants);
+
+              // Sibling-override capture (review P2): the cursor's type can be a
+              // MID-cone override, so a sibling that overrides the SAME method is
+              // neither its ancestor nor its descendant — it would be silently
+              // left behind (and, if it has no calls, nothing trips the unsafe
+              // decline). Any ancestor (or the cursor type) that DECLARES the
+              // signature INTRODUCES the method, so that introducer's full subtype
+              // cone contains every override incl. siblings. Expand from each.
+              for (const intro of [definingType, ...ancestors]) {
+                if (!declaresTargetSig(yield* membersOf(intro))) continue;
+                const subs = yield* Effect.promise(() =>
+                  svc.symbolManager.findSubtypes(intro),
+                );
+                for (const s of subs) if (inTypeSymbolGroup(s)) family.push(s);
+              }
             }
 
-            const methodNameLower = req.methodName.toLowerCase();
             const familyFqns: string[] = [];
             const overrideSites: Array<{ typeFqn: string; fileUri: string }> =
               [];
             const seen = new Set<string>();
+            // Distinct overload signatures (by param-type list) among family
+            // methods named the target at the target arity. ≥2 ⇒ an UNTYPED call
+            // at that arity cannot be attributed to the target overload (review
+            // P1) — the pool must then decline it in every file.
+            const overloadSigsAtArity = new Set<string>();
+            const sigKeyOf = (m: ApexSymbol): string =>
+              (
+                (
+                  m as {
+                    parameters?: Array<{
+                      type?: { name?: string; originalTypeString?: string };
+                    }>;
+                  }
+                ).parameters ?? []
+              )
+                .map((p) =>
+                  (
+                    p.type?.originalTypeString ??
+                    p.type?.name ??
+                    ''
+                  ).toLowerCase(),
+                )
+                .join(',');
 
             for (const type of family) {
               const typeFqn =
@@ -6868,33 +6973,39 @@ const untracedHandlers: SerializedWorkerHandlers = {
               seen.add(typeFqn);
               familyFqns.push(typeFqn);
 
+              const members = yield* membersOf(type);
+
+              // Accumulate distinct overload signatures at the target arity.
+              for (const m of members) {
+                if (
+                  m.kind !== SymbolKind.Method ||
+                  m.name.toLowerCase() !== methodNameLower
+                )
+                  continue;
+                const arity = (
+                  (m as { parameters?: unknown[] }).parameters ?? []
+                ).length;
+                if (targetArity === undefined || arity === targetArity) {
+                  overloadSigsAtArity.add(sigKeyOf(m));
+                }
+              }
+
               // Does this type DECLARE a signature-matching method to rename?
-              const members = yield* getTypeMembersFullDetail(svc, type).pipe(
-                Effect.mapError((message) => ({
-                  _tag: 'ResolveMethodRenameFamilyError' as const,
-                  message,
-                })),
-              );
-              const declares = members.some(
-                (m) =>
-                  m.kind === SymbolKind.Method &&
-                  m.name.toLowerCase() === methodNameLower &&
-                  (req.signature
-                    ? doesSignatureMatch(m, req.methodName, [...req.signature])
-                    : true),
-              );
-              if (declares && type.fileUri) {
+              if (declaresTargetSig(members) && type.fileUri) {
                 overrideSites.push({ typeFqn, fileUri: type.fileUri });
               }
             }
+
+            const targetArityAmbiguous = overloadSigsAtArity.size >= 2;
 
             emitWorkerLog(
               'info',
               `[RENAME] ResolveMethodRenameFamily: ${req.definingTypeFqn}.` +
                 `${req.methodName} → ${familyFqns.length} family type(s), ` +
-                `${overrideSites.length} override site(s)`,
+                `${overrideSites.length} override site(s)` +
+                (targetArityAmbiguous ? ', arity-ambiguous' : ''),
             );
-            return { familyFqns, overrideSites };
+            return { familyFqns, overrideSites, targetArityAmbiguous };
           }),
         ),
       ),
