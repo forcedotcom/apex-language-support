@@ -740,6 +740,80 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
     expect(prepareInfo.placeholder).toBe('value');
   }, 120_000);
 
+  // W-23631087 re-review (P1): the provenance guard must reject STANDARD-LIBRARY
+  // declarations. `apexlib://` is a synthetic read-only scheme; a field declared
+  // there must never open the rename box (prepareRename → null) nor produce a
+  // WorkspaceEdit (rename → null). Regression: the guard was sourced from
+  // getAllImmutableSchemes(), which INCLUDES `apexlib`, so stdlib members slipped
+  // through. It now uses MUTABLE_DOCUMENT_SCHEMES, which excludes `apexlib`.
+  const STDLIB_FIELD_URI = 'apexlib://test/StdLibType.cls';
+  const STDLIB_FIELD_SRC = `public class StdLibType {
+    public Integer value;
+}`;
+
+  it('declines prepareRename AND rename for a standard-library (apexlib://) field (W-23631087 re-review)', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+        uri === STDLIB_FIELD_URI ? STDLIB_FIELD_SRC : undefined,
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: STDLIB_FIELD_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => STDLIB_FIELD_SRC,
+          },
+          textDocument: { uri: STDLIB_FIELD_URI },
+          text: STDLIB_FIELD_SRC,
+        }),
+      );
+
+      // Cursor on `value` DECLARATION (LSP line 1, char 23).
+      const prepare = yield* Effect.promise(() =>
+        dispatcher.dispatch('prepareRename', {
+          textDocument: { uri: STDLIB_FIELD_URI },
+          position: { line: 1, character: 23 },
+          content: STDLIB_FIELD_SRC,
+        }),
+      );
+      const rename = yield* Effect.promise(() =>
+        dispatcher.dispatch('rename', {
+          textDocument: { uri: STDLIB_FIELD_URI },
+          position: { line: 1, character: 23 },
+          newName: 'amount',
+          content: STDLIB_FIELD_SRC,
+        }),
+      );
+
+      return { prepare, rename };
+    }).pipe(Effect.scoped);
+
+    const { prepare, rename } = await Effect.runPromise(program);
+    logger.debug(
+      `[rename-field:stdlib-guard] prepare=${JSON.stringify(prepare)} ` +
+        `rename=${JSON.stringify(rename)}`,
+    );
+
+    // prepareRename must NOT offer the stdlib field.
+    expect(prepare).toBeNull();
+    // rename must NOT emit any edit for the stdlib declaration.
+    const edit = rename as { changes?: Record<string, unknown> } | null;
+    expect(edit?.changes).toBeUndefined();
+  }, 120_000);
+
   // W-23631084: Field rename tests (4.1)
   describe('renameField cross-file with receiver-type disambiguation (W-23631084)', () => {
     // Account.cls declares a `total` field, used in Caller.cls as `acct.total`.
@@ -1357,6 +1431,16 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       // OuterTwo.cls's same-named inner field must be untouched.
       expect(edit!.changes![OUTER_TWO_URI]).toBeUndefined();
     }, 120_000);
+
+    // NOTE (W-23631087 re-review, P2): the OWNING-FQN disambiguation inside
+    // fieldDeclarationRangeFromParse is covered deterministically by a unit test
+    // (test/unit/fieldDeclarationRangeFromParse.node.test.ts). An end-to-end
+    // same-leaf topology test is intentionally NOT added here: when two nested
+    // types in ONE file share both a leaf name AND a field name, the UPSTREAM
+    // cursor→containing-type resolution (shared graph infra) resolves to the
+    // FIRST same-named type regardless of cursor position, so the helper receives
+    // an already-wrong declaringType. That upstream limitation is out of scope
+    // for this field-rename change and tracked separately.
 
     // W-23631084 P1: an IN-FILE-resolvable static qualifier (`Account.total`
     // inside a NESTED class of `Account`) must be renamed end-to-end without a

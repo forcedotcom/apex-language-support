@@ -105,7 +105,10 @@ import {
   SymbolKind,
   SymbolTable,
 } from '@salesforce/apex-lsp-parser-ast';
-import { getLogger, getAllImmutableSchemes } from '@salesforce/apex-lsp-shared';
+import {
+  getLogger,
+  MUTABLE_DOCUMENT_SCHEMES,
+} from '@salesforce/apex-lsp-shared';
 import {
   CompilationWorkerPool,
   type CompilationWorkerPoolService,
@@ -3419,16 +3422,27 @@ export async function declarationLocationForCursor(
  * (W-23631087). The graph symbol's `identifierRange` can span the field's TYPE
  * token under full ingestion (renaming `Integer` instead of the field), so the
  * declaration must come from the same parse findFieldOccurrences uses for usages.
+ * When several same-named fields exist (nested/sibling types), the one whose
+ * OWNING TYPE FQN matches `declaringTypeFqn` is chosen; ambiguity fails closed
+ * to null so the caller declines.
+ *
+ * Exported for unit testing (the disambiguation logic is otherwise reachable
+ * only through the full worker topology).
  */
-function fieldDeclarationRangeFromParse(
+export function fieldDeclarationRangeFromParse(
   table: {
     getAllSymbols?: () => Array<{
+      id?: string;
       name?: string;
       kind?: unknown;
       parentId?: string;
       location?: { identifierRange?: OccurrenceRange };
     }>;
-    getSymbolById?: (id: string) => { name?: string } | undefined;
+    getSymbolById?: (
+      id: string,
+    ) =>
+      | { id?: string; name?: string; kind?: unknown; parentId?: string }
+      | undefined;
   },
   fieldName: string,
   declaringTypeFqn: string,
@@ -3444,18 +3458,88 @@ function fieldDeclarationRangeFromParse(
   });
   if (fields.length === 0) return null;
   if (fields.length === 1) return fields[0].location!.identifierRange!;
-  // Same-named fields (nested types) → match the declaring type's leaf name.
-  const declLeaf = declaringTypeFqn.split('.').pop()?.toLowerCase();
-  for (const f of fields) {
-    const parent = f.parentId ? table.getSymbolById?.(f.parentId) : undefined;
-    if (parent?.name?.toLowerCase() === declLeaf) {
-      return f.location!.identifierRange!;
+
+  // Same-named fields across nested/sibling types in one file. Disambiguate by
+  // the OWNING TYPE FQN, not just the immediate type leaf: two types in
+  // different branches can share a leaf name (`A.Dup` vs `B.Dup`), so a
+  // leaf-only comparison could match the wrong declaration. Walk each field's
+  // parent chain (fields are parented to a generated class-body BLOCK symbol,
+  // whose own parent is the type symbol — so skip everything but type symbols)
+  // to build its owning type path, then keep the field whose path is a suffix of
+  // the requested FQN (the graph FQN may carry a namespace the standalone parse
+  // can't see). A non-unique / no match → null so the caller FAILS CLOSED
+  // (declines) rather than guessing (W-23631087 review).
+  const requestedPath = declaringTypeFqn
+    .split('.')
+    .map((s) => s.toLowerCase())
+    .filter(Boolean);
+  if (requestedPath.length === 0) return null;
+
+  const ownerTypePath = (field: { parentId?: string }): string[] => {
+    const path: string[] = [];
+    const seen = new Set<string>();
+    let cur = field.parentId
+      ? table.getSymbolById?.(field.parentId)
+      : undefined;
+    let hops = 0;
+    while (cur && hops < 50) {
+      if (cur.id) {
+        if (seen.has(cur.id)) break;
+        seen.add(cur.id);
+      }
+      const kind = String(cur.kind).toLowerCase();
+      if (
+        cur.name &&
+        (kind === 'class' ||
+          kind === 'interface' ||
+          kind === 'enum' ||
+          kind === 'trigger')
+      ) {
+        path.unshift(cur.name.toLowerCase());
+      }
+      cur = cur.parentId ? table.getSymbolById?.(cur.parentId) : undefined;
+      hops++;
     }
-  }
-  // Ambiguous same-named fields with no declaring-type match: return null so the
-  // caller FAILS CLOSED (declines) rather than guessing the first match and
-  // possibly renaming the wrong field's declaration (W-23631087 review).
+    return path;
+  };
+  const isSuffix = (path: string[], suffix: string[]): boolean => {
+    if (suffix.length === 0 || suffix.length > path.length) return false;
+    for (let i = 1; i <= suffix.length; i++) {
+      if (path[path.length - i] !== suffix[suffix.length - i]) return false;
+    }
+    return true;
+  };
+
+  const matches = fields.filter((f) =>
+    isSuffix(requestedPath, ownerTypePath(f)),
+  );
+  if (matches.length === 1) return matches[0].location!.identifierRange!;
   return null;
+}
+
+/**
+ * Decide how a field rename must proceed once occurrences are gathered but
+ * BEFORE the declaration edit is assembled (W-23631087 re-review, P1). A field
+ * rename must ALWAYS rewrite the declaration alongside its usages; the Stage 6
+ * scan gathers usages ONLY (never the declaration). So:
+ *
+ *   - declaration resolved            → `proceed` (append the declaration edit)
+ *   - no declaration, no usages       → `nothing-to-rename` (return null)
+ *   - no declaration, but usages found → `decline-partial` — emitting the usage
+ *     edits alone would leave the declaration untouched (a broken partial edit),
+ *     so FAIL CLOSED and decline.
+ *
+ * Pure + exported so the fail-closed policy is unit-tested directly (the inline
+ * branch is otherwise reachable only when the shared resolver fails to locate a
+ * declaration it earlier resolved for context — hard to force end-to-end).
+ */
+export function fieldRenameDeclarationDecision(
+  hasDeclaration: boolean,
+  occurrenceCount: number,
+): 'proceed' | 'nothing-to-rename' | 'decline-partial' {
+  if (hasDeclaration) return 'proceed';
+  if (occurrenceCount === 0) return 'nothing-to-rename';
+  return 'decline-partial';
 }
 
 /**
@@ -3954,13 +4038,15 @@ async function resolvePrepareRenameForLocal(req: PositionReq): Promise<{
  * A rename target must live in a USER-OWNED Apex source (W-23631087 review). A
  * declaration in a synthetic URI — stdlib (`apexlib://`), generated SObject
  * (`apex-sobject://`), or any other non-workspace scheme — is not editable and
- * must never be offered for rename. Uses a POSITIVE allowlist of the immutable
+ * must never be offered for rename. Uses a POSITIVE allowlist of the EDITABLE
  * document-selector schemes VS Code opens user Apex docs under (`file`,
  * `vscode-test-web`, `memfs`, `reefs`), so an unknown/future synthetic scheme
- * fails CLOSED rather than slipping through a negative check.
+ * fails CLOSED rather than slipping through a negative check. Sourced from
+ * `MUTABLE_DOCUMENT_SCHEMES` (NOT `getAllImmutableSchemes`, which includes the
+ * synthetic `apexlib` stdlib scheme this guard must reject).
  */
 const USER_OWNED_URI_SCHEMES: ReadonlySet<string> = new Set(
-  getAllImmutableSchemes(),
+  MUTABLE_DOCUMENT_SCHEMES,
 );
 const isUserOwnedApexUri = (uri: string | undefined): boolean => {
   if (!uri) return false;
@@ -4691,6 +4777,24 @@ async function resolveFieldRename(
       uri,
       req.position,
     );
+    const declDecision = fieldRenameDeclarationDecision(
+      declaration !== null,
+      allOccurrences.length,
+    );
+    if (declDecision === 'nothing-to-rename') return null;
+    if (declDecision === 'decline-partial') {
+      // Usages were found but the declaration itself could not be located.
+      // Emitting the usage edits alone would be a PARTIAL rename that leaves the
+      // declaration untouched (Stage 6 gathers usages only, never declarations),
+      // so FAIL CLOSED and decline rather than corrupt (W-23631087 review, P1).
+      const message =
+        `Cannot safely rename '${target.name}': its declaration could not be ` +
+        'located, so renaming the usages alone would leave the declaration ' +
+        'untouched (a broken partial edit). The rename is declined.';
+      emitWorkerLog('warn', `[RENAME] declined field rename — ${message}`);
+      return { error: { code: -32600, message } };
+    }
+    // declDecision === 'proceed' — declaration resolved; assemble its edit.
     if (declaration) {
       // The graph range can span the field's TYPE token under full ingestion, so
       // it must NOT be trusted. Recompute the declaration range from a standalone
@@ -4736,8 +4840,8 @@ async function resolveFieldRename(
       }
       allOccurrences.push({ uri: declaration.uri, range: declRange });
     }
-
-    if (allOccurrences.length === 0) return null;
+    // A verified declaration was pushed above (the null-declaration case returned
+    // earlier), so allOccurrences always holds at least the declaration edit here.
 
     emitWorkerLog(
       'info',
