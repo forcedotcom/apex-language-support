@@ -1118,6 +1118,12 @@ export class ResolveMethodRenameFamily extends Schema.TaggedRequest<ResolveMetho
       overrideSites: Schema.Array(
         Schema.Struct({ typeFqn: Schema.String, fileUri: Schema.String }),
       ),
+      // True when the family declares ≥2 distinct overloads named the target at
+      // the target arity. `argumentTypes` are never populated in this build, so a
+      // caller file cannot detect same-arity overload ambiguity locally; the pool
+      // must decline every UNTYPED same-arity call when this is set (else it could
+      // rewrite a call that binds a DIFFERENT overload). Optional for wire compat.
+      targetArityAmbiguous: Schema.optional(Schema.Boolean),
     }),
     failure: Schema.Struct({
       _tag: Schema.Literal('ResolveMethodRenameFamilyError'),

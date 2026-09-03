@@ -322,7 +322,9 @@ describe('findMethodOccurrences', () => {
     ).toBe(false);
   });
 
-  it('declines a super.foo() ancestor call', () => {
+  it('renames a super.foo() call from a FAMILY type (provably the target)', () => {
+    // `super.foo()` inside Child, which is IN the family cone: the ancestor's
+    // `foo` is the target override set → occurrence, not a decline (review P3).
     const src = `public class Child extends Base {
     public void run() {
         super.foo();
@@ -337,9 +339,57 @@ describe('findMethodOccurrences', () => {
       { familyFqns: new Set(['Child']) },
     );
 
+    expect(result.unsafe.length).toBe(0);
+    expect(
+      result.occurrences.some((o) => o.identifierRange.startLine === 3),
+    ).toBe(true);
+  });
+
+  it('declines a super.foo() call from a type OUTSIDE the family', () => {
+    // Stranger is not in the family cone, so we cannot prove its ancestor's
+    // `foo` is the target standalone → unsafe.
+    const src = `public class Stranger extends Something {
+    public void run() {
+        super.foo();
+    }
+}`;
+    const table = parseSource(src, 'file:///t/Stranger.cls');
+    const result = findMethodOccurrences(
+      table,
+      'file:///t/Stranger.cls',
+      { name: 'foo', kind: 'method', signature: [] },
+      'Base',
+      { familyFqns: new Set(['Child']) },
+    );
+
     expect(result.occurrences.length).toBe(0);
     expect(
       result.unsafe.some((u) => u.reason === 'super-receiver-unprovable'),
+    ).toBe(true);
+  });
+
+  it('declines an untyped same-arity call in a CALLER file when the family is arity-ambiguous', () => {
+    // The caller declares no `foo` overloads, so it cannot detect same-arity
+    // ambiguity locally (argumentTypes are never populated). The family-wide flag
+    // (computed on the complete graph) must force the decline here, else the call
+    // — which may bind a DIFFERENT overload — would be silently rewritten (P1).
+    const src = `public class Caller {
+    public void run(Svc s, Object x) {
+        s.foo(x);
+    }
+}`;
+    const table = parseSource(src, 'file:///t/Caller.cls');
+    const result = findMethodOccurrences(
+      table,
+      'file:///t/Caller.cls',
+      { name: 'foo', kind: 'method', signature: ['Integer'] },
+      'Svc',
+      { familyFqns: new Set(['Svc']), familyArityAmbiguous: true },
+    );
+
+    expect(result.occurrences.length).toBe(0);
+    expect(
+      result.unsafe.some((u) => u.reason === 'ambiguous-overload-untyped'),
     ).toBe(true);
   });
 

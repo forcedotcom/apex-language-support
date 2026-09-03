@@ -117,6 +117,35 @@ const RM_FACTORY_SRC = `public class RmFactory {
     public void go() { build().ship(); }
 }`;
 
+// Case 6 (review P1): cross-file SAME-ARITY overloads. Renaming pick(Integer)
+// must decline because a caller's untyped same-arity call pick('hi') could bind
+// the OTHER overload, and argumentTypes are never populated to disambiguate.
+const RM_SVC_URI = 'file:///test/RmSvc.cls';
+const RM_SVC_SRC = `public class RmSvc {
+    public void pick(Integer a) { }
+    public void pick(String a) { }
+}`;
+const RM_SVCCALLER_URI = 'file:///test/RmSvcCaller.cls';
+const RM_SVCCALLER_SRC = `public class RmSvcCaller {
+    public void run(RmSvc s) { s.pick('hi'); }
+}`;
+
+// Case 7 (review P2): SIBLING override with no calls. Renaming from the mid-cone
+// override RmCircle.draw must also rename the sibling RmSquare.draw declaration
+// (both override RmShape.draw), not silently leave it behind.
+const RM_SHAPE_URI = 'file:///test/RmShape.cls';
+const RM_SHAPE_SRC = `public virtual class RmShape {
+    public virtual void draw() { }
+}`;
+const RM_CIRCLE_URI = 'file:///test/RmCircle.cls';
+const RM_CIRCLE_SRC = `public class RmCircle extends RmShape {
+    public override void draw() { }
+}`;
+const RM_SQUARE_URI = 'file:///test/RmSquare.cls';
+const RM_SQUARE_SRC = `public class RmSquare extends RmShape {
+    public override void draw() { }
+}`;
+
 const SOURCES: Record<string, string> = {
   [RM_BASE_URI]: RM_BASE_SRC,
   [RM_CHILD_URI]: RM_CHILD_SRC,
@@ -126,6 +155,11 @@ const SOURCES: Record<string, string> = {
   [RM_OVERLOAD_URI]: RM_OVERLOAD_SRC,
   [RM_PRODUCT_URI]: RM_PRODUCT_SRC,
   [RM_FACTORY_URI]: RM_FACTORY_SRC,
+  [RM_SVC_URI]: RM_SVC_SRC,
+  [RM_SVCCALLER_URI]: RM_SVCCALLER_SRC,
+  [RM_SHAPE_URI]: RM_SHAPE_SRC,
+  [RM_CIRCLE_URI]: RM_CIRCLE_SRC,
+  [RM_SQUARE_URI]: RM_SQUARE_SRC,
 };
 
 const WORKSPACE_ENTRIES = Object.entries(SOURCES).map(([uri, content]) => ({
@@ -363,5 +397,50 @@ describe('renameMethod through the worker topology (W-23631132, slice 4)', () =>
     expect(result!.error!.code).toBe(-32600);
     expect(typeof result!.error!.message).toBe('string');
     expect(result!.error!.message.length).toBeGreaterThan(0);
+  }, 120_000);
+
+  it('declines a cross-file untyped call to a same-arity overload (review P1)', async () => {
+    // Cursor on RmSvc.pick(Integer) declaration (LSP line 1, char 18). RmSvc
+    // declares two arity-1 overloads; RmSvcCaller's `s.pick('hi')` is untyped
+    // (argumentTypes never populated) so it could bind pick(String). The family
+    // is arity-ambiguous, so the whole rename must DECLINE — never silently
+    // rewrite that call while leaving pick(String) behind.
+    const result = await rename(
+      RM_SVC_URI,
+      { line: 1, character: 18 },
+      'choose',
+    );
+    logger.debug(
+      `[rename-method:overload-crossfile] ${JSON.stringify(result)}`,
+    );
+
+    expect(result).not.toBeNull();
+    expect(result).toHaveProperty('error');
+    expect(result).not.toHaveProperty('changes');
+    expect(result!.error!.code).toBe(-32600);
+    expect(result!.error!.message.length).toBeGreaterThan(0);
+  }, 120_000);
+
+  it('renames a SIBLING override declaration with no calls (review P2)', async () => {
+    // Cursor on the mid-cone override RmCircle.draw (LSP line 1, char 27).
+    // RmSquare.draw is a SIBLING override (both extend RmShape) with no call
+    // sites — it must still be renamed, not silently left behind.
+    const result = await rename(
+      RM_CIRCLE_URI,
+      { line: 1, character: 27 },
+      'render',
+    );
+    logger.debug(`[rename-method:sibling] ${JSON.stringify(result)}`);
+
+    expect(result?.error).toBeUndefined();
+    expect(result?.changes).toBeDefined();
+    const changes = result!.changes!;
+    // All three override declarations renamed — including the sibling RmSquare.
+    expect(changes[RM_SHAPE_URI]).toBeDefined();
+    expect(changes[RM_CIRCLE_URI]).toBeDefined();
+    expect(changes[RM_SQUARE_URI]).toBeDefined();
+    Object.values(changes)
+      .flat()
+      .forEach((e) => expect(e.newText).toBe('render'));
   }, 120_000);
 });
