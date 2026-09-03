@@ -41,8 +41,9 @@ export interface MethodOccurrenceCandidateNote {
  *   a distinct locally-declared type outside the family with no supertypes. Safe
  *   to omit while still renaming the declaration.
  * - `unsafe` — candidates that MIGHT be the target method but cannot be proven so
- *   from this single-file standalone parse: a `super.foo()` ancestor call, a
- *   multi-hop chained call (`a.b.foo()`), a method/constructor-result receiver
+ *   from this single-file standalone parse: a `super.foo()` ancestor call from a
+ *   type OUTSIDE the family (a `super.foo()` from a family type is a provable
+ *   occurrence), a multi-hop chained call (`a.b.foo()`), a method/constructor-result receiver
  *   (`getX().foo()`, `new T().foo()`), an unresolvable receiver, a receiver whose
  *   type could be a subtype/implementor in the family cone, or an untyped call
  *   that matches the target arity when the family declares multiple same-arity
@@ -71,6 +72,16 @@ export interface FindMethodOccurrencesOptions {
    * `familyFqns ∪ {declaringTypeFqn}`.
    */
   familyFqns?: ReadonlySet<string>;
+  /**
+   * True when the WHOLE FAMILY declares ≥2 distinct same-arity overloads named
+   * the target (computed on the complete graph by the data owner). This op runs
+   * on a single-file standalone parse where `argumentTypes` are never populated
+   * and only the current file's overload declarations are visible, so a caller
+   * file cannot detect same-arity ambiguity on its own. When set, an untyped
+   * call matching the target arity is `unsafe` in EVERY file — otherwise a call
+   * that binds a DIFFERENT overload would be silently rewritten (a broken edit).
+   */
+  familyArityAmbiguous?: boolean;
 }
 
 const isVariableLike = (symbol: ApexSymbol): boolean =>
@@ -322,9 +333,15 @@ export function findMethodOccurrences(
           });
           continue;
         }
-      } else if (overloadsAtArity(argc ?? targetArity) >= 2) {
+      } else if (
+        options?.familyArityAmbiguous ||
+        overloadsAtArity(argc ?? targetArity) >= 2
+      ) {
         // Arity-only fallback: an untyped call matching the target arity is
-        // ambiguous when the family declares multiple same-arity overloads.
+        // ambiguous when the family declares multiple same-arity overloads. The
+        // family-wide flag (from the complete graph) is authoritative — a caller
+        // file only sees its own declarations, so `overloadsAtArity` is 0 there
+        // and would fail OPEN without it.
         unsafe.push({
           uri: fileUri,
           identifierRange: candidate.identifierRange,
@@ -359,6 +376,7 @@ export function findMethodOccurrences(
         typeSymbols,
         invocationNameByPos,
         staticQualifierByPos,
+        familySet,
       );
       if (resolved.kind === 'unsafe') {
         unsafe.push({
@@ -423,7 +441,9 @@ type ReceiverResolution =
  * resolved type FQN or an unprovable-receiver reason.
  *
  *  - `this` → the enclosing type (an instance self-call).
- *  - `super` → an ancestor call, unresolvable standalone → unsafe.
+ *  - `super` → an ancestor call. When the enclosing type is itself IN THE FAMILY
+ *    the ancestor's method is provably the target being renamed → occurrence;
+ *    otherwise it's unresolvable standalone → unsafe.
  *  - a method/constructor result (`getX().foo()`, `new T().foo()`) → unsafe: its
  *    result type cannot be established from this parse.
  *  - an instance variable/param/field → its declared type.
@@ -436,6 +456,7 @@ function classifyReceiver(
   typeSymbols: TypeSymbol[],
   invocationNameByPos: Map<string, Set<string>>,
   staticQualifierByPos: Map<string, SymbolReference>,
+  familySet: ReadonlySet<string>,
 ): ReceiverResolution {
   const nameLower = root.name.toLowerCase();
   const rootIr = root.location?.identifierRange;
@@ -448,6 +469,16 @@ function classifyReceiver(
       : { kind: 'unsafe', reason: 'unresolvable-receiver' };
   }
   if (nameLower === 'super') {
+    // `super.foo()` calls the ancestor's `foo`. When the enclosing type is in the
+    // family cone, that ancestor method IS the target override set — arity was
+    // already matched upstream — so this call must be renamed. Outside the family
+    // we cannot prove the ancestor is the target standalone → unsafe.
+    if (rootIr) {
+      const enclosing = getEnclosingType(typeSymbols, rootIr);
+      if (enclosing && familySet.has(computeTypeFqn(table, enclosing))) {
+        return { kind: 'type', typeFqn: computeTypeFqn(table, enclosing) };
+      }
+    }
     return { kind: 'unsafe', reason: 'super-receiver-unprovable' };
   }
 
