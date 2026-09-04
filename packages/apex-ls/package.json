@@ -205,7 +205,7 @@
     "assert": "^2.1.0",
     "buffer": "^6.0.3",
     "events": "^3.3.0",
-    "jest-environment-jsdom": "^30.4.1",
+    "jest-environment-jsdom": "^30.5.0",
     "memfs": "^4.68.0",
     "memfs-browser": "^3.5.10302",
     "node-dir": "^0.1.17",
