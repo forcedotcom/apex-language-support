@@ -39,7 +39,7 @@ descendant; 5.3 only narrows the *match predicate* to include signature.
 
 ## Slices
 
-### Slice 1 — Signature-aware method conflict matching (data-owner)  ✅/⬜
+### Slice 1 — Signature-aware method conflict matching (data-owner)  ✅ DONE
 - Add optional `signature: Schema.optional(Schema.Array(Schema.String))` to the
   `CheckMemberConflicts` payload (wire compat: absent → current name-only).
 - In the handler, when `memberKind === 'method'` and a `signature` is supplied,
@@ -49,7 +49,7 @@ descendant; 5.3 only narrows the *match predicate* to include signature.
 - Handler tests: same-signature method collision → conflict; different-signature
   overload → no conflict; field path unchanged.
 
-### Slice 2 — Wire Stage 4.5 into `resolveMethodRename`  ⬜
+### Slice 2 — Wire Stage 4.5 into `resolveMethodRename`  ✅ DONE
 - Derive the renamed method's visibility (isPrivate: Private OR Default) —
   extend `resolveMethodContextForCursor` to also return `isPrivate` (mirrors
   `resolveFieldContextForCursor`).
@@ -61,11 +61,13 @@ descendant; 5.3 only narrows the *match predicate* to include signature.
 - Topology tests: same-type same-signature conflict declines; overload (diff
   signature) proceeds; no-op rename skips the check.
 
-### Slice 3 — Validation confirmation + docs  ⬜
-- Confirm `validateRenameName` + `canBeRenamed`/provenance already satisfy the
-  "IdentifierValidator + canBeRenamed guard for methods" requirement; add a
-  regression test if a gap exists (e.g. invalid method newName → ResponseError).
-- Update this plan + the WI detail; open the PR stacked on #673.
+### Slice 3 — Validation confirmation + docs  ✅ DONE
+- Confirmed `validateRenameName(newName, SymbolKind.Method)` (Stage 4) rejects an
+  invalid identifier with a -32602 ResponseError, and the `isUserOwnedApexUri`
+  provenance guard (`canBeRenamed` is-user-sourced) rejects stdlib/generated
+  methods — both already wired on the method path from 5.2. Added an invalid-name
+  regression test to the topology suite.
+- Updated this plan + the WI detail; PR opened stacked on #673.
 
 ## Out of scope
 - Method `prepareRename` (Phase 4 / 7.1 generalization) and 5.4 e2e.

@@ -507,4 +507,21 @@ describe('renameMethod through the worker topology (W-23631132, slice 4)', () =>
       result!.changes![RM_CONFLICT_URI].some((e) => e.newText === 'Alpha'),
     ).toBe(true);
   }, 120_000);
+
+  it('rejects an invalid method newName with a validation error (WI 5.3)', async () => {
+    // `2bad` is not a valid Apex identifier → validateRenameName rejects it with
+    // a -32602 ResponseError before any edit or conflict query.
+    const result = await rename(
+      RM_CONFLICT_URI,
+      { line: 1, character: 18 },
+      '2bad',
+    );
+    logger.debug(`[rename-method:invalid-name] ${JSON.stringify(result)}`);
+
+    expect(result).not.toBeNull();
+    expect(result).toHaveProperty('error');
+    expect(result).not.toHaveProperty('changes');
+    expect(result!.error!.code).toBe(-32602);
+    expect(result!.error!.message.length).toBeGreaterThan(0);
+  }, 120_000);
 });
