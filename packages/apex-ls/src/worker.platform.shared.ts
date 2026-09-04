@@ -6605,10 +6605,14 @@ const untracedHandlers: SerializedWorkerHandlers = {
               });
             }
 
-            const { SymbolKind, SymbolVisibility, inTypeSymbolGroup } =
-              yield* Effect.promise(
-                () => import('@salesforce/apex-lsp-parser-ast'),
-              );
+            const {
+              SymbolKind,
+              SymbolVisibility,
+              inTypeSymbolGroup,
+              doesSignatureMatch,
+            } = yield* Effect.promise(
+              () => import('@salesforce/apex-lsp-parser-ast'),
+            );
 
             // Resolve the defining type by FQN
             const definingType = yield* Effect.promise(() =>
@@ -6676,10 +6680,13 @@ const untracedHandlers: SerializedWorkerHandlers = {
                 })),
               );
 
-            // Helper: check type for member with newName (as an Effect generator)
-            // NOTE: For methods, this does name-based matching only.
-            // Signature-equivalence refinement is deferred to WI 5.3 when
-            // renameMethod consumes this query with full signature checking.
+            // Helper: check type for member with newName (as an Effect generator).
+            // Methods overload on signature (WI 5.3): a same-named method is only
+            // a conflict when its signature ALSO matches the renamed method's —
+            // `foo(Integer)`→`bar` does NOT collide with an existing `bar(String)`
+            // (a legal overload), but DOES collide with an existing `bar(Integer)`.
+            // Fields/properties (and a signature-absent method request) keep the
+            // name-only match.
             const hasMemberNamed = (
               type: ApexSymbol,
               name: string,
@@ -6692,6 +6699,16 @@ const untracedHandlers: SerializedWorkerHandlers = {
                   if (!kinds.includes(m.kind)) return false;
                   if (!memberNameMatches(m.name, name)) return false;
                   if (excludePrivate && isPrivate(m)) return false;
+                  if (
+                    req.memberKind === 'method' &&
+                    req.signature &&
+                    m.kind === SymbolKind.Method &&
+                    !doesSignatureMatch(m, name, [...req.signature])
+                  ) {
+                    // Same-named method but a DIFFERENT signature → legal overload,
+                    // not a conflict.
+                    return false;
+                  }
                   return true;
                 });
               });
@@ -6716,7 +6733,16 @@ const untracedHandlers: SerializedWorkerHandlers = {
               const renamedMember = definingMembers.find(
                 (m) =>
                   memberKinds.includes(m.kind) &&
-                  memberNameMatches(m.name, currentNameLower),
+                  memberNameMatches(m.name, currentNameLower) &&
+                  // For an overloaded method, pick the exact overload by
+                  // signature so we read the RENAMED method's visibility (not a
+                  // sibling overload's) for the descendant gate.
+                  (req.memberKind === 'method' && req.signature
+                    ? m.kind === SymbolKind.Method &&
+                      doesSignatureMatch(m, req.currentName!, [
+                        ...req.signature,
+                      ])
+                    : true),
               );
               if (!renamedMember) {
                 return yield* Effect.fail({

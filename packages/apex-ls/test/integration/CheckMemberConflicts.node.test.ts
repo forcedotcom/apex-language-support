@@ -155,6 +155,17 @@ const BROKEN_SRC = `public class brokenType {
     }
 }`;
 
+// Overloaded methods for signature-aware conflict matching (WI 5.3). Renaming
+// `beta(Integer)` collides with `alpha(Integer)` (same signature) but NOT with
+// `gamma(String)` (a legal overload at a different signature).
+const MOVERLOAD_URI = 'file:///test/mOverload.cls';
+const MOVERLOAD_SRC = `public class mOverload {
+    public void alpha(Integer a) { }
+    public void alpha(String a) { }
+    public void beta(Integer a) { }
+    public void gamma(String a) { }
+}`;
+
 // One combined workspace containing every fixture. Ingested once.
 const WORKSPACE_ENTRIES = [
   { uri: BASE_URI, content: BASE_SRC, languageId: 'apex', version: 1 },
@@ -240,6 +251,12 @@ const WORKSPACE_ENTRIES = [
     version: 1,
   },
   { uri: BROKEN_URI, content: BROKEN_SRC, languageId: 'apex', version: 1 },
+  {
+    uri: MOVERLOAD_URI,
+    content: MOVERLOAD_SRC,
+    languageId: 'apex',
+    version: 1,
+  },
 ];
 
 type ConflictResult = {
@@ -254,6 +271,7 @@ type ConflictQuery = {
   memberKind: 'field' | 'method';
   isRenamedMemberPrivate: boolean;
   currentName?: string;
+  signature?: string[];
 };
 
 describe('CheckMemberConflicts data-owner query', () => {
@@ -475,6 +493,54 @@ describe('CheckMemberConflicts data-owner query', () => {
     expect(result.conflict).toBe(true);
     expect(result.reason).toBe('ancestor');
     expect(result.conflictingTypeFqn?.toLowerCase()).toContain('ihasmethod');
+  });
+
+  // --- WI 5.3: signature-aware method conflict matching ---------------------
+
+  it('reports a same-type method conflict when a SAME-signature method exists', async () => {
+    // Rename mOverload.beta(Integer) → 'alpha'. alpha(Integer) already exists
+    // (same signature) → a real collision.
+    const result = await runConflictQuery({
+      definingTypeFqn: 'mOverload',
+      newName: 'alpha',
+      memberKind: 'method',
+      isRenamedMemberPrivate: false,
+      currentName: 'beta',
+      signature: ['Integer'],
+    });
+
+    expect(result.conflict).toBe(true);
+    expect(result.reason).toBe('same-type');
+  });
+
+  it('does NOT report a conflict against a DIFFERENT-signature overload', async () => {
+    // Rename mOverload.beta(Integer) → 'gamma'. Only gamma(String) exists — a
+    // legal overload at a different signature, not a conflict.
+    const result = await runConflictQuery({
+      definingTypeFqn: 'mOverload',
+      newName: 'gamma',
+      memberKind: 'method',
+      isRenamedMemberPrivate: false,
+      currentName: 'beta',
+      signature: ['Integer'],
+    });
+
+    expect(result.conflict).toBe(false);
+  });
+
+  it('falls back to name-only method matching when no signature is supplied', async () => {
+    // Without a signature (legacy/absent), a same-named method is a conflict
+    // regardless of overload — preserves backward-compatible behavior.
+    const result = await runConflictQuery({
+      definingTypeFqn: 'mOverload',
+      newName: 'alpha',
+      memberKind: 'method',
+      isRenamedMemberPrivate: false,
+      currentName: 'beta',
+    });
+
+    expect(result.conflict).toBe(true);
+    expect(result.reason).toBe('same-type');
   });
 
   // --- Finding 1: non-public members must be visible ---------------------

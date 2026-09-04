@@ -1094,6 +1094,11 @@ export class CheckMemberConflicts extends Schema.TaggedRequest<CheckMemberConfli
       // short-circuited to conflict:false so the member never conflicts with
       // itself in the same-type lookup. Optional for backward compatibility.
       currentName: Schema.optional(Schema.String),
+      // The renamed METHOD's parameter-type signature. Methods overload on
+      // signature, so a same-named method is a conflict only when its signature
+      // ALSO matches (WI 5.3) — `foo(Integer)`→`bar` does not collide with an
+      // existing `bar(String)`. Absent (or memberKind 'field') → name-only match.
+      signature: Schema.optional(Schema.Array(Schema.String)),
     },
   },
 ) {}
