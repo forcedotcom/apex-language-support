@@ -27,7 +27,7 @@ permissions:
 
 jobs:
   nightly-release:
-    uses: salesforcecli/github-workflows/.github/workflows/vscode-publish-extensions.yml@main
+    uses: salesforcecli/github-workflows/.github/workflows/vscode-publish-extensions.yml@ms/fix-monorepo-github-release
     with:
       branch: ${{ github.event.inputs.branch || 'main' }}
       # Use 'changed' to automatically detect extensions with changes since last release
