@@ -4326,8 +4326,11 @@ async function resolveMethodContextForCursor(
   declaringTypeFqn: string;
   signature: string[];
   isStatic: boolean;
+  isPrivate: boolean;
 } | null> {
   try {
+    const { SymbolVisibility } =
+      await import('@salesforce/apex-lsp-parser-ast');
     const parserPosition = {
       line: position.line + 1,
       character: position.character,
@@ -4353,15 +4356,23 @@ async function resolveMethodContextForCursor(
       parameters?: Array<{
         type?: { name?: string; originalTypeString?: string };
       }>;
-      modifiers?: { isStatic?: boolean };
+      modifiers?: { isStatic?: boolean; visibility?: unknown };
     };
     const signature = (methodSym.parameters ?? []).map(
       (p) => p.type?.originalTypeString ?? p.type?.name ?? '',
     );
+    // Default visibility is effectively private for inheritance (a subclass can't
+    // see it), so both gate off the descendant conflict check — matching the
+    // CheckMemberConflicts handler's isPrivate and resolveFieldContextForCursor.
+    const visibility = methodSym.modifiers?.visibility;
+    const isPrivate =
+      visibility === SymbolVisibility.Private ||
+      visibility === SymbolVisibility.Default;
     return {
       declaringTypeFqn,
       signature,
       isStatic: methodSym.modifiers?.isStatic === true,
+      isPrivate,
     };
   } catch {
     return null;
@@ -4524,6 +4535,111 @@ async function verifyFieldRenameLocally(
 
   // Locally resolvable, no same-type collision, and cannot participate in a
   // hierarchy → only same-type collisions were possible and we ruled them out.
+  return { decision: 'proceed' };
+}
+
+/**
+ * METHOD analogue of {@link verifyFieldRenameLocally} (W-23631133) — the
+ * parser-owned, fail-closed fallback used when the authoritative
+ * `dataOwner:CheckMemberConflicts` query is unavailable. Same posture (decline on
+ * any uncertainty), but the same-type collision test is SIGNATURE-aware: methods
+ * overload, so a member named `newName` collides only when its signature also
+ * matches the renamed method's (`foo(Integer)`→`bar` is fine next to
+ * `bar(String)`, but not next to `bar(Integer)`).
+ */
+async function verifyMethodRenameLocally(
+  svc: RequestServices,
+  uri: string,
+  position: { line: number; character: number },
+  newName: string,
+  signature: string[],
+): Promise<{ decision: 'proceed' } | { decision: 'decline'; message: string }> {
+  const { doesSignatureMatch } =
+    await import('@salesforce/apex-lsp-parser-ast');
+  const parserPosition = {
+    line: position.line + 1,
+    character: position.character,
+  };
+
+  const methodSymbol = await resolveCursorSymbol(svc, uri, parserPosition);
+  const declaringTypeSym = methodSymbol
+    ? await svc.symbolManager.getContainingType(methodSymbol)
+    : null;
+  if (!methodSymbol || !declaringTypeSym) {
+    return {
+      decision: 'decline',
+      message:
+        `Cannot rename '${newName}': the declaring type could not be ` +
+        'resolved locally to verify member conflicts, so this rename cannot ' +
+        'be applied safely.',
+    };
+  }
+
+  const typeName = declaringTypeSym.fqn ?? declaringTypeSym.name;
+  const table = await svc.symbolManager.getSymbolTableForFile(
+    declaringTypeSym.fileUri,
+  );
+  const localIsFullAndComplete =
+    table?.getDetailLevel() === 'full' &&
+    table.getMetadata().parseCompleteness === 'complete';
+  if (!localIsFullAndComplete) {
+    return {
+      decision: 'decline',
+      message:
+        `Cannot rename '${methodSymbol.name}' to '${newName}': the declaring ` +
+        `type '${typeName}' could not be established at full detail locally ` +
+        '(the member set may be incomplete), so a member conflict cannot be ' +
+        'ruled out and this rename cannot be applied safely.',
+    };
+  }
+
+  const blockSymbol = table
+    .getSymbolsInScope(declaringTypeSym.id)
+    .find((s) => s.kind === SymbolKind.Block);
+  const members = blockSymbol ? table.getSymbolsInScope(blockSymbol.id) : [];
+
+  // SAME-TYPE collision: any METHOD other than the renamed one whose name equals
+  // newName AND whose signature matches (a different-signature overload is legal).
+  const newNameLower = newName.toLowerCase();
+  const collision = members.find(
+    (m) =>
+      m.kind === SymbolKind.Method &&
+      m.id !== methodSymbol.id &&
+      m.name.toLowerCase() === newNameLower &&
+      doesSignatureMatch(m, newName, signature),
+  );
+  if (collision) {
+    return {
+      decision: 'decline',
+      message:
+        `Cannot rename '${methodSymbol.name}' to '${newName}': a method ` +
+        `named '${newName}' with the same signature already exists in type ` +
+        `'${typeName}'.`,
+    };
+  }
+
+  // HIERARCHY uncertainty: an ancestor (non-private) or descendant could declare
+  // a same-signature newName we cannot see locally — decline, mirroring the field
+  // fallback. (Method overriding is normal, but a NEW same-signature member of the
+  // rename's target name in a related type is still a collision.)
+  const typeSym = declaringTypeSym as TypeSymbol;
+  const hasSuperClass = !!typeSym.superClass;
+  const implementsInterfaces =
+    Array.isArray(typeSym.interfaces) && typeSym.interfaces.length > 0;
+  const couldBeSubclassed =
+    !!declaringTypeSym.modifiers?.isVirtual ||
+    !!declaringTypeSym.modifiers?.isAbstract;
+  if (hasSuperClass || implementsInterfaces || couldBeSubclassed) {
+    return {
+      decision: 'decline',
+      message:
+        `Cannot rename '${methodSymbol.name}' to '${newName}': type ` +
+        `'${typeName}' participates in a class hierarchy that cannot be ` +
+        'verified locally, so an ancestor or descendant conflict cannot be ' +
+        'ruled out and this rename cannot be applied safely.',
+    };
+  }
+
   return { decision: 'proceed' };
 }
 
@@ -5095,7 +5211,12 @@ async function resolveMethodRename(
       );
       return null;
     }
-    const { declaringTypeFqn: declaringType, signature, isStatic } = ctx;
+    const {
+      declaringTypeFqn: declaringType,
+      signature,
+      isStatic,
+      isPrivate,
+    } = ctx;
     // An empty signature slot means a parameter's declared type could not be read
     // (parse degradation). doesSignatureMatch would then fail to match the real
     // overload, silently dropping its declaration from the override set while
@@ -5120,7 +5241,73 @@ async function resolveMethodRename(
       return { error: { code: -32602, message: validation.message } };
     }
 
-    // (Stage 4.5 conflict detection deferred to WI 5.3.)
+    // Stage 4.5: hierarchy-aware conflict detection (W-23631133), mirroring the
+    // field path. Skip for a no-op / case-only rename (would self-conflict).
+    // Otherwise ask the data-owner's CheckMemberConflicts query (complete graph)
+    // whether newName collides — SIGNATURE-aware for methods, so a legal overload
+    // at a different signature is NOT a conflict. A genuine collision is a hard
+    // error (ResponseError); on query unavailability, fall back to the local
+    // parser-owned check rather than fail open.
+    if (req.newName.toLowerCase() !== target.name.toLowerCase()) {
+      let conflict:
+        | {
+            conflict?: boolean;
+            conflictingTypeFqn?: string;
+            reason?: 'same-type' | 'ancestor' | 'descendant';
+          }
+        | null
+        | undefined;
+      try {
+        conflict = (await requestCoordinatorAssistancePromiseShared(
+          'dataOwner:CheckMemberConflicts',
+          {
+            definingTypeFqn: declaringType,
+            newName: req.newName,
+            memberKind: 'method',
+            isRenamedMemberPrivate: isPrivate,
+            currentName: target.name,
+            signature,
+          },
+          true,
+        )) as {
+          conflict?: boolean;
+          conflictingTypeFqn?: string;
+          reason?: 'same-type' | 'ancestor' | 'descendant';
+        } | null;
+      } catch (err) {
+        emitWorkerLog(
+          'warn',
+          '[RENAME] method conflict pre-check unavailable for ' +
+            `'${declaringType}.${target.name}' → '${req.newName}'; falling ` +
+            `back to a local parser-owned conflict check: ${err}`,
+        );
+        const local = await verifyMethodRenameLocally(
+          svc,
+          uri,
+          req.position,
+          req.newName,
+          signature,
+        );
+        if (local.decision === 'decline') {
+          emitWorkerLog('warn', `[RENAME] ${local.message}`);
+          return { error: { code: -32600, message: local.message } };
+        }
+        conflict = null;
+      }
+      if (conflict?.conflict) {
+        const where =
+          conflict.reason === 'same-type'
+            ? `type '${conflict.conflictingTypeFqn ?? declaringType}'`
+            : `${conflict.reason ?? 'related'} type '${
+                conflict.conflictingTypeFqn ?? '?'
+              }'`;
+        const message =
+          `Cannot rename '${target.name}' to '${req.newName}': a method ` +
+          `named '${req.newName}' with the same signature already exists in ${where}.`;
+        emitWorkerLog('warn', `[RENAME] ${message}`);
+        return { error: { code: -32600, message } };
+      }
+    }
 
     // Stage 5a: resolve the type family + override declaration sites on the
     // data-owner's complete graph. On failure we cannot know the override set,
