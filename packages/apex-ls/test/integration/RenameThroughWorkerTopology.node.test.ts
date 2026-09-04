@@ -550,6 +550,270 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
     expect(result).toBeNull();
   }, 120_000);
 
+  // W-23631087: prepareRename must recognize FIELDS, not just locals (else F2 on
+  // a field won't open the box). Covers a declaration cursor AND a usage cursor.
+  const PREP_FIELD_URI = 'file:///test/PrepareField.cls';
+  const PREP_FIELD_SRC = `public class PrepareField {
+    public Integer value;
+
+    public void useIt() {
+        value = 5;
+        Integer x = value;
+    }
+}`;
+
+  it('returns prepareRename range for a field DECLARATION cursor (W-23631087)', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+        uri === PREP_FIELD_URI ? PREP_FIELD_SRC : undefined,
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: PREP_FIELD_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => PREP_FIELD_SRC,
+          },
+          textDocument: { uri: PREP_FIELD_URI },
+          text: PREP_FIELD_SRC,
+        }),
+      );
+
+      // `value` DECLARATION (LSP line 1, char 23) — exercises getSymbolAtPosition.
+      const result = yield* Effect.promise(() =>
+        dispatcher.dispatch('prepareRename', {
+          textDocument: { uri: PREP_FIELD_URI },
+          position: { line: 1, character: 23 },
+          content: PREP_FIELD_SRC,
+        }),
+      );
+
+      return { result };
+    }).pipe(Effect.scoped);
+
+    const { result } = await Effect.runPromise(program);
+    logger.debug(
+      `[prepare-rename:field-declaration] ${JSON.stringify(result)}`,
+    );
+
+    expect(result).not.toBeNull();
+    expect(result).toHaveProperty('range');
+    const prepareInfo = result as {
+      range: {
+        start: { line: number; character: number };
+        end: { line: number; character: number };
+      };
+      placeholder: string;
+    };
+    // On LSP line 1, and the range must contain the cursor (char 23).
+    expect(prepareInfo.range.start.line).toBe(1);
+    expect(prepareInfo.range.end.line).toBe(1);
+    expect(prepareInfo.range.start.character).toBeLessThanOrEqual(23);
+    expect(prepareInfo.range.end.character).toBeGreaterThan(23);
+    expect(prepareInfo.placeholder).toBe('value');
+  }, 120_000);
+
+  it('returns null from field prepareRename at the identifier-end boundary (W-23631087 review)', async () => {
+    // `value` on LSP line 1 occupies chars 19-24; the identifier range is half-open
+    // [19, 24), so a cursor at char 24 sits one past the last char and must be
+    // REJECTED (mirrors resolvePrepareRenameForLocal). Guards against the inclusive
+    // positionInRange end check accepting a cursor immediately after the identifier.
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+        uri === PREP_FIELD_URI ? PREP_FIELD_SRC : undefined,
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: PREP_FIELD_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => PREP_FIELD_SRC,
+          },
+          textDocument: { uri: PREP_FIELD_URI },
+          text: PREP_FIELD_SRC,
+        }),
+      );
+
+      const result = yield* Effect.promise(() =>
+        dispatcher.dispatch('prepareRename', {
+          textDocument: { uri: PREP_FIELD_URI },
+          position: { line: 1, character: 24 }, // one past `value`
+          content: PREP_FIELD_SRC,
+        }),
+      );
+
+      return { result };
+    }).pipe(Effect.scoped);
+
+    const { result } = await Effect.runPromise(program);
+    logger.debug(`[prepare-rename:field-boundary] ${JSON.stringify(result)}`);
+
+    expect(result).toBeNull();
+  }, 120_000);
+
+  it('returns prepareRename range for a field USAGE cursor (W-23631087)', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+        uri === PREP_FIELD_URI ? PREP_FIELD_SRC : undefined,
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: PREP_FIELD_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => PREP_FIELD_SRC,
+          },
+          textDocument: { uri: PREP_FIELD_URI },
+          text: PREP_FIELD_SRC,
+        }),
+      );
+
+      // `value` USAGE (LSP line 4, char 10) — must return the usage range, not the
+      // declaration's (exercises exactCursorReference).
+      const result = yield* Effect.promise(() =>
+        dispatcher.dispatch('prepareRename', {
+          textDocument: { uri: PREP_FIELD_URI },
+          position: { line: 4, character: 10 },
+          content: PREP_FIELD_SRC,
+        }),
+      );
+
+      return { result };
+    }).pipe(Effect.scoped);
+
+    const { result } = await Effect.runPromise(program);
+    logger.debug(`[prepare-rename:field-usage] ${JSON.stringify(result)}`);
+
+    expect(result).not.toBeNull();
+    expect(result).toHaveProperty('range');
+    const prepareInfo = result as {
+      range: {
+        start: { line: number; character: number };
+        end: { line: number; character: number };
+      };
+      placeholder: string;
+    };
+    // The usage is on LSP line 4, and the returned range must contain the cursor.
+    expect(prepareInfo.range.start.line).toBe(4);
+    expect(prepareInfo.range.end.line).toBe(4);
+    expect(prepareInfo.range.start.character).toBeLessThanOrEqual(10);
+    expect(prepareInfo.range.end.character).toBeGreaterThan(10);
+    expect(prepareInfo.placeholder).toBe('value');
+  }, 120_000);
+
+  // W-23631087 re-review (P1): the provenance guard must reject STANDARD-LIBRARY
+  // declarations. `apexlib://` is a synthetic read-only scheme; a field declared
+  // there must never open the rename box (prepareRename → null) nor produce a
+  // WorkspaceEdit (rename → null). Regression: the guard was sourced from
+  // getAllImmutableSchemes(), which INCLUDES `apexlib`, so stdlib members slipped
+  // through. It now uses MUTABLE_DOCUMENT_SCHEMES, which excludes `apexlib`.
+  const STDLIB_FIELD_URI = 'apexlib://test/StdLibType.cls';
+  const STDLIB_FIELD_SRC = `public class StdLibType {
+    public Integer value;
+}`;
+
+  it('declines prepareRename AND rename for a standard-library (apexlib://) field (W-23631087 re-review)', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+        uri === STDLIB_FIELD_URI ? STDLIB_FIELD_SRC : undefined,
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: STDLIB_FIELD_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => STDLIB_FIELD_SRC,
+          },
+          textDocument: { uri: STDLIB_FIELD_URI },
+          text: STDLIB_FIELD_SRC,
+        }),
+      );
+
+      // Cursor on `value` DECLARATION (LSP line 1, char 23).
+      const prepare = yield* Effect.promise(() =>
+        dispatcher.dispatch('prepareRename', {
+          textDocument: { uri: STDLIB_FIELD_URI },
+          position: { line: 1, character: 23 },
+          content: STDLIB_FIELD_SRC,
+        }),
+      );
+      const rename = yield* Effect.promise(() =>
+        dispatcher.dispatch('rename', {
+          textDocument: { uri: STDLIB_FIELD_URI },
+          position: { line: 1, character: 23 },
+          newName: 'amount',
+          content: STDLIB_FIELD_SRC,
+        }),
+      );
+
+      return { prepare, rename };
+    }).pipe(Effect.scoped);
+
+    const { prepare, rename } = await Effect.runPromise(program);
+    logger.debug(
+      `[rename-field:stdlib-guard] prepare=${JSON.stringify(prepare)} ` +
+        `rename=${JSON.stringify(rename)}`,
+    );
+
+    // prepareRename must NOT offer the stdlib field.
+    expect(prepare).toBeNull();
+    // rename must NOT emit any edit for the stdlib declaration.
+    const edit = rename as { changes?: Record<string, unknown> } | null;
+    expect(edit?.changes).toBeUndefined();
+  }, 120_000);
+
   // W-23631084: Field rename tests (4.1)
   describe('renameField cross-file with receiver-type disambiguation (W-23631084)', () => {
     // Account.cls declares a `total` field, used in Caller.cls as `acct.total`.
@@ -804,6 +1068,14 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       } | null;
       expect(errorResult?.changes).toBeUndefined();
       expect(errorResult?.error).toBeDefined();
+      // Nit (W-23631084 review): assert this is the ACTIVE-LOAD guard, not any
+      // error — key off its signal (-32600 + the active-load message) so a
+      // regression or different decline path fails loudly.
+      expect(errorResult?.error?.code).toBe(-32600);
+      expect(errorResult?.error?.message).toMatch(
+        /workspace load session still active/i,
+      );
+      expect(errorResult?.error?.message).toMatch(/incomplete/i);
     }, 120_000);
 
     it('declines rename when another file has an unprovable non-local receiver (W-23631086 #1)', async () => {
@@ -1159,6 +1431,16 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       // OuterTwo.cls's same-named inner field must be untouched.
       expect(edit!.changes![OUTER_TWO_URI]).toBeUndefined();
     }, 120_000);
+
+    // NOTE (W-23631087 re-review, P2): the OWNING-FQN disambiguation inside
+    // fieldDeclarationRangeFromParse is covered deterministically by a unit test
+    // (test/unit/fieldDeclarationRangeFromParse.node.test.ts). An end-to-end
+    // same-leaf topology test is intentionally NOT added here: when two nested
+    // types in ONE file share both a leaf name AND a field name, the UPSTREAM
+    // cursor→containing-type resolution (shared graph infra) resolves to the
+    // FIRST same-named type regardless of cursor position, so the helper receives
+    // an already-wrong declaringType. That upstream limitation is out of scope
+    // for this field-rename change and tracked separately.
 
     // W-23631084 P1: an IN-FILE-resolvable static qualifier (`Account.total`
     // inside a NESTED class of `Account`) must be renamed end-to-end without a

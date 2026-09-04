@@ -30,7 +30,10 @@ export class BasePage {
   constructor(page: Page) {
     this.page = page;
     this.workbench = page.locator(SELECTORS.WORKBENCH);
-    this.editor = page.locator(SELECTORS.MONACO_EDITOR);
+    // Exclude the Monaco rename widget (`.monaco-editor.rename-box`), which lingers
+    // in the DOM after a rename — otherwise `.monaco-editor` matches two elements
+    // and editor.waitFor() (openFile) throws a strict-mode violation on file switch.
+    this.editor = page.locator(`${SELECTORS.MONACO_EDITOR}:not(.rename-box)`);
     this.explorer = page.locator(SELECTORS.EXPLORER);
     this.sidebar = page.locator(SELECTORS.SIDEBAR);
     this.statusbar = page.locator(SELECTORS.STATUSBAR);
