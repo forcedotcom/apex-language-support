@@ -76,6 +76,7 @@ import {
   DataOwnerQuerySymbolByName,
   CheckMemberConflicts,
   FindOccurrenceCandidates,
+  ResolveMethodRenameFamily,
   WIRE_PROTOCOL_VERSION,
   ApexCapabilitiesManager,
   ApexSettingsManager,
@@ -151,6 +152,7 @@ export const AllWorkerRequests = Schema.Union(
   DataOwnerQuerySymbolByName,
   CheckMemberConflicts,
   FindOccurrenceCandidates,
+  ResolveMethodRenameFamily,
   CompileDocument,
   ResourceLoaderGetSymbolTable,
   ResourceLoaderGetSymbolTables,
@@ -3418,6 +3420,93 @@ export async function declarationLocationForCursor(
 }
 
 /**
+ * A minimal SymbolTable view for declaration-range disambiguation: enough to
+ * walk the parent chain from a member to its enclosing type(s).
+ */
+type DeclParseTable = {
+  getSymbolById?: (
+    id: string,
+  ) =>
+    | { id?: string; name?: string; kind?: unknown; parentId?: string }
+    | undefined;
+};
+
+/**
+ * Owning TYPE FQN path (leaf-last, lowercased) for a member symbol from a
+ * standalone parse: walk its parent chain, collecting enclosing TYPE names and
+ * skipping the generated class-body BLOCK symbols. Shared by field/method
+ * declaration disambiguation.
+ */
+function ownerTypePathFromParse(
+  table: DeclParseTable,
+  member: { parentId?: string },
+): string[] {
+  const path: string[] = [];
+  const seen = new Set<string>();
+  let cur = member.parentId
+    ? table.getSymbolById?.(member.parentId)
+    : undefined;
+  let hops = 0;
+  while (cur && hops < 50) {
+    if (cur.id) {
+      if (seen.has(cur.id)) break;
+      seen.add(cur.id);
+    }
+    const kind = String(cur.kind).toLowerCase();
+    if (
+      cur.name &&
+      (kind === 'class' ||
+        kind === 'interface' ||
+        kind === 'enum' ||
+        kind === 'trigger')
+    ) {
+      path.unshift(cur.name.toLowerCase());
+    }
+    cur = cur.parentId ? table.getSymbolById?.(cur.parentId) : undefined;
+    hops++;
+  }
+  return path;
+}
+
+/** True when `suffix` is a non-empty tail of `path` (lowercased segment arrays). */
+function isFqnPathSuffix(path: string[], suffix: string[]): boolean {
+  if (suffix.length === 0 || suffix.length > path.length) return false;
+  for (let i = 1; i <= suffix.length; i++) {
+    if (path[path.length - i] !== suffix[suffix.length - i]) return false;
+  }
+  return true;
+}
+
+/**
+ * Among same-named declaration `members` (fields, or method overloads already
+ * narrowed by signature), the UNIQUE one whose owning-type FQN is a suffix of
+ * `declaringTypeFqn` (namespace-tolerant — the graph FQN may carry a namespace
+ * the standalone parse can't see). Returns its identifier range, or null when
+ * there is no unique match so the caller FAILS CLOSED (declines): two types in
+ * different branches can share a leaf name (`A.Dup` vs `B.Dup`), so a leaf-only
+ * comparison could rewrite the wrong declaration.
+ */
+function uniqueDeclarationRangeByOwningFqn(
+  table: DeclParseTable,
+  members: Array<{
+    parentId?: string;
+    location?: { identifierRange?: OccurrenceRange };
+  }>,
+  declaringTypeFqn: string,
+): OccurrenceRange | null {
+  const requestedPath = declaringTypeFqn
+    .split('.')
+    .map((s) => s.toLowerCase())
+    .filter(Boolean);
+  if (requestedPath.length === 0) return null;
+  const matches = members.filter((m) =>
+    isFqnPathSuffix(requestedPath, ownerTypePathFromParse(table, m)),
+  );
+  if (matches.length === 1) return matches[0].location!.identifierRange!;
+  return null;
+}
+
+/**
  * Field/property declaration range from a STANDALONE parse of the declaring file
  * (W-23631087). The graph symbol's `identifierRange` can span the field's TYPE
  * token under full ingestion (renaming `Integer` instead of the field), so the
@@ -3438,12 +3527,7 @@ export function fieldDeclarationRangeFromParse(
       parentId?: string;
       location?: { identifierRange?: OccurrenceRange };
     }>;
-    getSymbolById?: (
-      id: string,
-    ) =>
-      | { id?: string; name?: string; kind?: unknown; parentId?: string }
-      | undefined;
-  },
+  } & DeclParseTable,
   fieldName: string,
   declaringTypeFqn: string,
 ): OccurrenceRange | null {
@@ -3458,63 +3542,9 @@ export function fieldDeclarationRangeFromParse(
   });
   if (fields.length === 0) return null;
   if (fields.length === 1) return fields[0].location!.identifierRange!;
-
-  // Same-named fields across nested/sibling types in one file. Disambiguate by
-  // the OWNING TYPE FQN, not just the immediate type leaf: two types in
-  // different branches can share a leaf name (`A.Dup` vs `B.Dup`), so a
-  // leaf-only comparison could match the wrong declaration. Walk each field's
-  // parent chain (fields are parented to a generated class-body BLOCK symbol,
-  // whose own parent is the type symbol — so skip everything but type symbols)
-  // to build its owning type path, then keep the field whose path is a suffix of
-  // the requested FQN (the graph FQN may carry a namespace the standalone parse
-  // can't see). A non-unique / no match → null so the caller FAILS CLOSED
-  // (declines) rather than guessing (W-23631087 review).
-  const requestedPath = declaringTypeFqn
-    .split('.')
-    .map((s) => s.toLowerCase())
-    .filter(Boolean);
-  if (requestedPath.length === 0) return null;
-
-  const ownerTypePath = (field: { parentId?: string }): string[] => {
-    const path: string[] = [];
-    const seen = new Set<string>();
-    let cur = field.parentId
-      ? table.getSymbolById?.(field.parentId)
-      : undefined;
-    let hops = 0;
-    while (cur && hops < 50) {
-      if (cur.id) {
-        if (seen.has(cur.id)) break;
-        seen.add(cur.id);
-      }
-      const kind = String(cur.kind).toLowerCase();
-      if (
-        cur.name &&
-        (kind === 'class' ||
-          kind === 'interface' ||
-          kind === 'enum' ||
-          kind === 'trigger')
-      ) {
-        path.unshift(cur.name.toLowerCase());
-      }
-      cur = cur.parentId ? table.getSymbolById?.(cur.parentId) : undefined;
-      hops++;
-    }
-    return path;
-  };
-  const isSuffix = (path: string[], suffix: string[]): boolean => {
-    if (suffix.length === 0 || suffix.length > path.length) return false;
-    for (let i = 1; i <= suffix.length; i++) {
-      if (path[path.length - i] !== suffix[suffix.length - i]) return false;
-    }
-    return true;
-  };
-
-  const matches = fields.filter((f) =>
-    isSuffix(requestedPath, ownerTypePath(f)),
-  );
-  if (matches.length === 1) return matches[0].location!.identifierRange!;
-  return null;
+  // Same-named fields across nested/sibling types in one file — disambiguate by
+  // owning-type FQN; ambiguity fails closed (W-23631087 review).
+  return uniqueDeclarationRangeByOwningFqn(table, fields, declaringTypeFqn);
 }
 
 /**
@@ -3540,6 +3570,62 @@ export function fieldRenameDeclarationDecision(
   if (hasDeclaration) return 'proceed';
   if (occurrenceCount === 0) return 'nothing-to-rename';
   return 'decline-partial';
+}
+
+/**
+ * Method declaration name-token range from a STANDALONE parse of the declaring
+ * file (W-23631132) — the method analogue of {@link fieldDeclarationRangeFromParse}.
+ * The graph range can span the RETURN-TYPE token under full ingestion, so the
+ * declaration must come from the same parse the occurrence scan uses. Overloads
+ * are disambiguated by signature (parameter type strings); works for no-body
+ * (abstract/interface) declarations since it reads the method symbol, not a body.
+ */
+function methodDeclarationRangeFromParse(
+  table: {
+    getAllSymbols?: () => Array<{
+      id?: string;
+      name?: string;
+      kind?: unknown;
+      parentId?: string;
+      parameters?: Array<{
+        type?: { name?: string; originalTypeString?: string };
+      }>;
+      location?: { identifierRange?: OccurrenceRange };
+    }>;
+  } & DeclParseTable,
+  methodName: string,
+  declaringTypeFqn: string,
+  signature?: string[],
+): OccurrenceRange | null {
+  const targetName = methodName.toLowerCase();
+  let methods = (table.getAllSymbols?.() ?? []).filter((s) => {
+    const kind = String(s?.kind).toLowerCase();
+    return (
+      s?.name?.toLowerCase() === targetName &&
+      kind === 'method' &&
+      !!s.location?.identifierRange
+    );
+  });
+  if (methods.length === 0) return null;
+  // Disambiguate overloads by parameter-type signature (case-insensitive).
+  if (methods.length > 1 && signature) {
+    const sigMatches = methods.filter((m) => {
+      const params = m.parameters ?? [];
+      if (params.length !== signature.length) return false;
+      return params.every(
+        (p, i) =>
+          (p.type?.originalTypeString ?? p.type?.name ?? '').toLowerCase() ===
+          signature[i].toLowerCase(),
+      );
+    });
+    if (sigMatches.length >= 1) methods = sigMatches;
+  }
+  if (methods.length === 1) return methods[0].location!.identifierRange!;
+  // Multiple same-name (+ same-signature) methods across nested/sibling types in
+  // one file — disambiguate by owning-type FQN; ambiguity fails closed to null so
+  // the caller declines rather than guessing methods[0] and rewriting the wrong
+  // declaration (review P2).
+  return uniqueDeclarationRangeByOwningFqn(table, methods, declaringTypeFqn);
 }
 
 /**
@@ -4226,6 +4312,63 @@ async function resolveFieldContextForCursor(
 }
 
 /**
+ * Resolve the method under the cursor to its declaring-type FQN, parameter-type
+ * signature, and static-ness (W-23631132). renameMethod needs all three: the FQN
+ * anchors the family walk + occurrence matching, the signature disambiguates
+ * overloads, and static-ness decides whether the rename fans out over the
+ * inheritance cone (instance) or stays same-type (static).
+ */
+async function resolveMethodContextForCursor(
+  svc: RequestServices,
+  uri: string,
+  position: { line: number; character: number },
+): Promise<{
+  declaringTypeFqn: string;
+  signature: string[];
+  isStatic: boolean;
+} | null> {
+  try {
+    const parserPosition = {
+      line: position.line + 1,
+      character: position.character,
+    };
+    const symbol = await resolveCursorSymbol(svc, uri, parserPosition);
+    if (!symbol) return null;
+    // Provenance guard (W-23631087 review, P1): only a method declared in a
+    // user-owned Apex source is renamable. A stdlib/generated-SObject method
+    // resolves to a synthetic URI and must not produce a WorkspaceEdit — return
+    // null so resolveMethodRename declines (mirrors the field-side guard).
+    if (!isUserOwnedApexUri((symbol as { fileUri?: string }).fileUri)) {
+      return null;
+    }
+    const containingType = await svc.symbolManager.getContainingType(symbol);
+    if (!containingType) return null;
+    const declaringTypeFqn =
+      containingType.fqn ??
+      (await svc.symbolManager.constructFQN(containingType)) ??
+      containingType.name ??
+      null;
+    if (!declaringTypeFqn) return null;
+    const methodSym = symbol as {
+      parameters?: Array<{
+        type?: { name?: string; originalTypeString?: string };
+      }>;
+      modifiers?: { isStatic?: boolean };
+    };
+    const signature = (methodSym.parameters ?? []).map(
+      (p) => p.type?.originalTypeString ?? p.type?.name ?? '',
+    );
+    return {
+      declaringTypeFqn,
+      signature,
+      isStatic: methodSym.modifiers?.isStatic === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * LOCAL, parser-owned fallback for Stage 4.5 when the authoritative
  * `dataOwner:CheckMemberConflicts` query is unavailable (W-23631086 review, P1).
  *
@@ -4890,6 +5033,331 @@ async function resolveFieldRename(
   }
 }
 
+/**
+ * renameMethod WorkspaceEdit construction (WI 5.2). Renames a method's
+ * declaration + every call across the type family, plus every override
+ * declaration (Child.foo(), interface impls). Mirrors resolveFieldRename's
+ * pool-side scan, but the family knowledge comes from the data-owner assist
+ * `dataOwner:ResolveMethodRenameFamily` (the pool graph can't see unloaded
+ * subtypes/implementors):
+ *
+ *   - CALLS: FindOccurrenceCandidates (all stored docs) → per-candidate
+ *     findMethodOccurrences, keeping occurrences whose receiver FQN ∈ the family
+ *     cone; any unprovable occurrence → decline (no partial edit).
+ *   - DECLARATIONS: for each override site the assist returns, recompute the
+ *     name-token range from a standalone parse (methodDeclarationRangeFromParse)
+ *     so a graph range that spans the return-type token never corrupts the edit.
+ *
+ * Conflict detection + validation wiring is WI 5.3; this slice is pure edit
+ * construction. Constructors are not methods here (renameType territory).
+ */
+async function resolveMethodRename(
+  svc: RequestServices,
+  req: RenameReq,
+): Promise<WorkspaceEditResult | RenameErrorResult | null> {
+  const {
+    CompilerService,
+    ErrorType,
+    FullSymbolCollectorListener,
+    SymbolKind,
+    SymbolTable,
+    findMethodOccurrences,
+    lexMentionsIdentifier,
+    validateRenameName,
+  } = await import('@salesforce/apex-lsp-parser-ast');
+
+  const uri = req.textDocument.uri;
+
+  try {
+    // Stage 1: recompile the cursor file, then load its referenced types.
+    const cursorTextAvailable = typeof req.content === 'string';
+    const cursorRecompiled = await recompileCursorFileAtFullDetail(
+      svc,
+      uri,
+      req.content,
+      { resolveCrossFileReferences: false },
+    );
+    if (!cursorRecompiled && !cursorTextAvailable) return null;
+    await loadReferencedTypesForFile(svc, uri);
+
+    // Stage 2: confirm the cursor is on a method (constructors resolve to a
+    // different kind and fall through — renameType handles them, not here).
+    const target = await targetSymbolForCursor(svc, uri, req.position);
+    if (!target?.name) return null;
+    if (target.kind !== 'method') return null;
+
+    // Stage 3: declaring-type FQN + parameter signature + static-ness.
+    const ctx = await resolveMethodContextForCursor(svc, uri, req.position);
+    if (!ctx) {
+      emitWorkerLog(
+        'warn',
+        `[RENAME] cannot determine method context for '${target.name}' in ${uri}`,
+      );
+      return null;
+    }
+    const { declaringTypeFqn: declaringType, signature, isStatic } = ctx;
+    // An empty signature slot means a parameter's declared type could not be read
+    // (parse degradation). doesSignatureMatch would then fail to match the real
+    // overload, silently dropping its declaration from the override set while
+    // still renaming calls (a partial edit). FAIL CLOSED (review P3).
+    if (signature.some((s) => s === '')) {
+      const message =
+        `Cannot safely rename '${declaringType}.${target.name}': a parameter ` +
+        "type in the method's signature could not be resolved, so its overload " +
+        'cannot be disambiguated. The rename is declined.';
+      emitWorkerLog('warn', `[RENAME] declined method rename — ${message}`);
+      return { error: { code: -32600, message } };
+    }
+    const methodTarget = {
+      name: target.name,
+      kind: 'method' as const,
+      signature,
+    };
+
+    // Stage 4: validate the newName. Invalid → RenameErrorResult, not null.
+    const validation = validateRenameName(req.newName, SymbolKind.Method);
+    if (!validation.ok) {
+      return { error: { code: -32602, message: validation.message } };
+    }
+
+    // (Stage 4.5 conflict detection deferred to WI 5.3.)
+
+    // Stage 5a: resolve the type family + override declaration sites on the
+    // data-owner's complete graph. On failure we cannot know the override set,
+    // so we must decline rather than emit a declaration-only partial edit.
+    let family: {
+      familyFqns?: string[];
+      overrideSites?: Array<{ typeFqn: string; fileUri: string }>;
+      targetArityAmbiguous?: boolean;
+    };
+    try {
+      family = (await requestCoordinatorAssistancePromiseShared(
+        'dataOwner:ResolveMethodRenameFamily',
+        {
+          definingTypeFqn: declaringType,
+          methodName: target.name,
+          signature,
+          isStatic,
+        },
+        true,
+      )) as {
+        familyFqns?: string[];
+        overrideSites?: Array<{ typeFqn: string; fileUri: string }>;
+        targetArityAmbiguous?: boolean;
+      };
+    } catch (err) {
+      const message =
+        `Cannot resolve the type family for '${declaringType}.${target.name}': ` +
+        "the method's overrides/implementors could not be determined, so this " +
+        `rename cannot be applied safely. (${err})`;
+      emitWorkerLog('warn', `[RENAME] declined method rename — ${message}`);
+      return { error: { code: -32600, message } };
+    }
+    const familyFqns = new Set<string>(family?.familyFqns ?? [declaringType]);
+    const overrideSites = family?.overrideSites ?? [];
+    const familyArityAmbiguous = family?.targetArityAmbiguous === true;
+
+    // Stage 5b: candidate discovery — ALL stored docs (no raw-text prefilter),
+    // same correctness rationale as resolveFieldRename.
+    let scan: { candidates?: Array<{ uri: string; content: string }> };
+    try {
+      scan = (await requestCoordinatorAssistancePromiseShared(
+        'dataOwner:FindOccurrenceCandidates',
+        { symbolName: target.name, skipTextFilter: true },
+        true,
+      )) as { candidates?: Array<{ uri: string; content: string }> };
+    } catch (err) {
+      const message =
+        `Cannot verify references to '${target.name}': the workspace document ` +
+        'set could not be retrieved, so this rename cannot be applied safely. ' +
+        `(${err})`;
+      emitWorkerLog('warn', `[RENAME] declined method rename — ${message}`);
+      return { error: { code: -32600, message } };
+    }
+    const rawCandidates = scan?.candidates ?? [];
+    let candidates: Array<{ uri: string; content: string }> = rawCandidates;
+    if (typeof req.content === 'string') {
+      let cursorPresent = false;
+      candidates = rawCandidates.map((c) => {
+        if (c.uri === uri) {
+          cursorPresent = true;
+          return { ...c, content: req.content as string };
+        }
+        return c;
+      });
+      if (!cursorPresent) {
+        candidates = [{ uri, content: req.content }, ...candidates];
+      }
+    }
+    const contentByUri = new Map(candidates.map((c) => [c.uri, c.content]));
+
+    // Stage 6: per-candidate standalone parse + method occurrence classification.
+    const allOccurrences: Array<{ uri: string; range: OccurrenceRange }> = [];
+    let totalSkipped = 0;
+    const unsafeOccurrences: Array<{ uri: string; reason: string }> = [];
+    const seen = new Set<string>();
+    for (const candidate of candidates) {
+      if (seen.has(candidate.uri)) continue;
+      seen.add(candidate.uri);
+      try {
+        const t = new SymbolTable();
+        const compiled = new CompilerService().compile(
+          candidate.content,
+          candidate.uri,
+          new FullSymbolCollectorListener(t),
+          { collectReferences: true, resolveReferences: true },
+        );
+        const syntaxErrorCount = (compiled?.errors ?? []).filter(
+          (e) => e.type === ErrorType.Syntax,
+        ).length;
+        if (
+          !(compiled?.result instanceof SymbolTable) ||
+          syntaxErrorCount > 0
+        ) {
+          // A broken parse only endangers this rename if the file could mention
+          // the method; a lexer check (parser-owned, not regex) lets us skip
+          // provably-unrelated broken files rather than block every rename.
+          if (!lexMentionsIdentifier(candidate.content, target.name)) continue;
+          const detail = !(compiled?.result instanceof SymbolTable)
+            ? 'no-result'
+            : `${syntaxErrorCount} syntax error(s)`;
+          unsafeOccurrences.push({
+            uri: candidate.uri,
+            reason: `candidate-parse-incomplete:${detail}`,
+          });
+          continue;
+        }
+        const { occurrences, skipped, unsafe } = findMethodOccurrences(
+          compiled.result,
+          candidate.uri,
+          methodTarget,
+          declaringType,
+          { familyFqns, familyArityAmbiguous },
+        );
+        for (const occ of occurrences) {
+          allOccurrences.push({ uri: occ.uri, range: occ.identifierRange });
+        }
+        totalSkipped += skipped.length;
+        for (const u of unsafe) {
+          unsafeOccurrences.push({ uri: candidate.uri, reason: u.reason });
+        }
+      } catch (err) {
+        unsafeOccurrences.push({
+          uri: candidate.uri,
+          reason: `candidate-scan-failed: ${err}`,
+        });
+      }
+    }
+
+    // Override DECLARATIONS: findMethodOccurrences matches CALLS only, so each
+    // family override's declaration token is added here from a standalone parse
+    // of its file. A missing override-site file (the family says a signature-
+    // matching method is declared there but its content is unavailable) means we
+    // cannot rewrite that declaration → decline rather than emit a partial edit.
+    for (const site of overrideSites) {
+      const content = contentByUri.get(site.fileUri);
+      if (content === undefined) {
+        unsafeOccurrences.push({
+          uri: site.fileUri,
+          reason: 'override-declaration-content-unavailable',
+        });
+        continue;
+      }
+      try {
+        const declTable = new SymbolTable();
+        const declCompiled = new CompilerService().compile(
+          content,
+          site.fileUri,
+          new FullSymbolCollectorListener(declTable),
+          { collectReferences: true, resolveReferences: true },
+        );
+        const parsed =
+          declCompiled?.result instanceof SymbolTable
+            ? declCompiled.result
+            : declTable;
+        const range = methodDeclarationRangeFromParse(
+          parsed as never,
+          target.name,
+          site.typeFqn,
+          signature,
+        );
+        if (range) {
+          allOccurrences.push({ uri: site.fileUri, range });
+        } else {
+          unsafeOccurrences.push({
+            uri: site.fileUri,
+            reason: `override-declaration-not-found:${site.typeFqn}`,
+          });
+        }
+      } catch (err) {
+        unsafeOccurrences.push({
+          uri: site.fileUri,
+          reason: `override-declaration-scan-failed: ${err}`,
+        });
+      }
+    }
+
+    // Decline the whole rename if ANY occurrence/declaration was unprovable —
+    // applying edits while omitting one would emit a broken partial WorkspaceEdit.
+    if (unsafeOccurrences.length > 0) {
+      const sample = unsafeOccurrences
+        .slice(0, 3)
+        .map((u) => `${u.uri} (${u.reason})`)
+        .join(', ');
+      const message =
+        `Cannot safely rename '${target.name}': ${unsafeOccurrences.length} ` +
+        'occurrence(s) or override declaration(s) could not be resolved without ' +
+        `risking a broken partial edit. Examples: ${sample}.`;
+      emitWorkerLog('warn', `[RENAME] declined method rename — ${message}`);
+      return { error: { code: -32600, message } };
+    }
+
+    if (allOccurrences.length === 0) return null;
+
+    emitWorkerLog(
+      'info',
+      `[RENAME] method '${declaringType}.${target.name}' → '${req.newName}': ` +
+        `${allOccurrences.length} edit(s) across ${familyFqns.size} family ` +
+        `type(s), ${overrideSites.length} declaration site(s), ` +
+        `${totalSkipped} skipped`,
+    );
+
+    // Stage 7: assemble the multi-file WorkspaceEdit (parser 1-based → LSP
+    // 0-based), deduped per URI by position.
+    const changes: Record<
+      string,
+      Array<{
+        range: {
+          start: { line: number; character: number };
+          end: { line: number; character: number };
+        };
+        newText: string;
+      }>
+    > = {};
+    const seenEdits = new Set<string>();
+    for (const occ of allOccurrences) {
+      const r = occ.range;
+      const key =
+        `${occ.uri}\x1f${r.startLine}:${r.startColumn}:` +
+        `${r.endLine}:${r.endColumn}`;
+      if (seenEdits.has(key)) continue;
+      seenEdits.add(key);
+      (changes[occ.uri] ??= []).push({
+        range: {
+          start: { line: r.startLine - 1, character: r.startColumn },
+          end: { line: r.endLine - 1, character: r.endColumn },
+        },
+        newText: req.newName,
+      });
+    }
+
+    return { changes };
+  } catch (err) {
+    emitWorkerLog('warn', `[RENAME] method rename failed for ${uri}: ${err}`);
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Enrichment dispatch handlers (Step 11 on the original file)
 // ---------------------------------------------------------------------------
@@ -5198,13 +5666,17 @@ const requestHandlers = {
   DispatchRename: requestHandler<RenameReq>(
     'DispatchRename',
     async (svc, req) => {
-      // renameLocal first (single-file, no svc needed). A `null` result means
-      // the cursor isn't a local — fall through to renameField (W-23631084),
-      // which needs `svc` for the workspace-wide two-phase scan. A field/method/
-      // type cursor that isn't a field still returns null from both.
+      // renameLocal first (single-file, no svc needed). A `null` means the
+      // cursor isn't a local → fall through to renameField (W-23631084), then
+      // renameMethod (W-23631132) — both use `svc` for the workspace-wide scan.
+      // A type/constructor cursor returns null from all three (renameType TBD).
       const local = await resolveLocalRename(req);
       if (local !== null) return local;
-      return resolveFieldRename(svc, req);
+      // Only a `null` (not-my-kind) may fall through; a RenameErrorResult must
+      // return so a field/method name-conflict isn't retried as another kind.
+      const field = await resolveFieldRename(svc, req);
+      if (field !== null) return field;
+      return resolveMethodRename(svc, req);
     },
   ),
   // prepareRename for locals (W-23631080) + fields (W-23631087). Local path
@@ -5451,6 +5923,73 @@ function walkTypeFamily(
     const descendants = allDescendants.filter(inTypeSymbolGroup);
 
     return { ancestors, descendants };
+  });
+}
+
+/**
+ * Read a type's declared members from its BLOCK scope, guaranteeing the canonical
+ * table is FULL-detail AND known-complete first. Batch-loaded files are served at
+ * public-api detail (which drops private/protected/default members) and a
+ * recovered/unknown table can silently drop declarations, so a naive read risks a
+ * truncated set. (Re-)enriches from retained source to establish completeness, and
+ * FAILS (with a message) when it cannot — callers preserve uncertainty rather than
+ * trust an incomplete set. Shared by CheckMemberConflicts (4.0 conflict verdict)
+ * and ResolveMethodRenameFamily (5.2 override discovery); callers re-tag the
+ * string failure to their own error type.
+ */
+function getTypeMembersFullDetail(
+  svc: DataOwnerServices,
+  type: ApexSymbol,
+): Effect.Effect<ApexSymbol[], string, never> {
+  return Effect.gen(function* () {
+    const { SymbolKind } = yield* Effect.promise(
+      () => import('@salesforce/apex-lsp-parser-ast'),
+    );
+    let typeTable = yield* Effect.promise(() =>
+      svc.symbolManager.getSymbolTableForFile(type.fileUri),
+    );
+    const isFullAndComplete = (
+      t: typeof typeTable | null | undefined,
+    ): boolean =>
+      t?.getDetailLevel() === 'full' &&
+      t.getMetadata().parseCompleteness === 'complete';
+    if (!isFullAndComplete(typeTable)) {
+      const doc = yield* Effect.promise(() =>
+        svc.storageManager.getStorage().getDocument(type.fileUri),
+      );
+      const text = doc?.getText();
+      if (!text) {
+        return yield* Effect.fail(
+          `Cannot read members for ${type.fileUri}: source text unavailable to ` +
+            'establish a complete full-detail parse, so non-public members ' +
+            'cannot be reliably inspected.',
+        );
+      }
+      yield* svc.symbolManager.enrichToLevel(type.fileUri, 'full', text);
+      typeTable = yield* Effect.promise(() =>
+        svc.symbolManager.getSymbolTableForFile(type.fileUri),
+      );
+      if (!isFullAndComplete(typeTable)) {
+        return yield* Effect.fail(
+          `Cannot read members for ${type.fileUri}: could not establish a ` +
+            'complete full-detail parse (canonical table at ' +
+            `${typeTable?.getDetailLevel() ?? 'none'} / ` +
+            `${typeTable?.getMetadata().parseCompleteness ?? 'unknown'}); the ` +
+            'member set may be incomplete.',
+        );
+      }
+    }
+    if (!typeTable) {
+      return yield* Effect.fail(
+        `Cannot read members: no symbol table for ${type.fileUri}.`,
+      );
+    }
+    // Members are children of the type's BLOCK scope, not the type itself.
+    const blockSymbol = typeTable
+      .getSymbolsInScope(type.id)
+      .find((s) => s.kind === SymbolKind.Block);
+    if (!blockSymbol) return [] as ApexSymbol[];
+    return typeTable.getSymbolsInScope(blockSymbol.id);
   });
 }
 
@@ -6125,116 +6664,17 @@ const untracedHandlers: SerializedWorkerHandlers = {
               symbol.modifiers.visibility === SymbolVisibility.Private ||
               symbol.modifiers.visibility === SymbolVisibility.Default;
 
-            // Helper: resolve a type's declared members from its BLOCK scope,
-            // guaranteeing the canonical table is full-detail AND known-complete
-            // first (see the fail-closed rationale below). Returns [] when the
-            // type has no block scope (no members). Shared by hasMemberNamed and
-            // the renamed-member visibility self-verify, so both read the exact
-            // same trusted member set.
+            // Resolve a type's full+complete member set (fails closed on an
+            // unverifiable/truncated parse — see getTypeMembersFullDetail). Shared
+            // with ResolveMethodRenameFamily via that module helper; re-tag its
+            // string failure to this query's error type.
             const getTypeMembers = (type: ApexSymbol) =>
-              Effect.gen(function* () {
-                // Batch-loaded workspace files are served at 'public-api' detail,
-                // which DROPS private/protected/default-visibility members from the
-                // symbol table entirely (VisibilitySymbolListener never adds them at
-                // public-api). All three checks below need non-public members:
-                //   - same-type: needs ALL members (incl. private)
-                //   - ancestor:  needs protected members present
-                //   - descendant: needs ALL members (incl. private/default)
-                // So this type's file MUST be at 'full' detail before we read it.
-                //
-                // FAIL CLOSED (W-23631128 re-review, P1): require the CANONICAL
-                // table to be BOTH full-detail AND a KNOWN-complete parse before
-                // reading members. Two independent hazards make full-detail alone
-                // insufficient:
-                //   (1) getDetailLevel() derives from the symbols actually present
-                //       (not the stale getDetailLevelForFile() side-channel), so a
-                //       newer public-api table that replaced an enriched one is
-                //       observed at its true 'public-api' level.
-                //   (2) A malformed source still yields a RECOVERED table that
-                //       reports 'full' but silently dropped declarations, AND a
-                //       full table can arrive from a producer that never
-                //       established completeness at the protocol boundary — a raw
-                //       cursor recompile written back via UpdateSymbolSubset lands
-                //       as full + parseCompleteness='unknown'. `SymbolTable`
-                //       defaults completeness to 'unknown', so trusting anything
-                //       other than an explicit 'complete' fails OPEN.
-                // So we require parseCompleteness === 'complete'. When the table is
-                // not full+complete we (re-)enrich from retained source to
-                // ESTABLISH completeness (enrichToLevel re-parses a full/unknown
-                // table for exactly this reason and stamps 'complete'/'incomplete'
-                // from SYNTAX errors — benign SEMANTIC cross-file errors do not
-                // drop declarations and do not mark incompleteness, so clean files
-                // are not over-declined). If retained source is unavailable, or
-                // enrichment cannot reach full+complete (e.g. the source is
-                // syntax-broken → 'incomplete'), fail the whole query so the caller
-                // preserves uncertainty rather than trusting a truncated set.
-                let typeTable = yield* Effect.promise(() =>
-                  svc.symbolManager.getSymbolTableForFile(type.fileUri),
-                );
-                const isFullAndComplete = (
-                  t: typeof typeTable | null | undefined,
-                ): boolean =>
-                  t?.getDetailLevel() === 'full' &&
-                  t.getMetadata().parseCompleteness === 'complete';
-                if (!isFullAndComplete(typeTable)) {
-                  const doc = yield* Effect.promise(() =>
-                    svc.storageManager.getStorage().getDocument(type.fileUri),
-                  );
-                  const text = doc?.getText();
-                  if (!text) {
-                    return yield* Effect.fail({
-                      _tag: 'CheckMemberConflictsError' as const,
-                      message:
-                        `Cannot verify member conflicts for ${type.fileUri}: ` +
-                        'source text unavailable to establish a complete ' +
-                        'full-detail parse, so non-public members cannot be ' +
-                        'reliably inspected.',
-                    });
-                  }
-                  yield* svc.symbolManager.enrichToLevel(
-                    type.fileUri,
-                    'full',
-                    text,
-                  );
-                  typeTable = yield* Effect.promise(() =>
-                    svc.symbolManager.getSymbolTableForFile(type.fileUri),
-                  );
-                  if (!isFullAndComplete(typeTable)) {
-                    return yield* Effect.fail({
-                      _tag: 'CheckMemberConflictsError' as const,
-                      message:
-                        `Cannot verify member conflicts for ${type.fileUri}: ` +
-                        'could not establish a complete full-detail parse ' +
-                        '(canonical table at ' +
-                        `${typeTable?.getDetailLevel() ?? 'none'} / ` +
-                        `${
-                          typeTable?.getMetadata().parseCompleteness ??
-                          'unknown'
-                        }); the member set may be incomplete, so a "no conflict" ` +
-                        'result cannot be trusted.',
-                    });
-                  }
-                }
-
-                if (!typeTable) {
-                  return yield* Effect.fail({
-                    _tag: 'CheckMemberConflictsError' as const,
-                    message: `Cannot verify member conflicts: no symbol table for ${type.fileUri}.`,
-                  });
-                }
-
-                // Members are children of the type's BLOCK scope, not the type itself.
-                // Find the block symbol (it's a child of the type with kind === 'block')
-                const blockSymbol = typeTable
-                  .getSymbolsInScope(type.id)
-                  .find((s) => s.kind === SymbolKind.Block);
-                if (!blockSymbol) {
-                  // No block scope means no members
-                  return [] as ApexSymbol[];
-                }
-
-                return typeTable.getSymbolsInScope(blockSymbol.id);
-              });
+              getTypeMembersFullDetail(svc, type).pipe(
+                Effect.mapError((message) => ({
+                  _tag: 'CheckMemberConflictsError' as const,
+                  message,
+                })),
+              );
 
             // Helper: check type for member with newName (as an Effect generator)
             // NOTE: For methods, this does name-based matching only.
@@ -6392,6 +6832,180 @@ const untracedHandlers: SerializedWorkerHandlers = {
               `[RENAME] CheckMemberConflicts: no conflict for ${req.definingTypeFqn}.${req.newName}`,
             );
             return { conflict: false };
+          }),
+        ),
+      ),
+    ),
+
+  // renameMethod edit-target discovery (WI 5.2). Returns the type-family cone
+  // (FQNs) whose calls the pool accepts as occurrences, plus each family type
+  // that DECLARES a signature-matching method (an override site the rename must
+  // rewrite). Runs on the data owner because only its post-load graph has the
+  // complete subtype/implementor cone.
+  ResolveMethodRenameFamily: (req) =>
+    guardRole('ResolveMethodRenameFamily').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+
+            // Same completeness precondition as CheckMemberConflicts: the family
+            // walk needs the resolved inheritance cone, which only exists after
+            // endWorkspaceLoadSession. Mid-load, findSubtypes/findSupertypes are
+            // partial → we would miss override sites (a dangling partial rename).
+            if (svc.symbolManager.isWorkspaceLoadSessionActive()) {
+              return yield* Effect.fail({
+                _tag: 'ResolveMethodRenameFamilyError' as const,
+                message:
+                  'Workspace load session still active; hierarchy graph not ' +
+                  'yet complete for method family resolution',
+              });
+            }
+
+            const { SymbolKind, inTypeSymbolGroup, doesSignatureMatch } =
+              yield* Effect.promise(
+                () => import('@salesforce/apex-lsp-parser-ast'),
+              );
+
+            const definingType = yield* Effect.promise(() =>
+              svc.symbolManager.findSymbolByFQN(req.definingTypeFqn),
+            );
+            if (!definingType || !inTypeSymbolGroup(definingType)) {
+              return yield* Effect.fail({
+                _tag: 'ResolveMethodRenameFamilyError' as const,
+                message: `Type not found or not a type symbol: ${req.definingTypeFqn}`,
+              });
+            }
+
+            const methodNameLower = req.methodName.toLowerCase();
+            const targetArity = req.signature?.length;
+
+            // Read a type's full+complete members once (cached by symbol ref —
+            // ancestors are visited both when seeding introducers and in the main
+            // loop, and re-enrichment is not free).
+            const membersCache = new Map<ApexSymbol, ApexSymbol[]>();
+            const membersOf = (type: ApexSymbol) =>
+              Effect.gen(function* () {
+                const cached = membersCache.get(type);
+                if (cached) return cached;
+                const members = yield* getTypeMembersFullDetail(svc, type).pipe(
+                  Effect.mapError((message) => ({
+                    _tag: 'ResolveMethodRenameFamilyError' as const,
+                    message,
+                  })),
+                );
+                membersCache.set(type, members);
+                return members;
+              });
+            const declaresTargetSig = (members: ApexSymbol[]): boolean =>
+              members.some(
+                (m) =>
+                  m.kind === SymbolKind.Method &&
+                  m.name.toLowerCase() === methodNameLower &&
+                  (req.signature
+                    ? doesSignatureMatch(m, req.methodName, [...req.signature])
+                    : true),
+              );
+
+            // Static methods are not inherited, so the family is the declaring
+            // type alone. Instance methods fan out over the whole cone; ancestors
+            // fold in extended/implemented interfaces and descendants fold in
+            // implementors (findSupertypes/findSubtypes read both edge kinds).
+            const family: ApexSymbol[] = [definingType];
+            if (!req.isStatic) {
+              const { ancestors, descendants } = yield* walkTypeFamily(
+                svc,
+                definingType,
+              );
+              family.push(...ancestors, ...descendants);
+
+              // Sibling-override capture (review P2): the cursor's type can be a
+              // MID-cone override, so a sibling that overrides the SAME method is
+              // neither its ancestor nor its descendant — it would be silently
+              // left behind (and, if it has no calls, nothing trips the unsafe
+              // decline). Any ancestor (or the cursor type) that DECLARES the
+              // signature INTRODUCES the method, so that introducer's full subtype
+              // cone contains every override incl. siblings. Expand from each.
+              for (const intro of [definingType, ...ancestors]) {
+                if (!declaresTargetSig(yield* membersOf(intro))) continue;
+                const subs = yield* Effect.promise(() =>
+                  svc.symbolManager.findSubtypes(intro),
+                );
+                for (const s of subs) if (inTypeSymbolGroup(s)) family.push(s);
+              }
+            }
+
+            const familyFqns: string[] = [];
+            const overrideSites: Array<{ typeFqn: string; fileUri: string }> =
+              [];
+            const seen = new Set<string>();
+            // Distinct overload signatures (by param-type list) among family
+            // methods named the target at the target arity. ≥2 ⇒ an UNTYPED call
+            // at that arity cannot be attributed to the target overload (review
+            // P1) — the pool must then decline it in every file.
+            const overloadSigsAtArity = new Set<string>();
+            const sigKeyOf = (m: ApexSymbol): string =>
+              (
+                (
+                  m as {
+                    parameters?: Array<{
+                      type?: { name?: string; originalTypeString?: string };
+                    }>;
+                  }
+                ).parameters ?? []
+              )
+                .map((p) =>
+                  (
+                    p.type?.originalTypeString ??
+                    p.type?.name ??
+                    ''
+                  ).toLowerCase(),
+                )
+                .join(',');
+
+            for (const type of family) {
+              const typeFqn =
+                type.fqn ||
+                (yield* Effect.promise(() =>
+                  svc.symbolManager.constructFQN(type),
+                ));
+              if (!typeFqn || seen.has(typeFqn)) continue;
+              seen.add(typeFqn);
+              familyFqns.push(typeFqn);
+
+              const members = yield* membersOf(type);
+
+              // Accumulate distinct overload signatures at the target arity.
+              for (const m of members) {
+                if (
+                  m.kind !== SymbolKind.Method ||
+                  m.name.toLowerCase() !== methodNameLower
+                )
+                  continue;
+                const arity = (
+                  (m as { parameters?: unknown[] }).parameters ?? []
+                ).length;
+                if (targetArity === undefined || arity === targetArity) {
+                  overloadSigsAtArity.add(sigKeyOf(m));
+                }
+              }
+
+              // Does this type DECLARE a signature-matching method to rename?
+              if (declaresTargetSig(members) && type.fileUri) {
+                overrideSites.push({ typeFqn, fileUri: type.fileUri });
+              }
+            }
+
+            const targetArityAmbiguous = overloadSigsAtArity.size >= 2;
+
+            emitWorkerLog(
+              'info',
+              `[RENAME] ResolveMethodRenameFamily: ${req.definingTypeFqn}.` +
+                `${req.methodName} → ${familyFqns.length} family type(s), ` +
+                `${overrideSites.length} override site(s)` +
+                (targetArityAmbiguous ? ', arity-ambiguous' : ''),
+            );
+            return { familyFqns, overrideSites, targetArityAmbiguous };
           }),
         ),
       ),

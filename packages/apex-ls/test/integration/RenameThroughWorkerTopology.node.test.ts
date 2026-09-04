@@ -168,14 +168,16 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
         }),
       );
 
-      // Dispatch rename on the `greet` method. The Phase-0 handler ignores the
-      // position/newName and returns null; what we're proving is that the
-      // request crosses the worker boundary and settles.
+      // Dispatch rename on the TYPE name `RenameTarget` — an unsupported rename
+      // kind (renameType is TBD), so every resolver returns null. We're proving
+      // the request crosses the worker boundary and settles, not the edit. (A
+      // method/field cursor now produces a real WorkspaceEdit, so this uses a
+      // type cursor to keep asserting the null-settles path.)
       const result = yield* Effect.promise(() =>
         dispatcher.dispatch('rename', {
           textDocument: { uri: UTIL_URI },
-          position: { line: 1, character: 18 }, // on `greet`
-          newName: 'salute',
+          position: { line: 0, character: 18 }, // on `RenameTarget`
+          newName: 'Renamed',
         }),
       );
 
@@ -187,9 +189,9 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       `[rename-topology] canDispatch=${canDispatch} result=${JSON.stringify(result)}`,
     );
 
-    // The pipe is live (rename is pool-dispatchable) and a method cursor (not
-    // yet a supported rename kind) returns null across the boundary — no throw,
-    // no hang.
+    // The pipe is live (rename is pool-dispatchable) and a type cursor (not yet
+    // a supported rename kind) returns null across the boundary — no throw, no
+    // hang.
     expect(canDispatch).toBe(true);
     expect(result).toBeNull();
   }, 120_000);
@@ -1980,6 +1982,82 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       expect(errResult.error.code).toBe(-32600);
       expect(errResult.error.message).toContain('amount');
       expect(result).not.toHaveProperty('changes');
+    }, 120_000);
+  });
+
+  // W-23631132 (5.2): renameMethod WorkspaceEdit construction. Slice-3 smoke test
+  // for the wiring (dispatch → ResolveMethodRenameFamily assist → candidate scan →
+  // findMethodOccurrences → override-declaration collection → WorkspaceEdit). The
+  // comprehensive cross-file override / interface / static / overload suite is 5.4.
+  describe('renameMethod (W-23631132)', () => {
+    it('renames an instance method declaration and its in-class calls', async () => {
+      const METHOD_URI = 'file:///test/MethodSample.cls';
+      const METHOD_SRC = `public class MethodSample {
+    public Integer compute() {
+        return helper() + this.helper();
+    }
+
+    public Integer helper() {
+        return 1;
+    }
+}`;
+
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+        });
+        const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+          uri === METHOD_URI ? METHOD_SRC : undefined,
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+        yield* Effect.promise(() =>
+          dispatcher.dispatch('documentOpen', {
+            document: {
+              uri: METHOD_URI,
+              languageId: 'apex',
+              version: 1,
+              getText: () => METHOD_SRC,
+            },
+            textDocument: { uri: METHOD_URI },
+            text: METHOD_SRC,
+          }),
+        );
+
+        // Cursor on the `helper` DECLARATION (LSP line 5 `    public Integer
+        // helper() {`, char 21 — inside `helper`).
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: METHOD_URI },
+            position: { line: 5, character: 21 },
+            newName: 'assist',
+            content: METHOD_SRC,
+          }),
+        );
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-method:single-file] ${JSON.stringify(result)}`);
+
+      const edit = result as {
+        changes?: Record<string, Array<{ range: any; newText: string }>>;
+      } | null;
+      expect(edit?.changes).toBeDefined();
+      const edits = edit!.changes![METHOD_URI];
+      expect(edits).toBeDefined();
+      // Declaration + bare `helper()` call + `this.helper()` call.
+      expect(edits.length).toBeGreaterThanOrEqual(3);
+      edits.forEach((e) => expect(e.newText).toBe('assist'));
+      // The declaration (LSP line 5) must be among the edits.
+      expect(edits.some((e) => e.range.start.line === 5)).toBe(true);
     }, 120_000);
   });
 });
