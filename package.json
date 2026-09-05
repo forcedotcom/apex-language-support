@@ -104,7 +104,7 @@
     "jest": "^30.4.1",
     "jscpd": "^4.3.0",
     "jsonc-eslint-parser": "^2.4.0",
-    "knip": "^6.31.0",
+    "knip": "^6.32.3",
     "prettier": "^3.9.6",
     "rimraf": "^5.0.5",
     "semantic-release": "^25.0.9",
