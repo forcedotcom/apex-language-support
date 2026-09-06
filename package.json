@@ -101,7 +101,7 @@
     "istanbul-lib-coverage": "^3.2.2",
     "istanbul-lib-report": "^3.0.1",
     "istanbul-reports": "^3.1.7",
-    "jest": "^30.4.1",
+    "jest": "^30.5.0",
     "jscpd": "^4.3.0",
     "jsonc-eslint-parser": "^2.4.0",
     "knip": "^6.31.0",
