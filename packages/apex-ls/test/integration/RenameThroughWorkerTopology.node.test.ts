@@ -743,9 +743,9 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
   // W-23631087 re-review (P1): the provenance guard must reject STANDARD-LIBRARY
   // declarations. `apexlib://` is a synthetic read-only scheme; a field declared
   // there must never open the rename box (prepareRename → null) nor produce a
-  // WorkspaceEdit (rename → null). Regression: the guard was sourced from
-  // getAllImmutableSchemes(), which INCLUDES `apexlib`, so stdlib members slipped
-  // through. It now uses MUTABLE_DOCUMENT_SCHEMES, which excludes `apexlib`.
+  // WorkspaceEdit (rename → null). The guard rejects the closed set of
+  // server-generated read-only schemes (READONLY_SYNTHETIC_SCHEMES), which
+  // includes `apexlib`.
   const STDLIB_FIELD_URI = 'apexlib://test/StdLibType.cls';
   const STDLIB_FIELD_SRC = `public class StdLibType {
     public Integer value;
@@ -812,6 +812,94 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
     // rename must NOT emit any edit for the stdlib declaration.
     const edit = rename as { changes?: Record<string, unknown> } | null;
     expect(edit?.changes).toBeUndefined();
+  }, 120_000);
+
+  // W-23631087 re-review (P2): a CONFIGURED editable scheme must remain
+  // renamable. `apex.environment.additionalDocumentSchemes` lets a client serve
+  // editable Apex under a custom scheme (e.g. `orgtest://`) that applies to all
+  // capabilities. The provenance guard rejects only the server-generated
+  // read-only schemes, so such a document must open the rename box AND produce a
+  // WorkspaceEdit — matching renameLocal (which has no scheme restriction),
+  // rather than declining by symbol kind. A positive allowlist wrongly declined
+  // it because configured schemes are not synced to the worker.
+  const ORG_FIELD_URI = 'orgtest://project/OrgField.cls';
+  const ORG_FIELD_SRC = `public class OrgField {
+    public Integer amount;
+
+    public void useIt() {
+        amount = 5;
+    }
+}`;
+
+  it('allows prepareRename AND rename for a field on a configured custom scheme (W-23631087 re-review)', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+        uri === ORG_FIELD_URI ? ORG_FIELD_SRC : undefined,
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: ORG_FIELD_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => ORG_FIELD_SRC,
+          },
+          textDocument: { uri: ORG_FIELD_URI },
+          text: ORG_FIELD_SRC,
+        }),
+      );
+
+      // Cursor on `amount` DECLARATION (LSP line 1, char 23).
+      const prepare = yield* Effect.promise(() =>
+        dispatcher.dispatch('prepareRename', {
+          textDocument: { uri: ORG_FIELD_URI },
+          position: { line: 1, character: 23 },
+          content: ORG_FIELD_SRC,
+        }),
+      );
+      const rename = yield* Effect.promise(() =>
+        dispatcher.dispatch('rename', {
+          textDocument: { uri: ORG_FIELD_URI },
+          position: { line: 1, character: 23 },
+          newName: 'total',
+          content: ORG_FIELD_SRC,
+        }),
+      );
+
+      return { prepare, rename };
+    }).pipe(Effect.scoped);
+
+    const { prepare, rename } = await Effect.runPromise(program);
+    logger.debug(
+      `[rename-field:custom-scheme] prepare=${JSON.stringify(prepare)} ` +
+        `rename=${JSON.stringify(rename)}`,
+    );
+
+    // prepareRename must OFFER the field (a range containing the cursor).
+    expect(prepare).not.toBeNull();
+    expect(prepare).toHaveProperty('range');
+    // rename must emit edits for the custom-scheme document.
+    const edit = rename as {
+      changes?: Record<string, Array<{ range: unknown; newText: string }>>;
+    } | null;
+    expect(edit?.changes).toBeDefined();
+    expect(edit!.changes![ORG_FIELD_URI]).toBeDefined();
+    expect(edit!.changes![ORG_FIELD_URI].length).toBeGreaterThan(0);
+    edit!.changes![ORG_FIELD_URI].forEach((e) =>
+      expect(e.newText).toBe('total'),
+    );
   }, 120_000);
 
   // W-23631084: Field rename tests (4.1)

@@ -107,7 +107,7 @@ import {
 } from '@salesforce/apex-lsp-parser-ast';
 import {
   getLogger,
-  MUTABLE_DOCUMENT_SCHEMES,
+  READONLY_SYNTHETIC_SCHEMES,
 } from '@salesforce/apex-lsp-shared';
 import {
   CompilationWorkerPool,
@@ -4035,24 +4035,30 @@ async function resolvePrepareRenameForLocal(req: PositionReq): Promise<{
 }
 
 /**
- * A rename target must live in a USER-OWNED Apex source (W-23631087 review). A
- * declaration in a synthetic URI — stdlib (`apexlib://`), generated SObject
- * (`apex-sobject://`), or any other non-workspace scheme — is not editable and
- * must never be offered for rename. Uses a POSITIVE allowlist of the EDITABLE
- * document-selector schemes VS Code opens user Apex docs under (`file`,
- * `vscode-test-web`, `memfs`, `reefs`), so an unknown/future synthetic scheme
- * fails CLOSED rather than slipping through a negative check. Sourced from
- * `MUTABLE_DOCUMENT_SCHEMES` (NOT `getAllImmutableSchemes`, which includes the
- * synthetic `apexlib` stdlib scheme this guard must reject).
+ * A rename target must live in a USER-OWNED (editable) Apex source (W-23631087
+ * review). A declaration in a synthetic, READ-ONLY URI — stdlib (`apexlib://`) or
+ * generated SObject (`apex-sobject://`) — is not editable and must never be
+ * offered for rename or edited via a virtual-resource URI.
+ *
+ * Rejects the CLOSED set of server-generated read-only schemes
+ * (`READONLY_SYNTHETIC_SCHEMES`) rather than allow-listing editable schemes: the
+ * editable set is open-ended (the four `MUTABLE_DOCUMENT_SCHEMES` defaults PLUS
+ * any `apex.environment.additionalDocumentSchemes` a client configures, which
+ * apply to all capabilities by default) and those custom schemes are not synced
+ * to the worker. A positive allowlist therefore wrongly declined editable
+ * documents on a configured scheme (e.g. `orgtest://`), making rename behave
+ * inconsistently by symbol kind vs. renameLocal — the issue this blocklist fixes
+ * (W-23631087 re-review). The synthetic schemes are ones the SERVER mints, so a
+ * blocklist over that set stays authoritative.
  */
-const USER_OWNED_URI_SCHEMES: ReadonlySet<string> = new Set(
-  MUTABLE_DOCUMENT_SCHEMES,
+const READONLY_URI_SCHEMES: ReadonlySet<string> = new Set(
+  READONLY_SYNTHETIC_SCHEMES,
 );
 const isUserOwnedApexUri = (uri: string | undefined): boolean => {
   if (!uri) return false;
   const colon = uri.indexOf(':');
   if (colon <= 0) return false;
-  return USER_OWNED_URI_SCHEMES.has(uri.slice(0, colon));
+  return !READONLY_URI_SCHEMES.has(uri.slice(0, colon).toLowerCase());
 };
 
 /**

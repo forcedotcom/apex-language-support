@@ -94,6 +94,26 @@ export const MUTABLE_DOCUMENT_SCHEMES: readonly string[] = [
 ] as const;
 
 /**
+ * Synthetic, READ-ONLY document schemes the language server itself generates for
+ * non-editable virtual documents: the standard library (`apexlib`) and generated
+ * SObjects (`apex-sobject`). These are a CLOSED set the server controls (a client
+ * never opens editable Apex under them), so they are the source-of-truth for "is
+ * this scheme NOT writable?" decisions.
+ *
+ * Rename provenance uses this as a BLOCKLIST rather than allow-listing the
+ * editable schemes: the editable set is open-ended — `MUTABLE_DOCUMENT_SCHEMES`
+ * plus any `apex.environment.additionalDocumentSchemes` a client configures
+ * (which apply to all capabilities by default) — and those custom schemes are
+ * not visible to the worker. Rejecting only the known synthetic read-only schemes
+ * keeps configured editable schemes renamable while still refusing stdlib and
+ * generated-SObject sources (W-23631087 re-review).
+ */
+export const READONLY_SYNTHETIC_SCHEMES: readonly string[] = [
+  'apexlib',
+  'apex-sobject',
+] as const;
+
+/**
  * Immutable default schemes for CodeLens capability
  * Excludes 'apexlib' as CodeLens should not operate on standard library files.
  * Same set as {@link MUTABLE_DOCUMENT_SCHEMES} (both mean "real editable files").
