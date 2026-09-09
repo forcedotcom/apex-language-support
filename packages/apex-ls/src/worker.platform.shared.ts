@@ -20,15 +20,7 @@
 
 import * as WorkerRunner from '@effect/platform/WorkerRunner';
 import type { WorkspaceEdit } from 'vscode-languageserver';
-import {
-  Cause,
-  Effect,
-  LogLevel,
-  Schema,
-  Queue,
-  Deferred,
-  Option,
-} from 'effect';
+import { Cause, Effect, Schema, Queue, Deferred, Option } from 'effect';
 import type * as Tracer from 'effect/Tracer';
 import {
   WorkerInit,
@@ -71,7 +63,6 @@ import {
   DispatchDiagnostic,
   DispatchCrossFileEnrichment,
   DispatchGenericLspRequest,
-  isAllowedTag,
   QueryGraphData,
   DataOwnerQuerySymbolByName,
   CheckMemberConflicts,
@@ -80,8 +71,8 @@ import {
   WIRE_PROTOCOL_VERSION,
   ApexCapabilitiesManager,
   ApexSettingsManager,
-  type WorkerRole,
-  type WorkerLogLevel,
+  getLogger,
+  READONLY_SYNTHETIC_SCHEMES,
 } from '@salesforce/apex-lsp-shared';
 import {
   getDocumentStateCache,
@@ -107,10 +98,6 @@ import {
   SymbolTable,
 } from '@salesforce/apex-lsp-parser-ast';
 import {
-  getLogger,
-  READONLY_SYNTHETIC_SCHEMES,
-} from '@salesforce/apex-lsp-shared';
-import {
   CompilationWorkerPool,
   type CompilationWorkerPoolService,
 } from './compiler/CompilationWorkerPool.ts';
@@ -127,6 +114,25 @@ import {
   type SymbolStateSpanAttributes,
   type SymbolStateSymbol,
 } from './server/SymbolStateFlightRecorder.ts';
+import {
+  assignedRole,
+  setAssignedRole,
+  guardRole,
+  LOG_LEVEL_PRIORITY,
+  currentWorkerLogLevel,
+  setWorkerLogLevel,
+  effectLogLevelToWire,
+  setAssistanceTransport,
+  requestCoordinatorAssistancePromiseShared,
+  workerTracingHooks,
+  setWorkerTracingHooks,
+  workerId,
+  setWorkerId,
+  makeResourceLoaderRemoteLayer,
+  setResourceLoaderLayerFactory,
+  warmRemoteStdlibNamespaceCacheShared,
+  setWarmRemoteStdlibNamespaceCache,
+} from './worker/runtimeContext.ts';
 
 // ---------------------------------------------------------------------------
 // Schema union of all coordinator → worker requests
@@ -269,131 +275,30 @@ export function cloneForWire<T>(value: T): T | null {
 }
 
 // ---------------------------------------------------------------------------
-// Role state & guard
-// ---------------------------------------------------------------------------
-
-export let assignedRole: WorkerRole | null = null;
-
-export function setAssignedRole(role: WorkerRole): void {
-  assignedRole = role;
-}
-
-/**
- * Defects on role violation — these are programming errors (coordinator
- * misrouted a message) and should never happen in normal operation.
- */
-export const guardRole = (tag: string): Effect.Effect<void> => {
-  if (assignedRole === null) {
-    return Effect.die(
-      new Error(
-        `WorkerRoleViolation: no role assigned yet, cannot handle '${tag}'`,
-      ),
-    );
-  }
-  if (!isAllowedTag(assignedRole, tag)) {
-    return Effect.die(
-      new Error(
-        `WorkerRoleViolation: tag '${tag}' not allowed for role '${assignedRole}'`,
-      ),
-    );
-  }
-  return Effect.void;
-};
-
-// ---------------------------------------------------------------------------
-// Worker log level (pure, platform-neutral — the transport that reads
-// currentWorkerLogLevel to decide whether to post a message stays in each
-// platform shell, since workerLogger/WorkerLoggerLayer differ structurally)
-// ---------------------------------------------------------------------------
-
-export const LOG_LEVEL_PRIORITY: Record<WorkerLogLevel, number> = {
-  debug: 0,
-  info: 1,
-  warning: 2,
-  error: 3,
-};
-
-export let currentWorkerLogLevel: WorkerLogLevel = 'error';
-
-export function setWorkerLogLevel(level: string): void {
-  if (level in LOG_LEVEL_PRIORITY) {
-    currentWorkerLogLevel = level as WorkerLogLevel;
-  }
-}
-
-export function effectLogLevelToWire(
-  level: LogLevel.LogLevel,
-): WorkerLogLevel | null {
-  if (LogLevel.greaterThanEqual(level, LogLevel.Error)) return 'error';
-  if (LogLevel.greaterThanEqual(level, LogLevel.Warning)) return 'warning';
-  if (LogLevel.greaterThanEqual(level, LogLevel.Info)) return 'info';
-  if (LogLevel.greaterThanEqual(level, LogLevel.Debug)) return 'debug';
-  return null;
-}
-
-// ---------------------------------------------------------------------------
-// Platform-specific value injection (DI shims)
+// Worker runtime context (mutable singletons + platform DI shims)
 //
-// Each shell (worker.platform.ts / worker.platform.web.ts) calls these
-// setters once, synchronously, at module load. Safe regardless of call
-// order relative to this module's own top-level Effect.cached(...) blocks
-// (Task 2/3), because Effect.cached defers the wrapped generator's body
-// until the first time something actually runs the cached Effect — which
-// only happens inside a request handler, well after both modules finish
-// loading.
+// Definitions live in ./worker/runtimeContext.ts and are imported at the top
+// of this module for local use. Re-exported here to preserve the public
+// surface consumed by the platform shells (worker.platform.ts / .web.ts) and
+// the tests that import them.
 // ---------------------------------------------------------------------------
 
-type AssistanceTransport = (
-  method: string,
-  params: unknown,
-  blocking: boolean,
-) => Promise<unknown>;
-
-let _requestCoordinatorAssistancePromise: AssistanceTransport = () =>
-  Promise.reject(new Error('assistance transport not initialized'));
-
-export function setAssistanceTransport(fn: AssistanceTransport): void {
-  _requestCoordinatorAssistancePromise = fn;
-}
-
-export function requestCoordinatorAssistancePromiseShared(
-  method: string,
-  params: unknown,
-  blocking: boolean,
-): Promise<unknown> {
-  return _requestCoordinatorAssistancePromise(method, params, blocking);
-}
-
-type WorkerTracingHooks = {
-  readonly initialize: (url: string, serviceName: string) => void;
-  readonly provide: <A, E, R>(
-    effect: Effect.Effect<A, E, R>,
-  ) => Effect.Effect<A, E, R>;
-  readonly withParent: <A, E>(
-    request: { readonly traceContext?: string },
-    effect: Effect.Effect<A, E, never>,
-  ) => Effect.Effect<A, E, never>;
+export {
+  assignedRole,
+  setAssignedRole,
+  guardRole,
+  LOG_LEVEL_PRIORITY,
+  currentWorkerLogLevel,
+  setWorkerLogLevel,
+  effectLogLevelToWire,
+  setAssistanceTransport,
+  requestCoordinatorAssistancePromiseShared,
+  setWorkerTracingHooks,
+  workerId,
+  setWorkerId,
+  setResourceLoaderLayerFactory,
+  setWarmRemoteStdlibNamespaceCache,
 };
-
-let workerTracingHooks: WorkerTracingHooks = {
-  initialize: () => {},
-  provide: (effect) => effect,
-  withParent: (_request, effect) => effect,
-};
-
-/**
- * Install Node-only tracing at the platform boundary. The browser worker leaves
- * the no-op hooks in place, so its bundle never imports OTEL or async_hooks.
- */
-export function setWorkerTracingHooks(hooks: WorkerTracingHooks): void {
-  workerTracingHooks = hooks;
-}
-
-export let workerId = 'uninitialized';
-
-export function setWorkerId(id: string): void {
-  workerId = id;
-}
 
 function symbolStateTracingEnabled(): boolean {
   return (
@@ -515,40 +420,6 @@ function symbolStateAttributes(
   input: Parameters<typeof recordSymbolStateEvent>[0],
 ): SymbolStateSpanAttributes {
   return symbolStateTracingEnabled() ? recordSymbolStateEvent(input) : {};
-}
-
-type ResourceLoaderLayerFactory = () => Promise<unknown>;
-
-let _makeResourceLoaderRemoteLayer: ResourceLoaderLayerFactory = () => {
-  throw new Error('resource loader layer factory not initialized');
-};
-
-export function setResourceLoaderLayerFactory(
-  fn: ResourceLoaderLayerFactory,
-): void {
-  _makeResourceLoaderRemoteLayer = fn;
-}
-
-// 5th DI shim, not enumerated in the plan's 4-hook DI-boundary list: the
-// WorkerRemoteStdlibWarmup handler (moving to shared in this task) calls
-// warmRemoteStdlibNamespaceCache(), whose Node/Web bodies are structurally
-// different (Node throws if the namespace map isn't initialized; Web
-// swallows errors and has a differently-shaped response payload) and so
-// stay in each platform shell, same rationale as makeResourceLoaderRemoteLayer.
-type WarmRemoteStdlibNamespaceCache = () => Promise<void>;
-
-let _warmRemoteStdlibNamespaceCache: WarmRemoteStdlibNamespaceCache = () => {
-  throw new Error('remote stdlib namespace warmup not initialized');
-};
-
-export function setWarmRemoteStdlibNamespaceCache(
-  fn: WarmRemoteStdlibNamespaceCache,
-): void {
-  _warmRemoteStdlibNamespaceCache = fn;
-}
-
-function warmRemoteStdlibNamespaceCacheShared(): Promise<void> {
-  return _warmRemoteStdlibNamespaceCache();
 }
 
 export interface StandardNamespacePreloadResult {
@@ -2967,7 +2838,7 @@ export const ensureDataOwnerServices: Effect.Effect<DataOwnerServices> =
           () => import('@salesforce/apex-lsp-compliant-services'),
         );
         const resourceLoaderLayer = (yield* Effect.promise(() =>
-          _makeResourceLoaderRemoteLayer(),
+          makeResourceLoaderRemoteLayer(),
         )) as import('effect').Layer.Layer<
           import('@salesforce/apex-lsp-parser-ast').ResourceLoaderService
         >;
@@ -2991,7 +2862,7 @@ export const ensureRequestServices: Effect.Effect<RequestServices> =
           () => import('@salesforce/apex-lsp-compliant-services'),
         );
         const resourceLoaderLayer = (yield* Effect.promise(() =>
-          _makeResourceLoaderRemoteLayer(),
+          makeResourceLoaderRemoteLayer(),
         )) as import('effect').Layer.Layer<
           import('@salesforce/apex-lsp-parser-ast').ResourceLoaderService
         >;
