@@ -6913,8 +6913,8 @@ const untracedHandlers: SerializedWorkerHandlers = {
                     : true),
               );
 
-            // Static methods are not inherited, so the family is the declaring
-            // type alone. Instance methods fan out over the whole cone; ancestors
+            // The occurrence family: types whose calls to this method must be
+            // renamed. Instance methods fan out over the whole cone; ancestors
             // fold in extended/implemented interfaces and descendants fold in
             // implementors (findSupertypes/findSubtypes read both edge kinds).
             const family: ApexSymbol[] = [definingType];
@@ -6938,6 +6938,24 @@ const untracedHandlers: SerializedWorkerHandlers = {
                   svc.symbolManager.findSubtypes(intro),
                 );
                 for (const s of subs) if (inTypeSymbolGroup(s)) family.push(s);
+              }
+            } else {
+              // Static methods ARE inherited and callable from subclasses in Apex
+              // (an unqualified `foo()` in a subclass body, or `Sub.foo()`), so
+              // calls to the inherited static are real occurrences that must be
+              // renamed — include the DESCENDANT cone (W-23631132 re-review, 5.2).
+              // But a subclass that REDECLARES a same-name static is method
+              // HIDING — a DISTINCT method whose declaration and calls must NOT be
+              // renamed — so exclude any descendant that declares its own matching
+              // method; that file then fail-closes in the pool (unsafe → decline)
+              // if it references the name, rather than being mis-renamed. Statics
+              // have no override sites: only the declaring type declares this
+              // method, so the overrideSites gate below (declaresTargetSig)
+              // naturally yields just `definingType`. Ancestors are irrelevant —
+              // they cannot see a subtype's static.
+              const { descendants } = yield* walkTypeFamily(svc, definingType);
+              for (const d of descendants) {
+                if (!declaresTargetSig(yield* membersOf(d))) family.push(d);
               }
             }
 

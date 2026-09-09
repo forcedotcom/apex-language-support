@@ -146,6 +146,32 @@ const RM_SQUARE_SRC = `public class RmSquare extends RmShape {
     public override void draw() { }
 }`;
 
+// Case 8 (re-review 5.2): STATIC method inherited by a subclass. Statics are
+// inherited/callable in Apex, so renaming the base static must also rename the
+// subclass's inherited call (`RmStatChild` does NOT redeclare `tally`).
+const RM_STATBASE_URI = 'file:///test/RmStatBase.cls';
+const RM_STATBASE_SRC = `public virtual class RmStatBase {
+    public static Integer tally() { return 1; }
+}`;
+const RM_STATCHILD_URI = 'file:///test/RmStatChild.cls';
+const RM_STATCHILD_SRC = `public class RmStatChild extends RmStatBase {
+    public Integer use() { return tally(); }
+}`;
+
+// Case 9 (re-review 5.2): static method HIDING. `RmStatHideChild` redeclares a
+// same-name static (a DISTINCT method), so renaming the base static must NOT
+// rename the child's declaration or its call — the child's call cannot be proven
+// unrelated standalone, so the rename fail-closes (declines) rather than corrupt.
+const RM_STATHIDEBASE_URI = 'file:///test/RmStatHideBase.cls';
+const RM_STATHIDEBASE_SRC = `public virtual class RmStatHideBase {
+    public static Integer score() { return 1; }
+}`;
+const RM_STATHIDECHILD_URI = 'file:///test/RmStatHideChild.cls';
+const RM_STATHIDECHILD_SRC = `public class RmStatHideChild extends RmStatHideBase {
+    public static Integer score() { return 2; }
+    public Integer use() { return score(); }
+}`;
+
 const SOURCES: Record<string, string> = {
   [RM_BASE_URI]: RM_BASE_SRC,
   [RM_CHILD_URI]: RM_CHILD_SRC,
@@ -160,6 +186,10 @@ const SOURCES: Record<string, string> = {
   [RM_SHAPE_URI]: RM_SHAPE_SRC,
   [RM_CIRCLE_URI]: RM_CIRCLE_SRC,
   [RM_SQUARE_URI]: RM_SQUARE_SRC,
+  [RM_STATBASE_URI]: RM_STATBASE_SRC,
+  [RM_STATCHILD_URI]: RM_STATCHILD_SRC,
+  [RM_STATHIDEBASE_URI]: RM_STATHIDEBASE_SRC,
+  [RM_STATHIDECHILD_URI]: RM_STATHIDECHILD_SRC,
 };
 
 const WORKSPACE_ENTRIES = Object.entries(SOURCES).map(([uri, content]) => ({
@@ -357,6 +387,47 @@ describe('renameMethod through the worker topology (W-23631132, slice 4)', () =>
     edits.forEach((e) => expect(e.newText).toBe('calc'));
     expect(edits.some((e) => e.range.start.line === 1)).toBe(true);
     expect(edits.some((e) => e.range.start.line === 2)).toBe(true);
+  }, 120_000);
+
+  it('renames an inherited static call in a subclass cross-file (re-review 5.2)', async () => {
+    // Cursor on RmStatBase.tally declaration (LSP line 1, char 28). Statics are
+    // inherited, so RmStatChild's unqualified `tally()` call binds to this static
+    // and must be renamed too — the descendant cone is now part of the occurrence
+    // family for statics.
+    const result = await rename(
+      RM_STATBASE_URI,
+      { line: 1, character: 28 },
+      'count',
+    );
+    logger.debug(`[rename-method:static-inherited] ${JSON.stringify(result)}`);
+
+    expect(result?.error).toBeUndefined();
+    expect(result?.changes).toBeDefined();
+    const changes = result!.changes!;
+    // Base declaration renamed AND the subclass's inherited call renamed.
+    expect(changes[RM_STATBASE_URI]).toBeDefined();
+    expect(changes[RM_STATCHILD_URI]).toBeDefined();
+    Object.values(changes)
+      .flat()
+      .forEach((e) => expect(e.newText).toBe('count'));
+  }, 120_000);
+
+  it('declines a static rename when a subclass HIDES it with its own static (re-review 5.2)', async () => {
+    // Cursor on RmStatHideBase.score (LSP line 1, char 28). RmStatHideChild
+    // redeclares a same-name static (method hiding — a DISTINCT method), so its
+    // `score()` call cannot be proven unrelated standalone → fail closed (decline)
+    // rather than rename a call that binds to the child's own static.
+    const result = await rename(
+      RM_STATHIDEBASE_URI,
+      { line: 1, character: 28 },
+      'points',
+    );
+    logger.debug(`[rename-method:static-hiding] ${JSON.stringify(result)}`);
+
+    expect(result).not.toBeNull();
+    expect(result).toHaveProperty('error');
+    expect(result).not.toHaveProperty('changes');
+    expect(result!.error!.code).toBe(-32600);
   }, 120_000);
 
   it('renames only the 0-arg overload, leaving m(Integer x) untouched', async () => {
