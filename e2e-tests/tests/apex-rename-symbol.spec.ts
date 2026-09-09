@@ -357,3 +357,261 @@ test.describe('Apex Rename Symbol - Field', () => {
     });
   });
 });
+
+/**
+ * E2E for textDocument/rename of METHODS (W-23631134 / 5.4) — hierarchy-aware
+ * rename across the type-family cone via F2, like the renameField tests. Each
+ * case renames a method that participates in an inheritance / interface
+ * relationship and asserts that the declaration, the override/implementation
+ * declarations in OTHER files, and the modeled call sites are all rewritten.
+ *
+ * !!! DEPENDENCY ON WI 7.1 (W-23631152) — method `prepareRename` !!!
+ * F2 fires `textDocument/prepareRename` FIRST (prepareProvider is advertised in
+ * DEVELOPMENT_CAPABILITIES). The renameLocal (3.x) and renameField (W-23631087)
+ * branches only wired prepareRename for LOCALS and FIELDS. METHOD prepareRename
+ * — the range/eligibility probe that lets F2 open the rename box on a method
+ * name — is delivered separately by WI 7.1. Until 7.1 is integrated into this
+ * branch, F2 on a method declaration returns "The element can't be renamed" and
+ * these three tests CANNOT pass. They are authored against the EXPECTED F2
+ * method-rename UX so they go green the moment 7.1 lands; do not treat a failure
+ * here as a regression before that integration.
+ *
+ * Fixture design (so the rename is PROVABLE and never declines): call sites use
+ * receivers declared as a family type (`Child child = new Child(); child.foo()`),
+ * plus `override`/`implements` declarations — no overloads, no multi-hop chains,
+ * and no method/constructor-result receivers, all of which findMethodOccurrences
+ * marks `unsafe` → decline. Method names are globally unique across the fixture
+ * set so no out-of-family same-named call can force a decline.
+ *
+ * @group rename
+ */
+test.describe('Apex Rename Symbol - Method', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  test('ancestor override: renaming a base method renames the subclass override + call site cross-file', async ({
+    apexEditor,
+    outlineView,
+  }) => {
+    await test.step('Open the subclass (consumer) then the base (rename source)', async () => {
+      // Open the consumer first so its override + call are ingested, then the
+      // declaring file last (it is the rename source and gets warmed below).
+      await apexEditor.openFile('RenameMethodAncestorChild.cls');
+      await apexEditor.waitForLanguageServerReady();
+      await apexEditor.openFile('RenameMethodAncestorBase.cls');
+      await apexEditor.waitForLanguageServerReady();
+    });
+
+    await test.step('Wait for full workspace ingestion', async () => {
+      // renameMethod declines mid-load rather than emit a partial edit; gate on
+      // full ingestion so the subclass file is stored and the type-family cone
+      // (base → subtype) is resolvable before F2.
+      await apexEditor.waitForWorkspaceReady();
+    });
+
+    await test.step('Warm the request pool for prepareRename on the base file', async () => {
+      await apexEditor.openFile('RenameMethodAncestorBase.cls');
+      await outlineView.open();
+      const mainClass = await outlineView.findSymbol(
+        'RenameMethodAncestorBase',
+        20000,
+      );
+      expect(
+        mainClass,
+        'Outline (documentSymbol) must resolve RenameMethodAncestorBase before F2',
+      ).not.toBeNull();
+    });
+
+    await test.step('Position on the base `evaluateScore` declaration', async () => {
+      // Line 8: `    public virtual Integer evaluateScore() {` — `evaluateScore`
+      // starts at column 28; column 31 is INSIDE the token (prepareRename uses a
+      // half-open range, so land in-word, not at the boundary).
+      await apexEditor.goToPosition(8, 31);
+    });
+
+    await test.step('Rename `evaluateScore` to `computeRank`', async () => {
+      await apexEditor.rename('computeRank');
+    });
+
+    await test.step('Assert the base declaration is renamed', async () => {
+      await apexEditor.waitForContentToInclude('computeRank');
+      const content = await apexEditor.getContent();
+      const normalized = content.replace(/ /g, ' ');
+      // `public virtual Integer computeRank() {`
+      expect(normalized).toMatch(
+        /public\s+virtual\s+Integer\s+computeRank\s*\(\s*\)/,
+      );
+      // Old name gone from the class body (slice past the comment that names it).
+      const classBody = normalized.slice(
+        normalized.indexOf('public virtual class'),
+      );
+      expect(classBody).not.toContain('evaluateScore');
+    });
+
+    await test.step('Assert the subclass override + call site are renamed cross-file', async () => {
+      await apexEditor.openFile('RenameMethodAncestorChild.cls');
+      await apexEditor.waitForContentToInclude('computeRank');
+      const content = await apexEditor.getContent();
+      const normalized = content.replace(/ /g, ' ');
+
+      // Override declaration: `public override Integer computeRank() {`
+      expect(normalized).toMatch(
+        /public\s+override\s+Integer\s+computeRank\s*\(\s*\)/,
+      );
+      // Call site: `return child.computeRank();`
+      expect(normalized).toMatch(/return\s+child\.computeRank\s*\(\s*\)/);
+
+      // Old name gone from the class body (slice past the naming comment).
+      const classBody = normalized.slice(normalized.indexOf('public class'));
+      expect(classBody).not.toContain('evaluateScore');
+    });
+  });
+
+  test('descendant override: renaming from a subclass override renames base + sibling', async ({
+    apexEditor,
+    outlineView,
+  }) => {
+    await test.step('Open the base + sibling (consumers) then the child (rename source)', async () => {
+      await apexEditor.openFile('RenameMethodDescendantBase.cls');
+      await apexEditor.waitForLanguageServerReady();
+      await apexEditor.openFile('RenameMethodDescendantSibling.cls');
+      await apexEditor.waitForLanguageServerReady();
+      await apexEditor.openFile('RenameMethodDescendantChild.cls');
+      await apexEditor.waitForLanguageServerReady();
+    });
+
+    await test.step('Wait for full workspace ingestion', async () => {
+      // The base + sibling must be stored so the cone (child → base → sibling)
+      // resolves; renameMethod declines against a partially-loaded graph.
+      await apexEditor.waitForWorkspaceReady();
+    });
+
+    await test.step('Warm the request pool for prepareRename on the child file', async () => {
+      await apexEditor.openFile('RenameMethodDescendantChild.cls');
+      await outlineView.open();
+      const mainClass = await outlineView.findSymbol(
+        'RenameMethodDescendantChild',
+        20000,
+      );
+      expect(
+        mainClass,
+        'Outline (documentSymbol) must resolve RenameMethodDescendantChild before F2',
+      ).not.toBeNull();
+    });
+
+    await test.step('Position on the child `refreshCache` override declaration', async () => {
+      // Line 9: `    public override void refreshCache() {` — `refreshCache`
+      // starts at column 26; column 29 is INSIDE the token.
+      await apexEditor.goToPosition(9, 29);
+    });
+
+    await test.step('Rename `refreshCache` to `reloadCache`', async () => {
+      await apexEditor.rename('reloadCache');
+    });
+
+    await test.step('Assert the child override + call site are renamed', async () => {
+      await apexEditor.waitForContentToInclude('reloadCache');
+      const content = await apexEditor.getContent();
+      const normalized = content.replace(/ /g, ' ');
+      // Override declaration: `public override void reloadCache() {`
+      expect(normalized).toMatch(
+        /public\s+override\s+void\s+reloadCache\s*\(\s*\)/,
+      );
+      // Call site: `child.reloadCache();`
+      expect(normalized).toMatch(/child\.reloadCache\s*\(\s*\)/);
+      const classBody = normalized.slice(normalized.indexOf('public class'));
+      expect(classBody).not.toContain('refreshCache');
+    });
+
+    await test.step('Assert the base declaration is renamed (propagated up the cone)', async () => {
+      await apexEditor.openFile('RenameMethodDescendantBase.cls');
+      await apexEditor.waitForContentToInclude('reloadCache');
+      const content = await apexEditor.getContent();
+      const normalized = content.replace(/ /g, ' ');
+      // `public virtual void reloadCache() {`
+      expect(normalized).toMatch(
+        /public\s+virtual\s+void\s+reloadCache\s*\(\s*\)/,
+      );
+      const classBody = normalized.slice(
+        normalized.indexOf('public virtual class'),
+      );
+      expect(classBody).not.toContain('refreshCache');
+    });
+
+    await test.step('Assert the sibling override is renamed (propagated across the cone)', async () => {
+      await apexEditor.openFile('RenameMethodDescendantSibling.cls');
+      await apexEditor.waitForContentToInclude('reloadCache');
+      const content = await apexEditor.getContent();
+      const normalized = content.replace(/ /g, ' ');
+      // `public override void reloadCache() {`
+      expect(normalized).toMatch(
+        /public\s+override\s+void\s+reloadCache\s*\(\s*\)/,
+      );
+      const classBody = normalized.slice(normalized.indexOf('public class'));
+      expect(classBody).not.toContain('refreshCache');
+    });
+  });
+
+  test('interface implementer: renaming an interface method renames the implementing class method + call site', async ({
+    apexEditor,
+    outlineView,
+  }) => {
+    await test.step('Open the implementer (consumer) then the interface (rename source)', async () => {
+      await apexEditor.openFile('RenameMethodImplementer.cls');
+      await apexEditor.waitForLanguageServerReady();
+      await apexEditor.openFile('RenameMethodContract.cls');
+      await apexEditor.waitForLanguageServerReady();
+    });
+
+    await test.step('Wait for full workspace ingestion', async () => {
+      // The implementor must be stored so the interface's cone (interface →
+      // implementor) resolves before F2; otherwise renameMethod declines.
+      await apexEditor.waitForWorkspaceReady();
+    });
+
+    await test.step('Warm the request pool for prepareRename on the interface file', async () => {
+      await apexEditor.openFile('RenameMethodContract.cls');
+      await outlineView.open();
+      const mainType = await outlineView.findSymbol(
+        'RenameMethodContract',
+        20000,
+      );
+      expect(
+        mainType,
+        'Outline (documentSymbol) must resolve RenameMethodContract before F2',
+      ).not.toBeNull();
+    });
+
+    await test.step('Position on the interface `handleRecord` declaration', async () => {
+      // Line 8: `    void handleRecord();` — `handleRecord` starts at column 10;
+      // column 13 is INSIDE the token.
+      await apexEditor.goToPosition(8, 13);
+    });
+
+    await test.step('Rename `handleRecord` to `processRecord`', async () => {
+      await apexEditor.rename('processRecord');
+    });
+
+    await test.step('Assert the interface declaration is renamed', async () => {
+      await apexEditor.waitForContentToInclude('processRecord');
+      const content = await apexEditor.getContent();
+      const normalized = content.replace(/ /g, ' ');
+      // `void processRecord();`
+      expect(normalized).toMatch(/void\s+processRecord\s*\(\s*\)\s*;/);
+      const bodyText = normalized.slice(normalized.indexOf('public interface'));
+      expect(bodyText).not.toContain('handleRecord');
+    });
+
+    await test.step('Assert the implementing class method + call site are renamed cross-file', async () => {
+      await apexEditor.openFile('RenameMethodImplementer.cls');
+      await apexEditor.waitForContentToInclude('processRecord');
+      const content = await apexEditor.getContent();
+      const normalized = content.replace(/ /g, ' ');
+      // Implementation declaration: `public void processRecord() {`
+      expect(normalized).toMatch(/public\s+void\s+processRecord\s*\(\s*\)/);
+      // Call site: `impl.processRecord();`
+      expect(normalized).toMatch(/impl\.processRecord\s*\(\s*\)/);
+      const classBody = normalized.slice(normalized.indexOf('public class'));
+      expect(classBody).not.toContain('handleRecord');
+    });
+  });
+});
