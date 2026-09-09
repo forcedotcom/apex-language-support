@@ -325,6 +325,63 @@ describe('renameMethod through the worker topology (W-23631132, slice 4)', () =>
       content: SOURCES[uri],
     }) as Promise<RenameResult>;
 
+  // Dispatch a single pool prepareRename with the cursor file's live buffer.
+  const prepareRename = (
+    uri: string,
+    position: { line: number; character: number },
+  ): Promise<{
+    range: {
+      start: { line: number; character: number };
+      end: { line: number; character: number };
+    };
+    placeholder: string;
+  } | null> =>
+    dispatcher.dispatch('prepareRename', {
+      textDocument: { uri },
+      position,
+      content: SOURCES[uri],
+    }) as Promise<{
+      range: {
+        start: { line: number; character: number };
+        end: { line: number; character: number };
+      };
+      placeholder: string;
+    } | null>;
+
+  // W-23631152: DispatchPrepareRename now dispatches local → field → method, so
+  // F2 opens the rename box on a method cursor in a fully ingested workspace
+  // (the same cone these rename tests exercise). prepareRename returns only the
+  // identifier range + placeholder — it does not walk the family — so a method
+  // DECLARATION cursor resolves to its own identifier range here.
+  it('returns prepareRename range for a method DECLARATION cursor (W-23631152)', async () => {
+    // Cursor on RmBase.run declaration (LSP line 1, char 25 — inside `run`),
+    // the same position the override rename test uses.
+    const result = await prepareRename(RM_BASE_URI, { line: 1, character: 25 });
+    logger.debug(`[prepare-rename:method-decl] ${JSON.stringify(result)}`);
+
+    expect(result).not.toBeNull();
+    expect(result!.range.start.line).toBe(1);
+    expect(result!.range.end.line).toBe(1);
+    expect(result!.range.start.character).toBeLessThanOrEqual(25);
+    expect(result!.range.end.character).toBeGreaterThan(25);
+    expect(result!.placeholder).toBe('run');
+  }, 120_000);
+
+  it('returns the usage range for a method CALL cursor (W-23631152)', async () => {
+    // Cursor on RmUtil.caller()'s in-body `compute()` CALL (LSP line 2, char
+    // 47). prepareRename must return the CALL's identifier range (via
+    // exactCursorReference), not the declaration on line 1.
+    const result = await prepareRename(RM_UTIL_URI, { line: 2, character: 47 });
+    logger.debug(`[prepare-rename:method-call] ${JSON.stringify(result)}`);
+
+    expect(result).not.toBeNull();
+    expect(result!.range.start.line).toBe(2);
+    expect(result!.range.end.line).toBe(2);
+    expect(result!.range.start.character).toBeLessThanOrEqual(47);
+    expect(result!.range.end.character).toBeGreaterThan(47);
+    expect(result!.placeholder).toBe('compute');
+  }, 120_000);
+
   it('renames a base method AND its cross-file override declaration', async () => {
     // Cursor on RmBase.run declaration (LSP line 1, char 25 — inside `run`).
     const result = await rename(
