@@ -107,8 +107,7 @@ test.describe('Apex Rename Symbol', () => {
       await apexEditor.waitForContentToInclude('renamed');
 
       const content = await apexEditor.getContent();
-      // Monaco renders indentation with non-breaking spaces (U+00A0); normalize
-      // to regular spaces so the structural assertions match reliably.
+      // Normalize non-breaking-space indentation (U+00A0) so the regexes match.
       const normalized = content.replace(/ /g, ' ');
 
       // The declaration is now `Integer renamed = 0;`
@@ -221,6 +220,140 @@ test.describe('Apex Rename Symbol', () => {
       expect(addValueMethodMatch).not.toBeNull();
       const addValueBody = addValueMethodMatch![1];
       expect(addValueBody).not.toContain('value');
+    });
+  });
+});
+
+/**
+ * E2E for textDocument/rename of FIELDS (W-23631087) — single-file + cross-file
+ * via F2, like the renameLocal tests. F2 fires prepareRename first; field support
+ * was added to DispatchPrepareRename here. Each test warms the pool with a
+ * documentSymbol probe so prepareRename can parse the live buffer before F2.
+ *
+ * @group rename
+ */
+test.describe('Apex Rename Symbol - Field', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  test('renames a field declaration and its this-qualified and implicit-this usages', async ({
+    apexEditor,
+    outlineView,
+  }) => {
+    await test.step('Open the field rename fixture', async () => {
+      await apexEditor.openFile('RenameFieldSample.cls');
+      await apexEditor.waitForLanguageServerReady();
+    });
+
+    await test.step('Warm the request pool for prepareRename', async () => {
+      // documentSymbol threads the live buffer to the pool — prepareRename's precondition.
+      await outlineView.open();
+      const mainClass = await outlineView.findSymbol(
+        'RenameFieldSample',
+        20000,
+      );
+      expect(
+        mainClass,
+        'Outline (documentSymbol) must resolve RenameFieldSample before F2',
+      ).not.toBeNull();
+    });
+
+    await test.step('Position on the `counter` field declaration', async () => {
+      // Line 4, column 22 is inside `counter` (in-word avoids prepareRename's boundary).
+      await apexEditor.goToPosition(4, 22);
+    });
+
+    await test.step('Rename `counter` to `tally`', async () => {
+      await apexEditor.rename('tally');
+    });
+
+    await test.step('Assert the declaration and all field usages are renamed', async () => {
+      await apexEditor.waitForContentToInclude('tally');
+
+      const content = await apexEditor.getContent();
+      // Normalize non-breaking-space indentation (U+00A0) so the regexes match.
+      const normalized = content.replace(/ /g, ' ');
+
+      // Declaration: `public Integer tally = 0;`
+      expect(normalized).toMatch(/public\s+Integer\s+tally\s*=\s*0\s*;/);
+      // this-qualified read+write: `this.tally = this.tally + 1;`
+      expect(normalized).toMatch(/this\.tally\s*=\s*this\.tally\s*\+\s*1\s*;/);
+      // implicit-this read: `return tally;`
+      expect(normalized).toMatch(/return\s+tally\s*;/);
+
+      // Old name gone (slice past the comment that also says `counter`).
+      const classBody = normalized.slice(
+        normalized.indexOf('public with sharing class'),
+      );
+      expect(classBody).not.toContain('counter');
+    });
+  });
+
+  test('renames a field across files (declaration + cross-file field access)', async ({
+    apexEditor,
+    outlineView,
+  }) => {
+    await test.step('Open the consumer and declaring files', async () => {
+      // Consumer first so its usage is ingested, then the declaring file (rename source).
+      await apexEditor.openFile('RenameFieldClient.cls');
+      await apexEditor.waitForLanguageServerReady();
+      await apexEditor.openFile('RenameFieldModel.cls');
+      await apexEditor.waitForLanguageServerReady();
+    });
+
+    await test.step('Wait for full workspace ingestion', async () => {
+      // renameField declines mid-load rather than emit a partial edit (W-23631084);
+      // gate on full ingestion so the consumer file is stored.
+      await apexEditor.waitForWorkspaceReady();
+    });
+
+    await test.step('Warm the request pool for prepareRename on the declaring file', async () => {
+      await apexEditor.openFile('RenameFieldModel.cls');
+      await outlineView.open();
+      const mainClass = await outlineView.findSymbol('RenameFieldModel', 20000);
+      expect(
+        mainClass,
+        'Outline (documentSymbol) must resolve RenameFieldModel before F2',
+      ).not.toBeNull();
+    });
+
+    await test.step('Position on the `quantity` field declaration', async () => {
+      // Line 4, column 23 is inside `quantity`.
+      await apexEditor.goToPosition(4, 23);
+    });
+
+    await test.step('Rename `quantity` to `amount`', async () => {
+      await apexEditor.rename('amount');
+    });
+
+    await test.step('Assert the declaration is renamed in RenameFieldModel', async () => {
+      await apexEditor.waitForContentToInclude('amount');
+      const content = await apexEditor.getContent();
+      const normalized = content.replace(/ /g, ' ');
+      expect(normalized).toMatch(/public\s+Integer\s+amount\s*=\s*0\s*;/);
+      const classBody = normalized.slice(
+        normalized.indexOf('public with sharing class'),
+      );
+      expect(classBody).not.toContain('quantity');
+    });
+
+    await test.step('Assert the cross-file usages are renamed in RenameFieldClient', async () => {
+      // Switch to the consumer tab and wait for the cross-file edit to surface.
+      await apexEditor.openFile('RenameFieldClient.cls');
+      await apexEditor.waitForContentToInclude('model.amount');
+
+      const content = await apexEditor.getContent();
+      const normalized = content.replace(/ /g, ' ');
+
+      // Write: `model.amount = 5;`
+      expect(normalized).toMatch(/model\.amount\s*=\s*5\s*;/);
+      // Read: `return model.amount;`
+      expect(normalized).toMatch(/return\s+model\.amount\s*;/);
+
+      // Old name gone (slice past the comment that mentions `quantity`).
+      const classBody = normalized.slice(
+        normalized.indexOf('public with sharing class'),
+      );
+      expect(classBody).not.toContain('quantity');
     });
   });
 });

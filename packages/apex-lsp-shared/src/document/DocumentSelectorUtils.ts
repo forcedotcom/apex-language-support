@@ -77,15 +77,49 @@ export const DEFAULT_SCHEMES_FOR_MOST: readonly string[] = [
 ] as const;
 
 /**
- * Immutable default schemes for CodeLens capability
- * Excludes 'apexlib' as CodeLens should not operate on standard library files
+ * User-editable ("mutable") document schemes: the real workspace filesystems VS
+ * Code opens editable Apex under (`file`, plus the web variants). Deliberately
+ * EXCLUDES synthetic read-only schemes — standard library (`apexlib`) and
+ * generated SObjects (`apex-sobject`) — which back non-editable virtual
+ * documents. This is the source-of-truth for "can the user edit this file?"
+ * decisions (e.g. rename provenance), so a synthetic scheme is never treated as
+ * user-owned. Note this intentionally differs from {@link getAllImmutableSchemes},
+ * which INCLUDES `apexlib`.
  */
-export const DEFAULT_SCHEMES_FOR_CODELENS: readonly string[] = [
+export const MUTABLE_DOCUMENT_SCHEMES: readonly string[] = [
   'file',
   'vscode-test-web',
   'memfs',
   'reefs',
 ] as const;
+
+/**
+ * Synthetic, READ-ONLY document schemes the language server itself generates for
+ * non-editable virtual documents: the standard library (`apexlib`) and generated
+ * SObjects (`apex-sobject`). These are a CLOSED set the server controls (a client
+ * never opens editable Apex under them), so they are the source-of-truth for "is
+ * this scheme NOT writable?" decisions.
+ *
+ * Rename provenance uses this as a BLOCKLIST rather than allow-listing the
+ * editable schemes: the editable set is open-ended — `MUTABLE_DOCUMENT_SCHEMES`
+ * plus any `apex.environment.additionalDocumentSchemes` a client configures
+ * (which apply to all capabilities by default) — and those custom schemes are
+ * not visible to the worker. Rejecting only the known synthetic read-only schemes
+ * keeps configured editable schemes renamable while still refusing stdlib and
+ * generated-SObject sources (W-23631087 re-review).
+ */
+export const READONLY_SYNTHETIC_SCHEMES: readonly string[] = [
+  'apexlib',
+  'apex-sobject',
+] as const;
+
+/**
+ * Immutable default schemes for CodeLens capability
+ * Excludes 'apexlib' as CodeLens should not operate on standard library files.
+ * Same set as {@link MUTABLE_DOCUMENT_SCHEMES} (both mean "real editable files").
+ */
+export const DEFAULT_SCHEMES_FOR_CODELENS: readonly string[] =
+  MUTABLE_DOCUMENT_SCHEMES;
 
 /**
  * Get all immutable scheme names (union of all default schemes)
