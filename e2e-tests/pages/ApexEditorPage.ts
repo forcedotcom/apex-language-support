@@ -51,14 +51,9 @@ export class ApexEditorPage extends BasePage {
    * @param filename - Name of the file to open (e.g., "ApexClassExample.cls")
    */
   async openFile(filename: string): Promise<void> {
-    const fileLocator = this.page
-      .locator(`[aria-label*="${filename}"]`)
-      .first();
-
-    const fileExists = await fileLocator.count();
-    if (fileExists > 0) {
-      await fileLocator.dblclick();
-    } else {
+    // Open via quick-open (Ctrl+P style). Reused for the initial open and the
+    // fallback below.
+    const openViaQuickInput = async (): Promise<void> => {
       await this.executeCommand('File: Open File');
       const quickInput = this.page.locator('.quick-input-widget');
       await quickInput.waitFor({ state: 'visible', timeout: 5000 });
@@ -67,6 +62,29 @@ export class ApexEditorPage extends BasePage {
       await quickInput
         .waitFor({ state: 'hidden', timeout: 5000 })
         .catch(() => {});
+    };
+
+    const fileLocator = this.page
+      .locator(`[aria-label*="${filename}"]`)
+      .first();
+    if ((await fileLocator.count()) > 0) {
+      await fileLocator.dblclick();
+    } else {
+      await openViaQuickInput();
+    }
+
+    // The `[aria-label*=...]` locator can match a stale explorer node or the
+    // wrong tab, and a lingering rename widget can steal focus, so the dblclick
+    // does not guarantee the requested file became the ACTIVE editor. Since
+    // getContent()/activeEditorContent read the ACTIVE group, asserting without
+    // confirming the active tab reads the WRONG file (observed in the serial
+    // renameMethod e2e, which read a different fixture's content). Confirm the
+    // active tab is the target; if not, recover once via quick-open.
+    try {
+      await this.waitForActiveTab(filename, 8000);
+    } catch {
+      await openViaQuickInput();
+      await this.waitForActiveTab(filename, this.defaultTimeout);
     }
 
     await this.editor.waitFor({
@@ -77,6 +95,34 @@ export class ApexEditorPage extends BasePage {
       .locator('.view-line')
       .first()
       .waitFor({ state: 'visible', timeout: this.defaultTimeout });
+  }
+
+  /**
+   * Wait until the ACTIVE editor tab is `filename`. openFile/getContent operate
+   * on the active editor group, so callers that switch files must confirm the
+   * switch landed before asserting — otherwise stale focus (e.g. a lingering
+   * rename widget in a shared serial context) reads a different file's content.
+   * Matches the active tab's `.label-name` (falling back to its aria-label's
+   * filename segment), mirroring waitForNavigation's detection.
+   * @param filename - Expected active-tab basename (e.g. "Foo.cls")
+   * @param timeout - Max wait in ms (defaults to the page default)
+   */
+  async waitForActiveTab(filename: string, timeout?: number): Promise<void> {
+    await this.page.waitForFunction(
+      (target: string) => {
+        const labelText = document
+          .querySelector('.tab.active .label-name')
+          ?.textContent?.trim();
+        if (labelText) return labelText === target;
+        const ariaLabel =
+          document
+            .querySelector('.tab.active[aria-label]')
+            ?.getAttribute('aria-label') ?? '';
+        return ariaLabel.split(',')[0].trim() === target;
+      },
+      filename,
+      { timeout: timeout ?? this.defaultTimeout },
+    );
   }
 
   /**
