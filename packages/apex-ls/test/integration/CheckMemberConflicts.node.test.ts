@@ -166,6 +166,20 @@ const MOVERLOAD_SRC = `public class mOverload {
     public void gamma(String a) { }
 }`;
 
+// Static-method hierarchy fixture (WI 5.3 re-review): the parent declares a
+// static method; the child declares an unrelated member of the would-be new
+// name. A STATIC rename must NOT treat that as a descendant conflict (statics
+// are not polymorphic — a same-name subclass member is legal hiding), whereas
+// an INSTANCE rename would.
+const STATIC_PARENT_URI = 'file:///test/staticParent.cls';
+const STATIC_PARENT_SRC = `public virtual class staticParent {
+    public static Integer helper() { return 1; }
+}`;
+const STATIC_CHILD_URI = 'file:///test/staticChild.cls';
+const STATIC_CHILD_SRC = `public class staticChild extends staticParent {
+    public Integer renamedTarget() { return 2; }
+}`;
+
 // One combined workspace containing every fixture. Ingested once.
 const WORKSPACE_ENTRIES = [
   { uri: BASE_URI, content: BASE_SRC, languageId: 'apex', version: 1 },
@@ -257,6 +271,18 @@ const WORKSPACE_ENTRIES = [
     languageId: 'apex',
     version: 1,
   },
+  {
+    uri: STATIC_PARENT_URI,
+    content: STATIC_PARENT_SRC,
+    languageId: 'apex',
+    version: 1,
+  },
+  {
+    uri: STATIC_CHILD_URI,
+    content: STATIC_CHILD_SRC,
+    languageId: 'apex',
+    version: 1,
+  },
 ];
 
 type ConflictResult = {
@@ -272,6 +298,7 @@ type ConflictQuery = {
   isRenamedMemberPrivate: boolean;
   currentName?: string;
   signature?: string[];
+  isStatic?: boolean;
 };
 
 describe('CheckMemberConflicts data-owner query', () => {
@@ -526,6 +553,41 @@ describe('CheckMemberConflicts data-owner query', () => {
     });
 
     expect(result.conflict).toBe(false);
+  });
+
+  it('skips the descendant walk for a STATIC method rename (isStatic)', async () => {
+    // staticChild declares `renamedTarget`; renaming the parent's STATIC helper
+    // to that name is NOT a conflict (statics aren't polymorphic — a same-name
+    // subclass member is legal hiding). With isStatic the descendant walk is
+    // skipped.
+    const result = await runConflictQuery({
+      definingTypeFqn: 'staticParent',
+      newName: 'renamedTarget',
+      memberKind: 'method',
+      isRenamedMemberPrivate: false,
+      currentName: 'helper',
+      signature: [],
+      isStatic: true,
+    });
+
+    expect(result.conflict).toBe(false);
+  });
+
+  it('DOES report the descendant conflict when the same rename is treated as instance', async () => {
+    // Contrast: without isStatic (instance semantics), the descendant walk finds
+    // staticChild.renamedTarget → conflict. Proves the isStatic flag is what
+    // suppresses the (over-conservative-for-statics) descendant check.
+    const result = await runConflictQuery({
+      definingTypeFqn: 'staticParent',
+      newName: 'renamedTarget',
+      memberKind: 'method',
+      isRenamedMemberPrivate: false,
+      currentName: 'helper',
+      signature: [],
+    });
+
+    expect(result.conflict).toBe(true);
+    expect(result.reason).toBe('descendant');
   });
 
   it('falls back to name-only method matching when no signature is supplied', async () => {

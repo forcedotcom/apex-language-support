@@ -5273,6 +5273,7 @@ async function resolveMethodRename(
             isRenamedMemberPrivate: isPrivate,
             currentName: target.name,
             signature,
+            isStatic,
           },
           true,
         )) as {
@@ -6982,6 +6983,21 @@ const untracedHandlers: SerializedWorkerHandlers = {
                 conflictingTypeFqn: req.definingTypeFqn,
                 reason: 'same-type' as const,
               };
+            }
+
+            // Static methods are NOT polymorphic: a same-name static in an
+            // ancestor/descendant is legal method HIDING (a distinct member), not
+            // a conflict — so only the same-type check (above) applies to statics
+            // (WI 5.3 re-review). Skip the ancestor/descendant hierarchy walk that
+            // instance members require, which otherwise over-declines valid static
+            // renames.
+            if (req.isStatic) {
+              emitWorkerLog(
+                'info',
+                `[RENAME] CheckMemberConflicts: static ${req.definingTypeFqn}.` +
+                  `${req.newName} — same-type clear, skipping hierarchy walk`,
+              );
+              return { conflict: false };
             }
 
             // 2. Check ancestor conflict (exclude private members in ancestors)
