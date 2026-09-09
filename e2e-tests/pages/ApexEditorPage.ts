@@ -79,9 +79,11 @@ export class ApexEditorPage extends BasePage {
     // getContent()/activeEditorContent read the ACTIVE group, asserting without
     // confirming the active tab reads the WRONG file (observed in the serial
     // renameMethod e2e, which read a different fixture's content). Confirm the
-    // active tab is the target; if not, recover once via quick-open.
+    // active tab is the target; if not, recover once via quick-open. Use the
+    // mode-aware defaultTimeout (not a hardcoded ceiling) so a cold open on a
+    // slow CI host isn't cut short into a needless quick-open recovery.
     try {
-      await this.waitForActiveTab(filename, 8000);
+      await this.waitForActiveTab(filename, this.defaultTimeout);
     } catch {
       await openViaQuickInput();
       await this.waitForActiveTab(filename, this.defaultTimeout);
