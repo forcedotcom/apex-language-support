@@ -482,12 +482,16 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
         }),
       );
 
-      // Cursor on the method name `compute` (line 1, char 20), which is NOT a
-      // local — prepareRename should return null (not renamable as local).
+      // Cursor on the TYPE name `RenameLocal` (line 0, char 15). A type is not a
+      // local, field, or method, so it falls through the whole dispatch chain
+      // (local → field → method) and prepareRename returns null. (Before
+      // W-23631152 this used the method name `compute`, but a method cursor now
+      // resolves via resolvePrepareRenameForMethod, so the class name is the
+      // stable "no kind services this cursor" probe — renameType is Group 6.)
       const result = yield* Effect.promise(() =>
         dispatcher.dispatch('prepareRename', {
           textDocument: { uri: LOCAL_URI },
-          position: { line: 1, character: 20 },
+          position: { line: 0, character: 15 },
         }),
       );
 
@@ -496,7 +500,7 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
 
     const { result } = await Effect.runPromise(program);
 
-    // prepareRename returns null when the cursor isn't on a renamable local.
+    // prepareRename returns null when no rename kind services the cursor.
     expect(result).toBeNull();
   }, 120_000);
 
@@ -902,6 +906,263 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
     edit!.changes![ORG_FIELD_URI].forEach((e) =>
       expect(e.newText).toBe('total'),
     );
+  }, 120_000);
+
+  // W-23631152: prepareRename must recognize METHODS, not just locals + fields
+  // (else F2 on a method won't open the box, even though renameMethod can service
+  // it). DispatchPrepareRename now dispatches local → field → method, mirroring
+  // the rename RESOLVE chain. Covers a declaration cursor, a call/usage cursor,
+  // the half-open identifier-end boundary, and the stdlib provenance guard.
+  const PREP_METHOD_URI = 'file:///test/PrepareMethod.cls';
+  const PREP_METHOD_SRC = `public class PrepareMethod {
+    public Integer compute() {
+        return doWork();
+    }
+
+    public Integer doWork() {
+        return 5;
+    }
+}`;
+
+  it('returns prepareRename range for a method DECLARATION cursor (W-23631152)', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+        uri === PREP_METHOD_URI ? PREP_METHOD_SRC : undefined,
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: PREP_METHOD_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => PREP_METHOD_SRC,
+          },
+          textDocument: { uri: PREP_METHOD_URI },
+          text: PREP_METHOD_SRC,
+        }),
+      );
+
+      // `compute` DECLARATION (LSP line 1, char 22) — exercises
+      // getSymbolAtPosition on the method identifier.
+      const result = yield* Effect.promise(() =>
+        dispatcher.dispatch('prepareRename', {
+          textDocument: { uri: PREP_METHOD_URI },
+          position: { line: 1, character: 22 },
+          content: PREP_METHOD_SRC,
+        }),
+      );
+
+      return { result };
+    }).pipe(Effect.scoped);
+
+    const { result } = await Effect.runPromise(program);
+    logger.debug(
+      `[prepare-rename:method-declaration] ${JSON.stringify(result)}`,
+    );
+
+    expect(result).not.toBeNull();
+    expect(result).toHaveProperty('range');
+    const prepareInfo = result as {
+      range: {
+        start: { line: number; character: number };
+        end: { line: number; character: number };
+      };
+      placeholder: string;
+    };
+    // On LSP line 1, and the range must CONTAIN the cursor (char 22).
+    expect(prepareInfo.range.start.line).toBe(1);
+    expect(prepareInfo.range.end.line).toBe(1);
+    expect(prepareInfo.range.start.character).toBeLessThanOrEqual(22);
+    expect(prepareInfo.range.end.character).toBeGreaterThan(22);
+    expect(prepareInfo.placeholder).toBe('compute');
+  }, 120_000);
+
+  it('returns prepareRename range for a method CALL/usage cursor (W-23631152)', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+        uri === PREP_METHOD_URI ? PREP_METHOD_SRC : undefined,
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: PREP_METHOD_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => PREP_METHOD_SRC,
+          },
+          textDocument: { uri: PREP_METHOD_URI },
+          text: PREP_METHOD_SRC,
+        }),
+      );
+
+      // `doWork()` CALL (LSP line 2, char 17) — must return the usage range, not
+      // the declaration's (exercises exactCursorReference).
+      const result = yield* Effect.promise(() =>
+        dispatcher.dispatch('prepareRename', {
+          textDocument: { uri: PREP_METHOD_URI },
+          position: { line: 2, character: 17 },
+          content: PREP_METHOD_SRC,
+        }),
+      );
+
+      return { result };
+    }).pipe(Effect.scoped);
+
+    const { result } = await Effect.runPromise(program);
+    logger.debug(`[prepare-rename:method-usage] ${JSON.stringify(result)}`);
+
+    expect(result).not.toBeNull();
+    expect(result).toHaveProperty('range');
+    const prepareInfo = result as {
+      range: {
+        start: { line: number; character: number };
+        end: { line: number; character: number };
+      };
+      placeholder: string;
+    };
+    // The call is on LSP line 2, and the returned range must contain the cursor.
+    expect(prepareInfo.range.start.line).toBe(2);
+    expect(prepareInfo.range.end.line).toBe(2);
+    expect(prepareInfo.range.start.character).toBeLessThanOrEqual(17);
+    expect(prepareInfo.range.end.character).toBeGreaterThan(17);
+    expect(prepareInfo.placeholder).toBe('doWork');
+  }, 120_000);
+
+  it('returns null from method prepareRename at the identifier-end boundary (W-23631152)', async () => {
+    // `compute` on LSP line 1 occupies chars 19-25; the identifier range is
+    // half-open [19, 26), so a cursor at char 26 sits one past the last char
+    // (the `(`) and must be REJECTED — matching resolvePrepareRenameForLocal/
+    // Field. Guards against the inclusive positionInRange end check wrongly
+    // accepting a cursor immediately after the method identifier.
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+        uri === PREP_METHOD_URI ? PREP_METHOD_SRC : undefined,
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: PREP_METHOD_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => PREP_METHOD_SRC,
+          },
+          textDocument: { uri: PREP_METHOD_URI },
+          text: PREP_METHOD_SRC,
+        }),
+      );
+
+      const result = yield* Effect.promise(() =>
+        dispatcher.dispatch('prepareRename', {
+          textDocument: { uri: PREP_METHOD_URI },
+          position: { line: 1, character: 26 }, // one past `compute`
+          content: PREP_METHOD_SRC,
+        }),
+      );
+
+      return { result };
+    }).pipe(Effect.scoped);
+
+    const { result } = await Effect.runPromise(program);
+    logger.debug(`[prepare-rename:method-boundary] ${JSON.stringify(result)}`);
+
+    expect(result).toBeNull();
+  }, 120_000);
+
+  // W-23631152: the provenance guard must reject STANDARD-LIBRARY methods just
+  // as it does stdlib fields. `apexlib://` is a synthetic read-only scheme; a
+  // method declared there must never open the rename box (prepareRename → null).
+  const STDLIB_METHOD_URI = 'apexlib://test/StdLibMethod.cls';
+  const STDLIB_METHOD_SRC = `public class StdLibMethod {
+    public Integer compute() {
+        return 5;
+    }
+}`;
+
+  it('declines prepareRename for a standard-library (apexlib://) method (W-23631152)', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
+        uri === STDLIB_METHOD_URI ? STDLIB_METHOD_SRC : undefined,
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: STDLIB_METHOD_URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => STDLIB_METHOD_SRC,
+          },
+          textDocument: { uri: STDLIB_METHOD_URI },
+          text: STDLIB_METHOD_SRC,
+        }),
+      );
+
+      // Cursor on `compute` DECLARATION (LSP line 1, char 22).
+      const prepare = yield* Effect.promise(() =>
+        dispatcher.dispatch('prepareRename', {
+          textDocument: { uri: STDLIB_METHOD_URI },
+          position: { line: 1, character: 22 },
+          content: STDLIB_METHOD_SRC,
+        }),
+      );
+
+      return { prepare };
+    }).pipe(Effect.scoped);
+
+    const { prepare } = await Effect.runPromise(program);
+    logger.debug(
+      `[prepare-rename:method-stdlib-guard] ${JSON.stringify(prepare)}`,
+    );
+
+    // prepareRename must NOT offer the stdlib method.
+    expect(prepare).toBeNull();
   }, 120_000);
 
   // W-23631084: Field rename tests (4.1)
