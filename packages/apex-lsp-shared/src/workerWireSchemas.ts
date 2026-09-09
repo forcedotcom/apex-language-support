@@ -1099,6 +1099,12 @@ export class CheckMemberConflicts extends Schema.TaggedRequest<CheckMemberConfli
       // ALSO matches (WI 5.3) — `foo(Integer)`→`bar` does not collide with an
       // existing `bar(String)`. Absent (or memberKind 'field') → name-only match.
       signature: Schema.optional(Schema.Array(Schema.String)),
+      // Whether the renamed method is static. Static methods are NOT polymorphic:
+      // a same-name static in an ancestor/descendant is legal method HIDING, a
+      // distinct member — not a conflict. When true, only the same-type check
+      // applies (the ancestor/descendant walk is skipped). Optional; absent means
+      // instance (walk the hierarchy), preserving the field/legacy behavior.
+      isStatic: Schema.optional(Schema.Boolean),
     },
   },
 ) {}
