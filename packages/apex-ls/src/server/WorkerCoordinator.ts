@@ -1139,6 +1139,7 @@ function createDispatcher(
             isRenamedMemberPrivate: boolean;
             currentName?: string;
             signature?: string[];
+            isStatic?: boolean;
           };
           return sendTracedToDataOwner(
             new CheckMemberConflicts({
@@ -1148,6 +1149,7 @@ function createDispatcher(
               isRenamedMemberPrivate: cmc.isRenamedMemberPrivate,
               currentName: cmc.currentName,
               signature: cmc.signature,
+              isStatic: cmc.isStatic,
             }),
           );
         }
