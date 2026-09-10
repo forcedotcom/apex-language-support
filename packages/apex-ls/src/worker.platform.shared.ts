@@ -150,6 +150,17 @@ import {
   resolveMethodRename,
   resolvePrepareRenameForMethod,
 } from './worker/rename.ts';
+import {
+  completionResultForWire,
+  type PositionReq,
+  type DocOnlyReq,
+  type DocWithContentReq,
+  type RefsReq,
+  type RenameReq,
+  type CompletionReq,
+  type SignatureHelpReq,
+  type CodeActionReq,
+} from './worker/requestTypes.ts';
 
 // ---------------------------------------------------------------------------
 // Schema union of all coordinator → worker requests
@@ -658,49 +669,19 @@ export const effectRequestHandler =
       ),
     );
 
-export type PositionReq = {
-  textDocument: { uri: string };
-  position: { line: number; character: number };
-  content?: string;
-  documentVersion?: number;
+// Wire-request types moved to ./worker/requestTypes.ts (imported at the top of
+// this module and re-exported below to preserve the public surface).
+export type {
+  PositionReq,
+  DocOnlyReq,
+  DocWithContentReq,
+  RefsReq,
+  RenameReq,
+  CompletionReq,
+  SignatureHelpReq,
+  CodeActionReq,
 };
-export type DocOnlyReq = {
-  textDocument: { uri: string };
-  content?: string;
-};
-export type DocWithContentReq = {
-  textDocument: { uri: string };
-  content?: string;
-};
-export type RefsReq = PositionReq & {
-  context: { includeDeclaration: boolean };
-};
-export type RenameReq = PositionReq & {
-  newName: string;
-};
-export type CompletionReq = PositionReq & {
-  context?: { triggerKind: number; triggerCharacter?: string };
-};
-
-export function completionResultForWire(result: {
-  readonly items: unknown[];
-  readonly isIncomplete: boolean;
-}): { readonly items: unknown[]; readonly isIncomplete: boolean } {
-  return {
-    items: result.items,
-    isIncomplete: result.isIncomplete,
-  };
-}
-export type SignatureHelpReq = PositionReq & { context?: unknown };
-export type CodeActionReq = {
-  textDocument: { uri: string };
-  range: {
-    start: { line: number; character: number };
-    end: { line: number; character: number };
-  };
-  content?: string;
-  context?: unknown;
-};
+export { completionResultForWire };
 
 // ---------------------------------------------------------------------------
 // Enrichment helpers
