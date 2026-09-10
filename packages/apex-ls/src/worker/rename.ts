@@ -36,6 +36,7 @@ import {
 import type { RequestServices } from '@salesforce/apex-lsp-compliant-services';
 import { emitWorkerLog } from './workerLog.ts';
 import { requestCoordinatorAssistancePromiseShared } from './runtimeContext.ts';
+import type { RenameReq, PositionReq } from './requestTypes.ts';
 import {
   recompileCursorFileAtFullDetail,
   loadReferencedTypesForFile,
@@ -46,8 +47,6 @@ import {
   fieldDeclarationRangeFromParse,
   methodDeclarationRangeFromParse,
   fieldRenameDeclarationDecision,
-  type RenameReq,
-  type PositionReq,
   type OccurrenceRange,
 } from '../worker.platform.shared.ts';
 
