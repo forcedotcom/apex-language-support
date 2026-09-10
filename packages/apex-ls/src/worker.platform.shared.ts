@@ -144,6 +144,7 @@ import {
   type DOQueues,
   type ReadinessLatch,
 } from './worker/dataOwnerQueue.ts';
+import { emitWorkerLog } from './worker/workerLog.ts';
 
 // ---------------------------------------------------------------------------
 // Schema union of all coordinator → worker requests
@@ -2888,24 +2889,8 @@ export function writeBackEnrichedSymbols(
 // Helper: Worker log emission (delegates to shared logger)
 // ---------------------------------------------------------------------------
 
-function emitWorkerLog(level: string, message: string): void {
-  const logger = getLogger();
-  switch (level) {
-    case 'debug':
-      logger.debug(() => message);
-      break;
-    case 'info':
-      logger.info(() => message);
-      break;
-    case 'warn':
-    case 'warning':
-      logger.warn(() => message);
-      break;
-    case 'error':
-      logger.error(() => message);
-      break;
-  }
-}
+// emitWorkerLog moved to ./worker/workerLog.ts (imported at the top of this
+// module).
 
 // ---------------------------------------------------------------------------
 // Find-references helpers (W-23272674)
