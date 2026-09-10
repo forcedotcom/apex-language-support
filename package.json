@@ -82,7 +82,7 @@
     "@types/node": "^20.19.43",
     "@types/semver": "^7.8.0",
     "@types/vscode": "1.120.0",
-    "@typescript-eslint/eslint-plugin": "^8.67.0",
+    "@typescript-eslint/eslint-plugin": "^8.68.0",
     "@typescript-eslint/parser": "^8.66.0",
     "@vscode/test-web": "^0.0.81",
     "benchmark": "^2.1.4",
@@ -101,10 +101,10 @@
     "istanbul-lib-coverage": "^3.2.2",
     "istanbul-lib-report": "^3.0.1",
     "istanbul-reports": "^3.1.7",
-    "jest": "^30.4.1",
+    "jest": "^30.5.0",
     "jscpd": "^4.3.0",
     "jsonc-eslint-parser": "^2.4.0",
-    "knip": "^6.31.0",
+    "knip": "^6.33.0",
     "prettier": "^3.9.6",
     "rimraf": "^5.0.5",
     "semantic-release": "^25.0.9",
@@ -118,13 +118,13 @@
     "zod": "^4.4.3"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.62.5",
-    "@rollup/rollup-linux-x64-musl": "^4.62.5"
+    "@rollup/rollup-linux-x64-gnu": "^4.63.1",
+    "@rollup/rollup-linux-x64-musl": "^4.63.1"
   },
   "dependencies": {
     "vscode-languageserver-protocol": "^3.17.5",
     "vscode-languageserver-textdocument": "^1.0.12",
-    "vscode-uri": "^3.1.0"
+    "vscode-uri": "^3.2.0"
   },
   "overrides": {
     "vscode-jsonrpc": "8.2.1",
