@@ -38,8 +38,6 @@ import { emitWorkerLog } from './workerLog.ts';
 import { requestCoordinatorAssistancePromiseShared } from './runtimeContext.ts';
 import type { RenameReq, PositionReq } from './requestTypes.ts';
 import {
-  recompileCursorFileAtFullDetail,
-  loadReferencedTypesForFile,
   targetSymbolForCursor,
   declarationLocationForCursor,
   resolveCursorSymbol,
@@ -48,6 +46,10 @@ import {
   methodDeclarationRangeFromParse,
   fieldRenameDeclarationDecision,
   type OccurrenceRange,
+} from './cursorResolution.ts';
+import {
+  recompileCursorFileAtFullDetail,
+  loadReferencedTypesForFile,
 } from '../worker.platform.shared.ts';
 
 // ---------------------------------------------------------------------------
