@@ -15,12 +15,10 @@
  * the module's public surface — the composition root imports the six dispatch
  * entry points below.
  *
- * The shared cursor/occurrence resolution substrate this module leans on
- * (resolveCursorSymbol, recompileCursorFileAtFullDetail, targetSymbolForCursor,
- * …) still lives in worker.platform.shared.ts and is imported below. That makes
- * this a lazy back-edge to the composition root: every reference is inside a
- * function body executed at request time, never at module init, so the cycle is
- * evaluation-safe (and import/no-cycle is not enabled).
+ * The shared cursor/occurrence and cross-file resolution substrate this module
+ * leans on lives in ./cursorResolution.ts and ./crossFileResolution.ts, which
+ * this module imports directly. There is no back-edge to the composition root,
+ * so the worker module graph is an acyclic DAG.
  *
  * Imported with an explicit .ts extension for tsx-in-worker resolution (see
  * runtimeContext.ts for the rationale).
@@ -50,7 +48,7 @@ import {
 import {
   recompileCursorFileAtFullDetail,
   loadReferencedTypesForFile,
-} from '../worker.platform.shared.ts';
+} from './crossFileResolution.ts';
 
 // ---------------------------------------------------------------------------
 // renameLocal (W-23631077, W-23631080)
