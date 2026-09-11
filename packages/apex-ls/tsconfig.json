@@ -19,6 +19,7 @@
     "**/*.spec.ts",
     "src/worker.platform.ts",
     "src/worker.platform.web.ts",
-    "src/worker.platform.shared.ts"
+    "src/worker.platform.shared.ts",
+    "src/worker/**/*"
   ]
 }
