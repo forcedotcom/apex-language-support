@@ -1099,6 +1099,48 @@ export class CheckMemberConflicts extends Schema.TaggedRequest<CheckMemberConfli
 ) {}
 
 // ---------------------------------------------------------------------------
+// ResolveMethodRenameFamily — data-owner method-rename edit-target discovery
+// (WI 5.2). Given a defining type FQN + method name/signature, walks the type
+// family on the COMPLETE graph and returns (a) `familyFqns` — every type in the
+// cone (self + ancestors + descendants, folding in interfaces + implementors)
+// whose calls the pool must accept as occurrences, and (b) `overrideSites` — the
+// {typeFqn, fileUri} of each family type that DECLARES a signature-matching
+// method (the declarations the rename must rewrite). Static methods have no cone
+// (family = the declaring type only). The pool cannot compute this: its
+// request-subset graph never fetches unloaded subtypes/implementors.
+// ---------------------------------------------------------------------------
+
+export class ResolveMethodRenameFamily extends Schema.TaggedRequest<ResolveMethodRenameFamily>()(
+  'ResolveMethodRenameFamily',
+  {
+    success: Schema.Struct({
+      familyFqns: Schema.Array(Schema.String),
+      overrideSites: Schema.Array(
+        Schema.Struct({ typeFqn: Schema.String, fileUri: Schema.String }),
+      ),
+      // True when the family declares ≥2 distinct overloads named the target at
+      // the target arity. `argumentTypes` are never populated in this build, so a
+      // caller file cannot detect same-arity overload ambiguity locally; the pool
+      // must decline every UNTYPED same-arity call when this is set (else it could
+      // rewrite a call that binds a DIFFERENT overload). Optional for wire compat.
+      targetArityAmbiguous: Schema.optional(Schema.Boolean),
+    }),
+    failure: Schema.Struct({
+      _tag: Schema.Literal('ResolveMethodRenameFamilyError'),
+      message: Schema.String,
+    }),
+    payload: {
+      definingTypeFqn: Schema.String,
+      methodName: Schema.String,
+      // Target parameter type strings, for signature-equivalence when a family
+      // type declares same-named overloads. Absent → name-only match.
+      signature: Schema.optional(Schema.Array(Schema.String)),
+      isStatic: Schema.Boolean,
+    },
+  },
+) {}
+
+// ---------------------------------------------------------------------------
 // EnsureWorkspaceLoaded — worker → coordinator (over the assistance bus) to
 // ask the coordinator to send a workspace-load notification to the LSP
 // client. Fire-and-forget at the LSP layer (the notification carries no
@@ -1271,6 +1313,7 @@ export const DataOwnerTags = [
   'ResolveDependentUris',
   'CheckMemberConflicts',
   'FindOccurrenceCandidates',
+  'ResolveMethodRenameFamily',
   'WorkspaceBatchIngest',
   'WorkspaceBatchCompileOnDataOwner',
   'BeginWorkspaceLoadSession',
@@ -1356,6 +1399,7 @@ export type DataOwnerRequest =
   | ResolveDependentUris
   | CheckMemberConflicts
   | FindOccurrenceCandidates
+  | ResolveMethodRenameFamily
   | WorkspaceBatchIngest
   | WorkspaceBatchCompileOnDataOwner
   | BeginWorkspaceLoadSession

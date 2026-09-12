@@ -168,6 +168,17 @@ export {
   type FieldOccurrenceResult,
 } from './symbols/ops/findFieldOccurrences';
 export {
+  findMethodOccurrences,
+  type MethodOccurrenceResult,
+  type MethodOccurrenceCandidateNote,
+  type MethodRenameTarget,
+  type FindMethodOccurrencesOptions,
+} from './symbols/ops/findMethodOccurrences';
+export {
+  areMethodSignaturesIdentical,
+  doesSignatureMatch,
+} from './semantics/validation/utils/methodSignatureUtils';
+export {
   validateRenameName,
   type ValidateRenameNameResult,
 } from './symbols/ops/validateRenameName';
