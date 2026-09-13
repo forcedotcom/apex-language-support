@@ -156,7 +156,7 @@
     }
   },
   "dependencies": {
-    "@apexdevtools/apex-parser": "5.1.0",
+    "@apexdevtools/apex-parser": "5.2.0",
     "@salesforce/apex-lsp-parser-ast": "1.0.0",
     "@salesforce/apex-lsp-shared": "1.0.0",
     "antlr4": "4.13.2",
