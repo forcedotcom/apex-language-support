@@ -115,7 +115,7 @@
     "tsx": "^4.23.13",
     "typescript": "^5.8.2",
     "wireit": "^0.14.13",
-    "zod": "^4.4.3"
+    "zod": "^4.6.2"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "^4.63.1",
