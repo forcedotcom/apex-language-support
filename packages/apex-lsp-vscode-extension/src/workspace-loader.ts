@@ -9,6 +9,10 @@ import { Effect, Duration } from 'effect';
 import * as vscode from 'vscode';
 import type { DocumentSelector } from 'vscode-languageserver-protocol';
 import { findFilesAcrossWorkspaceFolders } from './workspace-find-files';
+import {
+  loadWorkspaceNamespaceRoots,
+  namespaceForUri,
+} from './workspace-namespace-provenance';
 import { logToOutputChannel } from './logging';
 import {
   formattedError,
@@ -60,13 +64,13 @@ function createWorkspaceLoadSessionId(): string {
 /**
  * Read file contents from URI
  */
-const readFileContent = (uri: vscode.Uri) =>
+const readFileContent = (uri: vscode.Uri, namespace?: string) =>
   Effect.tryPromise({
     try: async () => {
       const fileData = await vscode.workspace.fs.readFile(uri);
       const decoder = new TextDecoder();
       const content = decoder.decode(fileData);
-      return { uri, version: 1, content };
+      return { uri, version: 1, content, namespace };
     },
     catch: (err: unknown) =>
       new Error(
@@ -216,6 +220,9 @@ export async function loadWorkspaceForServer(
     // Read all file contents in parallel
     logToOutputChannel(`📖 Reading ${allUris.length} files...`, 'debug');
 
+    const namespaceRoots = yield* _(
+      Effect.promise(loadWorkspaceNamespaceRoots),
+    );
     const fileDataArray = yield* _(
       Effect.withSpan('workspace.load.client.readFiles', {
         attributes: {
@@ -223,9 +230,13 @@ export async function loadWorkspaceForServer(
           'workspace.max_concurrency': maxConcurrency,
         },
       })(
-        Effect.forEach(allUris, (uri) => readFileContent(uri), {
-          concurrency: maxConcurrency,
-        }),
+        Effect.forEach(
+          allUris,
+          (uri) => readFileContent(uri, namespaceForUri(uri, namespaceRoots)),
+          {
+            concurrency: maxConcurrency,
+          },
+        ),
       ),
     );
     throwIfAborted();

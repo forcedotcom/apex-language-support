@@ -21,6 +21,7 @@ export interface FileData {
   readonly uri: vscode.Uri;
   readonly version: number;
   readonly content: string;
+  readonly namespace?: string;
 }
 
 /**
@@ -47,6 +48,7 @@ export function createFileBatches(
       const fileMetadata: WorkspaceFileMetadata[] = batchFiles.map((file) => ({
         uri: file.uri.toString(),
         version: file.version,
+        namespace: file.namespace,
       }));
 
       batches.push({
@@ -58,6 +60,7 @@ export function createFileBatches(
           uri: file.uri.toString(),
           version: file.version,
           content: file.content,
+          namespace: file.namespace,
         })),
       });
     }

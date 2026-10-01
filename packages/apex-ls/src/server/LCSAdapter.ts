@@ -69,6 +69,8 @@ import {
   type WorkspaceLoadReason,
   type LspSpanAttributes,
   type GraphDataParams,
+  APEX_DEBUGGER_COMMANDS,
+  getDebuggerCommandUri,
 } from '@salesforce/apex-lsp-shared';
 
 import {
@@ -149,6 +151,10 @@ export class LCSAdapter {
       includeMetadata?: boolean;
       includeDiagnostics?: boolean;
     }): Promise<unknown>;
+    queryDebuggerMetadata(
+      uri: string,
+      kind: 'lineBreakpoints' | 'exceptionBreakpoints',
+    ): Promise<unknown>;
     isAvailable(): boolean;
     getTopologyStatus?(): {
       enabled: boolean;
@@ -625,6 +631,45 @@ export class LCSAdapter {
       return this.workerDispatcher.queryGraphData(params);
     }
     return dispatchProcessOnGraphData(params);
+  }
+
+  private async processDebuggerCommand(
+    params: ExecuteCommandParams,
+  ): Promise<unknown> {
+    const uri = getDebuggerCommandUri(params.arguments);
+    const kind =
+      params.command === APEX_DEBUGGER_COMMANDS.lineBreakpoints
+        ? 'lineBreakpoints'
+        : 'exceptionBreakpoints';
+    if (this.workerDispatcher?.isAvailable()) {
+      return this.workerDispatcher.queryDebuggerMetadata(uri, kind);
+    }
+    const document = this.documents.get(uri);
+    if (!document) {
+      throw new Error(`No document state is available for ${uri}`);
+    }
+    const { DebuggerMetadataService } =
+      await import('@salesforce/apex-lsp-compliant-services');
+    const resourceLoader = ResourceLoader.getInstance();
+    const service = new DebuggerMetadataService(
+      ApexSymbolProcessingManager.getInstance().getSymbolManager(),
+      () => {
+        const namespaces = new Map<string, string[]>();
+        for (const [
+          namespace,
+          classes,
+        ] of resourceLoader.getStandardNamespaces()) {
+          namespaces.set(
+            namespace,
+            classes.map((className) => className.value),
+          );
+        }
+        return namespaces;
+      },
+    );
+    return kind === 'lineBreakpoints'
+      ? service.lineBreakpoints(uri, document.getText())
+      : service.exceptionBreakpoints(uri);
   }
 
   /**
@@ -1228,9 +1273,12 @@ export class LCSAdapter {
             return await this.runWithSpanAndRecord(
               LSP_SPAN_NAMES.EXECUTE_COMMAND,
               () =>
-                LSPQueueManager.getInstance().submitExecuteCommandRequest(
-                  params,
-                ),
+                params.command === APEX_DEBUGGER_COMMANDS.lineBreakpoints ||
+                params.command === APEX_DEBUGGER_COMMANDS.exceptionBreakpoints
+                  ? this.processDebuggerCommand(params)
+                  : Promise.reject(
+                      new Error(`Unknown command: ${params.command}`),
+                    ),
               {
                 'lsp.method': 'workspace/executeCommand',
                 'command.name': params.command,

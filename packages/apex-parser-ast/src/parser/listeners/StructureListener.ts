@@ -15,7 +15,6 @@ import {
   InterfaceMethodDeclarationContext,
   BlockContext,
   TriggerUnitContext,
-  TriggerMemberDeclarationContext,
   IfStatementContext,
   WhileStatementContext,
   ForStatementContext,
@@ -376,18 +375,6 @@ export class StructureListener extends BaseApexParserListener<SymbolTable> {
   }
 
   exitTriggerUnit(): void {
-    this.exitScope('class');
-  }
-
-  enterTriggerMemberDeclaration(ctx: TriggerMemberDeclarationContext): void {
-    // TriggerMemberDeclaration -> TriggerBlockMember -> TriggerBlock -> TriggerUnit
-    const triggerUnit = ctx.parentCtx?.parentCtx
-      ?.parentCtx as TriggerUnitContext;
-    const name = triggerUnit?.id?.(0)?.getText();
-    this.enterScope('class', ctx, name);
-  }
-
-  exitTriggerMemberDeclaration(): void {
     this.exitScope('class');
   }
 }

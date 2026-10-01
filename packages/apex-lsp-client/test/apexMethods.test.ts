@@ -9,6 +9,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import {
   APEX_METHODS,
+  APEX_DEBUGGER_COMMANDS,
   type Disposable,
   type FindMissingArtifactParams,
   type FindMissingArtifactResult,
@@ -94,6 +95,38 @@ describe('ApexMethods typed surface', () => {
   });
 
   describe('typed senders dispatch correct method string + params', () => {
+    it('getLineBreakpointInfo sends the debugger execute command for its URI', async () => {
+      const core = await ApexClientCore.create(connection);
+      const uri =
+        'file:///workspace/force-app/main/default/classes/Example.cls';
+
+      await core.getLineBreakpointInfo(uri);
+
+      const sendReq = connection.sendRequest as jest.Mock;
+      expect(sendReq).toHaveBeenCalledWith('workspace/executeCommand', {
+        command: APEX_DEBUGGER_COMMANDS.lineBreakpoints,
+        arguments: [uri],
+      });
+
+      await core.dispose();
+    });
+
+    it('getExceptionBreakpointInfo sends the debugger execute command for its URI', async () => {
+      const core = await ApexClientCore.create(connection);
+      const uri =
+        'file:///workspace/force-app/main/default/classes/Example.cls';
+
+      await core.getExceptionBreakpointInfo(uri);
+
+      const sendReq = connection.sendRequest as jest.Mock;
+      expect(sendReq).toHaveBeenCalledWith('workspace/executeCommand', {
+        command: APEX_DEBUGGER_COMMANDS.exceptionBreakpoints,
+        arguments: [uri],
+      });
+
+      await core.dispose();
+    });
+
     it('sendWorkspaceBatch sends apex/sendWorkspaceBatch', async () => {
       const core = await ApexClientCore.create(connection);
       const params = {

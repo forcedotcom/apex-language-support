@@ -36,6 +36,7 @@ import {
   BeginWorkspaceLoadSession,
   DrainDeferredReferences,
   QueryGraphData,
+  QueryDebuggerMetadata,
   DataOwnerQuerySymbolByName,
   CompileDocument,
   DispatchHover,
@@ -689,11 +690,16 @@ export const runRemoteStdlibWarmupPhase = (
       return undefined;
     }
     const n = clampPoolSize(poolSize);
-    // Warm all workers in parallel — each is independent
+    // The data-owner/request workers fetch their namespace map through the
+    // resource-loader worker. Initialize that source first; otherwise a remote
+    // cache can permanently retain an empty map from a startup race.
+    yield* topology.resourceLoader.executeEffect(req);
+
+    // Once the resource-loader index is ready, every remote cache fill is
+    // independent and can proceed in parallel.
     yield* Effect.all(
       [
         topology.dataOwner.executeEffect(req),
-        topology.resourceLoader.executeEffect(req),
         ...Array.from({ length: n }, () =>
           topology.requestPool.executeEffect(req),
         ),
@@ -796,6 +802,7 @@ export interface BatchIngestEntry {
   content: string;
   languageId: string;
   version: number;
+  namespace?: string;
 }
 
 /** Callbacks that parameterize the dispatcher for different transport backends. */
@@ -839,6 +846,7 @@ function createDispatcher(
       content: string;
       languageId: string;
       version: number;
+      namespace?: string;
     }>;
     traceContext?: string;
   }) => Promise<{
@@ -855,6 +863,10 @@ function createDispatcher(
     includeMetadata?: boolean;
     includeDiagnostics?: boolean;
   }): Promise<unknown>;
+  queryDebuggerMetadata(
+    uri: string,
+    kind: 'lineBreakpoints' | 'exceptionBreakpoints',
+  ): Promise<unknown>;
 } {
   let available = true;
   let dispatchedCount = 0;
@@ -1197,6 +1209,10 @@ function createDispatcher(
           includeDiagnostics: params.includeDiagnostics,
         }),
       );
+    },
+
+    queryDebuggerMetadata(uri, kind): Promise<unknown> {
+      return sendTracedToDataOwner(new QueryDebuggerMetadata({ uri, kind }));
     },
   };
 }

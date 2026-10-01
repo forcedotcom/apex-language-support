@@ -84,7 +84,6 @@ export class GenericRequestHandler<
       documentClose: 'processDocumentClose',
       documentLoad: 'processDocumentLoad',
       findMissingArtifact: 'processFindMissingArtifact',
-      executeCommand: 'processExecuteCommand',
       prerequisiteEnrichment: 'processPrerequisiteEnrichment',
     };
 

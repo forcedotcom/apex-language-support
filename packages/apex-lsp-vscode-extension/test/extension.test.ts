@@ -40,6 +40,7 @@ jest.mock('../src/language-server', () => ({
 import * as vscode from 'vscode';
 import { activate, deactivate } from '../src/extension';
 import { getOrgArtifactFileSystem } from '../src/services/org-artifact-fs';
+import { getClient } from '../src/language-server';
 
 // Import mocked functions
 
@@ -49,6 +50,10 @@ describe('Apex Language Server Extension ()', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    jest.mocked(getClient).mockReturnValue({
+      getLineBreakpointInfo: jest.fn().mockResolvedValue([]),
+      getExceptionBreakpointInfo: jest.fn().mockResolvedValue([]),
+    } as any);
     jest.mocked(vscode.extensions.getExtension).mockReturnValue({
       isActive: true,
     } as vscode.Extension<unknown>);
@@ -66,21 +71,27 @@ describe('Apex Language Server Extension ()', () => {
   });
 
   it('activates and registers commands', async () => {
-    activate(mockContext);
-
-    // Allow any microtasks to flush
-    await Promise.resolve();
+    const api = await activate(mockContext);
 
     // Restart command should be registered
     expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
       'apex-ls-ts.restart.server',
       expect.any(Function),
     );
+    expect(api.client).toBeDefined();
+  });
+
+  it('exposes the materialized client through the activation API', async () => {
+    const client = { getLineBreakpointInfo: jest.fn() };
+    jest.mocked(getClient).mockReturnValue(client as any);
+
+    const api = await activate(mockContext);
+
+    expect(api.client).toBe(client);
   });
 
   it('deactivates without errors', async () => {
-    activate(mockContext);
-    await Promise.resolve();
+    await activate(mockContext);
 
     await deactivate();
     expect(true).toBe(true);
@@ -114,8 +125,7 @@ describe('Apex Language Server Extension ()', () => {
     vscode.workspace.getConfiguration = mockGetConfiguration;
 
     try {
-      activate(mockContext);
-      await Promise.resolve();
+      await activate(mockContext);
       // getConfiguration is called with no arguments
       expect(mockGetConfiguration).toHaveBeenCalled();
       // config.get('apex.logLevel') is called for logging initialization

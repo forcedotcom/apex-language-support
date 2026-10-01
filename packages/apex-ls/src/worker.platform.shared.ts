@@ -73,6 +73,7 @@ import {
   DispatchGenericLspRequest,
   isAllowedTag,
   QueryGraphData,
+  QueryDebuggerMetadata,
   DataOwnerQuerySymbolByName,
   CheckMemberConflicts,
   FindOccurrenceCandidates,
@@ -148,6 +149,7 @@ export const AllWorkerRequests = Schema.Union(
   BeginWorkspaceLoadSession,
   DrainDeferredReferences,
   QueryGraphData,
+  QueryDebuggerMetadata,
   DataOwnerQuerySymbolByName,
   CheckMemberConflicts,
   FindOccurrenceCandidates,
@@ -189,6 +191,7 @@ export interface WorkerDocument {
   readonly uri: string;
   readonly languageId: string;
   readonly version: number;
+  readonly namespace?: string;
   getText(range?: {
     start: { line: number; character: number };
     end: { line: number; character: number };
@@ -6854,6 +6857,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
                 getText: () => entry.content,
                 languageId: entry.languageId,
                 version: entry.version,
+                namespace: entry.namespace,
               };
               // Keep the ingest span open until storage has accepted the
               // document. Besides making the timing honest, this guarantees
@@ -6929,15 +6933,76 @@ const untracedHandlers: SerializedWorkerHandlers = {
       ),
     ),
 
+  QueryDebuggerMetadata: (req) =>
+    guardRole('QueryDebuggerMetadata').pipe(
+      Effect.flatMap(() =>
+        dataOwnerRead(
+          Effect.gen(function* () {
+            const svc = yield* ensureDataOwnerServices;
+            const document = yield* Effect.promise(() =>
+              svc.storageManager.getStorage().getDocument(req.uri),
+            );
+            if (!document) {
+              return yield* Effect.fail({
+                _tag: 'QueryDebuggerMetadataError' as const,
+                message: `No document state is available for ${req.uri}`,
+              });
+            }
+            const { DebuggerMetadataService } = yield* Effect.promise(
+              () => import('@salesforce/apex-lsp-compliant-services'),
+            );
+            const standardNamespaces = (yield* Effect.promise(async () => {
+              const raw = await requestCoordinatorAssistancePromiseShared(
+                'resourceLoader:getStandardNamespaces',
+                {},
+                true,
+              );
+              return new Map(
+                Object.entries(
+                  raw && typeof raw === 'object'
+                    ? (raw as Record<string, string[]>)
+                    : {},
+                ),
+              );
+            })) as ReadonlyMap<string, readonly string[]>;
+            const service = new DebuggerMetadataService(
+              svc.symbolManager,
+              () => standardNamespaces,
+            );
+            const result =
+              req.kind === 'lineBreakpoints'
+                ? yield* Effect.promise(() =>
+                    service.lineBreakpoints(
+                      req.uri,
+                      document.getText(),
+                      (document as WorkerDocument).namespace,
+                    ),
+                  )
+                : yield* Effect.promise(() =>
+                    service.exceptionBreakpoints(
+                      req.uri,
+                      (document as WorkerDocument).namespace,
+                    ),
+                  );
+            return cloneForWire(result);
+          }),
+        ),
+      ),
+    ),
+
   DispatchDocumentOpen: dataOwnerDocHandler(
     'DispatchDocumentOpen',
     (svc, req) =>
       Effect.gen(function* () {
+        const existingDocument = (yield* Effect.promise(() =>
+          svc.storageManager.getStorage().getDocument(req.uri),
+        )) as WorkerDocument | null;
         const doc: WorkerDocument = {
           uri: req.uri,
           getText: () => req.content,
           languageId: req.languageId,
           version: req.version,
+          namespace: existingDocument?.namespace,
         };
         // Await the store: the write-back's version check (UpdateSymbolSubset)
         // and the readiness latch both require the document to be present at
@@ -6971,11 +7036,15 @@ const untracedHandlers: SerializedWorkerHandlers = {
     'DispatchDocumentChange',
     (svc, req) =>
       Effect.gen(function* () {
+        const existingDocument = (yield* Effect.promise(() =>
+          svc.storageManager.getStorage().getDocument(req.uri),
+        )) as WorkerDocument | null;
         const doc: WorkerDocument = {
           uri: req.uri,
           getText: () => req.content,
           languageId: 'apex',
           version: req.version,
+          namespace: existingDocument?.namespace,
         };
         yield* Effect.promise(() =>
           svc.storageManager.getStorage().setDocument(req.uri, doc as never),
@@ -7005,11 +7074,15 @@ const untracedHandlers: SerializedWorkerHandlers = {
       Effect.gen(function* () {
         // Mirror DispatchDocumentChange: persist the authoritative saved text
         // before compilation and arm readiness at this version.
+        const existingDocument = (yield* Effect.promise(() =>
+          svc.storageManager.getStorage().getDocument(req.uri),
+        )) as WorkerDocument | null;
         const doc: WorkerDocument = {
           uri: req.uri,
           getText: () => req.content,
           languageId: 'apex',
           version: req.version,
+          namespace: existingDocument?.namespace,
         };
         yield* Effect.promise(() =>
           svc.storageManager.getStorage().setDocument(req.uri, doc as never),

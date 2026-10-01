@@ -11,13 +11,16 @@ import {
   DEFAULT_APEX_SETTINGS,
   getClientCapabilitiesForMode,
   type ApexLanguageServerSettings,
+  APEX_DEBUGGER_COMMANDS,
   type Disposable,
+  type ExceptionBreakpointInfo,
   type FindMissingArtifactParams,
   type FindMissingArtifactResult,
   type GraphDataParams,
   type GraphDataResult,
   type InitializeParams,
   type InitializeResult,
+  type LineBreakpointInfo,
   type PingResponse,
   type ProcessWorkspaceBatchesParams,
   type ProcessWorkspaceBatchesResult,
@@ -62,6 +65,7 @@ import {
   composeNotificationChain,
 } from './middleware/composeMiddleware';
 import { createApexMethodSurface } from './apexMethods';
+import type { ApexClient } from './apexClient';
 
 /**
  * Caller-supplied `initialize` params. `initializationOptions` is intentionally
@@ -115,6 +119,14 @@ interface CoreHandle {
   readonly ping: () => Promise<PingResponse>;
   readonly isDisposed: () => boolean;
   readonly dispose: () => Promise<void>;
+
+  // --- Typed debugger command senders ---
+  readonly getLineBreakpointInfo: (
+    uri: string,
+  ) => Promise<LineBreakpointInfo[]>;
+  readonly getExceptionBreakpointInfo: (
+    uri: string,
+  ) => Promise<ExceptionBreakpointInfo[]>;
 
   // --- Typed apex/* senders (9 clientToServer) ---
   readonly sendWorkspaceBatch: (
@@ -503,6 +515,20 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
     return sendRequestThroughChain<PingResponse>('$/ping', undefined);
   };
 
+  const getLineBreakpointInfo = (uri: string): Promise<LineBreakpointInfo[]> =>
+    guardedSendRequest<LineBreakpointInfo[]>('workspace/executeCommand', {
+      command: APEX_DEBUGGER_COMMANDS.lineBreakpoints,
+      arguments: [uri],
+    });
+
+  const getExceptionBreakpointInfo = (
+    uri: string,
+  ): Promise<ExceptionBreakpointInfo[]> =>
+    guardedSendRequest<ExceptionBreakpointInfo[]>('workspace/executeCommand', {
+      command: APEX_DEBUGGER_COMMANDS.exceptionBreakpoints,
+      arguments: [uri],
+    });
+
   // `Ref.get` is synchronous, so the disposed state can be read at the boundary
   // with `Runtime.runSync` — `isDisposed()` stays a plain `boolean` (matching
   // the shared `ClientInterface` contract) while the state still lives in a Ref.
@@ -516,6 +542,8 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
     request,
     notify,
     ping,
+    getLineBreakpointInfo,
+    getExceptionBreakpointInfo,
     isDisposed,
     disposedRef,
     apexSurface,
@@ -543,7 +571,7 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
  * own the `initialize`/`shutdown` handshake, the adapter delegates lifecycle to
  * it instead of re-sending — wiring lands in 4.1.
  */
-export class ApexClientCore {
+export class ApexClientCore implements ApexClient {
   private readonly handle: CoreHandle;
   private readonly closeScope: () => Promise<void>;
 
@@ -606,6 +634,8 @@ export class ApexClientCore {
       ping: built.ping,
       isDisposed: built.isDisposed,
       dispose: closeScope,
+      getLineBreakpointInfo: built.getLineBreakpointInfo,
+      getExceptionBreakpointInfo: built.getExceptionBreakpointInfo,
       // Typed apex/* senders
       sendWorkspaceBatch: built.apexSurface.sendWorkspaceBatch,
       processWorkspaceBatches: built.apexSurface.processWorkspaceBatches,
@@ -686,6 +716,16 @@ export class ApexClientCore {
    */
   ping(): Promise<PingResponse> {
     return this.handle.ping();
+  }
+
+  /** Get valid debugger breakpoint metadata for one canonical Apex document URI. */
+  getLineBreakpointInfo(uri: string): Promise<LineBreakpointInfo[]> {
+    return this.handle.getLineBreakpointInfo(uri);
+  }
+
+  /** Get debugger exception metadata for one canonical Apex document URI. */
+  getExceptionBreakpointInfo(uri: string): Promise<ExceptionBreakpointInfo[]> {
+    return this.handle.getExceptionBreakpointInfo(uri);
   }
 
   /**

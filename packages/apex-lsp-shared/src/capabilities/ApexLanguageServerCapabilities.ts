@@ -11,6 +11,7 @@ import {
   ClientCapabilities,
   CodeActionKind,
 } from 'vscode-languageserver-protocol';
+import { APEX_DEBUGGER_COMMANDS } from '../commands/ApexDebuggerCommands';
 
 export type ExtendedServerCapabilities = ServerCapabilities &
   ImplicitCapabilties & { experimental?: ExperimentalCapabilities };
@@ -198,7 +199,9 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
   documentRangeFormattingProvider: undefined,
   documentOnTypeFormattingProvider: undefined,
   selectionRangeProvider: undefined,
-  executeCommandProvider: undefined,
+  executeCommandProvider: {
+    commands: Object.values(APEX_DEBUGGER_COMMANDS),
+  },
   callHierarchyProvider: undefined,
   linkedEditingRangeProvider: undefined,
   semanticTokensProvider: undefined,
@@ -264,7 +267,7 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
     workDoneProgress: true,
   },
   executeCommandProvider: {
-    commands: ['apex.findApexTests'],
+    commands: Object.values(APEX_DEBUGGER_COMMANDS),
   },
   experimental: {
     findMissingArtifactProvider: {

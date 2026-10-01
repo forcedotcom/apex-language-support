@@ -233,6 +233,7 @@ export type BatchIngestionDispatcher = (
     content: string;
     languageId: string;
     version: number;
+    namespace?: string;
   }>,
 ) => Promise<{ processedCount: number }>;
 
@@ -290,6 +291,7 @@ export type DataOwnerCompileDispatcher = (params: {
     content: string;
     languageId: string;
     version: number;
+    namespace?: string;
   }>;
   traceContext?: string;
 }) => Promise<{ compiledCount: number; errorCount: number; elapsedMs: number }>;
@@ -357,6 +359,7 @@ type BatchEntry = {
   content: string;
   languageId: string;
   version: number;
+  namespace?: string;
 };
 
 function extractBatchEntries(compressedDataBase64: string): BatchEntry[] {
@@ -370,7 +373,7 @@ function extractBatchEntries(compressedDataBase64: string): BatchEntry[] {
 
   const decoder = new TextDecoder();
   const metadata = JSON.parse(decoder.decode(metadataEntry)) as {
-    fileMetadata: Array<{ uri: string; version: number }>;
+    fileMetadata: Array<{ uri: string; version: number; namespace?: string }>;
   };
 
   const entries: BatchEntry[] = [];
@@ -383,6 +386,7 @@ function extractBatchEntries(compressedDataBase64: string): BatchEntry[] {
       content: decoder.decode(fileContent),
       languageId: 'apex',
       version: fileMeta.version,
+      namespace: fileMeta.namespace,
     });
   }
 

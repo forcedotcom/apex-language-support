@@ -140,6 +140,14 @@ export class ApexLspTestClient {
     return this.core.documentSymbol(params);
   }
 
+  getLineBreakpointInfo(uri: string) {
+    return this.core.getLineBreakpointInfo(uri);
+  }
+
+  getExceptionBreakpointInfo(uri: string) {
+    return this.core.getExceptionBreakpointInfo(uri);
+  }
+
   // --- Generic RPC delegates ---
 
   request<R>(method: string, params?: unknown): Promise<R> {

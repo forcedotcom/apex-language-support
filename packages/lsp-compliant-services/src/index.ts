@@ -19,7 +19,6 @@ import {
   CodeLensParams,
   CodeLens,
   DeleteFilesParams,
-  ExecuteCommandParams,
   Connection,
 } from 'vscode-languageserver';
 import type {
@@ -70,7 +69,6 @@ export * from './handlers/MissingArtifactHandler';
 export * from './handlers/CodeLensHandler';
 export * from './handlers/QueueStateHandler';
 export * from './handlers/GraphDataHandler';
-export * from './handlers/ExecuteCommandHandler';
 export * from './handlers/WorkspaceSymbolHandler';
 
 // Export services
@@ -117,9 +115,7 @@ export * from './services/PrerequisiteRequirements';
 
 // Export diagnostic graph types
 export * from './types/diagnosticGraph';
-export * from './services/ExecuteCommandProcessingService';
-export * from './services/commands/CommandHandler';
-export * from './services/commands/FindApexTestsCommandHandler';
+export * from './services/DebuggerMetadataService';
 
 // Export factories
 export * from './factories/HandlerFactory';
@@ -432,16 +428,4 @@ export {
 export const dispatchProcessOnGraphData = async (params: any): Promise<any> => {
   const handler = HandlerFactory.createGraphDataHandler();
   return await handler.handleGraphData(params);
-};
-
-/**
- * Dispatch function for execute command requests
- * @param params The execute command parameters
- * @returns Promise resolving to command execution result
- */
-export const dispatchProcessOnExecuteCommand = async (
-  params: ExecuteCommandParams,
-): Promise<any> => {
-  const handler = HandlerFactory.createExecuteCommandHandler();
-  return await handler.handleExecuteCommand(params);
 };

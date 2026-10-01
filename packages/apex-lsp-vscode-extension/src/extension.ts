@@ -41,7 +41,15 @@ import {
   startLanguageServer,
   restartLanguageServer,
   stopLanguageServer,
+  getClient,
 } from './language-server';
+import type { ApexClient } from '@salesforce/apex-lsp-client';
+
+/** Public extension API for consumers that depend on this extension. */
+export type ApexExtensionApi = {
+  /** Materialized language-server client, ready when activate() resolves. */
+  readonly client: ApexClient;
+};
 import { getWorkspaceSettings } from './configuration';
 import { formattedError } from '@salesforce/apex-lsp-shared';
 import {
@@ -76,7 +84,15 @@ const handleStart = async (context: vscode.ExtensionContext): Promise<void> => {
  * Main extension activation function
  * @param context The extension context
  */
-export function activate(context: vscode.ExtensionContext): void {
+export function activate(
+  context: vscode.ExtensionContext,
+): Promise<ApexExtensionApi> {
+  return activateExtension(context);
+}
+
+async function activateExtension(
+  context: vscode.ExtensionContext,
+): Promise<ApexExtensionApi> {
   // Initialize simple extension logging
   initializeExtensionLogging(context);
   requireSalesforceServicesInDevelopment(context);
@@ -188,42 +204,34 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // Set up OTEL tracing and span collector BEFORE starting language server.
   // The language server needs spanCollectorUrl to pass to workers.
-  initializeExtensionTracing(context)
-    .then(() => {
-      logToOutputChannel('Extension tracing initialized', 'debug');
-    })
-    .catch((error) => {
-      logToOutputChannel(
-        `Extension tracing init error: ${formattedError(error)}`,
-        'warning',
-      );
-    })
-    .finally(() => {
-      // Start the language server after tracing initialization completes (or fails)
-      const { getClient } = require('./language-server');
-      const existingClient = getClient();
-      if (existingClient) {
-        console.log('⚠️ Client already exists, skipping start');
-        logToOutputChannel('Client already exists, skipping start', 'warning');
-        return;
-      }
+  try {
+    await initializeExtensionTracing(context);
+    logToOutputChannel('Extension tracing initialized', 'debug');
+  } catch (error) {
+    logToOutputChannel(
+      `Extension tracing init error: ${formattedError(error)}`,
+      'warning',
+    );
+  }
 
-      // Start the language server
-      console.log('🔧 About to start language server...');
-      logToOutputChannel('🔧 About to start language server...', 'debug');
-      handleStart(context)
-        .then(async () => {
-          logToOutputChannel('✅ Language server started successfully', 'info');
-        })
-        .catch((error) => {
-          logToOutputChannel(
-            `❌ Failed to start language server: ${formattedError(error, {
-              includeStack: true,
-            })}`,
-            'error',
-          );
-        });
-    });
+  let client = getClient();
+  if (client) {
+    logToOutputChannel('Client already exists, skipping start', 'warning');
+  } else {
+    logToOutputChannel('Starting language server...', 'debug');
+    await handleStart(context);
+    client = getClient();
+  }
+  if (!client) {
+    throw new Error(
+      'Language server client was not materialized during activation',
+    );
+  }
+  logToOutputChannel('Language server started successfully', 'info');
+
+  return {
+    client,
+  };
 }
 
 /**

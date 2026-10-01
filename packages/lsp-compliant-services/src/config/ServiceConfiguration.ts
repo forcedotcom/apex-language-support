@@ -207,13 +207,6 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
     serviceFactory: (deps) => deps.serviceFactory.createDocumentSymbolService(),
   },
   {
-    requestType: 'executeCommand',
-    priority: Priority.Normal,
-    timeout: 5000,
-    maxRetries: 1,
-    serviceFactory: (deps) => deps.serviceFactory.createExecuteCommandService(),
-  },
-  {
     requestType: 'prerequisiteEnrichment',
     priority: Priority.Background,
     timeout: 60000,

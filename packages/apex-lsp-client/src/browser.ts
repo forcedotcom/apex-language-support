@@ -26,6 +26,10 @@ export type {
   ApexClientCoreOptions,
   ApexClientInitializeParams,
 } from './apexClientCore';
+export type {
+  ExceptionBreakpointInfo,
+  LineBreakpointInfo,
+} from '@salesforce/apex-lsp-shared';
 export { JsonRpcConnection } from './transports/jsonRpcConnection';
 export { LanguageClientConnection } from './transports/languageClientConnection';
 

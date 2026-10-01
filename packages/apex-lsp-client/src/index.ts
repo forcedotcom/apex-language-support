@@ -46,6 +46,7 @@ export type {
   ApexClientCoreOptions,
   ApexClientInitializeParams,
 } from './apexClientCore';
+export type { ApexClient } from './apexClient';
 
 // Typed apex/* method surface types — public API for typed sender/handler usage.
 // Note: ApexMethodSurfaceOptions is intentionally NOT exported — it is an
@@ -56,6 +57,11 @@ export type {
   ApexMethodSenders,
   ApexMethodHandlers,
 } from './apexMethods';
+
+export type {
+  ExceptionBreakpointInfo,
+  LineBreakpointInfo,
+} from '@salesforce/apex-lsp-shared';
 
 // LSP param/result types re-exported for SDK consumers.
 export type {

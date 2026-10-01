@@ -31,7 +31,6 @@ import { FoldingRangeProcessingService } from '../services/FoldingRangeProcessin
 import { LayerEnrichmentService } from '../services/LayerEnrichmentService';
 
 import { MissingArtifactProcessingService } from '../services/MissingArtifactProcessingService';
-import { ExecuteCommandProcessingService } from '../services/ExecuteCommandProcessingService';
 import { PrerequisiteEnrichmentService } from '../services/PrerequisiteEnrichmentService';
 import { Connection } from 'vscode-languageserver';
 
@@ -244,16 +243,6 @@ export class ServiceFactory {
       service.setConnection(this.dependencies.connection);
     }
     return service;
-  }
-
-  /**
-   * Create execute command processing service
-   */
-  createExecuteCommandService(): ExecuteCommandProcessingService {
-    return new ExecuteCommandProcessingService(
-      this.dependencies.logger,
-      this.dependencies.symbolManager,
-    );
   }
 
   /**

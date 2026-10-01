@@ -21,7 +21,6 @@ import {
   ModifierContext,
   AnnotationContext,
   TriggerUnitContext,
-  TriggerMemberDeclarationContext,
   EnumDeclarationContext,
   EnumConstantsContext,
 } from '@apexdevtools/apex-parser';
@@ -1092,85 +1091,6 @@ export class VisibilitySymbolListener
         this.logger.warn(
           () =>
             `Expected class scope on exitTriggerUnit, but got ${popped.scopeType}`,
-        );
-      }
-    }
-  }
-
-  /**
-   * Called when entering a trigger member declaration
-   * Only creates TypeSymbol if detailLevel is 'public-api'
-   * Otherwise, only tracks scope for symbol enrichment
-   */
-  enterTriggerMemberDeclaration(ctx: TriggerMemberDeclarationContext): void {
-    try {
-      // Get the trigger name from the parent context
-      // TriggerMemberDeclaration -> TriggerBlockMember -> TriggerBlock -> TriggerUnit
-      const triggerUnit = ctx.parentCtx?.parentCtx
-        ?.parentCtx as TriggerUnitContext;
-      const name = triggerUnit?.id?.(0)?.getText();
-      if (!name) {
-        this.enterStructuralTypeScope(ctx);
-        return;
-      }
-      const modifiers = this.getCurrentModifiers();
-
-      // Only create TypeSymbol for public-api level and matching visibility
-      if (
-        this.detailLevel === 'public-api' &&
-        this.shouldProcessSymbol(modifiers.visibility)
-      ) {
-        // Create trigger symbol
-        const triggerSymbol = this.createTypeSymbol(
-          ctx,
-          name,
-          SymbolKind.Trigger,
-          modifiers,
-        );
-
-        // Add symbol to current scope (null when stack is empty = file level)
-        this.addSymbolWithDetailLevel(
-          triggerSymbol,
-          this.getCurrentScopeSymbol(ctx),
-        );
-      }
-
-      // Create trigger block symbol for scope tracking (all levels need this)
-      const location = this.getLocation(ctx);
-      const blockName = this.generateBlockName('class');
-      const blockSymbol = this.createBlockSymbol(
-        blockName,
-        'class',
-        location,
-        this.getCurrentScopeSymbol(ctx),
-        name, // Pass the trigger name so createBlockSymbol can find the trigger symbol
-        ctx,
-      );
-
-      // Push block symbol onto stack
-      if (blockSymbol) {
-        this.scopeStack.push(blockSymbol);
-      }
-
-      // Reset annotations for the next symbol
-      this.resetAnnotations();
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      this.logger.error(() => `Error in trigger declaration: ${errorMessage}`);
-    }
-  }
-
-  /**
-   * Called when exiting a trigger member declaration
-   */
-  exitTriggerMemberDeclaration(): void {
-    // Pop from stack and validate it's a class scope
-    const popped = this.scopeStack.pop();
-    if (isBlockSymbol(popped)) {
-      if (popped.scopeType !== 'class') {
-        this.logger.warn(
-          () =>
-            `Expected class scope on exitTriggerMemberDeclaration, but got ${popped.scopeType}`,
         );
       }
     }

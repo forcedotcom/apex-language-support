@@ -738,15 +738,6 @@ export class LSPQueueManager {
   }
 
   /**
-   * Submit an execute command request
-   */
-  async submitExecuteCommandRequest(params: any): Promise<any> {
-    return this.submitRequest('executeCommand', params, {
-      priority: Priority.Normal,
-    });
-  }
-
-  /**
    * Submit a notification without blocking the LSP transport.
    *
    * The caller may ignore the returned Promise for fire-and-forget behavior,
