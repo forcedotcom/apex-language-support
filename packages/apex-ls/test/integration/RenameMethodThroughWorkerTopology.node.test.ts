@@ -172,6 +172,16 @@ const RM_STATHIDECHILD_SRC = `public class RmStatHideChild extends RmStatHideBas
     public Integer use() { return score(); }
 }`;
 
+// Case 10 (WI 5.3): conflict detection. Renaming alpha(Integer)→beta collides
+// with the SAME-signature beta(Integer); renaming alpha(Integer)→gamma does NOT
+// collide with the different-signature gamma(String) (a legal overload).
+const RM_CONFLICT_URI = 'file:///test/RmConflict.cls';
+const RM_CONFLICT_SRC = `public class RmConflict {
+    public void alpha(Integer a) { }
+    public void beta(Integer a) { }
+    public void gamma(String a) { }
+}`;
+
 const SOURCES: Record<string, string> = {
   [RM_BASE_URI]: RM_BASE_SRC,
   [RM_CHILD_URI]: RM_CHILD_SRC,
@@ -190,6 +200,7 @@ const SOURCES: Record<string, string> = {
   [RM_STATCHILD_URI]: RM_STATCHILD_SRC,
   [RM_STATHIDEBASE_URI]: RM_STATHIDEBASE_SRC,
   [RM_STATHIDECHILD_URI]: RM_STATHIDECHILD_SRC,
+  [RM_CONFLICT_URI]: RM_CONFLICT_SRC,
 };
 
 const WORKSPACE_ENTRIES = Object.entries(SOURCES).map(([uri, content]) => ({
@@ -513,5 +524,75 @@ describe('renameMethod through the worker topology (W-23631132, slice 4)', () =>
     Object.values(changes)
       .flat()
       .forEach((e) => expect(e.newText).toBe('render'));
+  }, 120_000);
+
+  it('declines a rename that collides with a SAME-signature method (WI 5.3)', async () => {
+    // Cursor on RmConflict.alpha(Integer) (LSP line 1, char 18). beta(Integer)
+    // already exists with the same signature → conflict → decline.
+    const result = await rename(
+      RM_CONFLICT_URI,
+      { line: 1, character: 18 },
+      'beta',
+    );
+    logger.debug(`[rename-method:conflict] ${JSON.stringify(result)}`);
+
+    expect(result).not.toBeNull();
+    expect(result).toHaveProperty('error');
+    expect(result).not.toHaveProperty('changes');
+    expect(result!.error!.code).toBe(-32600);
+    expect(result!.error!.message).toMatch(/already exists/i);
+  }, 120_000);
+
+  it('allows a rename that only matches a DIFFERENT-signature overload (WI 5.3)', async () => {
+    // alpha(Integer) → gamma. Only gamma(String) exists — a legal overload at a
+    // different signature, so no conflict; the rename proceeds.
+    const result = await rename(
+      RM_CONFLICT_URI,
+      { line: 1, character: 18 },
+      'gamma',
+    );
+    logger.debug(`[rename-method:overload-ok] ${JSON.stringify(result)}`);
+
+    expect(result?.error).toBeUndefined();
+    expect(result?.changes).toBeDefined();
+    const edits = result!.changes![RM_CONFLICT_URI];
+    expect(edits).toBeDefined();
+    // alpha's declaration (line 1) renamed to gamma.
+    expect(edits.some((e) => e.range.start.line === 1)).toBe(true);
+    edits.forEach((e) => expect(e.newText).toBe('gamma'));
+  }, 120_000);
+
+  it('skips the conflict check for a no-op / case-only rename (WI 5.3)', async () => {
+    // alpha → Alpha (case-only): the check is skipped (it would self-conflict),
+    // so the rename proceeds rather than erroring.
+    const result = await rename(
+      RM_CONFLICT_URI,
+      { line: 1, character: 18 },
+      'Alpha',
+    );
+    logger.debug(`[rename-method:case-only] ${JSON.stringify(result)}`);
+
+    expect(result?.error).toBeUndefined();
+    expect(result?.changes).toBeDefined();
+    expect(
+      result!.changes![RM_CONFLICT_URI].some((e) => e.newText === 'Alpha'),
+    ).toBe(true);
+  }, 120_000);
+
+  it('rejects an invalid method newName with a validation error (WI 5.3)', async () => {
+    // `2bad` is not a valid Apex identifier → validateRenameName rejects it with
+    // a -32602 ResponseError before any edit or conflict query.
+    const result = await rename(
+      RM_CONFLICT_URI,
+      { line: 1, character: 18 },
+      '2bad',
+    );
+    logger.debug(`[rename-method:invalid-name] ${JSON.stringify(result)}`);
+
+    expect(result).not.toBeNull();
+    expect(result).toHaveProperty('error');
+    expect(result).not.toHaveProperty('changes');
+    expect(result!.error!.code).toBe(-32602);
+    expect(result!.error!.message.length).toBeGreaterThan(0);
   }, 120_000);
 });
