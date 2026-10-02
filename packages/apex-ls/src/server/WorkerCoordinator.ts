@@ -30,6 +30,7 @@ import {
   ResolveDependentUris,
   CheckMemberConflicts,
   FindOccurrenceCandidates,
+  ResolveMethodRenameFamily,
   WIRE_PROTOCOL_VERSION,
   WorkspaceBatchIngest,
   WorkspaceBatchCompileOnDataOwner,
@@ -1157,6 +1158,22 @@ function createDispatcher(
             new FindOccurrenceCandidates({
               symbolName: pfc.symbolName,
               skipTextFilter: pfc.skipTextFilter,
+            }),
+          );
+        }
+        case 'ResolveMethodRenameFamily': {
+          const prm = params as {
+            definingTypeFqn: string;
+            methodName: string;
+            signature?: string[];
+            isStatic: boolean;
+          };
+          return sendTracedToDataOwner(
+            new ResolveMethodRenameFamily({
+              definingTypeFqn: prm.definingTypeFqn,
+              methodName: prm.methodName,
+              signature: prm.signature,
+              isStatic: prm.isStatic,
             }),
           );
         }

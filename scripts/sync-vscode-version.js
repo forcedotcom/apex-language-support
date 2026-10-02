@@ -74,22 +74,45 @@ function readLocalVSCodeVersion() {
 /**
  * Maps `.vscode-version` content to @vscode/test-web download options.
  *
- * @vscode/test-web's getBuild() computes `quality = options.quality || options.version`
- * and only downloads the **stable** channel when that value is the literal string
- * `'stable'`. A semver like `1.121.0` is not `'stable'`, so passing it as `version`
- * would fetch the **latest Insiders** build instead of that release. The `commit`
- * option is not an escape hatch either: it must be a 40-char SHA, so passing a
- * semver there makes the CDN lookup 404 ("Failed to find a download for stable and
- * 1.121.0"). Without a real commit SHA, the closest we can pin is the stable channel.
+ * @vscode/test-web's `quality` option only ever means "latest build of that
+ * channel" — passing `quality: 'stable'` alone re-resolves to whatever is
+ * currently latest stable on every run, silently drifting out from under
+ * `.vscode-version`. The only real pin it supports is `commit`, a 40-char
+ * VS Code repo SHA, used together with `quality` to fetch that exact build
+ * (see https://update.code.visualstudio.com/commit:<sha>/web-standalone/<quality>).
+ *
+ * This resolves `.vscode-version`'s semver to its commit SHA via the same
+ * update service, so CI downloads the exact pinned release instead of
+ * whatever Microsoft shipped most recently.
  *
  * @param {string} vsCodeVersion from readLocalVSCodeVersion()
- * @returns {{ quality: 'stable' } | { version: string }}
+ * @returns {Promise<{ quality: 'stable', commit: string }>}
  */
-function resolveVscodeWebBuildOptions(vsCodeVersion) {
-  if (vsCodeVersion === 'stable' || /^\d+\.\d+\.\d+$/.test(vsCodeVersion)) {
-    return { quality: 'stable' };
+async function resolveVscodeWebBuildOptions(vsCodeVersion) {
+  if (!/^\d+\.\d+\.\d+$/.test(vsCodeVersion)) {
+    throw new Error(
+      `Cannot pin VS Code Web: expected a concrete version in .vscode-version, got "${vsCodeVersion}".`,
+    );
   }
-  return { version: vsCodeVersion };
+
+  try {
+    const response = await fetch(
+      `https://update.code.visualstudio.com/api/versions/${vsCodeVersion}/web-standalone/stable`,
+    );
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const { version: commit } = await response.json();
+    if (!/^[0-9a-f]{40}$/.test(commit)) {
+      throw new Error(`unexpected commit value: "${commit}"`);
+    }
+    return { quality: 'stable', commit };
+  } catch (error) {
+    throw new Error(
+      `Cannot pin VS Code Web ${vsCodeVersion}: ${error.message}`,
+      { cause: error },
+    );
+  }
 }
 
 /**

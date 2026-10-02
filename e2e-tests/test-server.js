@@ -149,7 +149,10 @@ async function startTestServer() {
     console.log(`🔍 CI environment: ${process.env.CI ? 'Yes' : 'No'}`);
 
     const vsCodeVersion = readLocalVSCodeVersion();
-    const vscodeWebBuildOptions = resolveVscodeWebBuildOptions(vsCodeVersion);
+    const vscodeWebBuildOptions = await resolveVscodeWebBuildOptions(vsCodeVersion);
+    console.log(
+      `🔒 VS Code Web build: ${JSON.stringify(vscodeWebBuildOptions)}`,
+    );
 
     // Log extension files for debugging
     console.log('📋 Extension files:');

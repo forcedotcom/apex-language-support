@@ -807,7 +807,7 @@ async function runWebExtensionTests() {
     console.log(`📂 Workspace path: ${workspacePath}`);
 
     const vsCodeVersion = readLocalVSCodeVersion();
-    const vscodeWebBuildOptions = resolveVscodeWebBuildOptions(vsCodeVersion);
+    const vscodeWebBuildOptions = await resolveVscodeWebBuildOptions(vsCodeVersion);
 
     // Setup output file for extension host logs
     const outputLogPath = path.resolve(
