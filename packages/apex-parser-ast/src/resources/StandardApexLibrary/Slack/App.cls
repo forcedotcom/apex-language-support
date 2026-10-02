@@ -1,27 +1,31 @@
 global class App {
+    global virtual Boolean equals(Object o) { return false; }
 
-  global App() {}
+    global static Slack.App getAppByKey(String key) { return null; }
 
-  global String getAppKey() {}
+    global static Slack.App getAppByName(String developerName) { return null; }
 
-  global Slack.AppClient getAppClient() {}
+    global Slack.AppClient getAppClient() { return null; }
 
-  global Slack.BotClient getBotClientForTeam(String teamId) {}
+    global String getAppKey() { return null; }
 
-  global Slack.UserClient getUserClientForTeam(String teamId, String slackUserId) {}
+    global Slack.BotClient getBotClientForTeam(String teamId) { return null; }
 
-  global String getConnectedSalesforceUserId(String teamId, String slackUserId) {}
+    @Deprecated
+    global String getConnectedSalesforceUserId(String teamId, String slackUserId) { return null; }
 
-  global Map<String, String> getConnectedSalesforceUserIdMap(String teamId, List<String> slackUserIds) {}
+    @Deprecated
+    global Map getConnectedSalesforceUserIdMap(String teamId, List slackUserIds) { return null; }
 
-  global String getConnectedSlackUserId(String teamId, String salesforceUserId) {}
+    @Deprecated
+    global String getConnectedSlackUserId(String teamId, String salesforceUserId) { return null; }
 
-  global Map<String, String> getConnectedSlackUserIdMap(String teamId, List<String> salesforceUserIds) {}
+    @Deprecated
+    global Map getConnectedSlackUserIdMap(String teamId, List salesforceUserIds) { return null; }
 
-  global Object clone() {}
+    global Slack.UserClient getUserClientForTeam(String teamId, String slackUserId) { return null; }
 
-  global static Slack.App getAppByKey(String key) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global static Slack.App getAppByName(String developerName) {}
-
+    global override virtual String toString() { return null; }
 }

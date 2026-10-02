@@ -1,15 +1,17 @@
 global class UserMappingService {
+    global Object UserMappingService() { return null; }
 
-  global UserMappingService() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global String getSalesforceUserId(String slackUserId) {}
+    global static String getSalesforceUserId(String slackUserId) { return null; }
 
-  global Map<String, String> getSalesforceUserIdMap(List<String> slackUserIds) {}
+    global static Map getSalesforceUserIdMap(List slackUserIds) { return null; }
 
-  global String getSlackUserId(String salesforceUserId, String teamId) {}
+    global static String getSlackUserId(String salesforceUserId, String teamId) { return null; }
 
-  global Map<String, String> getSlackUserIdMap(List<String> salesforceUserIds, String teamId) {}
+    global static Map getSlackUserIdMap(List salesforceUserIds, String teamId) { return null; }
 
-  global Object clone() {}
+    global virtual Integer hashCode() { return 0; }
 
+    global override virtual String toString() { return null; }
 }

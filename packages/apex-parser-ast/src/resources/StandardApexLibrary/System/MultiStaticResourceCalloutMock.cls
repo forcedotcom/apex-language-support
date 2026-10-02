@@ -1,38 +1,39 @@
 /**
  * Utility class used to specify a fake response using multiple resources for testing HTTP callouts.
+ * <p>Usage
+ * Use the methods in this class to set the response properties for testing HTTP callouts. You can specify a resource for each endpoint.
  */
-global class MultiStaticResourceCalloutMock {
+global class MultiStaticResourceCalloutMock implements System.HttpCalloutMock {
+    /**
+     * Creates a new instance of the System.MultiStaticResourceCalloutMock class.
+     */
+    global Object MultiStaticResourceCalloutMock() { return null; }
 
-  global MultiStaticResourceCalloutMock() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Sets the specified header name and value for the fake response.
-   * @param headerName 
-   * @param headerValue 
-   */
-  global void setHeader(String headerName, String headerValue) {}
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Sets the specified static resource corresponding to the endpoint. The static resource contains the response body.
-   * @param endpoint 
-   * @param resourceName 
-   */
-  global void setStaticResource(String endpoint, String resourceName) {}
+    global System.HttpResponse respond(System.HttpRequest request) { return null; }
 
-  /**
-   * Sets the specified HTTP status for the response.
-   * @param httpStatus 
-   */
-  global void setStatus(String httpStatus) {}
+    /**
+     * Sets the specified header name and value for the fake response.
+     */
+    global void setHeader(String key, String val) { }
 
-  /**
-   * Sets the specified HTTP status code for the response.
-   * @param httpStatusCode 
-   */
-  global void setStatusCode(Integer httpStatusCode) {}
+    /**
+     * Sets the specified static resource corresponding to the endpoint. The static resource contains the response body.
+     */
+    global void setStaticResource(String url, String staticResourceName) { }
 
-  global Object clone() {}
+    /**
+     * Sets the specified HTTP status for the response.
+     */
+    global void setStatus(String status) { }
 
-  global System.HttpResponse respond(System.HttpRequest request) {}
+    /**
+     * Sets the specified HTTP status code for the response.
+     */
+    global void setStatusCode(Integer code) { }
 
+    global override virtual String toString() { return null; }
 }

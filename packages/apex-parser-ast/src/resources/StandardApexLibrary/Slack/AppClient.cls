@@ -1,11 +1,11 @@
-global class AppClient {
+global virtual class AppClient implements Slack.AppClientInterface {
+    global virtual Slack.AppsEventAuthorizationsListResponse appsEventAuthorizationsList(Slack.AppsEventAuthorizationsListRequest req) { return null; }
 
-  global AppClient() {}
+    global virtual Slack.AuthTestResponse authTest(Slack.AuthTestRequest req) { return null; }
 
-  global Slack.AppsEventAuthorizationsListResponse appsEventAuthorizationsList(Slack.AppsEventAuthorizationsListRequest req) {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global Slack.AuthTestResponse authTest(Slack.AuthTestRequest req) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Object clone() {}
-
+    global override virtual String toString() { return null; }
 }

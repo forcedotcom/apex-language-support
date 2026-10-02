@@ -1,22 +1,37 @@
 /**
  * Contains details about the tax rules used for tax calculation.
  */
-global class RuleDetailsResponse {
+global with sharing class RuleDetailsResponse {
+    global Object RuleDetailsResponse() { return null; }
 
-  global RuleDetailsResponse() {}
+    /**
+     * Contains information about the tax rules used when calculating tax for line items.
+     */
+    global void RuleDetailsResponse() { }
 
-  global void RuleDetailsResponse() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global void setNonTaxableRuleId(String nonTaxableRuleId) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global void setNonTaxableType(String nonTaxableType) {}
+    /**
+     * Sets the NonTaxableRuleId field of the RuleDetailsResponse.
+     */
+    global void setNonTaxableRuleId(String nonTaxableRuleId) { }
 
-  global void setRateRuleId(String rateRuleId) {}
+    /**
+     * Sets the NonTaxableType field of the RuleDetailsResponse.
+     */
+    global void setNonTaxableType(String nonTaxableType) { }
 
-  global void setRateSourceId(String rateSourceId) {}
+    /**
+     * Sets the RateRuleId field of the RuleDetailsResponse.
+     */
+    global void setRateRuleId(String rateRuleId) { }
 
-  global Object clone() {}
+    /**
+     * Sets the RateSourceId field on the RuleDetailsResponse.
+     */
+    global void setRateSourceId(String rateSourceId) { }
 
-  global java:commerce.tax.impl.engine.integration.response.RuleDetailsEngineResponse getDelegate() {}
-
+    global override virtual String toString() { return null; }
 }

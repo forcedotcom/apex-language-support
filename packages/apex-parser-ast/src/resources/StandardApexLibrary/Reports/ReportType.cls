@@ -2,25 +2,27 @@
  * Contains the unique API name and display name for the report type.
  */
 global class ReportType {
+    global Object ReportType() { return null; }
 
-  global ReportType() {}
+    global Object ReportType(String type, String label) { return null; }
 
-  /**
-   * Returns the localized display name of the report type.
-   * @return String
-   */
-  global String getLabel() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Returns the unique identifier of the report type.
-   * @return String
-   */
-  global String getType() {}
+    /**
+     * Returns the localized display name of the report type.
+     */
+    global String getLabel() { return null; }
 
-  global Object clone() {}
+    /**
+     * Returns the unique identifier of the report type.
+     */
+    global String getType() { return null; }
 
-  global void setLabel(String label) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global void setType(String type) {}
+    global void setLabel(String label) { }
 
+    global void setType(String type) { }
+
+    global override virtual String toString() { return null; }
 }

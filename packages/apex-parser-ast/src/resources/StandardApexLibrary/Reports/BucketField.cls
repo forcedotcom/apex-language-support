@@ -2,105 +2,97 @@
  * Contains methods and constructors to work with information about a bucket field, including bucket type, name, and bucketed values.
  */
 global class BucketField {
+    /**
+     * Creates an instance of the Reports.BucketField class. You can then set values by using the class’s set methods.
+     */
+    global Object BucketField() { return null; }
 
-  global BucketField(Reports.BucketType bucketType, String devloperName, String label, Boolean nullTreatedAsZero, String otherBucketLabel, String sourceColumnName, List<Reports.BucketFieldValue> values) {}
+    /**
+     * Creates an instance of the Reports.BucketField class using the specified parameters.
+     */
+    global Object BucketField(reports.BucketType bucketType, String devloperName, String label, Boolean nullTreatedAsZero, String otherBucketLabel, String sourceColumnName, List values) { return null; }
 
-  /**
-   * Returns the bucket type.
-   * @return Reports.BucketType
-   */
-  global Reports.BucketType getBucketType() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Returns the bucket’s API name.
-   * @return String
-   */
-  global String getDevloperName() {}
+    /**
+     * Returns the bucket type.
+     */
+    global reports.BucketType getBucketType() { return null; }
 
-  /**
-   * Returns the user-facing name of the bucket.
-   * @return String
-   */
-  global String getLabel() {}
+    /**
+     * Returns the bucket’s API name.
+     */
+    global String getDevloperName() { return null; }
 
-  /**
-   * Returns true if null values are converted to the number zero, otherwise returns false .
-   * @return Boolean
-   */
-  global Boolean getNullTreatedAsZero() {}
+    /**
+     * Returns the user-facing name of the bucket.
+     */
+    global String getLabel() { return null; }
 
-  /**
-   * Returns the name of fields grouped as Other in buckets of type PICKLIST .
-   * @return String
-   */
-  global String getOtherBucketLabel() {}
+    /**
+     * Returns true if null values are converted to the number zero, otherwise returns false.
+     */
+    global Boolean getNullTreatedAsZero() { return false; }
 
-  /**
-   * Returns the API name of the bucketed field.
-   * @return String
-   */
-  global String getSourceColumnName() {}
+    /**
+     * Returns the name of fields grouped as Other in buckets of type PICKLIST.
+     */
+    global String getOtherBucketLabel() { return null; }
 
-  /**
-   * Returns the report values grouped by the bucket field.
-   * @return List<Reports.BucketFieldValue>
-   */
-  global List<Reports.BucketFieldValue> getValues() {}
+    /**
+     * Returns the API name of the bucketed field.
+     */
+    global String getSourceColumnName() { return null; }
 
-  /**
-   * Sets the BucketType of the bucket.
-   * @param value See the Reports.BucketType enum for valid values.
-   */
-  global void setBucketType(String value) {}
+    /**
+     * Returns the report values grouped by the bucket field.
+     */
+    global List getValues() { return null; }
 
-  /**
-   * Sets the BucketType of the bucket.
-   * @param bucketType 
-   */
-  global void setBucketType(Reports.BucketType bucketType) {}
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Sets the API name of the bucket.
-   * @param devloperName The API name to assign to the bucket.
-   */
-  global void setDevloperName(String devloperName) {}
+    /**
+     * Sets the BucketType of the bucket.
+     */
+    global void setBucketType(reports.BucketType bucketType) { }
 
-  /**
-   * Sets the user-facing name of the bucket.
-   * @param label 
-   */
-  global void setLabel(String label) {}
+    /**
+     * Sets the BucketType of the bucket.
+     */
+    global void setBucketType(String value) { }
 
-  /**
-   * Specifies whether null values in the bucket are converted to zero ( true ) or not ( false ).
-   * @param nullTreatedAsZero 
-   */
-  global void setNullTreatedAsZero(Boolean nullTreatedAsZero) {}
+    /**
+     * Sets the API name of the bucket.
+     */
+    global void setDevloperName(String devloperName) { }
 
-  /**
-   * Sets the name of the fields grouped as Other (in buckets of BucketType PICKLIST ).
-   * @param otherBucketLabel 
-   */
-  global void setOtherBucketLabel(String otherBucketLabel) {}
+    /**
+     * Sets the user-facing name of the bucket.
+     */
+    global void setLabel(String label) { }
 
-  /**
-   * Specifies the name of the bucketed field.
-   * @param sourceColumnName 
-   */
-  global void setSourceColumnName(String sourceColumnName) {}
+    /**
+     * Specifies whether null values in the bucket are converted to zero (true) or not (false).
+     */
+    global void setNullTreatedAsZero(Boolean nullTreatedAsZero) { }
 
-  /**
-   * Specifies which type of values are included in the bucket.
-   * @param values 
-   */
-  global void setValues(List<Reports.BucketFieldValue> values) {}
+    /**
+     * Sets the name of the fields grouped as Other (in buckets of BucketType PICKLIST).
+     */
+    global void setOtherBucketLabel(String otherBucketLabel) { }
 
-  /**
-   * Returns a string.
-   * @return String
-   */
-  global String toString() {}
+    /**
+     * Specifies the name of the bucketed field.
+     */
+    global void setSourceColumnName(String sourceColumnName) { }
 
-  global Object clone() {}
+    /**
+     * Specifies which type of values are included in the bucket.
+     */
+    global void setValues(List values) { }
 
+    /**
+     * Returns a string.
+     */
+    global override virtual String toString() { return null; }
 }

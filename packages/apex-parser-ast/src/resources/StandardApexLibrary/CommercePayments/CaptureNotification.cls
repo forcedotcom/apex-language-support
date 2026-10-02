@@ -1,76 +1,82 @@
 /**
  * When a payment gateway sends a notification for a capture transaction, the payment gateway adapter creates the CaptureNotification object to store information about the notification.
+ * <p>Usage
+ * CaptureNotification is used in asynchronous payment gateway adapters.
+ * Specify the CommercePayments namespace when creating an instance of this class. The constructor of this class takes no arguments. For example:
+ * CommercePayments.CaptureNotification crn = new CommercePayments.CaptureNotification();
+ * <p>Example
+ * commercepayments.BaseNotification notification = null;
+ *         if ('CAPTURE'.equals(eventCode)) {
+ *             notification = new commercepayments.CaptureNotification();
+ *         } else if ('REFUND'.equals(eventCode)) {
+ *             notification = new commercepayments.ReferencedRefundNotification();
+ *         }
  */
-global class CaptureNotification {
+global with sharing class CaptureNotification extends commercepayments.BaseNotification {
+    global Object CaptureNotification() { return null; }
 
-  global CaptureNotification() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Sets the transaction amount. Must be a non-negative value.
-   * @param amount The amount to be debited or captured.
-   */
-  global void setAmount(Double amount) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global void setGatewayAvsCode(String gatewayAvsCode) {}
+    /**
+     * Sets the transaction amount. Must be a non-negative value.
+     */
+    global override void setAmount(Double amount) { }
 
-  /**
-   * Sets the date that the transaction occurred. Some gateways don’t send this value.
-   * @param gatewayDate Date and time of the gateway communication.
-   */
-  global void setGatewayDate(Datetime gatewayDate) {}
+    /**
+     * Sets the AVS (address verification system) result code that the gateway returned. Maximum length of 64 characters.
+     */
+    global void setGatewayAvsCode(String gatewayAvsCode) { }
 
-  /**
-   * Sets error messages that the gateway returned for the payment request. Maximum length of 255 characters.
-   * @param gatewayMessage Information on error messages sent from the gateway.
-   */
-  global void setGatewayMessage(String gatewayMessage) {}
+    /**
+     * Sets the date that the transaction occurred. Some gateways don’t send this value.
+     */
+    global void setGatewayDate(Datetime gatewayDate) { }
 
-  /**
-   * Sets additional data that you can use for subsequent transactions. You can use any data that isn’t normalized in financial entities. This field has a maximum length of 1000 characters and can store data as JSON or XML.
-   * @param gatewayReferenceDetails 
-   */
-  global void setGatewayReferenceDetails(String gatewayReferenceDetails) {}
+    /**
+     * Sets error messages that the gateway returned for the payment request. Maximum length of 255 characters.
+     */
+    global void setGatewayMessage(String gatewayMessage) { }
 
-  /**
-   * Sets the unique gateway reference number for the transaction that the gateway returned. Maximum length of 255 characters.
-   * @param gatewayReferenceNumber Unique transaction ID created by the payment gateway.
-   */
-  global void setGatewayReferenceNumber(String gatewayReferenceNumber) {}
+    /**
+     * Sets additional data that you can use for subsequent transactions. You can use any data that isn’t normalized in financial entities. This field has a maximum length of 1000 characters and can store data as JSON or XML.
+     */
+    global void setGatewayReferenceDetails(String gatewayReferenceDetails) { }
 
-  /**
-   * Sets a gateway-specific result code. The code can be mapped to a Salesforce-specific result code. Maximum length of 64 characters.
-   * @param gatewayResultCode Gateway-specific result code. Map this value to a Salesforce-specific result code.
-   */
-  global void setGatewayResultCode(String gatewayResultCode) {}
+    /**
+     * Sets the unique gateway reference number for the transaction that the gateway returned. Maximum length of 255 characters.
+     */
+    global override void setGatewayReferenceNumber(String gatewayReferenceNumber) { }
 
-  /**
-   * Sets a description of the gateway-specific result code that a gateway returned. Maximum length of 1000 characters.
-   * @param gatewayResultCodeDescription Description of the gateway’s result code. Use this field to learn more about why the gateway returned a certain result code.
-   */
-  global void setGatewayResultCodeDescription(String gatewayResultCodeDescription) {}
+    /**
+     * Sets a gateway-specific result code. The code can be mapped to a Salesforce-specific result code. Maximum length of 64 characters.
+     */
+    global void setGatewayResultCode(String gatewayResultCode) { }
 
-  /**
-   * Sets the ID of a notification sent by the payment gateway.
-   * @param id 
-   */
-  global void setId(String id) {}
+    /**
+     * Sets a description of the gateway-specific result code that a gateway returned. Maximum length of 1000 characters.
+     */
+    global void setGatewayResultCodeDescription(String gatewayResultCodeDescription) { }
 
-  /**
-   * Sets the Salesforce-specific result code information. Payment gateways have many response codes for payment calls. Salesforce uses the result code information to map payment gateway codes to a predefined set of standard Salesforce result codes.
-   * @param salesforceResultCodeInfo Description of the Salesforce result code value.
-   */
-  global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+    /**
+     * Sets the ID of a notification sent by the payment gateway.
+     */
+    global void setId(String id) { }
 
-  /**
-   * Sets the notification status to the same value that was sent by the gateway.
-   * @param status Sets the Salesforce-specific result code information. Payment gateways have many response codes for payment calls. Salesforce uses the result code information to map payment gateway codes to a predefined set of standard Salesforce result codes.
-   */
-  global void setStatus(commercepayments.NotificationStatus status) {}
+    global void setRetryCategory(commercepayments.RetryCategory retryCategory) { }
 
-  global Object clone() {}
+    global void setRetryDecision(commercepayments.RetryDecision retryDecision) { }
 
-  global void setRetryCategory(commercepayments.RetryCategory retryCategory) {}
+    /**
+     * Sets the Salesforce-specific result code information. Payment gateways have many response codes for payment calls. Salesforce uses the result code information to map payment gateway codes to a predefined set of standard Salesforce result codes.
+     */
+    global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) { }
 
-  global void setRetryDecision(commercepayments.RetryDecision retryDecision) {}
+    /**
+     * Sets the notification status to the same value that was sent by the gateway.
+     */
+    global void setStatus(commercepayments.NotificationStatus status) { }
 
+    global override virtual String toString() { return null; }
 }

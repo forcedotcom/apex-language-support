@@ -1,9 +1,9 @@
-global class RunnableHandler {
+global interface RunnableHandler {
+    virtual Boolean equals(Object arg0);
 
-  global RunnableHandler() {}
+    virtual Integer hashCode();
 
-  global void run() {}
+    abstract void run();
 
-  global Object clone() {}
-
+    virtual String toString();
 }

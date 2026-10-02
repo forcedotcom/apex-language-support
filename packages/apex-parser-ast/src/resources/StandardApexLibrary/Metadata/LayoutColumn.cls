@@ -1,18 +1,25 @@
 /**
  * Represents the items in a column within a layout section.
+ * <p>Usage
+ * Use this class when accessing Metadata.Layout metadata components. For more information, see “LayoutColumn” in the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.api_meta.meta/api_meta/meta_intro.htm" target="_blank">Metadata API Developer Guide</a>.
  */
-global class LayoutColumn {
+global class LayoutColumn extends Metadata.MetadataValue {
+    /**
+     * The individual items within a column (ordered from top to bottom).
+     * <p>List<Metadata.LayoutItem>
+     */
+    global List layoutItems { get; set; }
+    /**
+     * This field is reserved for Salesforce.
+     * <p>String
+     */
+    global String reserved { get; set; }
 
-  global LayoutColumn() {}
+    global Object LayoutColumn() { return null; }
 
-  global List<Metadata.LayoutItem> layoutItems;
+    global virtual Boolean equals(Object o) { return false; }
 
-  global String reserved;
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Makes a duplicate copy of the Metadata.LayoutColumn .
-   * @return Object
-   */
-  global Object clone() {}
-
+    global override virtual String toString() { return null; }
 }

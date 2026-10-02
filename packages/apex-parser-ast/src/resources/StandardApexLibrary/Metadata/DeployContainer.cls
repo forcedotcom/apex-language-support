@@ -1,40 +1,45 @@
 /**
  * Represents a container for custom metadata components to be deployed.
+ * <p>Usage
+ * Use Metadata.DeployContainer to manage custom metadata components for deployment. A container must have one or more components before being deployed.
+ * <p>Example
+ * // Use DeployContainer for deployment
+ * Metadata.DeployContainer mdContainer = new Metadata.DeployContainer();
+ * mdContainer.addMetadata(customMetadata);
+ *
+ * ...
+ *
+ * // Enqueue deploy
+ * Metadata.Operations.enqueueDeployment(mdContainer, callback);
  */
 global class DeployContainer {
+    global Object DeployContainer() { return null; }
 
-  global DeployContainer() {}
+    /**
+     * Add a custom metadata component to the container.
+     */
+    global void addMetadata(Metadata.Metadata md) { }
 
-  /**
-   * Add a custom metadata component to the container.
-   * @param md A custom metadata component class that derives from Metadata.Metadata . Avoid adding components to a Metadata.DeployContainer that have the same Metadata.Metadata.fullName because it causes deployment errors.
-   */
-  global void addMetadata(Metadata.Metadata md) {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Makes a duplicate copy of the Metadata.DeployContainer .
-   * @return Object
-   */
-  global Object clone() {}
+    /**
+     * Retrieves a list of custom metadata components from the container.
+     */
+    global List getMetadata() { return null; }
 
-  /**
-   * Retrieves a list of custom metadata components from the container.
-   * @return List<Metadata.Metadata>
-   */
-  global List<Metadata.Metadata> getMetadata() {}
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Removes a metadata component from the container.
-   * @param md Metadata component to remove.
-   * @return Boolean
-   */
-  global Boolean removeMetadata(Metadata.Metadata md) {}
+    /**
+     * Removes a metadata component from the container.
+     * @return Returns true if the container changed as a result of the call.
+     */
+    global Boolean removeMetadata(Metadata.Metadata md) { return false; }
 
-  /**
-   * Removes a metadata component from the container using the component’s full name.
-   * @param fullName Full name of the component to remove.
-   * @return Boolean
-   */
-  global Boolean removeMetadataByFullName(String fullName) {}
+    /**
+     * Removes a metadata component from the container using the component’s full name.
+     * @return Returns true if the container changed as a result of the call.
+     */
+    global Boolean removeMetadataByFullName(String fullName) { return false; }
 
+    global override virtual String toString() { return null; }
 }

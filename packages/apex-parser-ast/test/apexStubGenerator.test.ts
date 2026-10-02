@@ -15,6 +15,78 @@ import { generateApexStubs } from '../scripts/apexStubGenerator.js';
 
 describe('apexStubGenerator', () => {
   describe('Basic Generation', () => {
+    test('emits API documentation for types and members', () => {
+      const [stub] = generateApexStubs({
+        typeStubs: [
+          {
+            name: 'Documented',
+            kind: 'CLASS',
+            modifiers: ['public'],
+            documentation: 'Class summary.\n\nMore detail.',
+            fields: [
+              {
+                name: 'value',
+                type: { name: 'String' },
+                documentation: 'Field summary.',
+              },
+            ],
+            properties: [
+              {
+                name: 'label',
+                type: { name: 'String' },
+                documentation: 'Property summary.',
+              },
+            ],
+            methods: [
+              {
+                name: 'getValue',
+                returnType: { name: 'String' },
+                parameters: [],
+                documentation: 'Method summary.',
+              },
+            ],
+            innerTypes: [
+              {
+                name: 'Nested',
+                kind: 'CLASS',
+                documentation: 'Nested summary.',
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(stub.source).toContain(
+        '/**\n * Class summary.\n *\n * More detail.\n */\npublic class Documented',
+      );
+      expect(stub.source).toContain(
+        '    /**\n     * Field summary.\n     */\n    String value;',
+      );
+      expect(stub.source).toContain(
+        '    /**\n     * Property summary.\n     */\n    String label',
+      );
+      expect(stub.source).toContain(
+        '    /**\n     * Method summary.\n     */\n    String getValue()',
+      );
+      expect(stub.source).toContain(
+        '    /**\n     * Nested summary.\n     */\n    class Nested',
+      );
+    });
+
+    test('escapes comment terminators in API documentation', () => {
+      const [stub] = generateApexStubs({
+        typeStubs: [
+          {
+            name: 'SafeComment',
+            kind: 'CLASS',
+            documentation: 'Literal */ marker',
+          },
+        ],
+      });
+
+      expect(stub.source).toContain(' * Literal * / marker');
+    });
+
     test('generates simple class with fields and methods', () => {
       const input = {
         typeStubs: [

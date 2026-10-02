@@ -1,38 +1,75 @@
 /**
  * Represents a specific custom console component to display in a container that hosts multiple components in one of the sidebars of the Salesforce console.
+ * <p>Usage
+ * Use this class when accessing Metadata.Layout metadata components. For more information, see “SidebarComponent” in the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.api_meta.meta/api_meta/meta_intro.htm" target="_blank">Metadata API Developer Guide</a>.
  */
-global class SidebarComponent {
+global class SidebarComponent extends Metadata.MetadataValue {
+    /**
+     * Specifies the component type. Valid values are “KnowledgeOne”, “Lookup”, “Milestones”, “RelatedList”, “Topics”, “Files”, and “CaseExperts”.
+     * <p>String
+     */
+    global String componentType { get; set; }
+    /**
+     * If the component is a lookup field, the name of the quick action used to create a record.
+     * <p>String
+     */
+    global String createAction { get; set; }
+    /**
+     * If the component is a lookup field, lets users associate a record with this field.
+     * <p>Boolean
+     */
+    global Boolean enableLinking { get; set; }
+    /**
+     * The height of the component in the container. The unit property determines the unit of measurement, in pixels or percent.
+     * <p>Integer
+     */
+    global Integer height { get; set; }
+    /**
+     * Indicates if the component is enabled for Knowledge One.
+     * <p>Boolean
+     */
+    global Boolean knowledgeOneEnable { get; set; }
+    /**
+     * The name of the component as it displays to console users. Available for components in a container with the style of tabs or accordion.
+     * <p>String
+     */
+    global String label { get; set; }
+    /**
+     * If the component is a lookup field, the name of the field.
+     * <p>String
+     */
+    global String lookup { get; set; }
+    /**
+     * If the component is a Visualforce page, the name of the Visualforce page.
+     * <p>String
+     */
+    global String page_x { get; set; }
+    /**
+     * If the component is a related list component, the list of related list names.
+     * <p>List<Metadata.RelatedList>
+     */
+    global List relatedLists { get; set; }
+    /**
+     * The unit of measurement (pixels or percent) for the height and width of the component in the container.
+     * <p>String
+     */
+    global String unit { get; set; }
+    /**
+     * If the component is a lookup field, the name of the quick action used to update a record.
+     * <p>String
+     */
+    global String updateAction { get; set; }
+    /**
+     * The width of the component in the container. The unit property determines the unit of measurement, in pixels or percent.
+     * <p>Integer
+     */
+    global Integer width { get; set; }
 
-  global SidebarComponent() {}
+    global Object SidebarComponent() { return null; }
 
-  global String componentType;
+    global virtual Boolean equals(Object o) { return false; }
 
-  global String createAction;
+    global virtual Integer hashCode() { return 0; }
 
-  global Boolean enableLinking;
-
-  global Integer height;
-
-  global Boolean knowledgeOneEnable;
-
-  global String label;
-
-  global String lookup;
-
-  global String page_x;
-
-  global List<Metadata.RelatedList> relatedLists;
-
-  global String unit;
-
-  global String updateAction;
-
-  global Integer width;
-
-  /**
-   * Makes a duplicate copy of the Metadata.SidebarComponent .
-   * @return Object
-   */
-  global Object clone() {}
-
+    global override virtual String toString() { return null; }
 }

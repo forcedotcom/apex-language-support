@@ -1,66 +1,93 @@
 /**
  * Contains methods for sending mass email.
+ * <p>Usage
+ * Important
+ * Sending an email by using Apex requires domain-level and user-level email verification. System-generated emails also require verification of the From email address. Email delivery fails if any of these verifications is incomplete. See <a class="xref" href="https://help.salesforce.com/s/articleView?id=xcloud.security_email_verification_requirements.htm&amp;language=en_US&amp;type=5" target="_blank">Requirements to Send Email from Salesforce</a>.
+ * MassEmailMessage extends Email and inherits all of its methods. All base email (Email class) methods are also available to the MassEmailMessage objects.
  */
-global class MassEmailMessage {
+global class MassEmailMessage extends Messaging.Email {
+    global String description { get; set; }
+    global List targetobjectids { get; set; }
+    global Id templateid { get; set; }
+    global List whatids { get; set; }
 
-  global MassEmailMessage() {}
+    /**
+     * Creates a new instance of the Messaging.MassEmailMessage class.
+     */
+    Object MassEmailMessage() { return null; }
 
-  /**
-   * The description of the email.
-   * @param description 
-   */
-  global void setDescription(String description) {}
+    global Boolean equals(Object obj) { return false; }
 
-  /**
-   * A list of IDs of the contacts, leads, or users to which the email will be sent. The IDs you specify set the context and ensure that merge fields in the template contain the correct data. The objects must be of the same type (all contacts, all leads, or all users).
-   * @param targetObjectIds 
-   */
-  global void setTargetObjectIds(ID[] targetObjectIds) {}
+    global Boolean getBccSender() { return false; }
 
-  /**
-   * Optional. If you specify a list of contacts for the targetObjectIds field, you can specify a list of whatIds as well. This helps to further ensure that merge fields in the template contain the correct data.
-   * @param whatIds 
-   */
-  global void setWhatIds(ID[] whatIds) {}
+    global String getDescription() { return null; }
 
-  global Boolean getBccSender() {}
+    global String getEmailPriority() { return null; }
 
-  global String getDescription() {}
+    global String getReplyTo() { return null; }
 
-  global String getEmailPriority() {}
+    global Boolean getSaveAsActivity() { return false; }
 
-  global String getReplyTo() {}
+    global String getSenderDisplayName() { return null; }
 
-  global Boolean getSaveAsActivity() {}
+    global String getSubject() { return null; }
 
-  global String getSenderDisplayName() {}
+    global List getTargetObjectIds() { return null; }
 
-  global String getSubject() {}
+    global Id getTemplateId() { return null; }
 
-  global List<Id> getTargetObjectIds() {}
+    global Boolean getUseSignature() { return false; }
 
-  global Id getTemplateId() {}
+    global List getWhatIds() { return null; }
 
-  global Boolean getUseSignature() {}
+    global Integer hashCode() { return 0; }
 
-  global List<Id> getWhatIds() {}
+    global void setBccSender(Boolean param1) { }
 
-  global void setBccSender(Boolean arg0) {}
+    /**
+     * The description of the email.
+     */
+    global void setDescription(String param1) { }
 
-  global void setEmailPriority(String arg0) {}
+    global void setEmailPriority(String param1) { }
 
-  global void setReplyTo(String arg0) {}
+    global void setReplyTo(String param1) { }
 
-  global void setSaveAsActivity(Boolean arg0) {}
+    global void setSaveAsActivity(Boolean param1) { }
 
-  global void setSenderDisplayName(String arg0) {}
+    global void setSenderDisplayName(String param1) { }
 
-  global void setSubject(String arg0) {}
+    global void setSubject(String param1) { }
 
-  global void setTemplateId(Id arg0) {}
+    /**
+     * A list of IDs of the contacts, leads, or users to which the email will be sent. The IDs you specify set the context and ensure that merge fields in the template contain the correct data. The objects must be of the same type (all contacts, all leads, or all users).
+     * <p>Usage
+     * You can list multiple IDs per email. If you specify a value for the targetObjectIds field, optionally specify a whatId as well to set the email context to a user, contact, or lead. This ensures that merge fields in the template contain the correct data. Each ID counts against the sending organization’s daily mass email limit, except for user IDs. Each ID counts against the sending organization’s daily mass email limit, except for IDs of users in the organization.
+     * Do not specify the IDs of records that have the Email Opt Out option selected.
+     * All emails must have a recipient value in at least one of the following fields:
+     * toAddresses
+     * ccAddresses
+     * bccAddresses
+     * targetObjectId
+     */
+    global void setTargetObjectIds(List param1) { }
 
-  global void setUseSignature(Boolean arg0) {}
+    global void setTemplateId(Id param1) { }
 
-  global Object clone() {}
+    global void setUseSignature(Boolean param1) { }
 
+    /**
+     * Optional. If you specify a list of contacts for the targetObjectIds field, you can specify a list of whatIds as well. This helps to further ensure that merge fields in the template contain the correct data.
+     * <p>Usage
+     * The values must be one of the following types:
+     * Contract
+     * Case
+     * Opportunity
+     * Product
+     * Note
+     * If you specify whatIds, specify one for each targetObjectId; otherwise, you will receive an INVALID_ID_FIELD error.
+     */
+    global void setWhatIds(List param1) { }
+
+    global String toString() { return null; }
 }

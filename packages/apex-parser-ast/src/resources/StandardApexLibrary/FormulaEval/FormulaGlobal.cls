@@ -1,14 +1,17 @@
 /**
  * Specifies a global variable that references data in your organization in the withGlobalVariables(formulaGlobals) method.
+ * <p>Enum Values
+ * The following are the values of the FormulaEval.FormulaGlobal enum.
  */
 global enum FormulaGlobal {
-  CUSTOMMETADATA,
-  LABEL,
-  ORGANIZATION,
-  PERMISSION,
-  PROFILE,
-  SETUP,
-  SYSTEM,
-  USER,
-  USERROLE
+    CUSTOM_METADATA,
+    LABEL,
+    ORGANIZATION,
+    PERMISSION,
+    PROFILE,
+    SETUP,
+    SYSTEM,
+    USER,
+    USER_ROLE
+
 }

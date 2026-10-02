@@ -1,29 +1,22 @@
 /**
  * Abstract class for storing information about payment methods.
+ * <p>Usage
+ * The BasePaymentMethodRequest class contains fields common to CardPaymentMethodRequest
+ * .
  */
-global class BasePaymentMethodRequest {
+global abstract with sharing class BasePaymentMethodRequest {
+    /**
+     * Maintains the integrity of lists of type BasePaymentMethodRequest by determining the equality of external objects in a list. This method is dynamic and based on the equals method in Java.
+     */
+    global virtual Boolean equals(Object obj) { return false; }
 
-  global BasePaymentMethodRequest() {}
+    /**
+     * Maintains the integrity of lists of type BasePaymentMethodRequest by determining the uniqueness of the external object records in a list.
+     */
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Maintains the integrity of lists of type BasePaymentMethodRequest by determining the equality of external objects in a list. This method is dynamic and based on the equals method in Java.
-   * @param obj External object whose key is to be validated.
-   * @return Boolean
-   */
-  global Boolean equals(Object obj) {}
-
-  /**
-   * Maintains the integrity of lists of type BasePaymentMethodRequest by determining the uniqueness of the external object records in a list.
-   * @return Integer
-   */
-  global Integer hashCode() {}
-
-  /**
-   * Converts a date to a string.
-   * @return String
-   */
-  global String toString() {}
-
-  global Object clone() {}
-
+    /**
+     * Converts a date to a string.
+     */
+    global override virtual String toString() { return null; }
 }

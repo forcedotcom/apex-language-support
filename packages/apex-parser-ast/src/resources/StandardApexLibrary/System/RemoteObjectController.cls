@@ -1,46 +1,44 @@
 /**
  * Use RemoteObjectController to access the standard Visualforce Remote Objects operations in your Remote Objects override methods.
+ * <p>Usage
+ * RemoteObjectController is supported only for use within Remote Objects methods. See Overriding Default Remote Objects Operations in the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.pages.meta/pages/pages_intro.htm" target="_blank" title="HTML (New Window)">Visualforce Developer’s Guide</a> for examples of how to use RemoteObjectController with your Visualforce pages.
  */
 global class RemoteObjectController {
+    global Object RemoteObjectController() { return null; }
 
-  global RemoteObjectController() {}
+    /**
+     * Create a record in the database.
+     * @return The return value is a map that represents the result of the Remote Objects operation. What is returned depends on the results of the call.
+     * Success: A map that contains a single element with the ID of the record created. For example, { id: 'recordId' }.
+     * Failure: A map that contains a single element with the error message for the overall operation. For example, { error: 'errorMessage' }.
+     */
+    global static Map create(String type, Map fields) { return null; }
 
-  /**
-   * Create a record in the database.
-   * @param type The sObject type on which create is being called.
-   * @param fields The fields and values to set on the new record.
-   * @return Map<String,Object>
-   */
-  global static Map<String,Object> create(String type, Map<String,Object> fields) {}
+    /**
+     * Delete records from the database.
+     * @return The return value is a map that represents the result of the Remote Objects operation. What is returned depends on how the method was called and the results of the call.
+     * Single Delete—Success: A map that contains a single element with the ID of the record that was deleted. For example, { id: 'recordId' }.
+     * Batch Delete—Success: A map that contains a single element, an array of Map<String,Object> elements. Each element contains the ID of a record that was deleted and an array of errors, if there were any, for that record’s individual delete. For example, { results: [ { id: 'recordId', errors: ['errorMessage', ...]}, ...] }.
+     * Single and Batch Delete—Failure: A map that contains a single element with the error message for the overall operation. For example, { error: 'errorMessage' }.
+     */
+    global static Map del(String type, List ids) { return null; }
 
-  /**
-   * Delete records from the database.
-   * @param type The sObject type on which delete is being called.
-   * @param recordIds The IDs of the records to be deleted.
-   * @return Map<String,Object>
-   */
-  global static Map<String,Object> del(String type, List<String> recordIds) {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Retrieve records from the database.
-   * @param type The sObject type on which retrieve is being called.
-   * @param fields The fields to retrieve for each record.
-   * @param criteria The criteria to use when performing the query.
-   * @return Map<String,Object>
-   */
-  global static Map<String,Object> retrieve(String type, List<String> fields, Map<String,Object> criteria) {}
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Update records in the database.
-   * @param type The sObject type on which update is being called.
-   * @param recordIds The IDs of the records to be updated.
-   * @param fields The fields to update, and the value to update each field with.
-   * @return Map<String,Object>
-   */
-  global static Map<String,Object> update(String type, List<String> recordIds, Map<String,Object> fields) {}
+    /**
+     * Retrieve records from the database.
+     * @return The return value is a map that represents the result of the Remote Objects operation. What is returned depends on the results of the call.
+     * Success: A map that contains the following elements.
+     * records: An array of records that match the query conditions.
+     * type: A string that indicates the type of the sObject that was retrieved.
+     * size: The number of records in the response.
+     * Failure: A map that contains a single element with the error message for the overall operation. For example, { error: 'errorMessage' }.
+     */
+    global static Map retrieve(String type, List fields, Map criteria) { return null; }
 
-  global Object clone() {}
+    global override virtual String toString() { return null; }
 
-  global static Map<String,Object> updat(String type, List<String> ids, Map<String,Object> fields) {}
-
+    global static Map updat(String type, List ids, Map fields) { return null; }
 }

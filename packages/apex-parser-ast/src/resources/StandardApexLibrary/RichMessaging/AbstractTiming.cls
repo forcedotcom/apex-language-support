@@ -1,10 +1,12 @@
 /**
  * Parent class for other RichMessaging timing classes.
  */
-global class AbstractTiming {
+global virtual class AbstractTiming {
+    global Object AbstractTiming() { return null; }
 
-  global AbstractTiming() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global Object clone() {}
+    global virtual Integer hashCode() { return 0; }
 
+    global override virtual String toString() { return null; }
 }

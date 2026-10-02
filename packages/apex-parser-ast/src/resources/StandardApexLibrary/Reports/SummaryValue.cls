@@ -2,21 +2,19 @@
  * Contains summary data for a cell of the report.
  */
 global class SummaryValue {
+    global virtual Boolean equals(Object o) { return false; }
 
-  global SummaryValue() {}
+    /**
+     * Returns the formatted summary data for a specified cell.
+     */
+    global String getLabel() { return null; }
 
-  /**
-   * Returns the formatted summary data for a specified cell.
-   * @return String
-   */
-  global String getLabel() {}
+    /**
+     * Returns the numeric value of the summary data for a specified cell.
+     */
+    global Object getValue() { return null; }
 
-  /**
-   * Returns the numeric value of the summary data for a specified cell.
-   * @return Object
-   */
-  global Object getValue() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Object clone() {}
-
+    global override virtual String toString() { return null; }
 }

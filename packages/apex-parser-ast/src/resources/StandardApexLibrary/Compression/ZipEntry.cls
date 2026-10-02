@@ -1,40 +1,80 @@
 /**
  * Contains methods to get and set information about a zip file entry.
  */
-global class ZipEntry {
+global with sharing class ZipEntry {
+    /**
+     * Compares this object with the specified object and returns true if both objects are equal; otherwise, returns false.
+     */
+    global Boolean equals(Object obj) { return false; }
 
-  global ZipEntry() {}
+    /**
+     * Gets the comment string for the zip entry.
+     */
+    global String getComment() { return null; }
 
-  global Boolean equals(Object obj) {}
+    /**
+     * Gets the size in bytes of the compressed zip entry.
+     */
+    global Long getCompressedSize() { return 0L; }
 
-  global Integer hashcode() {}
+    /**
+     * Gets the content of the zip entry. This method doesn’t work with the ZipReader class.
+     */
+    global Blob getContent() { return null; }
 
-  global string getComment() {}
+    /**
+     * Gets the cyclic redundancy check (CRC) value for the zip entry.
+     */
+    global Long getCrc() { return 0L; }
 
-  global long getCompressedSize() {}
+    /**
+     * Gets the last modification timestamp of the zip entry.
+     */
+    global Datetime getLastModifiedTime() { return null; }
 
-  global blob getContent() {}
+    /**
+     * Gets the compression method of the zip entry.
+     * @return Uses values from the Method enum and indicates whether the zip entry has DEFLATED or STORED method.
+     */
+    global compression.Method getMethod() { return null; }
 
-  global long getCrc() {}
+    /**
+     * Gets the name of the zip entry.
+     */
+    global String getName() { return null; }
 
-  global Datetime getLastModifiedTime() {}
+    /**
+     * Gets the uncompressed size in bytes of the zip entry content.
+     */
+    global Long getUncompressedSize() { return 0L; }
 
-  global Compression.Method getMethod() {}
+    /**
+     * Returns the hash code value for the zip entry.
+     */
+    global override Integer hashCode() { return 0; }
 
-  global string getName() {}
+    /**
+     * Sets the comment string for the zip entry that’s written to the Zip archive. This method doesn’t work with the ZipReader class.
+     */
+    global compression.ZipEntry setComment(String comment) { return null; }
 
-  global long getUncompressedSize() {}
+    /**
+     * Sets the content of the zip entry that’s written to the Zip archive. This method doesn’t work with the ZipReader class.
+     */
+    global compression.ZipEntry setContent(Blob b) { return null; }
 
-  global Compression.ZipEntry setComment(String comment) {}
+    /**
+     * Sets the last modification time of the zip entry that’s written to the Zip archive. This method doesn’t work with the ZipReader class.
+     */
+    global compression.ZipEntry setLastModifiedTime(Datetime modTime) { return null; }
 
-  global Compression.ZipEntry setContent(Blob blob) {}
+    /**
+     * Sets the compression method for the zip entry that’s written to the zip archive. This method doesn’t work with the ZipReader class.
+     */
+    global compression.ZipEntry setMethod(compression.Method m) { return null; }
 
-  global Compression.ZipEntry setLastModifiedTime(Datetime modTime) {}
-
-  global Compression.ZipEntry setMethod(Compression.Method method) {}
-
-  global string toString() {}
-
-  global Object clone() {}
-
+    /**
+     * Returns a string representation of the zip entry.
+     */
+    global override String toString() { return null; }
 }

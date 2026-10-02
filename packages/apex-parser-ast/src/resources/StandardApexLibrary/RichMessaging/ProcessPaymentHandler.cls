@@ -2,7 +2,14 @@
  * Interface used to process payment requests.
  */
 global interface ProcessPaymentHandler {
+    virtual Boolean equals(Object arg0);
 
-  RichMessaging.ProcessPaymentResult processPaymentRequest(RichMessaging.ProcessPaymentRequest var1);
+    virtual Integer hashCode();
 
+    /**
+     * Processes a payment request.
+     */
+    abstract RichMessaging.ProcessPaymentResult processPaymentRequest(RichMessaging.ProcessPaymentRequest paymentRequest);
+
+    virtual String toString();
 }

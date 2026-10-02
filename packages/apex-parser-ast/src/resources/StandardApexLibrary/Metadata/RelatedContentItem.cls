@@ -1,16 +1,20 @@
 /**
  * Represents an individual item in the RelatedContent list.
+ * <p>Usage
+ * Use this class when accessing Metadata.Layout metadata components. For more information, see “RelatedContentItem” in the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.api_meta.meta/api_meta/meta_intro.htm" target="_blank">Metadata API Developer Guide</a>.
  */
-global class RelatedContentItem {
+global class RelatedContentItem extends Metadata.MetadataValue {
+    /**
+     * An individual layout item in the Mobile Cards section.
+     * <p>Metadata.LayoutItem
+     */
+    global Metadata.LayoutItem layoutItem { get; set; }
 
-  global RelatedContentItem() {}
+    global Object RelatedContentItem() { return null; }
 
-  global Metadata.LayoutItem layoutItem;
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Makes a duplicate copy of the Metadata.RelatedContentItem .
-   * @return Object
-   */
-  global Object clone() {}
+    global virtual Integer hashCode() { return 0; }
 
+    global override virtual String toString() { return null; }
 }

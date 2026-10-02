@@ -1,28 +1,25 @@
 /**
  * Contains the fact map for the report, which represents the report’s data values, and includes summarized fields.
+ * <p>Usage
+ * The ReportFactWithSummaries class extends the ReportFact class. A ReportFactWithSummaries object is returned if includeDetails is set to false when the report is run.
  */
-global class ReportFactWithSummaries {
+global class ReportFactWithSummaries extends reports.ReportFact {
+    global virtual Boolean equals(Object o) { return false; }
 
-  global ReportFactWithSummaries() {}
+    /**
+     * Returns summary-level data for a report, including the record count.
+     */
+    global List getAggregates() { return null; }
 
-  /**
-   * Returns summary-level data for a report, including the record count.
-   * @return LIST<Reports.SummaryValue>
-   */
-  global LIST<Reports.SummaryValue> getAggregates() {}
+    /**
+     * Returns the unique identifier for a row or column grouping. This identifier can be used to index specific data values within each grouping.
+     */
+    global String getKey() { return null; }
 
-  /**
-   * Returns the unique identifier for a row or column grouping. This identifier can be used to index specific data values within each grouping.
-   * @return String
-   */
-  global String getKey() {}
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Returns a string.
-   * @return String
-   */
-  global String toString() {}
-
-  global Object clone() {}
-
+    /**
+     * Returns a string.
+     */
+    global override virtual String toString() { return null; }
 }

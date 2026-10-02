@@ -1,30 +1,53 @@
 /**
  * Contains methods that provide the name, maximum value, and current value of an org limit.
+ * <p>Usage
+ * Use the System.OrgLimits getAll and getMap methods to obtain either a list or a map of all your org limits. To get details on each limit, use instance methods from System.OrgLimit.
+ * For comparison, the Limits Class returns Apex governor limits and not Salesforce API limits.
+ * Note
+ * Limit values are updated asynchronously, in near-real-time.
  */
 global class OrgLimit {
+    global virtual Boolean equals(Object o) { return false; }
 
-  global OrgLimit() {}
+    /**
+     * Returns the maximum allowed limit value.
+     * <p>Example
+     * List<System.OrgLimit> limits = OrgLimits.getAll();
+     * for (System.OrgLimit aLimit: limits) {
+     *     System.debug('Limit: ' + aLimit.getName());
+     *     System.debug('Max Limit is: ' + aLimit.getLimit());
+     * }
+     */
+    global Integer getLimit() { return 0; }
 
-  /**
-   * Returns the maximum allowed limit value.
-   * @return Integer
-   */
-  global Integer getLimit() {}
+    /**
+     * Returns the limit’s name.
+     * <p>Example
+     * List<System.OrgLimit> limits = OrgLimits.getAll();
+     * for (System.OrgLimit aLimit: limits) {
+     *     System.debug('Limit: ' + aLimit.getName());
+     *     System.debug('Max Limit is: ' + aLimit.getLimit());
+     * }
+     */
+    global String getName() { return null; }
 
-  /**
-   * Returns the limit’s name.
-   * @return String
-   */
-  global String getName() {}
+    /**
+     * Returns the limit usage value.
+     * <p>Example
+     * List<System.OrgLimit> limits = OrgLimits.getAll();
+     * for (System.OrgLimit aLimit: limits) {
+     *     System.debug('Limit: ' + aLimit.getName());
+     *     System.debug('Usage Value is: ' + aLimit.getValue());
+     * }
+     */
+    global Integer getValue() { return 0; }
 
-  /**
-   * Returns the limit usage value.
-   * @return Integer
-   */
-  global Integer getValue() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global String toString() {}
-
-  global Object clone() {}
-
+    /**
+     * Returns the string representation of the org limit.
+     * @return String denoting the name, current consumption, and maximum value of the org limit. For example:
+     * OrgLimit[DailyBulkApiBatches: consumed 25 of 15000]
+     */
+    global override String toString() { return null; }
 }

@@ -1,16 +1,36 @@
 /**
  * Create, clone, and convert string based key-value pairs to a JSON string format.
  */
-global class ApexMap {
+global with sharing class ApexMap {
+    /**
+     * Represents key of the key-value pair. This property is used to store the unique ID or name of the data.
+     * <p>String
+     */
+    @AuraEnabled
+    global String key { get; set; }
+    /**
+     * Represents value of the key-value pair. This property is used to store the data associated with the key.
+     * <p>String
+     */
+    @AuraEnabled
+    global String value { get; set; }
 
-  global ApexMap(String key, String value) {}
+    /**
+     * Initializes the ApexMap class.
+     */
+    global Object ApexMap() { return null; }
 
-  global String key;
+    /**
+     * Initializes a new instance of the ApexMap class by assigning the specified key and value. This constructor creates a single key–value entry that can be included in an embedded AI Apex map for passing contextual data to embedded AI logic.
+     */
+    global Object ApexMap(String key, String value) { return null; }
 
-  global String value;
+    global virtual Boolean equals(Object o) { return false; }
 
-  global String toString() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Object clone() {}
-
+    /**
+     * Returns a string representation of the ApexMap object.
+     */
+    global override String toString() { return null; }
 }

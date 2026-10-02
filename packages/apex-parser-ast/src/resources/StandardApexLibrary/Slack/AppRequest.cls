@@ -1,143 +1,113 @@
 global class AppRequest {
+    global Object AppRequest() { return null; }
 
-  global AppRequest() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global String getImage32() {}
+    global Slack.RequestedApp getApp() { return null; }
 
-  global String getImage36() {}
+    global Integer getDateCreated() { return 0; }
 
-  global String getImage48() {}
+    global String getId() { return null; }
 
-  global String getImage64() {}
+    global Boolean getIsUserAppCollaborator() { return false; }
 
-  global String getImage72() {}
+    global String getMessage() { return null; }
 
-  global String getImage96() {}
+    global Slack.AppRequest.PreviousResolution getPreviousResolution() { return null; }
 
-  global String getImage128() {}
+    global List getScopes() { return null; }
 
-  global String getImage192() {}
+    global Slack.AppRequest.Team getTeam() { return null; }
 
-  global String getImage512() {}
+    global Slack.AppRequest.User getUser() { return null; }
 
-  global String getImage1024() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global String getImageOriginal() {}
+    global void setApp(Slack.RequestedApp app) { }
 
-  global void setImage32(String image32) {}
+    global void setDateCreated(Integer dateCreated) { }
 
-  global void setImage36(String image36) {}
+    global void setId(String id) { }
 
-  global void setImage48(String image48) {}
+    global void setIsUserAppCollaborator(Boolean isUserAppCollaborator) { }
 
-  global void setImage64(String image64) {}
+    global void setMessage(String message) { }
 
-  global void setImage72(String image72) {}
+    global void setPreviousResolution(Slack.AppRequest.PreviousResolution previousResolution) { }
 
-  global void setImage96(String image96) {}
+    global void setScopes(List scopes) { }
 
-  global void setImage128(String image128) {}
+    global void setTeam(Slack.AppRequest.Team team) { }
 
-  global void setImage192(String image192) {}
+    global void setUser(Slack.AppRequest.User user) { }
 
-  global void setImage512(String image512) {}
+    global override String toString() { return null; }
 
-  global void setImage1024(String image1024) {}
+    global class PreviousResolution {
+        global Object PreviousResolution() { return null; }
 
-  global void setImageOriginal(String imageOriginal) {}
+        global Slack.AppRequest.PreviousResolution clone() { return null; }
 
-  global Slack.RequestedApp getApp() {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global Integer getDateCreated() {}
+        global List getScopes() { return null; }
 
-  global String getId() {}
+        global String getStatus() { return null; }
 
-  global Boolean getIsUserAppCollaborator() {}
+        global virtual Integer hashCode() { return 0; }
 
-  global String getMessage() {}
+        global void setScopes(List scopes) { }
 
-  global Slack.AppRequest.PreviousResolution getPreviousResolution() {}
+        global void setStatus(String status) { }
 
-  global List<Slack.AppScope> getScopes() {}
+        global override virtual String toString() { return null; }
+    }
 
-  global Slack.AppRequest.Team getTeam() {}
+    global class Team {
+        global Object Team() { return null; }
 
-  global Slack.AppRequest.User getUser() {}
+        global Slack.AppRequest.Team clone() { return null; }
 
-  global void setApp(Slack.RequestedApp app) {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global void setDateCreated(Integer dateCreated) {}
+        global String getDomain() { return null; }
 
-  global void setId(String id) {}
+        global String getId() { return null; }
 
-  global void setIsUserAppCollaborator(Boolean isUserAppCollaborator) {}
+        global String getName() { return null; }
 
-  global void setMessage(String message) {}
+        global virtual Integer hashCode() { return 0; }
 
-  global void setPreviousResolution(Slack.AppRequest.PreviousResolution previousResolution) {}
+        global void setDomain(String domain) { }
 
-  global void setScopes(List<Slack.AppScope> scopes) {}
+        global void setId(String id) { }
 
-  global void setTeam(Slack.AppRequest.Team team) {}
+        global void setName(String name) { }
 
-  global void setUser(Slack.AppRequest.User user) {}
+        global override virtual String toString() { return null; }
+    }
 
-  global String getStatus() {}
+    global class User {
+        global Object User() { return null; }
 
-  global void setStatus(String status) {}
+        global Slack.AppRequest.User clone() { return null; }
 
-  global String getDomain() {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global String getName() {}
+        global String getEmail() { return null; }
 
-  global void setDomain(String domain) {}
+        global String getId() { return null; }
 
-  global void setName(String name) {}
+        global String getName() { return null; }
 
-  global String getEmail() {}
+        global virtual Integer hashCode() { return 0; }
 
-  global void setEmail(String email) {}
+        global void setEmail(String email) { }
 
-  global String getDescription() {}
+        global void setId(String id) { }
 
-  global String getTokenType() {}
+        global void setName(String name) { }
 
-  global Boolean isSensitive() {}
-
-  global void setDescription(String description) {}
-
-  global void setSensitive(Boolean sensitive) {}
-
-  global void setTokenType(String tokenType) {}
-
-  global String getAdditionalInfo() {}
-
-  global String getAppDirectoryUrl() {}
-
-  global String getAppHomepageUrl() {}
-
-  global String getHelpUrl() {}
-
-  global Slack.AppIcons getIcons() {}
-
-  global String getPrivacyPolicyUrl() {}
-
-  global Boolean isAppDirectoryApproved() {}
-
-  global Boolean isInternal() {}
-
-  global void setAdditionalInfo(String additionalInfo) {}
-
-  global void setAppHomepageUrl(String appHomepageUrl) {}
-
-  global void setHelpUrl(String helpUrl) {}
-
-  global void setIcons(Slack.AppIcons icons) {}
-
-  global void setInternal(Boolean internal) {}
-
-  global void setPrivacyPolicyUrl(String privacyPolicyUrl) {}
-
-  global Object clone() {}
-
+        global override virtual String toString() { return null; }
+    }
 }

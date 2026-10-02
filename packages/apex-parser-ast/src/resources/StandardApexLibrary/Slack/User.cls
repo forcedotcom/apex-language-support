@@ -1,429 +1,369 @@
 global class User {
+    global Object User() { return null; }
 
-  global User() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global String getColor() {}
+    global String getColor() { return null; }
 
-  global Slack.User.EnterpriseUser getEnterpriseUser() {}
+    global Slack.User.EnterpriseUser getEnterpriseUser() { return null; }
 
-  global String getId() {}
+    global String getId() { return null; }
 
-  global String getLocale() {}
+    global String getLocale() { return null; }
 
-  global String getName() {}
+    global String getName() { return null; }
 
-  global String getPresence() {}
+    global String getPresence() { return null; }
 
-  global Slack.User.Profile getProfile() {}
+    global Slack.User.Profile getProfile() { return null; }
 
-  global String getRealName() {}
+    global String getRealName() { return null; }
 
-  global String getTeamId() {}
+    global String getTeamId() { return null; }
 
-  global String getTwoFactorType() {}
+    global String getTwoFactorType() { return null; }
 
-  global String getTz() {}
+    global String getTz() { return null; }
 
-  global String getTzLabel() {}
+    global String getTzLabel() { return null; }
 
-  global Integer getTzOffset() {}
+    global Integer getTzOffset() { return 0; }
 
-  global Long getUpdated() {}
+    global Long getUpdated() { return 0L; }
 
-  global Boolean isAdmin() {}
+    global String getWhoCanShareContactCard() { return null; }
 
-  global Boolean isAppUser() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Boolean isBot() {}
+    global Boolean isAdmin() { return false; }
 
-  global Boolean isDeleted() {}
+    global Boolean isAppUser() { return false; }
 
-  global Boolean isEmailConfirmed() {}
+    global Boolean isBot() { return false; }
 
-  global Boolean isHas2fa() {}
+    global Boolean isDeleted() { return false; }
 
-  global Boolean isHasFiles() {}
+    global Boolean isEmailConfirmed() { return false; }
 
-  global Boolean isInvitedUser() {}
+    global Boolean isHas2fa() { return false; }
 
-  global Boolean isOwner() {}
+    global Boolean isHasFiles() { return false; }
 
-  global Boolean isPrimaryOwner() {}
+    global Boolean isInvitedUser() { return false; }
 
-  global Boolean isRestricted() {}
+    global Boolean isOwner() { return false; }
 
-  global Boolean isStranger() {}
+    global Boolean isPrimaryOwner() { return false; }
 
-  global Boolean isUltraRestricted() {}
+    global Boolean isRestricted() { return false; }
 
-  global Boolean isWorkflowBot() {}
+    global Boolean isStranger() { return false; }
 
-  global Boolean isWhoCanShareContactCard() {}
+    global Boolean isUltraRestricted() { return false; }
 
-  global void setAdmin(Boolean admin) {}
+    global Boolean isWorkflowBot() { return false; }
 
-  global void setAppUser(Boolean appUser) {}
+    global void setAdmin(Boolean admin) { }
 
-  global void setBot(Boolean bot) {}
+    global void setAppUser(Boolean appUser) { }
 
-  global void setColor(String color) {}
+    global void setBot(Boolean bot) { }
 
-  global void setDeleted(Boolean deleted) {}
+    global void setColor(String color) { }
 
-  global void setEmailConfirmed(Boolean emailConfirmed) {}
+    global void setDeleted(Boolean deleted) { }
 
-  global void setEnterpriseUser(Slack.User.EnterpriseUser enterpriseUser) {}
+    global void setEmailConfirmed(Boolean emailConfirmed) { }
 
-  global void setHas2fa(Boolean has2fa) {}
+    global void setEnterpriseUser(Slack.User.EnterpriseUser enterpriseUser) { }
 
-  global void setHasFiles(Boolean hasFiles) {}
+    global void setHas2fa(Boolean has2fa) { }
 
-  global void setId(String id) {}
+    global void setHasFiles(Boolean hasFiles) { }
 
-  global void setInvitedUser(Boolean invitedUser) {}
+    global void setId(String id) { }
 
-  global void setLocale(String locale) {}
+    global void setInvitedUser(Boolean invitedUser) { }
 
-  global void setName(String name) {}
+    global void setLocale(String locale) { }
 
-  global void setOwner(Boolean owner) {}
+    global void setName(String name) { }
 
-  global void setPresence(String presence) {}
+    global void setOwner(Boolean owner) { }
 
-  global void setPrimaryOwner(Boolean primaryOwner) {}
+    global void setPresence(String presence) { }
 
-  global void setProfile(Slack.User.Profile profile) {}
+    global void setPrimaryOwner(Boolean primaryOwner) { }
 
-  global void setRealName(String realName) {}
+    global void setProfile(Slack.User.Profile profile) { }
 
-  global void setRestricted(Boolean restricted) {}
+    global void setRealName(String realName) { }
 
-  global void setStranger(Boolean stranger) {}
+    global void setRestricted(Boolean restricted) { }
 
-  global void setTeamId(String teamId) {}
+    global void setStranger(Boolean stranger) { }
 
-  global void setTwoFactorType(String twoFactorType) {}
+    global void setTeamId(String teamId) { }
 
-  global void setTz(String tz) {}
+    global void setTwoFactorType(String twoFactorType) { }
 
-  global void setTzLabel(String tzLabel) {}
+    global void setTz(String tz) { }
 
-  global void setTzOffset(Integer tzOffset) {}
+    global void setTzLabel(String tzLabel) { }
 
-  global void setUltraRestricted(Boolean ultraRestricted) {}
+    global void setTzOffset(Integer tzOffset) { }
 
-  global void setUpdated(Long updated) {}
+    global void setUltraRestricted(Boolean ultraRestricted) { }
 
-  global void setWhoCanShareContactCard(Boolean whoCanShareContactCard) {}
+    global void setUpdated(Long updated) { }
 
-  global void setWorkflowBot(Boolean workflowBot) {}
+    global void setWhoCanShareContactCard(String whoCanShareContactCard) { }
 
-  global String getEnterpriseId() {}
+    global void setWorkflowBot(Boolean workflowBot) { }
 
-  global String getEnterpriseName() {}
+    global override String toString() { return null; }
 
-  global List<String> getTeams() {}
+    global class EnterpriseUser {
+        global Object EnterpriseUser() { return null; }
 
-  global void setAdmin(Boolean isAdmin) {}
+        global Slack.User.EnterpriseUser clone() { return null; }
 
-  global void setEnterpriseId(String enterpriseId) {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global void setEnterpriseName(String enterpriseName) {}
+        global String getEnterpriseId() { return null; }
 
-  global void setOwner(Boolean isOwner) {}
+        global String getEnterpriseName() { return null; }
 
-  global void setTeams(List<String> teams) {}
+        global String getId() { return null; }
 
-  global String getAlt() {}
+        global List getTeams() { return null; }
 
-  global String getLabel() {}
+        global virtual Integer hashCode() { return 0; }
 
-  global String getValue() {}
+        global Boolean isAdmin() { return false; }
 
-  global void setAlt(String alt) {}
+        global Boolean isOwner() { return false; }
 
-  global void setLabel(String label) {}
+        global Boolean isPrimaryOwner() { return false; }
 
-  global void setValue(String value) {}
+        global void setAdmin(Boolean admin) { }
 
-  global String getApiAppId() {}
+        global void setEnterpriseId(String enterpriseId) { }
 
-  global String getAvatarHash() {}
+        global void setEnterpriseName(String enterpriseName) { }
 
-  global String getBotId() {}
+        global void setId(String id) { }
 
-  global String getDisplayName() {}
+        global void setOwner(Boolean owner) { }
 
-  global String getDisplayNameNormalized() {}
+        global void setPrimaryOwner(Boolean primaryOwner) { }
 
-  global String getEmail() {}
+        global void setTeams(List teams) { }
 
-  global Map<String,Slack.User.Field> getFields() {}
+        global override virtual String toString() { return null; }
+    }
 
-  global String getGuestChannels() {}
+    global class Field {
+        global Object Field() { return null; }
 
-  global Long getGuestExpirationTs() {}
+        global Slack.User.Field clone() { return null; }
 
-  global String getGuestInvitedBy() {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global String getImage24() {}
+        global String getAlt() { return null; }
 
-  global String getImage32() {}
+        global String getLabel() { return null; }
 
-  global String getImage48() {}
+        global String getValue() { return null; }
 
-  global String getImage72() {}
+        global virtual Integer hashCode() { return 0; }
 
-  global String getImage192() {}
+        global void setAlt(String alt) { }
 
-  global String getImage512() {}
+        global void setLabel(String label) { }
 
-  global String getImage1024() {}
+        global void setValue(String value) { }
 
-  global String getImageOriginal() {}
+        global override virtual String toString() { return null; }
+    }
 
-  global String getPhone() {}
+    global class Profile {
+        global Object Profile() { return null; }
 
-  global String getPronouns() {}
+        global Slack.User.Profile clone() { return null; }
 
-  global String getRealNameNormalized() {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global String getSkype() {}
+        global String getApiAppId() { return null; }
 
-  global String getStatusEmoji() {}
+        global String getAvatarHash() { return null; }
 
-  global List<Slack.User.StatusEmojiDisplayInfo> getStatusEmojiDisplayInfo() {}
+        global String getBotId() { return null; }
 
-  global String getStatusEmojiUrl() {}
+        global String getDisplayName() { return null; }
 
-  global Long getStatusExpiration() {}
+        global String getDisplayNameNormalized() { return null; }
 
-  global String getStatusText() {}
+        global String getEmail() { return null; }
 
-  global String getStatusTextCanonical() {}
+        global Map getFields() { return null; }
 
-  global String getTeam() {}
+        global String getGuestChannels() { return null; }
 
-  global String getTitle() {}
+        global Long getGuestExpirationTs() { return 0L; }
 
-  global Boolean isAlwaysActive() {}
+        global String getGuestInvitedBy() { return null; }
 
-  global Boolean isCustomImage() {}
+        global String getHuddleState() { return null; }
 
-  global void setAlwaysActive(Boolean alwaysActive) {}
+        global Long getHuddleStateExpirationTs() { return 0L; }
 
-  global void setApiAppId(String apiAppId) {}
+        global String getImage1024() { return null; }
 
-  global void setAvatarHash(String avatarHash) {}
+        global String getImage192() { return null; }
 
-  global void setBotId(String botId) {}
+        global String getImage24() { return null; }
 
-  global void setCustomImage(Boolean customImage) {}
+        global String getImage32() { return null; }
 
-  global void setDisplayName(String displayName) {}
+        global String getImage48() { return null; }
 
-  global void setDisplayNameNormalized(String displayNameNormalized) {}
+        global String getImage512() { return null; }
 
-  global void setEmail(String email) {}
+        global String getImage72() { return null; }
 
-  global void setFields(Slack.User.Field> fields) {}
+        global String getImageOriginal() { return null; }
 
-  global void setGuestChannels(String guestChannels) {}
+        global String getPhone() { return null; }
 
-  global void setGuestExpirationTs(Long guestExpirationTs) {}
+        global String getPronouns() { return null; }
 
-  global void setGuestInvitedBy(String guestInvitedBy) {}
+        global String getRealName() { return null; }
 
-  global void setImage24(String image24) {}
+        global String getRealNameNormalized() { return null; }
 
-  global void setImage32(String image32) {}
+        global String getSkype() { return null; }
 
-  global void setImage48(String image48) {}
+        global String getStatusEmoji() { return null; }
 
-  global void setImage72(String image72) {}
+        global List getStatusEmojiDisplayInfo() { return null; }
 
-  global void setImage192(String image192) {}
+        global String getStatusEmojiUrl() { return null; }
 
-  global void setImage512(String image512) {}
+        global Long getStatusExpiration() { return 0L; }
 
-  global void setImage1024(String image1024) {}
+        global String getStatusText() { return null; }
 
-  global void setImageOriginal(String imageOriginal) {}
+        global String getStatusTextCanonical() { return null; }
 
-  global void setPhone(String phone) {}
+        global String getTeam() { return null; }
 
-  global void setPronouns(String pronouns) {}
+        global String getTitle() { return null; }
 
-  global void setRealNameNormalized(String realNameNormalized) {}
+        global virtual Integer hashCode() { return 0; }
 
-  global void setSkype(String skype) {}
+        global Boolean isAlwaysActive() { return false; }
 
-  global void setStatusEmoji(String statusEmoji) {}
+        global Boolean isCustomImage() { return false; }
 
-  global void setStatusEmojiUrl(String statusEmojiUrl) {}
+        global void setAlwaysActive(Boolean alwaysActive) { }
 
-  global void setStatusExpiration(Long statusExpiration) {}
+        global void setApiAppId(String apiAppId) { }
 
-  global void setStatusText(String statusText) {}
+        global void setAvatarHash(String avatarHash) { }
 
-  global void setStatusTextCanonical(String statusTextCanonical) {}
+        global void setBotId(String botId) { }
 
-  global void setTeam(String team) {}
+        global void setCustomImage(Boolean customImage) { }
 
-  global void setTitle(String title) {}
+        global void setDisplayName(String displayName) { }
 
-  global String getEmojiName() {}
+        global void setDisplayNameNormalized(String displayNameNormalized) { }
 
-  global String getDisplayAlias() {}
+        global void setEmail(String email) { }
 
-  global String getDisplayUrl() {}
+        global void setFields(Map fields) { }
 
-  global void setEmojiName(String emojiName) {}
+        global void setGuestChannels(String guestChannels) { }
 
-  global void setDisplayAlias(String displayAlias) {}
+        global void setGuestExpirationTs(Long guestExpirationTs) { }
 
-  global void setDisplayUrl(String displayUrl) {}
+        global void setGuestInvitedBy(String guestInvitedBy) { }
 
-  global static Slack.UsersConversationsRequest.Builder builder() {}
+        global void setHuddleState(String huddleState) { }
 
-  global Slack.UsersConversationsRequest build() {}
+        global void setHuddleStateExpirationTs(Long huddleStateExpirationTs) { }
 
-  global Slack.UsersConversationsRequest.Builder cursor(String cursor) {}
+        global void setImage1024(String image1024) { }
 
-  global Slack.UsersConversationsRequest.Builder excludeArchived(Boolean excludeArchived) {}
+        global void setImage192(String image192) { }
 
-  global Slack.UsersConversationsRequest.Builder limitValue(Integer limitValue) {}
+        global void setImage24(String image24) { }
 
-  global Slack.UsersConversationsRequest.Builder teamId(String teamId) {}
+        global void setImage32(String image32) { }
 
-  global Slack.UsersConversationsRequest.Builder types(List<Slack.ConversationType> types) {}
+        global void setImage48(String image48) { }
 
-  global Slack.UsersConversationsRequest.Builder user(String user) {}
+        global void setImage512(String image512) { }
 
-  global List<Slack.Conversation> getChannels() {}
+        global void setImage72(String image72) { }
 
-  global Slack.ResponseMetadata getResponseMetadata() {}
+        global void setImageOriginal(String imageOriginal) { }
 
-  global void setChannels(List<Slack.Conversation> channels) {}
+        global void setPhone(String phone) { }
 
-  global void setResponseMetadata(Slack.ResponseMetadata responseMetadata) {}
+        global void setPronouns(String pronouns) { }
 
-  global Slack.UsersDeletePhotoRequest build() {}
+        global void setRealName(String realName) { }
 
-  global static Slack.UsersDeletePhotoRequest.Builder builder() {}
+        global void setRealNameNormalized(String realNameNormalized) { }
 
-  global Slack.UsersGetPresenceRequest build() {}
+        global void setSkype(String skype) { }
 
-  global Slack.UsersGetPresenceRequest.Builder user(String user) {}
+        global void setStatusEmoji(String statusEmoji) { }
 
-  global static Slack.UsersGetPresenceRequest.Builder builder() {}
+        global void setStatusEmojiDisplayInfo(List statusEmojiDisplayInfo) { }
 
-  global Integer getConnectionCount() {}
+        global void setStatusEmojiUrl(String statusEmojiUrl) { }
 
-  global Integer getLastActivity() {}
+        global void setStatusExpiration(Long statusExpiration) { }
 
-  global Boolean isAutoAway() {}
+        global void setStatusText(String statusText) { }
 
-  global Boolean isManualAway() {}
+        global void setStatusTextCanonical(String statusTextCanonical) { }
 
-  global Boolean isOnline() {}
+        global void setTeam(String team) { }
 
-  global void setAutoAway(Boolean autoAway) {}
+        global void setTitle(String title) { }
 
-  global void setConnectionCount(Integer connectionCount) {}
+        global override virtual String toString() { return null; }
+    }
 
-  global void setLastActivity(Integer lastActivity) {}
+    global class StatusEmojiDisplayInfo {
+        global Object StatusEmojiDisplayInfo() { return null; }
 
-  global void setManualAway(Boolean manualAway) {}
+        global Slack.User.StatusEmojiDisplayInfo clone() { return null; }
 
-  global void setOnline(Boolean online) {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global Slack.UsersIdentityRequest build() {}
+        global String getDisplayAlias() { return null; }
 
-  global static Slack.UsersIdentityRequest.Builder builder() {}
+        global String getDisplayUrl() { return null; }
 
-  global Slack.UsersIdentityResponse.Team getTeam() {}
+        global String getEmojiName() { return null; }
 
-  global Slack.UsersIdentityResponse.User getUser() {}
+        global String getUnicode() { return null; }
 
-  global void setTeam(Slack.UsersIdentityResponse.Team team) {}
+        global virtual Integer hashCode() { return 0; }
 
-  global void setUser(Slack.UsersIdentityResponse.User user) {}
+        global void setDisplayAlias(String displayAlias) { }
 
-  global static Slack.UsersInfoRequest.Builder builder() {}
+        global void setDisplayUrl(String displayUrl) { }
 
-  global Slack.UsersInfoRequest build() {}
+        global void setEmojiName(String emojiName) { }
 
-  global Slack.UsersInfoRequest.Builder includeLocale(Boolean includeLocale) {}
+        global void setUnicode(String unicode) { }
 
-  global Slack.UsersInfoRequest.Builder user(String user) {}
-
-  global Slack.User getUser() {}
-
-  global void setUser(Slack.User user) {}
-
-  global static Slack.UsersListRequest.Builder builder() {}
-
-  global Slack.UsersListRequest build() {}
-
-  global Slack.UsersListRequest.Builder cursor(String cursor) {}
-
-  global Slack.UsersListRequest.Builder includeLocale(Boolean includeLocale) {}
-
-  global Slack.UsersListRequest.Builder limitValue(Integer limitValue) {}
-
-  global Slack.UsersListRequest.Builder teamId(String teamId) {}
-
-  global String getCacheTs() {}
-
-  global List<Slack.User> getMembers() {}
-
-  global String getOffset() {}
-
-  global void setCacheTs(String cacheTs) {}
-
-  global void setMembers(List<Slack.User> members) {}
-
-  global void setOffset(String offset) {}
-
-  global static Slack.UsersLookupByEmailRequest.Builder builder() {}
-
-  global Slack.UsersLookupByEmailRequest build() {}
-
-  global Slack.UsersLookupByEmailRequest.Builder email(String email) {}
-
-  global static Slack.UsersProfileGetRequest.Builder builder() {}
-
-  global Slack.UsersProfileGetRequest build() {}
-
-  global Slack.UsersProfileGetRequest.Builder includeLabels(Boolean includeLabels) {}
-
-  global Slack.UsersProfileGetRequest.Builder user(String user) {}
-
-  global static Slack.UsersProfileSetRequest.Builder builder() {}
-
-  global Slack.UsersProfileSetRequest build() {}
-
-  global Slack.UsersProfileSetRequest.Builder name(String name) {}
-
-  global Slack.UsersProfileSetRequest.Builder user(String user) {}
-
-  global Slack.UsersProfileSetRequest.Builder value(String value) {}
-
-  global String getUsername() {}
-
-  global static Slack.UsersSetActiveRequest.Builder builder() {}
-
-  global Slack.UsersSetActiveRequest build() {}
-
-  global static Slack.UsersSetPresenceRequest.Builder builder() {}
-
-  global Slack.UsersSetPresenceRequest build() {}
-
-  global Slack.UsersSetPresenceRequest.Builder presence(String presence) {}
-
-  global Object clone() {}
-
-  global String getWhoCanShareContactCard() {}
-
+        global override virtual String toString() { return null; }
+    }
 }

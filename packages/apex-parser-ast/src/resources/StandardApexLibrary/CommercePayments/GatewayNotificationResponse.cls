@@ -1,22 +1,36 @@
 /**
  * When the payment gateway sends a notification to the payments platform, the platform responds with a GatewayNotificationResponse indicating whether the platform succeeded or failed at receiving the notification.
+ * <p>Usage
+ * You must specify the CommercePayments namespace when creating an instance of this class. The constructor of this class takes no arguments. For example:
+ * CommercePayments.GatewayNotificationResponse gnr = new CommercePayments.GatewayNotificationResponse();
+ * When an asynchronous payment gateway sends a notification, the gateway requires the platform to acknowledge that it has either succeeded or failed in receiving the notification. Payment gateway adapters use this class to construct the acknowledgment response, which gateways expect for a notification. GatewayNotificationResponse is the return type of the processNotification method.
+ * <p>Example
+ * commercepayments.GatewayNotificationResponse gnr = new commercepayments.GatewayNotificationResponse();
+ * if (saveResult.isSuccess()) {
+ *     system.debug('Notification accepted by platform');
+ * } else {
+ *     system.debug('Errors in the result '+ Blob.valueOf(saveResult.getErrorMessage()));
+ * }
+ * gnr.setStatusCode(200);
+ * gnr.setResponseBody(Blob.valueOf('[accepted]'));
+ * return gnr;
  */
 global class GatewayNotificationResponse {
+    global Object GatewayNotificationResponse() { return null; }
 
-  global GatewayNotificationResponse() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Sets the body of the response to the gateway. Some gateways expect the payments platform to acknowledge the notification with a response regardless of whether the notification was accepted.
-   * @param responseBody Common response values include accepted for successfully receiving the response. For example: commercepayments.GatewayNotificationResponse gnr = new commercepayments.GatewayNotificationResponse(); if (saveResult.isSuccess()) { system.debug( 'Notification accepted by platform' ); } else { system.debug( 'Errors in the result ' + Blob .valueOf(saveResult.getErrorMessage())); } gnr.setStatusCode(200); gnr.setResponseBody( Blob .valueOf( '[accepted]' )); return gnr;
-   */
-  global void setResponseBody(Blob responseBody) {}
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Sets the HTTP status code sent to the gateway as part of the payments platform’s response notification.
-   * @param statusCode The status code will vary based on the type of payments platform response. Users should configure their GatewayNotificationResponse class to account for all values that their payments platform can possibly return. For example: commercepayments.GatewayNotificationResponse gnr = new commercepayments.GatewayNotificationResponse(); if (saveResult.isSuccess()) { system.debug( 'Notification accepted by platform' ); } else { system.debug( 'Errors in the result ' + Blob .valueOf(saveResult.getErrorMessage())); } gnr.setStatusCode(200); gnr.setResponseBody( Blob .valueOf( '[accepted]' )); return gnr;
-   */
-  global void setStatusCode(Integer statusCode) {}
+    /**
+     * Sets the body of the response to the gateway. Some gateways expect the payments platform to acknowledge the notification with a response regardless of whether the notification was accepted.
+     */
+    global void setResponseBody(Blob responseBody) { }
 
-  global Object clone() {}
+    /**
+     * Sets the HTTP status code sent to the gateway as part of the payments platform’s response notification.
+     */
+    global void setStatusCode(Integer statusCode) { }
 
+    global override virtual String toString() { return null; }
 }

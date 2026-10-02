@@ -1,22 +1,29 @@
 /**
  * Wraps the information related to a payment request.
+ * <p>Usage
+ * The constructor of this class takes no arguments. For example:
+ * CommercePayments.PaymentGatewayContext pgc = new CommercePayments.PaymentGatewayContext();
+ * <p>Example
+ * global commercepayments.GatewayResponse processRequest(commercepayments.PaymentGatewayContext gatewayContext) {
+ *     commercepayments.RequestType requestType = gatewayContext.getPaymentRequestType();
+ *     if (requestType == commercepayments.RequestType.Capture) {
+ *         commercepayments.CaptureRequest captureRequest = (commercepayments.CaptureRequest) gatewayContext.getPaymentRequest();
+ *     }
+ * }
  */
-global class PaymentGatewayContext {
+global with sharing class PaymentGatewayContext {
+    global Object PaymentGatewayContext(commercepayments.PaymentGatewayRequest request, commercepayments.RequestType requestType) { return null; }
 
-  global PaymentGatewayContext(commercepayments.PaymentGatewayRequest request, String requestType) {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Returns the payment request object.
-   * @return commercepayments.PaymentGatewayRequest
-   */
-  global commercepayments.PaymentGatewayRequest getPaymentRequest() {}
+    /**
+     * Returns the payment request object.
+     */
+    global commercepayments.PaymentGatewayRequest getPaymentRequest() { return null; }
 
-  /**
-   * Returns the payment request type.
-   * @return String
-   */
-  global String getPaymentRequestType() {}
+    global commercepayments.RequestType getPaymentRequestType() { return null; }
 
-  global Object clone() {}
+    global virtual Integer hashCode() { return 0; }
 
+    global override virtual String toString() { return null; }
 }
