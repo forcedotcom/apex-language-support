@@ -1,19 +1,21 @@
 global class Topic {
+    global Object Topic() { return null; }
 
-  global Topic() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global String getCreator() {}
+    global String getCreator() { return null; }
 
-  global Integer getLastSet() {}
+    global Integer getLastSet() { return 0; }
 
-  global String getValue() {}
+    global String getValue() { return null; }
 
-  global void setCreator(String creator) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global void setLastSet(Integer lastSet) {}
+    global void setCreator(String creator) { }
 
-  global void setValue(String value) {}
+    global void setLastSet(Integer lastSet) { }
 
-  global Object clone() {}
+    global void setValue(String value) { }
 
+    global override String toString() { return null; }
 }

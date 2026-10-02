@@ -1,22 +1,48 @@
 /**
  * Contains methods to get information about zip entries and to extract content for specified zip entries from the zip file.
  */
-global class ZipReader {
+global with sharing class ZipReader {
+    /**
+     * Creates a new instance of the ZipReader class using the specified blob data.
+     */
+    global Object ZipReader(Blob apexData) { return null; }
 
-  global ZipReader(Blob data) {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global blob extract(string name) {}
+    /**
+     * Extracts the bytes for the specified zip entry and decompresses the content.
+     * @return Apex blob that contains the decompressed content.
+     */
+    global Blob extract(compression.ZipEntry entry) { return null; }
 
-  global blob extract(Compression.ZipEntry entry) {}
+    /**
+     * Extracts the bytes for the specified zip entry name and decompresses the content.
+     * @return Apex blob that contains the decompressed content.
+     */
+    global Blob extract(String name) { return null; }
 
-  global List<compression.ZipEntry> getEntries() {}
+    /**
+     * Gets a list of all the entries from the zip file.
+     */
+    global List getEntries() { return null; }
 
-  global Map<String,Compression.ZipEntry> getEntriesMap() {}
+    /**
+     * Gets a map of names and the corresponding zip entries from the zip file.
+     */
+    global Map getEntriesMap() { return null; }
 
-  global compression.ZipEntry getEntry(string name) {}
+    /**
+     * Gets a zip entry for the specified name from the zip file.
+     * @return Throws a ZipException if the specified name isn’t found.
+     */
+    global compression.ZipEntry getEntry(String name) { return null; }
 
-  global List<String> getEntryNames() {}
+    /**
+     * Gets a list of all the zip entry names from the zip file.
+     */
+    global List getEntryNames() { return null; }
 
-  global Object clone() {}
+    global virtual Integer hashCode() { return 0; }
 
+    global override virtual String toString() { return null; }
 }

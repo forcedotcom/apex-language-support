@@ -1,22 +1,22 @@
 /**
  * Contains the fact map for the report, which represents the report’s data values.
+ * <p>Usage
+ * ReportFact is the parent class of ReportFactWithDetails and ReportFactWithSummaries. If includeDetails is true when the report is run, the fact map is a ReportFactWithDetails object. If includeDetails is false when the report is run, the fact map is a ReportFactWithSummaries object.
  */
-global class ReportFact {
+global virtual class ReportFact {
+    global virtual Boolean equals(Object o) { return false; }
 
-  global ReportFact() {}
+    /**
+     * Returns summary-level data for a report, including the record count.
+     */
+    global List getAggregates() { return null; }
 
-  /**
-   * Returns summary-level data for a report, including the record count.
-   * @return LIST<Reports.SummaryValue>
-   */
-  global LIST<Reports.SummaryValue> getAggregates() {}
+    /**
+     * Returns the unique identifier for a row or column grouping. This identifier can be used to index specific data values within each grouping.
+     */
+    global String getKey() { return null; }
 
-  /**
-   * Returns the unique identifier for a row or column grouping. This identifier can be used to index specific data values within each grouping.
-   * @return String
-   */
-  global String getKey() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Object clone() {}
-
+    global override virtual String toString() { return null; }
 }

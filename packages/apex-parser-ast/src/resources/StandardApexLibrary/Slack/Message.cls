@@ -1,327 +1,525 @@
 global class Message {
+    global Object Message() { return null; }
 
-  global Message() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global String getBotId() {}
+    global String getAppId() { return null; }
 
-  global String getBotLink() {}
+    global String getBotId() { return null; }
 
-  global Slack.BotProfile getBotProfile() {}
+    global String getBotLink() { return null; }
 
-  global String getChannel() {}
+    global Slack.BotProfile getBotProfile() { return null; }
 
-  global String getClientMsgId() {}
+    global String getChannel() { return null; }
 
-  global Slack.Message.MessageItem getComment() {}
+    global String getClientMsgId() { return null; }
 
-  global Slack.Message.Edited getEdited() {}
+    global Slack.Message.MessageItem getComment() { return null; }
 
-  global Slack.File getFile() {}
+    global Slack.Message.Edited getEdited() { return null; }
 
-  global List<Slack.File> getFiles() {}
+    global Slack.File getFile() { return null; }
 
-  global Slack.Message.Icons getIcons() {}
+    global List getFiles() { return null; }
 
-  global String getInviter() {}
+    global Slack.Message.Icons getIcons() { return null; }
 
-  global Slack.Message.MessageItem getItem() {}
+    global String getInviter() { return null; }
 
-  global String getItemType() {}
+    global Slack.Message.MessageItem getItem() { return null; }
 
-  global String getLastRead() {}
+    global String getItemType() { return null; }
 
-  global String getLatestReply() {}
+    global String getLastRead() { return null; }
 
-  global String getParentUserId() {}
+    global String getLatestReply() { return null; }
 
-  global List<String> getPinnedTo() {}
+    global Slack.Message.Metadata getMetadata() { return null; }
 
-  global String getPurpose() {}
+    global String getParentUserId() { return null; }
 
-  global List<Slack.Reaction> getReactions() {}
+    global List getPinnedTo() { return null; }
 
-  global Integer getReplyCount() {}
+    global String getPurpose() { return null; }
 
-  global List<String> getReplyUsers() {}
+    global List getReactions() { return null; }
 
-  global Integer getReplyUsersCount() {}
+    global Integer getReplyCount() { return 0; }
 
-  global Slack.Message.MessageRoot getRoot() {}
+    global List getReplyUsers() { return null; }
 
-  global String getSubtype() {}
+    global Integer getReplyUsersCount() { return 0; }
 
-  global String getTeam() {}
+    global Slack.Message.MessageRoot getRoot() { return null; }
 
-  global String getText() {}
+    global String getSubtype() { return null; }
 
-  global String getThreadTs() {}
+    global String getTeam() { return null; }
 
-  global String getTopic() {}
+    global String getText() { return null; }
 
-  global String getTs() {}
+    global String getThreadTs() { return null; }
 
-  global String getType() {}
+    global String getTopic() { return null; }
 
-  global String getUser() {}
+    global String getTs() { return null; }
 
-  global String getUsername() {}
+    global String getType() { return null; }
 
-  global List<String> getXFiles() {}
+    global String getUser() { return null; }
 
-  global Boolean isDisplayAsBot() {}
+    global String getUsername() { return null; }
 
-  global Boolean isHidden() {}
+    global List getXFiles() { return null; }
 
-  global Boolean isIntro() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Boolean isStarred() {}
+    global Boolean isDisplayAsBot() { return false; }
 
-  global Boolean isSubscribed() {}
+    global Boolean isHidden() { return false; }
 
-  global Boolean isThreadBroadcast() {}
+    global Boolean isIntro() { return false; }
 
-  global Boolean isUnfurlLinks() {}
+    global Boolean isLocked() { return false; }
 
-  global Boolean isUnfurlMedia() {}
+    global Boolean isStarred() { return false; }
 
-  global Boolean isUpload() {}
+    global Boolean isSubscribed() { return false; }
 
-  global Boolean isWibblr() {}
+    global Boolean isThreadBroadcast() { return false; }
 
-  global void setBotId(String botId) {}
+    global Boolean isUnfurlLinks() { return false; }
 
-  global void setBotLink(String botLink) {}
+    global Boolean isUnfurlMedia() { return false; }
 
-  global void setBotProfile(Slack.BotProfile botProfile) {}
+    global Boolean isUpload() { return false; }
 
-  global void setChannel(String channel) {}
+    global Boolean isWibblr() { return false; }
 
-  global void setClientMsgId(String clientMsgId) {}
+    global void setAppId(String appId) { }
 
-  global void setComment(Slack.Message.MessageItem comment) {}
+    global void setBotId(String botId) { }
 
-  global void setDisplayAsBot(Boolean displayAsBot) {}
+    global void setBotLink(String botLink) { }
 
-  global void setEdited(Slack.Message.Edited edited) {}
+    global void setBotProfile(Slack.BotProfile botProfile) { }
 
-  global void setFile(Slack.File file) {}
+    global void setChannel(String channel) { }
 
-  global void setFiles(List<Slack.File> files) {}
+    global void setClientMsgId(String clientMsgId) { }
 
-  global void setHidden(Boolean hidden) {}
+    global void setComment(Slack.Message.MessageItem comment) { }
 
-  global void setIcons(Slack.Message.Icons icons) {}
+    global void setDisplayAsBot(Boolean displayAsBot) { }
 
-  global void setIntro(Boolean intro) {}
+    global void setEdited(Slack.Message.Edited edited) { }
 
-  global void setInviter(String inviter) {}
+    global void setFile(Slack.File file) { }
 
-  global void setItem(Slack.Message.MessageItem item) {}
+    global void setFiles(List files) { }
 
-  global void setItemType(String itemType) {}
+    global void setHidden(Boolean hidden) { }
 
-  global void setLastRead(String lastRead) {}
+    global void setIcons(Slack.Message.Icons icons) { }
 
-  global void setLatestReply(String latestReply) {}
+    global void setIntro(Boolean intro) { }
 
-  global void setLocked(Boolean locked) {}
+    global void setInviter(String inviter) { }
 
-  global void setParentUserId(String parentUserId) {}
+    global void setItem(Slack.Message.MessageItem item) { }
 
-  global void setPinnedTo(List<String> pinnedTo) {}
+    global void setItemType(String itemType) { }
 
-  global void setPurpose(String purpose) {}
+    global void setLastRead(String lastRead) { }
 
-  global void setReactions(List<Slack.Reaction> reactions) {}
+    global void setLatestReply(String latestReply) { }
 
-  global void setReplyCount(Integer replyCount) {}
+    global void setLocked(Boolean locked) { }
 
-  global void setReplyUsers(List<String> replyUsers) {}
+    global void setMetadata(Slack.Message.Metadata metadata) { }
 
-  global void setReplyUsersCount(Integer replyUsersCount) {}
+    global void setParentUserId(String parentUserId) { }
 
-  global void setRoot(Slack.Message.MessageRoot root) {}
+    global void setPinnedTo(List pinnedTo) { }
 
-  global void setStarred(Boolean starred) {}
+    global void setPurpose(String purpose) { }
 
-  global void setSubscribed(Boolean subscribed) {}
+    global void setReactions(List reactions) { }
 
-  global void setSubtype(String subtype) {}
+    global void setReplyCount(Integer replyCount) { }
 
-  global void setTeam(String team) {}
+    global void setReplyUsers(List replyUsers) { }
 
-  global void setText(String text) {}
+    global void setReplyUsersCount(Integer replyUsersCount) { }
 
-  global void setThreadBroadcast(Boolean threadBroadcast) {}
+    global void setRoot(Slack.Message.MessageRoot root) { }
 
-  global void setThreadTs(String threadTs) {}
+    global void setStarred(Boolean starred) { }
 
-  global void setTopic(String topic) {}
+    global void setSubscribed(Boolean subscribed) { }
 
-  global void setTs(String ts) {}
+    global void setSubtype(String subtype) { }
 
-  global void setType(String type) {}
+    global void setTeam(String team) { }
 
-  global void setUnfurlLinks(Boolean unfurlLinks) {}
+    global void setText(String text) { }
 
-  global void setUnfurlMedia(Boolean unfurlMedia) {}
+    global void setThreadBroadcast(Boolean threadBroadcast) { }
 
-  global void setUpload(Boolean upload) {}
+    global void setThreadTs(String threadTs) { }
 
-  global void setUser(String user) {}
+    global void setTopic(String topic) { }
 
-  global void setUsername(String username) {}
+    global void setTs(String ts) { }
 
-  global void setWibblr(Boolean wibblr) {}
+    global void setType(String type) { }
 
-  global void setXFiles(List<String> xFiles) {}
+    global void setUnfurlLinks(Boolean unfurlLinks) { }
 
-  global String getEmoji() {}
+    global void setUnfurlMedia(Boolean unfurlMedia) { }
 
-  global String getImage36() {}
+    global void setUpload(Boolean upload) { }
 
-  global String getImage48() {}
+    global void setUser(String user) { }
 
-  global String getImage64() {}
+    global void setUsername(String username) { }
 
-  global String getImage72() {}
+    global void setWibblr(Boolean wibblr) { }
 
-  global void setEmoji(String emoji) {}
+    global void setXFiles(List xFiles) { }
 
-  global void setImage36(String image36) {}
+    global override String toString() { return null; }
 
-  global void setImage48(String image48) {}
+    global class Edited {
+        global Object Edited() { return null; }
 
-  global void setImage64(String image64) {}
+        global Slack.Message.Edited clone() { return null; }
 
-  global void setImage72(String image72) {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global String getComment() {}
+        global String getTs() { return null; }
 
-  global String getCreated() {}
+        global String getUser() { return null; }
 
-  global String getEditLink() {}
+        global virtual Integer hashCode() { return 0; }
 
-  global String getExternalType() {}
+        global void setTs(String ts) { }
 
-  global String getFiletype() {}
+        global void setUser(String user) { }
 
-  global String getId() {}
+        global override virtual String toString() { return null; }
+    }
 
-  global Integer getLines() {}
+    global class Icons {
+        global Object Icons() { return null; }
 
-  global Integer getLinesMore() {}
+        global Slack.Message.Icons clone() { return null; }
 
-  global String getMimetype() {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global String getMode() {}
+        global String getEmoji() { return null; }
 
-  global String getName() {}
+        global String getImage36() { return null; }
 
-  global String getPermalink() {}
+        global String getImage48() { return null; }
 
-  global String getPrettyType() {}
+        global String getImage64() { return null; }
 
-  global String getPreview() {}
+        global String getImage72() { return null; }
 
-  global String getPreviewHighlight() {}
+        global virtual Integer hashCode() { return 0; }
 
-  global Integer getSize() {}
+        global void setEmoji(String emoji) { }
 
-  global String getTimestamp() {}
+        global void setImage36(String image36) { }
 
-  global String getTitle() {}
+        global void setImage48(String image48) { }
 
-  global String getUrlPrivate() {}
+        global void setImage64(String image64) { }
 
-  global Boolean isEditable() {}
+        global void setImage72(String image72) { }
 
-  global Boolean isExternal() {}
+        global override virtual String toString() { return null; }
+    }
 
-  global Boolean isHasRichPreview() {}
+    global class MessageItem {
+        global Object MessageItem() { return null; }
 
-  global Boolean isPermalinkPublic() {}
+        global Slack.Message.MessageItem clone() { return null; }
 
-  global Boolean isPreviewTruncated() {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global Boolean ispublic() {}
+        global String getComment() { return null; }
 
-  global Boolean isPublicUrlShared() {}
+        global String getCreated() { return null; }
 
-  global Boolean isUrlPrivateDownload() {}
+        global String getEditLink() { return null; }
 
-  global void setComment(String comment) {}
+        global String getExternalType() { return null; }
 
-  global void setCreated(String created) {}
+        global String getFiletype() { return null; }
 
-  global void setEditable(Boolean editable) {}
+        global String getId() { return null; }
 
-  global void setEditLink(String editLink) {}
+        global Integer getLines() { return 0; }
 
-  global void setExternal(Boolean external) {}
+        global Integer getLinesMore() { return 0; }
 
-  global void setExternalType(String externalType) {}
+        global String getMediaDisplayType() { return null; }
 
-  global void setFiletype(String filetype) {}
+        global String getMimetype() { return null; }
 
-  global void setHasRichPreview(Boolean hasRichPreview) {}
+        global String getMode() { return null; }
 
-  global void setId(String id) {}
+        global String getName() { return null; }
 
-  global void setLines(Integer lines) {}
+        global String getPermalink() { return null; }
 
-  global void setLinesMore(Integer linesMore) {}
+        global String getPrettyType() { return null; }
 
-  global void setMimetype(String mimetype) {}
+        global String getPreview() { return null; }
 
-  global void setMode(String mode) {}
+        global String getPreviewHighlight() { return null; }
 
-  global void setName(String name) {}
+        global Integer getSize() { return 0; }
 
-  global void setPermalink(String permalink) {}
+        global String getTimestamp() { return null; }
 
-  global void setPermalinkPublic(Boolean permalinkPublic) {}
+        global String getTitle() { return null; }
 
-  global void setPrettyType(String prettyType) {}
+        global String getUrlPrivate() { return null; }
 
-  global void setPreview(String preview) {}
+        global String getUser() { return null; }
 
-  global void setPreviewHighlight(String previewHighlight) {}
+        global String getUsername() { return null; }
 
-  global void setPreviewTruncated(Boolean previewTruncated) {}
+        global virtual Integer hashCode() { return 0; }
 
-  global void setpublic(Boolean _public) {}
+        global Boolean isDisplayAsBot() { return false; }
 
-  global void setPublicUrlShared(Boolean publicUrlShared) {}
+        global Boolean isEditable() { return false; }
 
-  global void setSize(Integer size) {}
+        global Boolean isExternal() { return false; }
 
-  global void setTimestamp(String timestamp) {}
+        global Boolean isHasRichPreview() { return false; }
 
-  global void setTitle(String title) {}
+        global Boolean isIntro() { return false; }
 
-  global void setUrlPrivate(String urlPrivate) {}
+        global Boolean isPermalinkPublic() { return false; }
 
-  global void setUrlPrivateDownload(Boolean urlPrivateDownload) {}
+        global Boolean isPreviewTruncated() { return false; }
 
-  global Integer getUnreadCount() {}
+        global Boolean isPublicUrlShared() { return false; }
 
-  global Boolean isMrkdwn() {}
+        global Boolean isStarred() { return false; }
 
-  global void setMrkdwn(Boolean mrkdwn) {}
+        global Boolean isUrlPrivateDownload() { return false; }
 
-  global void setUnreadCount(Integer unreadCount) {}
+        global Boolean ispublic() { return false; }
 
-  global Object clone() {}
+        global void setComment(String comment) { }
 
-  global String getAppId() {}
+        global void setCreated(String created) { }
 
-  global Slack.Message.Metadata getMetadata() {}
+        global void setDisplayAsBot(Boolean displayAsBot) { }
 
-  global Boolean isLocked() {}
+        global void setEditLink(String editLink) { }
 
-  global void setAppId(String appId) {}
+        global void setEditable(Boolean editable) { }
 
-  global void setMetadata(Slack.Message.Metadata metadata) {}
+        global void setExternal(Boolean external) { }
 
+        global void setExternalType(String externalType) { }
+
+        global void setFiletype(String filetype) { }
+
+        global void setHasRichPreview(Boolean hasRichPreview) { }
+
+        global void setId(String id) { }
+
+        global void setIntro(Boolean intro) { }
+
+        global void setLines(Integer lines) { }
+
+        global void setLinesMore(Integer linesMore) { }
+
+        global void setMediaDisplayType(String mediaDisplayType) { }
+
+        global void setMimetype(String mimetype) { }
+
+        global void setMode(String mode) { }
+
+        global void setName(String name) { }
+
+        global void setPermalink(String permalink) { }
+
+        global void setPermalinkPublic(Boolean permalinkPublic) { }
+
+        global void setPrettyType(String prettyType) { }
+
+        global void setPreview(String preview) { }
+
+        global void setPreviewHighlight(String previewHighlight) { }
+
+        global void setPreviewTruncated(Boolean previewTruncated) { }
+
+        global void setPublicUrlShared(Boolean publicUrlShared) { }
+
+        global void setSize(Integer size) { }
+
+        global void setStarred(Boolean starred) { }
+
+        global void setTimestamp(String timestamp) { }
+
+        global void setTitle(String title) { }
+
+        global void setUrlPrivate(String urlPrivate) { }
+
+        global void setUrlPrivateDownload(Boolean urlPrivateDownload) { }
+
+        global void setUser(String user) { }
+
+        global void setUsername(String username) { }
+
+        global void setpublic(Boolean _public) { }
+
+        global override virtual String toString() { return null; }
+    }
+
+    global class MessageRoot {
+        global Object MessageRoot() { return null; }
+
+        global Slack.Message.MessageRoot clone() { return null; }
+
+        global virtual Boolean equals(Object o) { return false; }
+
+        global String getBotId() { return null; }
+
+        global Slack.BotProfile getBotProfile() { return null; }
+
+        global Slack.Message.Edited getEdited() { return null; }
+
+        global Slack.Message.Icons getIcons() { return null; }
+
+        global String getLastRead() { return null; }
+
+        global String getLatestReply() { return null; }
+
+        global String getParentUserId() { return null; }
+
+        global Integer getReplyCount() { return 0; }
+
+        global List getReplyUsers() { return null; }
+
+        global Integer getReplyUsersCount() { return 0; }
+
+        global String getSubtype() { return null; }
+
+        global String getTeam() { return null; }
+
+        global String getText() { return null; }
+
+        global String getThreadTs() { return null; }
+
+        global String getTs() { return null; }
+
+        global String getType() { return null; }
+
+        global Integer getUnreadCount() { return 0; }
+
+        global String getUser() { return null; }
+
+        global String getUsername() { return null; }
+
+        global virtual Integer hashCode() { return 0; }
+
+        global Boolean isMrkdwn() { return false; }
+
+        global Boolean isSubscribed() { return false; }
+
+        global void setBotId(String botId) { }
+
+        global void setBotProfile(Slack.BotProfile botProfile) { }
+
+        global void setEdited(Slack.Message.Edited edited) { }
+
+        global void setIcons(Slack.Message.Icons icons) { }
+
+        global void setLastRead(String lastRead) { }
+
+        global void setLatestReply(String latestReply) { }
+
+        global void setMrkdwn(Boolean mrkdwn) { }
+
+        global void setParentUserId(String parentUserId) { }
+
+        global void setReplyCount(Integer replyCount) { }
+
+        global void setReplyUsers(List replyUsers) { }
+
+        global void setReplyUsersCount(Integer replyUsersCount) { }
+
+        global void setSubscribed(Boolean subscribed) { }
+
+        global void setSubtype(String subtype) { }
+
+        global void setTeam(String team) { }
+
+        global void setText(String text) { }
+
+        global void setThreadTs(String threadTs) { }
+
+        global void setTs(String ts) { }
+
+        global void setType(String type) { }
+
+        global void setUnreadCount(Integer unreadCount) { }
+
+        global void setUser(String user) { }
+
+        global void setUsername(String username) { }
+
+        global override virtual String toString() { return null; }
+    }
+
+    global class MessageRootReply {
+        global Object MessageRootReply() { return null; }
+
+        global Slack.Message.MessageRootReply clone() { return null; }
+
+        global virtual Boolean equals(Object o) { return false; }
+
+        global String getTs() { return null; }
+
+        global String getUser() { return null; }
+
+        global virtual Integer hashCode() { return 0; }
+
+        global void setTs(String ts) { }
+
+        global void setUser(String user) { }
+
+        global override virtual String toString() { return null; }
+    }
+
+    global class Metadata {
+        global Object Metadata() { return null; }
+
+        global Slack.Message.Metadata clone() { return null; }
+
+        global virtual Boolean equals(Object o) { return false; }
+
+        global Map getEventPayload() { return null; }
+
+        global String getEventType() { return null; }
+
+        global virtual Integer hashCode() { return 0; }
+
+        global void setEventPayload(Map eventPayload) { }
+
+        global void setEventType(String eventType) { }
+
+        global override virtual String toString() { return null; }
+    }
 }

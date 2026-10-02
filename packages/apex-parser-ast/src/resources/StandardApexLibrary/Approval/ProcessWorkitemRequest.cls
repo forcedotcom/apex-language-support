@@ -1,42 +1,52 @@
 /**
  * Use the ProcessWorkitemRequest class for processing an approval request after it is submitted.
+ * <p>Usage
+ * You must specify the Approval namespace when creating an instance of this class. The constructor for this class takes no arguments. For example:
+ * Approval.ProcessWorkitemRequest pwr = new Approval.ProcessWorkitemRequest();
+ * <p>Inherited Methods
+ * In addition to the methods listed, the ProcessWorkitemRequest class has access to all the methods in its parent class, ProcessRequest Class:
+ * getComments()
+ * getNextApproverIds()
+ * setComments(comments)
+ * setNextApproverIds(nextApproverIds)
  */
-global class ProcessWorkitemRequest {
+global class ProcessWorkitemRequest extends Approval.ProcessRequest {
+    global String action { get; set; }
+    global String workitemid { get; set; }
 
-  global ProcessWorkitemRequest() {}
+    Object ProcessWorkitemRequest() { return null; }
 
-  /**
-   * Returns the type of action already associated with the approval request. Valid values are: Approve, Reject, or Removed.
-   * @return String
-   */
-  global String getAction() {}
+    global Boolean equals(Object obj) { return false; }
 
-  /**
-   * Returns the ID of the approval request that is in the process of being approved, rejected, or removed.
-   * @return String
-   */
-  global String getWorkitemId() {}
+    /**
+     * Returns the type of action already associated with the approval request. Valid values are: Approve, Reject, or Removed.
+     */
+    global String getAction() { return null; }
 
-  /**
-   * Sets the type of action to take for processing an approval request.
-   * @param actionType Valid values are: Approve, Reject, or Removed. Only system administrators can specify Removed.
-   */
-  global void setAction(String actionType) {}
+    global String getComments() { return null; }
 
-  /**
-   * Sets the ID of the approval request that is being approved, rejected, or removed.
-   * @param id 
-   */
-  global void setWorkitemId(String id) {}
+    global List getNextApproverIds() { return null; }
 
-  global String getComments() {}
+    /**
+     * Returns the ID of the approval request that is in the process of being approved, rejected, or removed.
+     */
+    global String getWorkitemId() { return null; }
 
-  global List<Id> getNextApproverIds() {}
+    global Integer hashCode() { return 0; }
 
-  global void setComments(String arg0) {}
+    /**
+     * Sets the type of action to take for processing an approval request.
+     */
+    global void setAction(String param1) { }
 
-  global void setNextApproverIds(List<Id> arg0) {}
+    global void setComments(String param1) { }
 
-  global Object clone() {}
+    global void setNextApproverIds(List param1) { }
 
+    /**
+     * Sets the ID of the approval request that is being approved, rejected, or removed.
+     */
+    global void setWorkitemId(String param1) { }
+
+    global String toString() { return null; }
 }

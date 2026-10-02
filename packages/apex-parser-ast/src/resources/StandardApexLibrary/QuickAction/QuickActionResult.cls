@@ -2,41 +2,43 @@
  * After you initiate a quick action with the QuickAction class, use the QuickActionResult class for processing action results.
  */
 global class QuickActionResult {
+    global Id contextid { get; }
+    global Boolean created { get; }
+    global List errors { get; }
+    global List ids { get; }
+    global Boolean success { get; }
+    global String successmessage { get; }
 
-  global QuickActionResult() {}
+    global Boolean equals(Object obj) { return false; }
 
-  /**
-   * If an error occurs, an array of one or more database error objects, along with error codes and descriptions, is returned.
-   * @return List<Database.Error>
-   */
-  global List<Database.Error> getErrors() {}
+    global Id getContextId() { return null; }
 
-  /**
-   * The IDs of the QuickActions being processed.
-   * @return List<Id>
-   */
-  global List<Id> getIds() {}
+    /**
+     * If an error occurs, an array of one or more database error objects, along with error codes and descriptions, is returned.
+     */
+    global List getErrors() { return null; }
 
-  /**
-   * Returns the success message associated with the quick action.
-   * @return String
-   */
-  global String getSuccessMessage() {}
+    /**
+     * The IDs of the QuickActions being processed.
+     */
+    global List getIds() { return null; }
 
-  /**
-   * Returns true if the action is created; otherwise, false .
-   * @return Boolean
-   */
-  global Boolean isCreated() {}
+    /**
+     * Returns the success message associated with the quick action.
+     */
+    global String getSuccessMessage() { return null; }
 
-  /**
-   * Returns true if the action completes successfully; otherwise, false .
-   * @return Boolean
-   */
-  global Boolean isSuccess() {}
+    global Integer hashCode() { return 0; }
 
-  global Id getContextId() {}
+    /**
+     * Returns true if the action is created; otherwise, false.
+     */
+    global Boolean isCreated() { return false; }
 
-  global Object clone() {}
+    /**
+     * Returns true if the action completes successfully; otherwise, false.
+     */
+    global Boolean isSuccess() { return false; }
 
+    global String toString() { return null; }
 }

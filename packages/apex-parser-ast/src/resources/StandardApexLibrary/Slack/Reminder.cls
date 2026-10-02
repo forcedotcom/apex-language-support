@@ -1,65 +1,69 @@
 global class Reminder {
+    global Object Reminder() { return null; }
 
-  global Reminder() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global String getChannel() {}
+    global String getChannel() { return null; }
 
-  global Integer getCompleteTs() {}
+    global Integer getCompleteTs() { return 0; }
 
-  global String getCreator() {}
+    global String getCreator() { return null; }
 
-  global String getId() {}
+    global String getId() { return null; }
 
-  global Object getItem() {}
+    global Object getItem() { return null; }
 
-  global Slack.Reminder.Recurrence getRecurrence() {}
+    global Slack.Reminder.Recurrence getRecurrence() { return null; }
 
-  global String getText() {}
+    global String getText() { return null; }
 
-  global Integer getTime() {}
+    global Integer getTime() { return 0; }
 
-  global String getUser() {}
+    global String getUser() { return null; }
 
-  global Boolean isRecurring() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global void setChannel(String channel) {}
+    global Boolean isRecurring() { return false; }
 
-  global void setCompleteTs(Integer completeTs) {}
+    global void setChannel(String channel) { }
 
-  global void setCreator(String creator) {}
+    global void setCompleteTs(Integer completeTs) { }
 
-  global void setId(String id) {}
+    global void setCreator(String creator) { }
 
-  global void setItem(Object item) {}
+    global void setId(String id) { }
 
-  global void setRecurrence(Slack.Reminder.Recurrence recurrence) {}
+    global void setItem(Object item) { }
 
-  global void setRecurring(Boolean recurring) {}
+    global void setRecurrence(Slack.Reminder.Recurrence recurrence) { }
 
-  global void setText(String text) {}
+    global void setRecurring(Boolean recurring) { }
 
-  global void setTime(Integer timeValue) {}
+    global void setText(String text) { }
 
-  global void setUser(String user) {}
+    global void setTime(Integer timeValue) { }
 
-  global String getFrequency() {}
+    global void setUser(String user) { }
 
-  global List<String> getWeekdays() {}
+    global override String toString() { return null; }
 
-  global void setFrequency(String frequency) {}
+    global class Recurrence {
+        global Object Recurrence() { return null; }
 
-  global void setWeekdays(List<String> weekdays) {}
+        global Slack.Reminder.Recurrence clone() { return null; }
 
-  global Slack.Reminder getReminder() {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global void setReminder(Slack.Reminder reminder) {}
+        global String getFrequency() { return null; }
 
-  global Slack.RemindersCompleteRequest.Builder teamId(String teamId) {}
+        global List getWeekdays() { return null; }
 
-  global List<Slack.Reminder> getReminders() {}
+        global virtual Integer hashCode() { return 0; }
 
-  global void setReminders(List<Slack.Reminder> reminders) {}
+        global void setFrequency(String frequency) { }
 
-  global Object clone() {}
+        global void setWeekdays(List weekdays) { }
 
+        global override virtual String toString() { return null; }
+    }
 }

@@ -2,63 +2,65 @@
  * Contains a list of picklist items in a Lightning component on a Lightning page.
  */
 global class DynamicPickListRows {
+    /**
+     * Creates an instance of the VisualEditor.DynamicPickListRows class. You can then add rows by using the class’s addRow or addAllRows methods.
+     */
+    global Object DynamicPickListRows() { return null; }
 
-  global DynamicPickListRows(List<VisualEditor.DataRow> rows, Boolean containsAllRows) {}
+    /**
+     * Creates an instance of the VisualEditor.DynamicPickListRows class using the specified parameter.
+     */
+    global Object DynamicPickListRows(List rows) { return null; }
 
-  global DynamicPickListRows(List<VisualEditor.DataRow> rows) {}
+    /**
+     * Creates an instance of the VisualEditor.DynamicPickListRows class using the specified parameters.
+     */
+    global Object DynamicPickListRows(List rows, Boolean containsAllRows) { return null; }
 
-  /**
-   * Adds a list of picklist items to a dynamic picklist rendered in a Lightning component on a Lightning page.
-   * @param rows List of picklist items.
-   */
-  global void addAllRows(List<VisualEditor.DataRow> rows) {}
+    /**
+     * Adds a list of picklist items to a dynamic picklist rendered in a Lightning component on a Lightning page.
+     */
+    global void addAllRows(List rows) { }
 
-  /**
-   * Adds a single picklist item to a dynamic picklist rendered in a Lightning component on a Lightning page.
-   * @param row A single picklist item.
-   */
-  global void addRow(VisualEditor.DataRow row) {}
+    /**
+     * Adds a single picklist item to a dynamic picklist rendered in a Lightning component on a Lightning page.
+     */
+    global void addRow(VisualEditor.DataRow row) { }
 
-  /**
-   * Makes a duplicate copy of the VisualEditor.DynamicPickListRows object.
-   * @return Object
-   */
-  global Object clone() {}
+    /**
+     * Returns a Boolean value indicating whether all values of the picklist are included when a user does a type-ahead search query (true) or only those values initially displayed when the list is clicked on (false).
+     * @return A picklist in a Lightning component can display only the first 200 values of a list. If containsAllRows is set to false, when a user does a type-ahead search to find values in the picklist, the search will only look at those first 200 values that were displayed, not the complete set of picklist values.
+     */
+    global Boolean containsAllRows() { return false; }
 
-  /**
-   * Returns a Boolean value indicating whether all values of the picklist are included when a user does a type-ahead search query (true) or only those values initially displayed when the list is clicked on (false).
-   * @return Boolean
-   */
-  global Boolean containsAllRows() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Returns a picklist element stored at the specified index.
-   * @param i The index.
-   * @return VisualEditor.DataRow
-   */
-  global VisualEditor.DataRow get(Integer i) {}
+    /**
+     * Returns a picklist element stored at the specified index.
+     */
+    global VisualEditor.DataRow get(Integer i) { return null; }
 
-  /**
-   * Returns a list of picklist items.
-   * @return List<VisualEditor.DataRow>
-   */
-  global List<VisualEditor.DataRow> getDataRows() {}
+    /**
+     * Returns a list of picklist items.
+     */
+    global List getDataRows() { return null; }
 
-  /**
-   * Sets the value indicating whether all values of the picklist are included when a user does a type-ahead search query (true) or only those values initially displayed when the list is clicked on (false).
-   * @param containsAllRows Indicates if all values of the picklist are included in a type-ahead search query (true) or only those values initially displayed when the list is clicked on (false).
-   */
-  global void setContainsAllRows(Boolean containsAllRows) {}
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Returns the size of the list of VisualEditor.DynamicPickListRows .
-   * @return Integer
-   */
-  global Integer size() {}
+    /**
+     * Sets the value indicating whether all values of the picklist are included when a user does a type-ahead search query (true) or only those values initially displayed when the list is clicked on (false).
+     */
+    global void setContainsAllRows(Boolean containsAllRows) { }
 
-  /**
-   * Sorts the list of VisualEditor.DynamicPickListRows .
-   */
-  global void sort() {}
+    /**
+     * Returns the size of the list of VisualEditor.DynamicPickListRows.
+     */
+    global Integer size() { return 0; }
 
+    /**
+     * Sorts the list of VisualEditor.DynamicPickListRows.
+     */
+    global void sort() { }
+
+    global override virtual String toString() { return null; }
 }

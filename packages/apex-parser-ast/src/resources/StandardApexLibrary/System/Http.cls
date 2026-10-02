@@ -2,22 +2,16 @@
  * Use the Http class to initiate an HTTP request and response.
  */
 global class Http {
+    Object Http() { return null; }
 
-  global Http() {}
+    global Boolean equals(Object obj) { return false; }
 
-  /**
-   * Sends an HttpRequest and returns the response.
-   * @param request 
-   * @return HttpResponse
-   */
-  global HttpResponse send(HttpRequest request) {}
+    global Integer hashCode() { return 0; }
 
-  /**
-   * Returns a string that displays and identifies the object's properties.
-   * @return String
-   */
-  global String toString() {}
+    global System.HttpResponse send(Object request) { return null; }
 
-  global Object clone() {}
-
+    /**
+     * Returns a string that displays and identifies the object's properties.
+     */
+    global String toString() { return null; }
 }

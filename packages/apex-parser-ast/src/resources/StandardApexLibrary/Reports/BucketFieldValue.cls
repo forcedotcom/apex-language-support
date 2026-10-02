@@ -2,51 +2,52 @@
  * Contains information about the report values included in a bucket field.
  */
 global class BucketFieldValue {
+    /**
+     * Creates an instance of the Reports.BucketFieldValue class. You can then set values by using the class’s set methods.
+     */
+    global Object BucketFieldValue() { return null; }
 
-  global BucketFieldValue(String label, List<String> sourceDimensionValues, Double rangeUpperBound) {}
+    /**
+     * Creates an instance of the Reports.BucketFieldValue class using the specified parameters.
+     */
+    global Object BucketFieldValue(String label, List sourceDimensionValues, Double rangeUpperBound) { return null; }
 
-  /**
-   * Returns the user-facing name of the bucket category.
-   * @return String
-   */
-  global String getLabel() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Returns the greatest range limit under which values are included in this bucket category (in buckets of type NUMBER ).
-   * @return Double
-   */
-  global Double getRangeUpperBound() {}
+    /**
+     * Returns the user-facing name of the bucket category.
+     */
+    global String getLabel() { return null; }
 
-  /**
-   * Returns a list of the values from the source field included in this bucket category (in buckets of type PICKLIST and buckets of type TEXT ).
-   * @return List<String>
-   */
-  global List<String> getSourceDimensionValues() {}
+    /**
+     * Returns the greatest range limit under which values are included in this bucket category (in buckets of type NUMBER).
+     */
+    global Double getRangeUpperBound() { return 0.0; }
 
-  /**
-   * Set the user-facing name of the bucket category.
-   * @param label 
-   */
-  global void setLabel(String label) {}
+    /**
+     * Returns a list of the values from the source field included in this bucket category (in buckets of type PICKLIST and buckets of type TEXT).
+     */
+    global List getSourceDimensionValues() { return null; }
 
-  /**
-   * Sets the greatest limit of a range under which values are included in this bucket category (in buckets of type NUMBER ).
-   * @param rangeUpperBound 
-   */
-  global void setRangeUpperBound(Double rangeUpperBound) {}
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Specifies the values from the source field included in this bucket category (in buckets of type PICKLIST and buckets of type TEXT ).
-   * @param sourceDimensionValues 
-   */
-  global void setSourceDimensionValues(List<String> sourceDimensionValues) {}
+    /**
+     * Set the user-facing name of the bucket category.
+     */
+    global void setLabel(String label) { }
 
-  /**
-   * Returns a string.
-   * @return String
-   */
-  global String toString() {}
+    /**
+     * Sets the greatest limit of a range under which values are included in this bucket category (in buckets of type NUMBER).
+     */
+    global void setRangeUpperBound(Double rangeUpperBound) { }
 
-  global Object clone() {}
+    /**
+     * Specifies the values from the source field included in this bucket category (in buckets of type PICKLIST and buckets of type TEXT).
+     */
+    global void setSourceDimensionValues(List sourceDimensionValues) { }
 
+    /**
+     * Returns a string.
+     */
+    global override virtual String toString() { return null; }
 }

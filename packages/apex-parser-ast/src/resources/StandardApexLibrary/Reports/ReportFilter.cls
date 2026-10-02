@@ -2,67 +2,75 @@
  * Contains information about a report filter, including column, operator, and value.
  */
 global class ReportFilter {
+    /**
+     * Creates a new instance of the Reports.ReportFilter class. You can then set values by using the “set” methods.
+     */
+    global Object ReportFilter() { return null; }
 
-  global ReportFilter(String column, String operator, String value) {}
+    /**
+     * Creates a new instance of the Reports.ReportFilter class by using the specified parameters.
+     */
+    global Object ReportFilter(String column, String operator, String value) { return null; }
 
-  /**
-   * Returns the unique API name for the field that’s being filtered.
-   * @return String
-   */
-  global String getColumn() {}
+    global Object ReportFilter(String column, String operator, String value, reports.ReportFilterType filterType) { return null; }
 
-  global String getEntityName() {}
+    global Object ReportFilter(String column, String operator, String value, reports.ReportFilterType filterType, String entityName) { return null; }
 
-  /**
-   * Returns the type of report filter.
-   * @return String
-   */
-  global String getFilterType() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Returns the unique API name for the condition that is used to filter a field, such as “greater than” or “not equal to.” Filter conditions depend on the data type of the field.
-   * @return String
-   */
-  global String getOperator() {}
+    /**
+     * Returns the unique API name for the field that’s being filtered.
+     */
+    global String getColumn() { return null; }
 
-  /**
-   * Returns the value that the field is being filtered by. For example, the field Age can be filtered by a numeric value.
-   * @return String
-   */
-  global String getValue() {}
+    /**
+     * Returns the entity name used in the report filter. Use the entity name to handle ambiguous field names across entities, specifically when using cross filters.
+     */
+    global String getEntityName() { return null; }
 
-  /**
-   * Sets the unique API name for the field that’s being filtered.
-   * @param column 
-   */
-  global void setColumn(String column) {}
+    global reports.ReportFilterType getFilterType() { return null; }
 
-  global void setEntityName(String entityName) {}
+    /**
+     * Returns the unique API name for the condition that is used to filter a field, such as “greater than” or “not equal to.” Filter conditions depend on the data type of the field.
+     */
+    global String getOperator() { return null; }
 
-  /**
-   * Sets the type of report filter.
-   * @param column 
-   */
-  global void setFilterType(String column) {}
+    /**
+     * Returns the value that the field is being filtered by. For example, the field Age can be filtered by a numeric value.
+     */
+    global String getValue() { return null; }
 
-  /**
-   * Sets the unique API name for the condition that is used to filter a field, such as “greater than” or “not equal to.” Filter conditions depend on the data type of the field.
-   * @param operator 
-   */
-  global void setOperator(String operator) {}
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Sets the value by which a field can be filtered. For example, the field Age can be filtered by a numeric value.
-   * @param value 
-   */
-  global void setValue(String value) {}
+    /**
+     * Sets the unique API name for the field that’s being filtered.
+     */
+    global void setColumn(String column) { }
 
-  /**
-   * Returns a string representation of the filter.
-   * @return String
-   */
-  global String toString() {}
+    /**
+     * Sets the entity name to use in the report filter. Use the entity name to handle ambiguous field names across entities, specifically when using cross filters.
+     */
+    global void setEntityName(String entityName) { }
 
-  global Object clone() {}
+    global void setFilterType(reports.ReportFilterType filterType) { }
 
+    /**
+     * Sets the type of report filter.
+     */
+    global void setFilterType(String value) { }
+
+    /**
+     * Sets the unique API name for the condition that is used to filter a field, such as “greater than” or “not equal to.” Filter conditions depend on the data type of the field.
+     */
+    global void setOperator(String operator) { }
+
+    /**
+     * Sets the value by which a field can be filtered. For example, the field Age can be filtered by a numeric value.
+     */
+    global void setValue(String value) { }
+
+    /**
+     * Returns a string representation of the filter.
+     */
+    global override virtual String toString() { return null; }
 }

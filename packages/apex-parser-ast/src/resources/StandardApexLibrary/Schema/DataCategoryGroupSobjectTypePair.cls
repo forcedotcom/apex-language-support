@@ -1,35 +1,37 @@
 /**
  * Specifies a category group and an associated object.
+ * <p>Usage
+ * Schema.DataCategoryGroupSobjectTypePair is used by the describeDataCategory GroupStructures method to return the categories available to this object.
  */
 global class DataCategoryGroupSobjectTypePair {
+    global String datacategorygroupname { get; set; }
+    global String sobject { get; set; }
 
-  global DataCategoryGroupSobjectTypePair() {}
+    /**
+     * Creates a new instance of the Schema.DataCategoryGroupSobjectTypePair class.
+     */
+    Object DataCategoryGroupSobjectTypePair() { return null; }
 
-  /**
-   * Returns the unique name used by the API to access the data category group.
-   * @return String
-   */
-  global String getDataCategoryGroupName() {}
+    global Boolean equals(Object obj) { return false; }
 
-  /**
-   * Returns the object name associated with the data category group.
-   * @return String
-   */
-  global String getSobject() {}
+    /**
+     * Returns the unique name used by the API to access the data category group.
+     */
+    global String getDataCategoryGroupName() { return null; }
 
-  /**
-   * Specifies the unique name used by the API to access the data category group.
-   * @param name 
-   * @return String
-   */
-  global String setDataCategoryGroupName(String name) {}
+    /**
+     * Returns the object name associated with the data category group.
+     */
+    global String getSobject() { return null; }
 
-  /**
-   * Sets the sObject associated with the data category group.
-   * @param sObjectName The sObjectName is the object name associated with the data category group. Valid values are: KnowledgeArticleVersion —for article types. Question —for questions from Answers.
-   */
-  global void setSobject(String sObjectName) {}
+    global Integer hashCode() { return 0; }
 
-  global Object clone() {}
+    global void setDataCategoryGroupName(String param1) { }
 
+    /**
+     * Sets the sObject associated with the data category group.
+     */
+    global void setSobject(String param1) { }
+
+    global String toString() { return null; }
 }

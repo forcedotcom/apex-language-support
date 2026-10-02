@@ -2,27 +2,28 @@
  * Contains the results for rendering email templates.
  */
 global class RenderEmailTemplateBodyResult {
+    global List errors { get; }
+    global String mergedbody { get; }
+    global Boolean success { get; }
 
-  global RenderEmailTemplateBodyResult() {}
+    global Boolean equals(Object obj) { return false; }
 
-  /**
-   * If an error occurred during the renderEmailTemplate method, a RenderEmailTemplateError object is returned.
-   * @return List<Messaging.RenderEmailTemplateError>
-   */
-  global List<Messaging.RenderEmailTemplateError> getErrors() {}
+    /**
+     * If an error occurred during the renderEmailTemplate method, a RenderEmailTemplateError object is returned.
+     */
+    global List getErrors() { return null; }
 
-  /**
-   * Returns the rendered body text with merge field references replaced with the corresponding record data.
-   * @return String
-   */
-  global String getMergedBody() {}
+    /**
+     * Returns the rendered body text with merge field references replaced with the corresponding record data.
+     */
+    global String getMergedBody() { return null; }
 
-  /**
-   * Indicates whether the operation was successful.
-   * @return Boolean
-   */
-  global Boolean getSuccess() {}
+    /**
+     * Indicates whether the operation was successful.
+     */
+    global Boolean getSuccess() { return false; }
 
-  global Object clone() {}
+    global Integer hashCode() { return 0; }
 
+    global String toString() { return null; }
 }

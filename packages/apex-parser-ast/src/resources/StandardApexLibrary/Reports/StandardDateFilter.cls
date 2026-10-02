@@ -2,57 +2,53 @@
  * Contains information about standard date filter available in the report—for example, the API name, start date, and end date of the standard date filter duration as well as the API name of the date field on which the filter is placed.
  */
 global class StandardDateFilter {
+    global Object StandardDateFilter() { return null; }
 
-  global StandardDateFilter() {}
+    global Object StandardDateFilter(String column, String durationValue, String startDate, String endDate) { return null; }
 
-  /**
-   * Returns the API name of the standard date filter column.
-   * @return String
-   */
-  global String getColumn() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Returns duration information about a standard date filter, such as start date, end date, and display name and API name of the date filter.
-   * @return String
-   */
-  global String getDurationValue() {}
+    /**
+     * Returns the API name of the standard date filter column.
+     */
+    global String getColumn() { return null; }
 
-  /**
-   * Returns the end date of the standard date filter.
-   * @return String
-   */
-  global String getEndDate() {}
+    /**
+     * Returns duration information about a standard date filter, such as start date, end date, and display name and API name of the date filter.
+     */
+    global String getDurationValue() { return null; }
 
-  /**
-   * Returns the start date for the standard date filter.
-   * @return String
-   */
-  global String getStartDate() {}
+    /**
+     * Returns the end date of the standard date filter.
+     */
+    global String getEndDate() { return null; }
 
-  /**
-   * Sets the API name of the standard date filter column.
-   * @param standardDateFilterColumnName 
-   */
-  global void setColumn(String standardDateFilterColumnName) {}
+    /**
+     * Returns the start date for the standard date filter.
+     */
+    global String getStartDate() { return null; }
 
-  /**
-   * Sets the API name of the standard date filter.
-   * @param durationName 
-   */
-  global void setDurationValue(String durationName) {}
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Sets the end date for the standard date filter.
-   * @param endDate 
-   */
-  global void setEndDate(String endDate) {}
+    /**
+     * Sets the API name of the standard date filter column.
+     */
+    global void setColumn(String column) { }
 
-  /**
-   * Sets the start date for the standard date filter.
-   * @param startDate 
-   */
-  global void setStartDate(String startDate) {}
+    /**
+     * Sets the API name of the standard date filter.
+     */
+    global void setDurationValue(String durationValue) { }
 
-  global Object clone() {}
+    /**
+     * Sets the end date for the standard date filter.
+     */
+    global void setEndDate(String endDate) { }
 
+    /**
+     * Sets the start date for the standard date filter.
+     */
+    global void setStartDate(String startDate) { }
+
+    global override virtual String toString() { return null; }
 }

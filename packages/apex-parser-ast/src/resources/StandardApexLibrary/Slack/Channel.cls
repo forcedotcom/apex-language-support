@@ -1,155 +1,157 @@
 global class Channel {
+    global Object Channel() { return null; }
 
-  global Channel() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global Integer getCreated() {}
+    global Integer getCreated() { return 0; }
 
-  global String getCreator() {}
+    global String getCreator() { return null; }
 
-  global String getEnterpriseId() {}
+    global String getEnterpriseId() { return null; }
 
-  global String getId() {}
+    global String getId() { return null; }
 
-  global Integer getIsMoved() {}
+    global Integer getIsMoved() { return 0; }
 
-  global String getLastRead() {}
+    global String getLastRead() { return null; }
 
-  global Slack.Latest getLatest() {}
+    global Slack.Latest getLatest() { return null; }
 
-  global List<String> getMembers() {}
+    global List getMembers() { return null; }
 
-  global String getName() {}
+    global String getName() { return null; }
 
-  global String getNameNormalized() {}
+    global String getNameNormalized() { return null; }
 
-  global Integer getNumMembers() {}
+    global Integer getNumMembers() { return 0; }
 
-  global List<String> getPendingShared() {}
+    global List getPendingShared() { return null; }
 
-  global List<String> getPreviousNames() {}
+    global List getPreviousNames() { return null; }
 
-  global Double getPriority() {}
+    global Double getPriority() { return 0.0; }
 
-  global Slack.Purpose getPurpose() {}
+    global Slack.Purpose getPurpose() { return null; }
 
-  global Slack.Topic getTopic() {}
+    global Slack.Topic getTopic() { return null; }
 
-  global Integer getUnlinked() {}
+    global Integer getUnlinked() { return 0; }
 
-  global Integer getUnreadCount() {}
+    global Integer getUnreadCount() { return 0; }
 
-  global Integer getUnreadCountDisplay() {}
+    global Integer getUnreadCountDisplay() { return 0; }
 
-  global String getUser() {}
+    global String getUser() { return null; }
 
-  global Boolean isArchived() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Boolean isChannel() {}
+    global Boolean isArchived() { return false; }
 
-  global Boolean isExtShared() {}
+    global Boolean isChannel() { return false; }
 
-  global Boolean isGeneral() {}
+    global Boolean isExtShared() { return false; }
 
-  global Boolean isGlobalShared() {}
+    global Boolean isGeneral() { return false; }
 
-  global Boolean isGroup() {}
+    global Boolean isGlobalShared() { return false; }
 
-  global Boolean isIm() {}
+    global Boolean isGroup() { return false; }
 
-  global Boolean isMember() {}
+    global Boolean isIm() { return false; }
 
-  global Boolean isMpim() {}
+    global Boolean isMember() { return false; }
 
-  global Boolean isOrgDefault() {}
+    global Boolean isMpim() { return false; }
 
-  global Boolean isOrgMandatory() {}
+    global Boolean isOrgDefault() { return false; }
 
-  global Boolean isOrgShared() {}
+    global Boolean isOrgMandatory() { return false; }
 
-  global Boolean isPendingExtShared() {}
+    global Boolean isOrgShared() { return false; }
 
-  global Boolean isPrivateChannel() {}
+    global Boolean isPendingExtShared() { return false; }
 
-  global Boolean isReadOnly() {}
+    global Boolean isPrivateChannel() { return false; }
 
-  global Boolean isShared() {}
+    global Boolean isReadOnly() { return false; }
 
-  global Boolean isThreadOnly() {}
+    global Boolean isShared() { return false; }
 
-  global void setArchived(Boolean archived) {}
+    global Boolean isThreadOnly() { return false; }
 
-  global void setChannel(Boolean channel) {}
+    global void setArchived(Boolean archived) { }
 
-  global void setCreated(Integer created) {}
+    global void setChannel(Boolean channel) { }
 
-  global void setCreator(String creator) {}
+    global void setCreated(Integer created) { }
 
-  global void setEnterpriseId(String enterpriseId) {}
+    global void setCreator(String creator) { }
 
-  global void setExtShared(Boolean extShared) {}
+    global void setEnterpriseId(String enterpriseId) { }
 
-  global void setGeneral(Boolean general) {}
+    global void setExtShared(Boolean extShared) { }
 
-  global void setGlobalShared(Boolean globalShared) {}
+    global void setGeneral(Boolean general) { }
 
-  global void setGroup(Boolean groupValue) {}
+    global void setGlobalShared(Boolean globalShared) { }
 
-  global void setId(String id) {}
+    global void setGroup(Boolean groupValue) { }
 
-  global void setIm(Boolean im) {}
+    global void setId(String id) { }
 
-  global void setIsMoved(Integer isMoved) {}
+    global void setIm(Boolean im) { }
 
-  global void setLastRead(String lastRead) {}
+    global void setIsMoved(Integer isMoved) { }
 
-  global void setLatest(Slack.Latest latest) {}
+    global void setLastRead(String lastRead) { }
 
-  global void setMember(Boolean member) {}
+    global void setLatest(Slack.Latest latest) { }
 
-  global void setMembers(List<String> members) {}
+    global void setMember(Boolean member) { }
 
-  global void setMpim(Boolean mpim) {}
+    global void setMembers(List members) { }
 
-  global void setName(String name) {}
+    global void setMpim(Boolean mpim) { }
 
-  global void setNameNormalized(String nameNormalized) {}
+    global void setName(String name) { }
 
-  global void setNumMembers(Integer numMembers) {}
+    global void setNameNormalized(String nameNormalized) { }
 
-  global void setOrgDefault(Boolean orgDefault) {}
+    global void setNumMembers(Integer numMembers) { }
 
-  global void setOrgMandatory(Boolean orgMandatory) {}
+    global void setOrgDefault(Boolean orgDefault) { }
 
-  global void setOrgShared(Boolean orgShared) {}
+    global void setOrgMandatory(Boolean orgMandatory) { }
 
-  global void setPendingExtShared(Boolean pendingExtShared) {}
+    global void setOrgShared(Boolean orgShared) { }
 
-  global void setPendingShared(List<String> pendingShared) {}
+    global void setPendingExtShared(Boolean pendingExtShared) { }
 
-  global void setPreviousNames(List<String> previousNames) {}
+    global void setPendingShared(List pendingShared) { }
 
-  global void setPriority(Double priority) {}
+    global void setPreviousNames(List previousNames) { }
 
-  global void setPrivateChannel(Boolean privateChannel) {}
+    global void setPriority(Double priority) { }
 
-  global void setPurpose(Slack.Purpose purpose) {}
+    global void setPrivateChannel(Boolean privateChannel) { }
 
-  global void setReadOnly(Boolean readOnly) {}
+    global void setPurpose(Slack.Purpose purpose) { }
 
-  global void setShared(Boolean shared) {}
+    global void setReadOnly(Boolean readOnly) { }
 
-  global void setThreadOnly(Boolean threadOnly) {}
+    global void setShared(Boolean shared) { }
 
-  global void setTopic(Slack.Topic topic) {}
+    global void setThreadOnly(Boolean threadOnly) { }
 
-  global void setUnlinked(Integer unlinked) {}
+    global void setTopic(Slack.Topic topic) { }
 
-  global void setUnreadCount(Integer unreadCount) {}
+    global void setUnlinked(Integer unlinked) { }
 
-  global void setUnreadCountDisplay(Integer unreadCountDisplay) {}
+    global void setUnreadCount(Integer unreadCount) { }
 
-  global void setUser(String user) {}
+    global void setUnreadCountDisplay(Integer unreadCountDisplay) { }
 
-  global Object clone() {}
+    global void setUser(String user) { }
 
+    global override String toString() { return null; }
 }

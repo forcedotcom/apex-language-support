@@ -1,70 +1,76 @@
 /**
- * Represents a section of a layout and consists of one or more columns and one or more rows (an array of QuickAction.DescribeLayoutRow ).
+ * Represents a section of a layout and consists of one or more columns and one or more rows (an array of QuickAction.DescribeLayoutRow).
  */
 global class DescribeLayoutSection {
+    /**
+     * The current view of the record details section: collapsed (true) or expanded (false).
+     * <p>Boolean
+     */
+    global Boolean collapsed { get; }
+    global Integer columns { get; }
+    global String heading { get; }
+    global List layoutrows { get; }
+    /**
+     * The unique ID of the record details section in the layout.
+     * <p>Id
+     */
+    global Id layoutsectionid { get; }
+    global Id parentlayoutid { get; }
+    global Integer rows { get; }
+    global String taborder { get; }
+    global Boolean usecollapsiblesection { get; }
+    global Boolean useheading { get; }
 
-  global DescribeLayoutSection() {}
+    global Boolean equals(Object obj) { return false; }
 
-  global Boolean collapsed;
+    /**
+     * Returns the number of columns in the QuickAction.DescribeLayoutSection.
+     */
+    global Integer getColumns() { return 0; }
 
-  global Id layoutsectionid;
+    /**
+     * The heading text (label) for the QuickAction.DescribeLayoutSection.
+     */
+    global String getHeading() { return null; }
 
-  /**
-   * Returns the number of columns in the QuickAction.DescribeLayoutSection .
-   * @return Integer
-   */
-  global Integer getColumns() {}
+    /**
+     * Returns an array of one or more QuickAction.DescribeLayoutRow objects.
+     */
+    global List getLayoutRows() { return null; }
 
-  /**
-   * The heading text (label) for the QuickAction.DescribeLayoutSection .
-   * @return String
-   */
-  global String getHeading() {}
+    /**
+     * Returns the ID of the record details section in the layout.
+     */
+    global Id getLayoutSectionId() { return null; }
 
-  /**
-   * Returns an array of one or more QuickAction.DescribeLayoutRow objects.
-   * @return List<QuickAction.DescribeLayoutRow>
-   */
-  global List<QuickAction.DescribeLayoutRow> getLayoutRows() {}
+    /**
+     * Returns the ID of the layout upon which this DescribeLayoutSection resides.
+     */
+    global Id getParentLayoutId() { return null; }
 
-  /**
-   * Returns the ID of the record details section in the layout.
-   * @return Id
-   */
-  global Id getLayoutSectionId() {}
+    /**
+     * Returns the number of rows in the QuickAction.DescribeLayoutSection.
+     */
+    global Integer getRows() { return 0; }
 
-  /**
-   * Returns the ID of the layout upon which this DescribeLayoutSection resides.
-   * @return Id
-   */
-  global Id getParentLayoutId() {}
+    global String getTabOrder() { return null; }
 
-  /**
-   * Returns the number of rows in the QuickAction.DescribeLayoutSection .
-   * @return Integer
-   */
-  global Integer getRows() {}
+    global Integer hashCode() { return 0; }
 
-  /**
-   * Indicates whether the record details section is collapsed ( true ) or expanded ( false ). If you build your own app, you can use this method to see whether the current user collapsed a section, and respect that preference in your own UI.
-   * @return Boolean
-   */
-  global Boolean isCollapsed() {}
+    /**
+     * Indicates whether the record details section is collapsed (true) or expanded (false). If you build your own app, you can use this method to see whether the current user collapsed a section, and respect that preference in your own UI.
+     */
+    global Boolean isCollapsed() { return false; }
 
-  /**
-   * Indicates whether the QuickAction.DescribeLayoutSection is a collapsible section ( true ) or not ( false ).
-   * @return Boolean
-   */
-  global Boolean isUseCollapsibleSection() {}
+    /**
+     * Indicates whether the QuickAction.DescribeLayoutSection is a collapsible section (true) or not (false).
+     */
+    global Boolean isUseCollapsibleSection() { return false; }
 
-  /**
-   * Indicates whether to use the heading ( true ) or not ( false ).
-   * @return Boolean
-   */
-  global Boolean isUseHeading() {}
+    /**
+     * Indicates whether to use the heading (true) or not (false).
+     */
+    global Boolean isUseHeading() { return false; }
 
-  global String getTabOrder() {}
-
-  global Object clone() {}
-
+    global String toString() { return null; }
 }

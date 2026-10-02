@@ -1,12 +1,20 @@
 /**
  * Sets additional data or custom attributes in the tax response.
  */
-global class CustomTaxAttributesResponse {
+global with sharing class CustomTaxAttributesResponse {
+    /**
+     * Constructor to set additional data or custom attributes in the tax response.
+     */
+    global Object CustomTaxAttributesResponse() { return null; }
 
-  global CustomTaxAttributesResponse() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global void setData(Map<String, Object> data) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Object clone() {}
+    /**
+     * Sets additional data or custom attributes in the tax response.
+     */
+    global void setData(Map data) { }
 
+    global override virtual String toString() { return null; }
 }

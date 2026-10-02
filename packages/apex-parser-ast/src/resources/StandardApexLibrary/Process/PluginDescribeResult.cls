@@ -1,54 +1,152 @@
 /**
- * Describes the input and output parameters for Process.PluginResult .
+ * Describes the input and output parameters for Process.PluginResult.
  */
 global class PluginDescribeResult {
+    /**
+     * This optional field describes the purpose of the plug-in.
+     * <p>Usage
+     * Size limit: 255 characters.
+     * <p>String
+     */
+    global String description { get; set; }
+    /**
+     * The input parameters passed by the Process.PluginRequest class from a flow to the class that implements the Process.Plugin interface.
+     * <p>List<Process.PluginDescribeResult.InputParameter>
+     */
+    global List inputParameters { get; set; }
+    /**
+     * Unique name of the plug-in.
+     * <p>Usage
+     * Size limit: 40 characters.
+     * <p>String
+     */
+    global String name { get; set; }
+    /**
+     * The output parameters passed by the Process.PluginResult class from the class that implements the Process.Plugin interface to the flow.
+     * <p>List<Process.PluginDescribeResult.OutputParameter>
+     */
+    global List outputParameters { get; set; }
+    global String tag { get; set; }
 
-  global PluginDescribeResult() {}
+    /**
+     * Creates a new instance of the Process.PluginDescribeResult class.
+     */
+    global Object PluginDescribeResult() { return null; }
 
-  global String description;
+    global virtual Boolean equals(Object o) { return false; }
 
-  global List<Process.PluginDescribeResult.InputParameter> inputParameters;
+    global virtual Integer hashCode() { return 0; }
 
-  global String name;
+    global override virtual String toString() { return null; }
 
-  global List<Process.PluginDescribeResult.OutputParameter> outputParameters;
+    /**
+     * Describes the input parameter for Process.PluginResult.
+     */
+    global class InputParameter {
+        /**
+         * This optional field describes the purpose of the plug-in.
+         * <p>Usage
+         * Size limit: 255 characters.
+         * <p>String
+         */
+        global final String description { get; }
+        /**
+         * Unique name of the plug-in.
+         * <p>Usage
+         * Size limit: 40 characters.
+         * <p>String
+         */
+        global final String name { get; }
+        /**
+         * The data type of the input parameter.
+         * <p>Process.PluginDescribeResult.ParameterType
+         */
+        global final Process.PluginDescribeResult.ParameterType parameterType { get; }
+        /**
+         * Set to true for required and false otherwise.
+         * <p>Boolean
+         */
+        global final Boolean required { get; }
 
-  global Object clone() {}
+        /**
+         * Creates a new instance of the Process.PluginDescribeResult.InputParameter class using the specified name, parameter type, and required option.
+         */
+        global Object InputParameter(String name, Process.PluginDescribeResult.ParameterType parameterType, Boolean required) { return null; }
 
-  /**
-   * Describes the input parameter for Process.PluginResult .
-   */
-  global class InputParameter {
+        /**
+         * Creates a new instance of the Process.PluginDescribeResult.InputParameter class using the specified name, description, parameter type, and required option.
+         */
+        global Object InputParameter(String name, String description, Process.PluginDescribeResult.ParameterType parameterType, Boolean required) { return null; }
 
-    global InputParameter() {}
+        global Process.PluginDescribeResult.InputParameter clone() { return null; }
 
-    global String Description;
+        global virtual Boolean equals(Object o) { return false; }
 
-    global String Name;
+        global virtual Integer hashCode() { return 0; }
 
-    global Process.PluginDescribeResult.ParameterType ParameterType;
+        global override virtual String toString() { return null; }
+    }
 
-    global Boolean Required;
+    /**
+     * Describes the output parameter for Process.PluginResult.
+     */
+    global class OutputParameter {
+        /**
+         * This optional field describes the purpose of the plug-in.
+         * <p>Usage
+         * Size limit: 255 characters.
+         * <p>String
+         */
+        global final String description { get; }
+        /**
+         * Unique name of the plug-in.
+         * <p>Usage
+         * Size limit: 40 characters.
+         * <p>String
+         */
+        global final String name { get; }
+        /**
+         * The data type of the output parameter.
+         * <p>Process.PluginDescribeResult.ParameterType
+         */
+        global final Process.PluginDescribeResult.ParameterType parameterType { get; }
 
-    global Object clone() {}
+        /**
+         * Creates a new instance of the Process.PluginDescribeResult.OutputParameter class using the specified name, description, and parameter type.
+         */
+        global Object OutputParameter(String name, Process.PluginDescribeResult.ParameterType parameterType) { return null; }
 
-  }
+        /**
+         * Creates a new instance of the Process.PluginDescribeResult.OutputParameter class using the specified name, description, and parameter type.
+         */
+        global Object OutputParameter(String name, String description, Process.PluginDescribeResult.ParameterType parameterType) { return null; }
 
-  /**
-   * Describes the output parameter for Process.PluginResult .
-   */
-  global class OutputParameter {
+        global Process.PluginDescribeResult.OutputParameter clone() { return null; }
 
-    global OutputParameter() {}
+        global virtual Boolean equals(Object o) { return false; }
 
-    global String Description;
+        global virtual Integer hashCode() { return 0; }
 
-    global String Name;
+        global override virtual String toString() { return null; }
+    }
 
-    global Process.PluginDescribeResult.ParameterType ParameterType;
+    /**
+     * Specifies the data types of input and output parameters of the Process.PluginDescribeResult class.
+     * <p>Enum Values
+     * The following are the values of the Process.PluginDescribeResult.ParameterType enum.
+     */
+    global enum ParameterType {
+        BOOLEAN,
+        DATE,
+        DATETIME,
+        DECIMAL,
+        DOUBLE,
+        FLOAT,
+        ID,
+        INTEGER,
+        LONG,
+        STRING,
+        TIME
 
-    global Object clone() {}
-
-  }
-
+    }
 }

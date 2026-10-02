@@ -1,50 +1,56 @@
 /**
  * Contains the normalized response fields from payment gateways that are common to all the other gateway responses.
+ * <p>Usage
+ * You must specify the CommercePayments namespace when creating an instance of this class. The constructor of this class takes no arguments. For example:
+ * CommercePayments.AbstractResponse abr = new CommercePayments.AbstractResponse();
+ * This class can’t be instantiated on its own. This class implements the GatewayResponse class. Other GatewayResponse classes extend this class to inherit common properties.
  */
-global class AbstractResponse {
+global abstract with sharing class AbstractResponse implements commercepayments.GatewayResponse {
+    global Object AbstractResponse() { return null; }
 
-  global AbstractResponse() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Sets the AVS (address verification system) result code information that the gateway returned. Maximum length of 64 characters.
-   * @param gatewayAvsCode Code sent by gateways that use an address verification system.
-   */
-  global void setGatewayAvsCode(String gatewayAvsCode) {}
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Sets the date that the transaction occurred. Some gateways don’t send this value.
-   * @param gatewayDate Date and time of the gateway communication.
-   */
-  global void setGatewayDate(Datetime gatewayDate) {}
+    /**
+     * Sets the AVS (address verification system) result code information that the gateway returned. Maximum length of 64 characters.
+     */
+    global void setGatewayAvsCode(String gatewayAvsCode) { }
 
-  /**
-   * Sets error messages that the gateway returned for the payment request. Maximum length of 255 characters.
-   * @param gatewayMessage Information on error messages sent from the gateway.
-   */
-  global void setGatewayMessage(String gatewayMessage) {}
+    /**
+     * Sets the date that the transaction occurred. Some gateways don’t send this value.
+     */
+    global void setGatewayDate(Datetime gatewayDate) { }
 
-  /**
-   * Sets a gateway-specific result code. The code may be mapped to a Salesforce-specific result code. Maximum length of 64 characters.
-   * @param gatewayResultCode Gateway-specific result code. Must be used to map a Salesforce-specific result code.
-   */
-  global void setGatewayResultCode(String gatewayResultCode) {}
+    /**
+     * Sets error messages that the gateway returned for the payment request. Maximum length of 255 characters.
+     */
+    global void setGatewayMessage(String gatewayMessage) { }
 
-  /**
-   * Sets a description of the gateway-specific result code that a payment gateway returned. Maximum length of 1000 characters.
-   * @param gatewayResultCodeDescription Description of the gateway’s result code. Use this field to learn more about why the gateway returned a certain result code.
-   */
-  global void setGatewayResultCodeDescription(String gatewayResultCodeDescription) {}
+    /**
+     * Sets a gateway-specific result code. The code may be mapped to a Salesforce-specific result code. Maximum length of 64 characters.
+     */
+    global void setGatewayResultCode(String gatewayResultCode) { }
 
-  /**
-   * Sets the Salesforce-specific result code information. Payment gateways have many response codes for payment calls. Salesforce uses the result code information to map payment gateway codes to a predefined set of standard Salesforce result codes.
-   * @param salesforceResultCodeInfo Description of the Salesforce result code value.
-   */
-  global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+    /**
+     * Sets a description of the gateway-specific result code that a payment gateway returned. Maximum length of 1000 characters.
+     */
+    global void setGatewayResultCodeDescription(String gatewayResultCodeDescription) { }
 
-  global void setRetryCategory(commercepayments.RetryCategory retryCategory) {}
+    /**
+     * Sets the retry category returned by the payment gateway for the failed payment in a batch flow.
+     */
+    global void setRetryCategory(commercepayments.RetryCategory retryCategory) { }
 
-  global void setRetryDecision(commercepayments.RetryDecision retryDecision) {}
+    /**
+     * Sets the retry decision.
+     */
+    global void setRetryDecision(commercepayments.RetryDecision retryDecision) { }
 
-  global Object clone() {}
+    /**
+     * Sets the Salesforce-specific result code information. Payment gateways have many response codes for payment calls. Salesforce uses the result code information to map payment gateway codes to a predefined set of standard Salesforce result codes.
+     */
+    global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) { }
 
+    global override virtual String toString() { return null; }
 }

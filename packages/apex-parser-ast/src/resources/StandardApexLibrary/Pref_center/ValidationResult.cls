@@ -2,9 +2,9 @@
  * This class is reserved for future use with Preference Manager.
  */
 global class ValidationResult {
+    global virtual Boolean equals(Object o) { return false; }
 
-  global ValidationResult() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Object clone() {}
-
+    global override virtual String toString() { return null; }
 }

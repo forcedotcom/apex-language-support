@@ -1,34 +1,36 @@
 /**
  * Contains information about the standard filter defined in the report, such as the filter field API name and filter value.
+ * <p>Usage
+ * Use to get or set standard filters on a report. Standard filters vary by report type. For example, standard filters for reports on the Opportunity object are Show, Opportunity Status, and Probability.
  */
 global class StandardFilter {
+    global Object StandardFilter() { return null; }
 
-  global StandardFilter() {}
+    global Object StandardFilter(String name, String value) { return null; }
 
-  /**
-   * Return the API name of the standard filter.
-   * @return String
-   */
-  global String getName() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Returns the standard filter value.
-   * @return String
-   */
-  global String getValue() {}
+    /**
+     * Return the API name of the standard filter.
+     */
+    global String getName() { return null; }
 
-  /**
-   * Sets the API name of the standard filter.
-   * @param name 
-   */
-  global void setName(String name) {}
+    /**
+     * Returns the standard filter value.
+     */
+    global String getValue() { return null; }
 
-  /**
-   * Sets the standard filter value.
-   * @param value 
-   */
-  global void setValue(String value) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Object clone() {}
+    /**
+     * Sets the API name of the standard filter.
+     */
+    global void setName(String name) { }
 
+    /**
+     * Sets the standard filter value.
+     */
+    global void setValue(String value) { }
+
+    global override virtual String toString() { return null; }
 }

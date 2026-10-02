@@ -1,14 +1,26 @@
 /**
  * Use this class to pass the unavailable time slots to the lxscheduler.ServiceResourceSchedule class. Timezones that differ across operating hours are handled and results are always returned in UTC.
  */
-global class UnavailableTimeslot {
+global with sharing class UnavailableTimeslot {
+    /**
+     * End time of an unavailable time slot.
+     * <p>Datetime
+     */
+    global Datetime timeMax { get; set; }
+    /**
+     * Start time of an unavailable time slot.
+     * <p>Datetime
+     */
+    global Datetime timeMin { get; set; }
 
-  global UnavailableTimeslot(Datetime timeMin, Datetime timeMax) {}
+    /**
+     * Creates an instance of lxscheduler.UnavailableTimeslot class.
+     */
+    global Object UnavailableTimeslot(Datetime timeMin, Datetime timeMax) { return null; }
 
-  global Datetime timeMax;
+    global virtual Boolean equals(Object o) { return false; }
 
-  global Datetime timeMin;
+    global virtual Integer hashCode() { return 0; }
 
-  global Object clone() {}
-
+    global override virtual String toString() { return null; }
 }

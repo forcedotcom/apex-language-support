@@ -1,23 +1,21 @@
 global class ResponseMetadata {
+    global Object ResponseMetadata() { return null; }
 
-  global ResponseMetadata() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global List<String> getMessages() {}
+    global List getMessages() { return null; }
 
-  global String getNextCursor() {}
+    global String getNextCursor() { return null; }
 
-  global Slack.ResponseMetadata getResponseMetadata() {}
+    global List getWarnings() { return null; }
 
-  global List<String> getWarnings() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global void setMessages(List<String> messages) {}
+    global void setMessages(List messages) { }
 
-  global void setNextCursor(String nextCursor) {}
+    global void setNextCursor(String nextCursor) { }
 
-  global void setResponseMetadata(Slack.ResponseMetadata responseMetadata) {}
+    global void setWarnings(List warnings) { }
 
-  global void setWarnings(List<String> warnings) {}
-
-  global Object clone() {}
-
+    global override String toString() { return null; }
 }

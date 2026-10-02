@@ -2,15 +2,34 @@
  * Contains constructors and methods to retrieve the buyer groups associated with a user.
  */
 global class BuyerGroupResponse {
+    /**
+     * Creates a new instance of the CommerceBuyGrp.BuyerGroupResponse class.
+     */
+    global Object BuyerGroupResponse() { return null; }
 
-  global BuyerGroupResponse(Set<String> buyerGroupIds) {}
+    /**
+     * Creates a new instance of the CommerceBuyGrp.BuyerGroupResponse class using the specified buyerGroupIds payload parameter.
+     */
+    global Object BuyerGroupResponse(Set buyerGroupIds) { return null; }
 
-  global Set<String> getBuyerGroupIds() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global void setBuyerGroupIds(Set<String> buyerGroupIds) {}
+    /**
+     * Retrieves a list of evaluated buyer group IDs assigned to a user.
+     */
+    global Set getBuyerGroupIds() { return null; }
 
-  global void setError(String errorMessage, String localizedErrorMessage) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Object clone() {}
+    /**
+     * Sets a list of evaluated buyer group IDs assigned to a user.
+     */
+    global void setBuyerGroupIds(Set buyerGroupIds) { }
 
+    /**
+     * Sets the error message to be returned when the evaluation of buyer group IDs fails.
+     */
+    global void setError(String errorMessage, String localizedErrorMessage) { }
+
+    global override virtual String toString() { return null; }
 }

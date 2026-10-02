@@ -1,28 +1,76 @@
 /**
  * Represents a payment that occurs on a regular basis.
  */
-global class RecurringTiming {
+global with sharing class RecurringTiming extends RichMessaging.AbstractTiming {
+    /**
+     * The end date. Enabled for Lightning components.
+     * <p>Date
+     */
+    @InvocableVariable
+    global Date endDateValue;
+    /**
+     * The number of interval units that make up the total payment interval. Enabled for Lightning components.
+     * <p>Integer
+     */
+    @InvocableVariable
+    global Integer intervalCountValue;
+    /**
+     * The amount of time—in calendar units, such as day, month, or year—that represents a fraction of the total payment interval. Enabled for Lightning components.
+     * <p>RichMessaging.TimingIntervalUnit
+     */
+    @InvocableVariable
+    global RichMessaging.TimingIntervalUnit intervalUnitValue;
+    /**
+     * The start date. Enabled for Lightning components.
+     * <p>Date
+     */
+    @InvocableVariable
+    global Date startDateValue;
 
-  global RecurringTiming(Date startDate, Date endDate, Integer intervalCount, RichMessaging.TimingIntervalUnit intervalUnit) {}
+    /**
+     * The end date. Invocable variable.
+     * <p>Date
+     */
+    @AuraEnabled
+    global Date endDate { get; set; }
+    /**
+     * The number of interval units that make up the total payment interval. Invocable variable.
+     * <p>Integer
+     */
+    @AuraEnabled
+    global Integer intervalCount { get; set; }
+    /**
+     * The amount of time—in calendar units, such as day, month, or year—that represents a fraction of the total payment interval. Invocable variable.
+     * <p>String
+     */
+    @AuraEnabled
+    global String intervalUnit { get; set; }
+    /**
+     * The start date. Invocable variable.
+     * <p>Date
+     */
+    @AuraEnabled
+    global Date startDate { get; set; }
+    /**
+     * Always returns “RecurringTiming”.
+     * <p>String
+     */
+    @AuraEnabled
+    global String timingType { get; }
 
-  global Date endDate;
+    /**
+     * Creates a new instance of the RichMessaging.RecurringTiming class.
+     */
+    global Object RecurringTiming() { return null; }
 
-  global Date endDateValue;
+    /**
+     * Creates a new instance of the RichMessaging.RecurringTiming class.
+     */
+    global Object RecurringTiming(Date startDate, Date endDate, Integer intervalCount, RichMessaging.TimingIntervalUnit intervalUnit) { return null; }
 
-  global Integer intervalCount;
+    global virtual Boolean equals(Object o) { return false; }
 
-  global Integer intervalCountValue;
+    global virtual Integer hashCode() { return 0; }
 
-  global String intervalUnit;
-
-  global RichMessaging.TimingIntervalUnit intervalUnitValue;
-
-  global Date startDate;
-
-  global Date startDateValue;
-
-  global String timingType;
-
-  global Object clone() {}
-
+    global override virtual String toString() { return null; }
 }

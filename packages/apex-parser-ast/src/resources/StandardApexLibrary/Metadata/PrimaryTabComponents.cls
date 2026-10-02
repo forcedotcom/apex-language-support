@@ -1,18 +1,25 @@
 /**
  * Represents custom console components on primary tabs in the Salesforce console.
+ * <p>Usage
+ * Use this class when accessing Metadata.Layout metadata components. For more information, see “PrimaryTabComponents” in the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.api_meta.meta/api_meta/meta_intro.htm" target="_blank">Metadata API Developer Guide</a>.
  */
-global class PrimaryTabComponents {
+global class PrimaryTabComponents extends Metadata.MetadataValue {
+    /**
+     * Represents a custom console component (Visualforce page, lookup field, or related lists) on a section of a page layout.
+     * <p>List<Metadata.ConsoleComponent>
+     */
+    global List component { get; set; }
+    /**
+     * Represents a location and style in which to display more than one custom console component on the sidebars of the Salesforce console.
+     * <p>List<Metadata.Container>
+     */
+    global List containers { get; set; }
 
-  global PrimaryTabComponents() {}
+    global Object PrimaryTabComponents() { return null; }
 
-  global List<Metadata.ConsoleComponent> component;
+    global virtual Boolean equals(Object o) { return false; }
 
-  global List<Metadata.Container> containers;
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Makes a duplicate copy of the Metadata.PrimaryTabComponents .
-   * @return Object
-   */
-  global Object clone() {}
-
+    global override virtual String toString() { return null; }
 }

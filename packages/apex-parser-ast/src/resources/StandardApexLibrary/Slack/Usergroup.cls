@@ -1,193 +1,113 @@
 global class Usergroup {
+    global Object Usergroup() { return null; }
 
-  global Usergroup() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global String getAutoType() {}
+    global String getAutoType() { return null; }
 
-  global Integer getChannelCount() {}
+    global Integer getChannelCount() { return 0; }
 
-  global String getCreatedBy() {}
+    global String getCreatedBy() { return null; }
 
-  global Integer getDateCreate() {}
+    global Integer getDateCreate() { return 0; }
 
-  global Integer getDateDelete() {}
+    global Integer getDateDelete() { return 0; }
 
-  global Integer getDateUpdate() {}
+    global Integer getDateUpdate() { return 0; }
 
-  global String getDeletedBy() {}
+    global String getDeletedBy() { return null; }
 
-  global String getDescription() {}
+    global String getDescription() { return null; }
 
-  global String getEnterpriseSubteamId() {}
+    global String getEnterpriseSubteamId() { return null; }
 
-  global String getHandle() {}
+    global String getHandle() { return null; }
 
-  global String getId() {}
+    global String getId() { return null; }
 
-  global String getName() {}
+    global String getName() { return null; }
 
-  global Slack.Usergroup.Prefs getPrefs() {}
+    global Slack.Usergroup.Prefs getPrefs() { return null; }
 
-  global String getTeamId() {}
+    global String getTeamId() { return null; }
 
-  global String getUpdatedBy() {}
+    global String getUpdatedBy() { return null; }
 
-  global Integer getUserCount() {}
+    global Integer getUserCount() { return 0; }
 
-  global List<String> getUsers() {}
+    global List getUsers() { return null; }
 
-  global Boolean isAutoProvision() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Boolean isExternal() {}
+    global Boolean isAutoProvision() { return false; }
 
-  global Boolean isSubteam() {}
+    global Boolean isExternal() { return false; }
 
-  global Boolean isUsergroup() {}
+    global Boolean isSubteam() { return false; }
 
-  global void setAutoProvision(Boolean autoProvision) {}
+    global Boolean isUsergroup() { return false; }
 
-  global void setAutoType(String autoType) {}
+    global void setAutoProvision(Boolean autoProvision) { }
 
-  global void setChannelCount(Integer channelCount) {}
+    global void setAutoType(String autoType) { }
 
-  global void setCreatedBy(String createdBy) {}
+    global void setChannelCount(Integer channelCount) { }
 
-  global void setDateCreate(Integer dateCreate) {}
+    global void setCreatedBy(String createdBy) { }
 
-  global void setDateDelete(Integer dateDelete) {}
+    global void setDateCreate(Integer dateCreate) { }
 
-  global void setDateUpdate(Integer dateUpdate) {}
+    global void setDateDelete(Integer dateDelete) { }
 
-  global void setDeletedBy(String deletedBy) {}
+    global void setDateUpdate(Integer dateUpdate) { }
 
-  global void setDescription(String description) {}
+    global void setDeletedBy(String deletedBy) { }
 
-  global void setEnterpriseSubteamId(String enterpriseSubteamId) {}
+    global void setDescription(String description) { }
 
-  global void setExternal(Boolean external) {}
+    global void setEnterpriseSubteamId(String enterpriseSubteamId) { }
 
-  global void setHandle(String handle) {}
+    global void setExternal(Boolean external) { }
 
-  global void setId(String id) {}
+    global void setHandle(String handle) { }
 
-  global void setName(String name) {}
+    global void setId(String id) { }
 
-  global void setPrefs(Slack.Usergroup.Prefs prefs) {}
+    global void setName(String name) { }
 
-  global void setSubteam(Boolean subteam) {}
+    global void setPrefs(Slack.Usergroup.Prefs prefs) { }
 
-  global void setTeamId(String teamId) {}
+    global void setSubteam(Boolean subteam) { }
 
-  global void setUpdatedBy(String updatedBy) {}
+    global void setTeamId(String teamId) { }
 
-  global void setUserCount(Integer userCount) {}
+    global void setUpdatedBy(String updatedBy) { }
 
-  global void setUsergroup(Boolean usergroup) {}
+    global void setUserCount(Integer userCount) { }
 
-  global void setUsers(List<String> users) {}
+    global void setUsergroup(Boolean usergroup) { }
 
-  global List<String> getChannels() {}
+    global void setUsers(List users) { }
 
-  global List<String> getGroups() {}
+    global override String toString() { return null; }
 
-  global void setChannels(List<String> channels) {}
+    global class Prefs {
+        global Object Prefs() { return null; }
 
-  global void setGroups(List<String> groups) {}
+        global Slack.Usergroup.Prefs clone() { return null; }
 
-  global static Slack.UsergroupsCreateRequest.Builder builder() {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global Slack.UsergroupsCreateRequest build() {}
+        global List getChannels() { return null; }
 
-  global Slack.UsergroupsCreateRequest.Builder channels(List<String> channels) {}
+        global List getGroups() { return null; }
 
-  global Slack.UsergroupsCreateRequest.Builder description(String description) {}
+        global virtual Integer hashCode() { return 0; }
 
-  global Slack.UsergroupsCreateRequest.Builder handle(String handle) {}
+        global void setChannels(List channels) { }
 
-  global Slack.UsergroupsCreateRequest.Builder includeCount(Boolean includeCount) {}
+        global void setGroups(List groups) { }
 
-  global Slack.UsergroupsCreateRequest.Builder name(String name) {}
-
-  global Slack.UsergroupsCreateRequest.Builder teamId(String teamId) {}
-
-  global Slack.Usergroup getUsergroup() {}
-
-  global void setUsergroup(Slack.Usergroup usergroup) {}
-
-  global Slack.UsergroupsDisableRequest build() {}
-
-  global Slack.UsergroupsDisableRequest.Builder includeCount(Boolean includeCount) {}
-
-  global Slack.UsergroupsDisableRequest.Builder usergroup(String usergroup) {}
-
-  global Slack.UsergroupsDisableRequest.Builder teamId(String teamId) {}
-
-  global static Slack.UsergroupsDisableRequest.Builder builder() {}
-
-  global Slack.UsergroupsEnableRequest build() {}
-
-  global Slack.UsergroupsEnableRequest.Builder usergroup(String usergroup) {}
-
-  global static Slack.UsergroupsEnableRequest.Builder builder() {}
-
-  global Slack.UsergroupsEnableRequest.Builder teamId(String teamId) {}
-
-  global Slack.UsergroupsListRequest build() {}
-
-  global Slack.UsergroupsListRequest.Builder includeCount(Boolean includeCount) {}
-
-  global Slack.UsergroupsListRequest.Builder includeDisabled(Boolean includeDisabled) {}
-
-  global Slack.UsergroupsListRequest.Builder includeUsers(Boolean includeUsers) {}
-
-  global Slack.UsergroupsListRequest.Builder teamId(String teamId) {}
-
-  global static Slack.UsergroupsListRequest.Builder builder() {}
-
-  global List<Slack.Usergroup> getUsergroups() {}
-
-  global void setUsergroups(List<Slack.Usergroup> usergroups) {}
-
-  global Slack.UsergroupsUpdateRequest build() {}
-
-  global Slack.UsergroupsUpdateRequest.Builder channels(List<String> channels) {}
-
-  global Slack.UsergroupsUpdateRequest.Builder description(String description) {}
-
-  global Slack.UsergroupsUpdateRequest.Builder handle(String handle) {}
-
-  global Slack.UsergroupsUpdateRequest.Builder includeCount(Boolean includeCount) {}
-
-  global Slack.UsergroupsUpdateRequest.Builder name(String name) {}
-
-  global Slack.UsergroupsUpdateRequest.Builder teamId(String teamId) {}
-
-  global Slack.UsergroupsUpdateRequest.Builder usergroup(String usergroup) {}
-
-  global static Slack.UsergroupsUpdateRequest.Builder builder() {}
-
-  global Slack.UsergroupsUsersListRequest build() {}
-
-  global Slack.UsergroupsUsersListRequest.Builder includeDisabled(Boolean includeDisabled) {}
-
-  global Slack.UsergroupsUsersListRequest.Builder teamId(String teamId) {}
-
-  global Slack.UsergroupsUsersListRequest.Builder usergroup(String usergroup) {}
-
-  global static Slack.UsergroupsUsersListRequest.Builder builder() {}
-
-  global Slack.UsergroupsUsersUpdateRequest build() {}
-
-  global Slack.UsergroupsUsersUpdateRequest.Builder includeCount(Boolean includeCount) {}
-
-  global Slack.UsergroupsUsersUpdateRequest.Builder teamId(String teamId) {}
-
-  global Slack.UsergroupsUsersUpdateRequest.Builder usergroup(String usergroup) {}
-
-  global Slack.UsergroupsUsersUpdateRequest.Builder users(List<String> users) {}
-
-  global static Slack.UsergroupsUsersUpdateRequest.Builder builder() {}
-
-  global Object clone() {}
-
+        global override virtual String toString() { return null; }
+    }
 }

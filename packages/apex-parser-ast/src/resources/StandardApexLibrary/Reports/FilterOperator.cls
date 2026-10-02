@@ -2,21 +2,19 @@
  * Contains information about a filter operator, such as display name and API name.
  */
 global class FilterOperator {
+    global virtual Boolean equals(Object o) { return false; }
 
-  global FilterOperator() {}
+    /**
+     * Returns the localized display name of the filter operator. Possible values for this name are restricted based on the data type of the column being filtered.
+     */
+    global String getLabel() { return null; }
 
-  /**
-   * Returns the localized display name of the filter operator. Possible values for this name are restricted based on the data type of the column being filtered.
-   * @return String
-   */
-  global String getLabel() {}
+    /**
+     * Returns the unique API name of the filter operator. Possible values for this name are restricted based on the data type of the column being filtered.  For example multipicklist fields can use the following filter operators: “equals,” “not equal to,” “includes,” and “excludes.” Bucket fields are considered to be of the String type.
+     */
+    global String getName() { return null; }
 
-  /**
-   * Returns the unique API name of the filter operator. Possible values for this name are restricted based on the data type of the column being filtered. For example multipicklist fields can use the following filter operators: “equals,” “not equal to,” “includes,” and “excludes.” Bucket fields are considered to be of the String type.
-   * @return String
-   */
-  global String getName() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Object clone() {}
-
+    global override virtual String toString() { return null; }
 }

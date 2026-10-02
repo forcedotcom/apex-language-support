@@ -2,21 +2,19 @@
  * Contains information about a filter value, such as the display name and API name.
  */
 global class FilterValue {
+    global virtual Boolean equals(Object o) { return false; }
 
-  global FilterValue() {}
+    /**
+     * Returns the localized display name of the filter value. Possible values for this name are restricted based on the data type of the column being filtered.
+     */
+    global String getLabel() { return null; }
 
-  /**
-   * Returns the localized display name of the filter value. Possible values for this name are restricted based on the data type of the column being filtered.
-   * @return String
-   */
-  global String getLabel() {}
+    /**
+     * Returns the unique API name of the filter value. Possible values for this name are restricted based on the data type of the column being filtered.
+     */
+    global String getName() { return null; }
 
-  /**
-   * Returns the unique API name of the filter value. Possible values for this name are restricted based on the data type of the column being filtered.
-   * @return String
-   */
-  global String getName() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Object clone() {}
-
+    global override virtual String toString() { return null; }
 }

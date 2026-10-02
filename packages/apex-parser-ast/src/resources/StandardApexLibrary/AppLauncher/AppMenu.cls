@@ -2,28 +2,26 @@
  * Contains methods to set the appearance of apps in the App Launcher.
  */
 global class AppMenu {
+    global Object AppMenu() { return null; }
 
-  global AppMenu() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Shows or hides specific apps in the App Launcher.
-   * @param appMenuItemId The 15-character application ID value for an app. For more information, see the ApplicationId field for AppMenuItem or the AppMenuItemId field for UserAppMenuItem in the Salesforce Object Reference
-   * @param isVisible If true , the app is visible.
-   */
-  global static void setAppVisibility(Id appMenuItemId, Boolean isVisible) {}
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Sets the organization-wide default sort order for the App Launcher based on a List of app menu item IDs in the desired order.
-   * @param appIds A list of application ID values. For more information, see the ApplicationId field for AppMenuItem in the Salesforce Object Reference .
-   */
-  global static void setOrgSortOrder(List<Id> appIds) {}
+    /**
+     * Shows or hides specific apps in the App Launcher.
+     */
+    global static void setAppVisibility(Id appMenuItemId, Boolean isVisible) { }
 
-  /**
-   * Sets an individual user’s default sort order for the App Launcher based on a List of app menu item IDs in the desired order.
-   * @param appIds A list of application ID values. For more information, see the AppMenuItemId field for UserAppMenuItem in the Salesforce Object Reference .
-   */
-  global static void setUserSortOrder(List<Id> appIds) {}
+    /**
+     * Sets the organization-wide default sort order for the App Launcher based on a List of app menu item IDs in the desired order.
+     */
+    global static void setOrgSortOrder(List applicationIds) { }
 
-  global Object clone() {}
+    /**
+     * Sets an individual user’s default sort order for the App Launcher based on a List of app menu item IDs in the desired order.
+     */
+    global static void setUserSortOrder(List applicationIds) { }
 
+    global override virtual String toString() { return null; }
 }

@@ -2,69 +2,80 @@
  * Manage Experience Cloud sites.
  */
 global class Network {
+    /**
+     * Creates a new instance of the System.Network class.
+     */
+    global Object Network() { return null; }
 
-  global Network() {}
+    global static System.PageReference communitiesLanding() { return null; }
 
-  /**
-   * Returns a Page Reference to the default landing page for the Experience Cloud site. This is the first tab of the site.
-   * @return String
-   */
-  global static String communitiesLanding() {}
+    /**
+     * Asynchronously creates an Experience Cloud site user for the given account or contact and associates it with the site. This method processes requests in batches and then sends an email with login information to the user.
+     * @return Returns the UUID for the site user.
+     */
+    global static String createExternalUserAsync(SObject user, SObject contact, SObject account) { return null; }
 
-  global static String createExternalUserAsync(SObject user, SObject contact, SObject account) {}
+    /**
+     * Asynchronously creates case, lead, and custom object records. This method collects record creation requests and processes them in batches.
+     * @return Returns the UUID for the record created.
+     */
+    global static String createRecordAsync(String processType, SObject mbObject) { return null; }
 
-  global static String createRecordAsync(String processType, SObject mbObject) {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Returns a Page Reference to the default login page. StartURL is included as a query paremeter for where to redirect after a successful login.
-   * @param startURL 
-   * @return PageReference
-   */
-  global static PageReference forwardToAuthPage(String startURL) {}
+    global static System.PageReference forwardToAuthPage(String startUrl) { return null; }
 
-  /**
-   * Returns the absolute URL of the login page used by the Experience Cloud site.
-   * @param networkId The ID of the Experience Cloud site you’re retrieving this information for.
-   * @return String
-   */
-  global static String getLoginUrl(String networkId) {}
+    global static System.PageReference forwardToAuthPage(String startUrl, String displayType) { return null; }
 
-  /**
-   * Returns the absolute URL of the logout page used by the Experience Cloud site.
-   * @param networkId The ID of the Experience Cloud site you’re retrieving this information for.
-   * @return String
-   */
-  global static String getLogoutUrl(String networkId) {}
+    /**
+     * Returns the absolute URL of the login page used by the Experience Cloud site.
+     * <p>Usage
+     * Returns the full URL for the Lightning Platform or Experience Builder page used as the login page in the Experience Cloud site.
+     */
+    @AuraEnabled
+    global static String getLoginUrl(String networkId) { return null; }
 
-  /**
-   * Returns the user’s current Experience Cloud site.
-   * @return String
-   */
-  global static String getNetworkId() {}
+    /**
+     * Returns the absolute URL of the logout page used by the Experience Cloud site.
+     * <p>Usage
+     * Returns the full URL for the Lightning Platform page, Experience Builder page, or Web page used as the logout page in the Experience Cloud site.
+     */
+    global static String getLogoutUrl(String networkId) { return null; }
 
-  /**
-   * Returns the absolute URL of the self-registration page used by the Experience Cloud site.
-   * @param networkId The ID of the Experience Cloud site you’re retrieving this information for.
-   * @return String
-   */
-  global static String getSelfRegUrl(String networkId) {}
+    /**
+     * Returns the user’s current Experience Cloud site.
+     * <p>Usage
+     * If digital experiences isn’t enabled for the user’s org or the user is currently in the internal org, returns null.
+     */
+    @AuraEnabled
+    global static String getNetworkId() { return null; }
 
-  /**
-   * Maps the dashboards from the Salesforce Communities Management package onto each Experience Cloud site’s unconfigured dashboard settings. Returns the number of settings it configures.
-   * @return Integer
-   */
-  global static Integer loadAllPackageDefaultNetworkDashboardSettings() {}
+    /**
+     * Returns the absolute URL of the self-registration page used by the Experience Cloud site.
+     * <p>Usage
+     * Returns the full URL for the Lightning Platform or Experience Builder page used as the self-registration page in the Experience Cloud site.
+     */
+    global static String getSelfRegUrl(String networkId) { return null; }
 
-  /**
-   * Maps the Insights reports from the Salesforce Communities Management package onto each Experience Cloud site’s unconfigured Insights settings. Returns the number of settings it configures.
-   * @return Integer
-   */
-  global static Integer loadAllPackageDefaultNetworkPulseSettings() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Object clone() {}
+    /**
+     * Maps the dashboards from the Salesforce Communities Management package onto each Experience Cloud site’s unconfigured dashboard settings. Returns the number of settings it configures.
+     * <p>Usage
+     * If digital experiences is enabled, and the Salesforce Communities Management package is installed, maps the dashboards provided in the package onto each Experience Cloud site’s unconfigured dashboard settings. Returns the number of settings it configures. This method is invoked automatically during site creation and package installation, but isn’t typically invoked manually.
+     * If digital experiences isn’t enabled for the user’s org or the user is in the internal org, returns 0.
+     */
+    global static Integer loadAllPackageDefaultNetworkDashboardSettings() { return 0; }
 
-  global static System.PageReference forwardToAuthPage(String startUrl, String displayType) {}
+    /**
+     * Maps the Insights reports from the Salesforce Communities Management package onto each Experience Cloud site’s unconfigured Insights settings. Returns the number of settings it configures.
+     * <p>Usage
+     * If digital experiences is enabled, and the Salesforce Communities Management package is installed, maps the Insights reports provided in the package onto each Experience Cloud site’s unconfigured Insights settings. Returns the number of settings it configures. This method is invoked automatically during site creation and package installation, but isn’t typically invoked manually.
+     * If digital experiences isn’t enabled for the user’s org or the user is in the internal org, returns 0.
+     */
+    global static Integer loadAllPackageDefaultNetworkPulseSettings() { return 0; }
 
-  global static Integer loadAllPackageDefaultNetworkWorkspaceMetricSettings() {}
+    global static Integer loadAllPackageDefaultNetworkWorkspaceMetricSettings() { return 0; }
 
+    global override virtual String toString() { return null; }
 }
