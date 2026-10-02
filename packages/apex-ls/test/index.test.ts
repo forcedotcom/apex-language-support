@@ -825,6 +825,8 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           positionAt: () => ({ line: 0, character: 0 }),
           offsetAt: () => 0,
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -849,6 +851,8 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           positionAt: () => ({ line: 0, character: 0 }),
           offsetAt: () => 0,
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -870,6 +874,8 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           positionAt: () => ({ line: 0, character: 0 }),
           offsetAt: () => 0,
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -895,6 +901,8 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           positionAt: () => ({ line: 0, character: 0 }),
           offsetAt: () => 0,
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -917,6 +925,8 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           positionAt: () => ({ line: 0, character: 0 }),
           offsetAt: () => 0,
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -938,6 +948,8 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           positionAt: () => ({ line: 0, character: 0 }),
           offsetAt: () => 0,
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -961,6 +973,8 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           positionAt: () => ({ line: 0, character: 0 }),
           offsetAt: () => 0,
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -982,6 +996,8 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           positionAt: () => ({ line: 0, character: 0 }),
           offsetAt: () => 0,
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 

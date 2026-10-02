@@ -46,7 +46,9 @@ describe('JsonRpcConnection', () => {
   describe('sendRequest', () => {
     it('delegates to the underlying connection', async () => {
       const expected = { capabilities: {} };
-      (mockConn.sendRequest as jest.Mock<any>).mockResolvedValue(expected);
+      (
+        mockConn.sendRequest as jest.Mock<() => Promise<typeof expected>>
+      ).mockResolvedValue(expected);
 
       const result = await adapter.sendRequest('initialize', { processId: 1 });
 
@@ -59,9 +61,9 @@ describe('JsonRpcConnection', () => {
 
   describe('sendNotification', () => {
     it('delegates to the underlying connection', async () => {
-      (mockConn.sendNotification as jest.Mock<any>).mockResolvedValue(
-        undefined,
-      );
+      (
+        mockConn.sendNotification as jest.Mock<() => Promise<void>>
+      ).mockResolvedValue(undefined);
 
       await adapter.sendNotification('initialized', {});
 

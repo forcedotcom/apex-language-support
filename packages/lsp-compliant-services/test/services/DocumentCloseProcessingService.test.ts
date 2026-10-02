@@ -70,6 +70,8 @@ describe('DocumentCloseProcessingService', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -90,6 +92,8 @@ describe('DocumentCloseProcessingService', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -111,6 +115,8 @@ describe('DocumentCloseProcessingService', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -129,6 +135,8 @@ describe('DocumentCloseProcessingService', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 0,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -150,6 +158,8 @@ describe('DocumentCloseProcessingService', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1001,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -184,6 +194,8 @@ describe('DocumentCloseProcessingService', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -204,6 +216,8 @@ describe('DocumentCloseProcessingService', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -234,6 +248,8 @@ describe('DocumentCloseProcessingService', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -256,6 +272,8 @@ describe('DocumentCloseProcessingService', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -276,6 +294,8 @@ describe('DocumentCloseProcessingService', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -318,6 +338,8 @@ describe('DocumentCloseProcessingService', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -341,6 +363,8 @@ describe('DocumentCloseProcessingService', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -362,6 +386,8 @@ describe('DocumentCloseProcessingService', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -393,6 +419,8 @@ describe('DocumentCloseProcessingService', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       }));
 
