@@ -4254,6 +4254,117 @@ async function resolvePrepareRenameForField(
 }
 
 /**
+ * prepareRename for a METHOD (W-23631152). Mirror of resolvePrepareRenameForField
+ * gating on `kind === 'method'` so F2 opens the rename box on a method cursor.
+ * Before this, DispatchPrepareRename dispatched local → field only, so a method
+ * cursor returned null and — with `prepareProvider` advertised — VS Code treated
+ * the position as "can't rename here" even though renameMethod (W-23631132) can
+ * resolve it. This uses the same svc primitives resolveMethodRename uses (no
+ * accept/decline drift), returning the cursor-containing range (usage token or
+ * declaration) + placeholder, or null. Only user-owned Apex sources are
+ * renamable — a stdlib (`apexlib://`) DECLARATION is rejected even when the
+ * cursor sits on a usage in an editable file. prepareRename needs only the range
+ * + placeholder, so this mirrors the FIELD prepare (not the full method
+ * resolver, resolveMethodContextForCursor, which additionally computes
+ * signature/static-ness for the conflict walk).
+ */
+async function resolvePrepareRenameForMethod(
+  svc: RequestServices,
+  req: PositionReq,
+): Promise<{
+  range: {
+    start: { line: number; character: number };
+    end: { line: number; character: number };
+  };
+  placeholder: string;
+} | null> {
+  const uri = req.textDocument.uri;
+  try {
+    // Recompile + load referenced types so the cursor resolves (Stage 1).
+    const cursorTextAvailable = typeof req.content === 'string';
+    const cursorRecompiled = await recompileCursorFileAtFullDetail(
+      svc,
+      uri,
+      req.content,
+      { resolveCrossFileReferences: false },
+    );
+    if (!cursorRecompiled && !cursorTextAvailable) return null;
+    await loadReferencedTypesForFile(svc, uri);
+
+    // LSP (0-based line) → parser (1-based line, 0-based column).
+    const parserPosition = {
+      line: req.position.line + 1,
+      character: req.position.character,
+    };
+
+    // Resolve the cursor's declaration symbol to gate on BOTH kind and source
+    // provenance: only a method declared in a USER-OWNED Apex source is
+    // renamable. A stdlib (`apexlib://`) method must not be advertised as
+    // renamable, or F2 would open the rename box on something we cannot edit.
+    const symbol = await resolveCursorSymbol(svc, uri, parserPosition);
+    if (!symbol?.name) return null;
+    const kind = typeof symbol.kind === 'string' ? symbol.kind : undefined;
+    if (kind !== 'method') return null;
+    if (!isUserOwnedApexUri((symbol as { fileUri?: string }).fileUri)) {
+      return null;
+    }
+
+    // Prefer the usage token under the cursor; exactCursorReference narrows to it.
+    const references = await svc.symbolManager.getReferencesAtPosition(
+      uri,
+      parserPosition,
+    );
+    const selected = exactCursorReference(references ?? [], parserPosition);
+    let cursorRange = selected.reference?.location?.identifierRange;
+
+    // Else the cursor is on the declaration identifier itself.
+    if (!cursorRange) {
+      const declaration = await svc.symbolManager.getSymbolAtPosition(
+        uri,
+        parserPosition,
+        'precise',
+      );
+      cursorRange = declaration?.location?.identifierRange;
+    }
+
+    // Half-open containment: parser identifier ranges are [start, end), so a
+    // cursor AT endColumn sits one past the identifier and must be rejected —
+    // matching resolvePrepareRenameForLocal/Field. `positionInRange` uses an
+    // INCLUSIVE end (`> endColumn`), which would wrongly accept that cursor, so
+    // verify half-open containment here before returning any range.
+    const containsCursor = (r: OccurrenceRange): boolean => {
+      const afterStart =
+        r.startLine < parserPosition.line ||
+        (r.startLine === parserPosition.line &&
+          r.startColumn <= parserPosition.character);
+      const beforeEnd =
+        r.endLine > parserPosition.line ||
+        (r.endLine === parserPosition.line &&
+          r.endColumn > parserPosition.character);
+      return afterStart && beforeEnd;
+    };
+    if (!cursorRange || !containsCursor(cursorRange)) return null;
+
+    return {
+      range: {
+        start: {
+          line: cursorRange.startLine - 1,
+          character: cursorRange.startColumn,
+        },
+        end: {
+          line: cursorRange.endLine - 1,
+          character: cursorRange.endColumn,
+        },
+      },
+      placeholder: symbol.name,
+    };
+  } catch (err) {
+    emitWorkerLog('warn', `[PREPARE_RENAME] method failed for ${uri}: ${err}`);
+    return null;
+  }
+}
+
+/**
  * Resolve the field/property under the cursor to its declaring-type FQN AND
  * whether the field itself is effectively private (W-23631084 / W-23631086).
  * renameField needs BOTH: the declaring type anchors receiver disambiguation
@@ -5873,13 +5984,23 @@ const requestHandlers = {
       return resolveMethodRename(svc, req);
     },
   ),
-  // prepareRename for locals (W-23631080) + fields (W-23631087). Local path
-  // first; a field cursor falls through to the field path (else F2 can't open).
+  // Generalized prepareRename (W-23631152): dispatch local → field → method,
+  // mirroring the DispatchRename RESOLVE chain (local → field → method) so F2
+  // opens the rename box on every kind that renameResolve can service. Each
+  // path returns the identifier range + placeholder for its kind, or `null`
+  // (LSP: "nothing to rename") to fall through to the next — matching how the
+  // field/local paths surface an un-renamable cursor (they never throw a
+  // distinct error shape; a failed `canBeRenamed()`-style gate is simply a
+  // null, so no new error type is introduced here). TYPE prepareRename is
+  // deferred to Group 6 (renameType); append `?? (await
+  // resolvePrepareRenameForType(svc, req))` here when that lands — this is the
+  // extension seam.
   DispatchPrepareRename: requestHandler<PositionReq>(
     'DispatchPrepareRename',
     async (svc, req) =>
       (await resolvePrepareRenameForLocal(req)) ??
-      (await resolvePrepareRenameForField(svc, req)),
+      (await resolvePrepareRenameForField(svc, req)) ??
+      (await resolvePrepareRenameForMethod(svc, req)),
   ),
   DispatchImplementation: effectRequestHandler<PositionReq>(
     'DispatchImplementation',
