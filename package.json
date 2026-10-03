@@ -101,10 +101,10 @@
     "istanbul-lib-coverage": "^3.2.2",
     "istanbul-lib-report": "^3.0.1",
     "istanbul-reports": "^3.1.7",
-    "jest": "^30.5.0",
+    "jest": "^30.5.1",
     "jscpd": "^4.3.0",
     "jsonc-eslint-parser": "^2.4.0",
-    "knip": "^6.33.0",
+    "knip": "^6.37.0",
     "prettier": "^3.9.6",
     "rimraf": "^5.0.5",
     "semantic-release": "^25.0.9",
@@ -115,15 +115,15 @@
     "tsx": "^4.23.13",
     "typescript": "^5.8.2",
     "wireit": "^0.14.13",
-    "zod": "^4.6.2"
+    "zod": "^4.6.5"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.63.1",
+    "@rollup/rollup-linux-x64-gnu": "^4.63.3",
     "@rollup/rollup-linux-x64-musl": "^4.63.1"
   },
   "dependencies": {
     "vscode-languageserver-protocol": "^3.17.5",
-    "vscode-languageserver-textdocument": "^1.0.12",
+    "vscode-languageserver-textdocument": "^1.0.14",
     "vscode-uri": "^3.2.0"
   },
   "overrides": {

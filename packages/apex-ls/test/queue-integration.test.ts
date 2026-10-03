@@ -55,6 +55,8 @@ describe('Queue Integration in apex-ls', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1001,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -87,6 +89,8 @@ describe('Queue Integration in apex-ls', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -110,6 +114,8 @@ describe('Queue Integration in apex-ls', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1001,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -137,6 +143,8 @@ describe('Queue Integration in apex-ls', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -159,6 +167,8 @@ describe('Queue Integration in apex-ls', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -185,6 +195,8 @@ describe('Queue Integration in apex-ls', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -207,6 +219,8 @@ describe('Queue Integration in apex-ls', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -326,6 +340,8 @@ describe('Queue Integration in apex-ls', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       };
 
@@ -353,6 +369,8 @@ describe('Queue Integration in apex-ls', () => {
           positionAt: jest.fn(),
           offsetAt: jest.fn(),
           lineCount: 1,
+          getLineRange: jest.fn(),
+          getEOLCharacters: jest.fn(),
         },
       }));
 

@@ -43,11 +43,13 @@ describe('LanguageClientConnection', () => {
 
     mockClient = {
       sendRequest: jest.fn<any>(),
-      sendNotification: jest.fn<any>().mockResolvedValue(undefined),
+      sendNotification: jest
+        .fn<() => Promise<void>>()
+        .mockResolvedValue(undefined),
       onRequest: jest.fn<any>().mockReturnValue(disposable),
       onNotification: jest.fn<any>().mockReturnValue(disposable),
       isRunning: jest.fn<any>().mockReturnValue(true),
-      stop: jest.fn<any>().mockResolvedValue(undefined),
+      stop: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
       onDidChangeState: jest.fn<any>().mockReturnValue(disposable),
     };
 
@@ -59,7 +61,9 @@ describe('LanguageClientConnection', () => {
   describe('sendRequest', () => {
     it('delegates to the underlying client', async () => {
       const expected = { capabilities: {} };
-      mockClient.sendRequest.mockResolvedValue(expected);
+      (
+        mockClient.sendRequest as jest.Mock<() => Promise<typeof expected>>
+      ).mockResolvedValue(expected);
 
       const result = await adapter.sendRequest('initialize', { processId: 1 });
 

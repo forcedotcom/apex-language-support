@@ -183,7 +183,7 @@
     "@effect/platform-node": "^0.108.1",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/context-async-hooks": "^2.11.0",
-    "@opentelemetry/core": "^2.10.0",
+    "@opentelemetry/core": "^2.11.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.222.0",
     "@opentelemetry/resources": "^2.9.0",
     "@opentelemetry/sdk-trace-base": "^2.11.0",
@@ -195,7 +195,7 @@
     "effect": "^3.22.1",
     "fflate": "^0.8.3",
     "vscode-languageserver": "^9.0.1",
-    "vscode-languageserver-textdocument": "^1.0.12",
+    "vscode-languageserver-textdocument": "^1.0.14",
     "vscode-uri": "^3.2.0"
   },
   "devDependencies": {
