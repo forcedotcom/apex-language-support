@@ -85,7 +85,7 @@
  * }
  */
 global abstract class UserProvisioningPlugin implements Process.Plugin {
-    global Object UserProvisioningPlugin() { return null; }
+    global UserProvisioningPlugin() { }
 
     /**
      * Use this method to add more input and output parameters to those defined in the base class.

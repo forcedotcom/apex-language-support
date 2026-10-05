@@ -1,5 +1,5 @@
 global class DummyConnectorApexHandler extends UserProvisioning.UserProvisioningProcessHandler {
-    global Object DummyConnectorApexHandler() { return null; }
+    global DummyConnectorApexHandler() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

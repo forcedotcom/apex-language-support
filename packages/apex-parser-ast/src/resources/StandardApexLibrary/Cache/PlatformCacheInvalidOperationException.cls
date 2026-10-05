@@ -2,13 +2,13 @@
  * A cache put or remove call is made that is not allowed. For example, when calling put or remove inside a Visualforce constructor.
  */
 global class PlatformCacheInvalidOperationException extends cache.CacheException {
-    global Object PlatformCacheInvalidOperationException() { return null; }
+    global PlatformCacheInvalidOperationException() { }
 
-    global Object PlatformCacheInvalidOperationException(Exception null) { return null; }
+    global PlatformCacheInvalidOperationException(Exception null) { }
 
-    global Object PlatformCacheInvalidOperationException(String null) { return null; }
+    global PlatformCacheInvalidOperationException(String null) { }
 
-    global Object PlatformCacheInvalidOperationException(String null, Exception null) { return null; }
+    global PlatformCacheInvalidOperationException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

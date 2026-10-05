@@ -64,7 +64,7 @@ global class ConnectionParams {
      */
     global String username { get; set; }
 
-    global Object ConnectionParams() { return null; }
+    global ConnectionParams() { }
 
     global Boolean equals(Object obj) { return false; }
 

@@ -1,5 +1,5 @@
 global with sharing class Dags {
-    global Object Dags() { return null; }
+    global Dags() { }
 
     @AuraEnabled
     global static void deleteDag(String id) { }

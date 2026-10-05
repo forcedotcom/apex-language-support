@@ -5,7 +5,7 @@
  * CommercePayments.ReferencedRefundResponse refr = new CommercePayments.ReferencedRefundResponse();
  */
 global with sharing class ReferencedRefundResponse extends commercepayments.AbstractTransactionResponse {
-    global Object ReferencedRefundResponse() { return null; }
+    global ReferencedRefundResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

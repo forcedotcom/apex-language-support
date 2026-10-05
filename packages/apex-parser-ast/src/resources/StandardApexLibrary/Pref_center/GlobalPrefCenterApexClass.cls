@@ -1,5 +1,5 @@
 global class GlobalPrefCenterApexClass {
-    global Object GlobalPrefCenterApexClass() { return null; }
+    global GlobalPrefCenterApexClass() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

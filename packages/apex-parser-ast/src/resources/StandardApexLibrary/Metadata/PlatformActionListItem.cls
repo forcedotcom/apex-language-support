@@ -25,7 +25,7 @@ global class PlatformActionListItem extends Metadata.MetadataValue {
      */
     global String subtype { get; set; }
 
-    global Object PlatformActionListItem() { return null; }
+    global PlatformActionListItem() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

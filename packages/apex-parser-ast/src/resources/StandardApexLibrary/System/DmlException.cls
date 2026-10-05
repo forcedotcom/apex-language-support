@@ -2,13 +2,13 @@
  * Any problem with a DML statement, such as an insert statement missing a required field on a record.
  */
 global class DmlException extends Exception {
-    Object DmlException() { return null; }
+    global DmlException() { }
 
-    Object DmlException(Exception param1) { return null; }
+    global DmlException(Exception param1) { }
 
-    Object DmlException(String param1) { return null; }
+    global DmlException(String param1) { }
 
-    Object DmlException(String param1, Exception param2) { return null; }
+    global DmlException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

@@ -316,7 +316,7 @@ global class SaleRequest extends commercepayments.BaseRequest {
     /**
      * Constructor for defining an amount for the sale request. This constructor is intended for test usage and throws an exception if used outside of the Apex test context.
      */
-    global Object SaleRequest(Double amount) { return null; }
+    global SaleRequest(Double amount) { }
 
     /**
      * Compares this object with the specified object and returns true if both objects are equal; otherwise, returns false.

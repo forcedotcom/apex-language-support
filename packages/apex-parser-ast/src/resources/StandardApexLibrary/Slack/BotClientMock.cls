@@ -1,5 +1,5 @@
 global virtual class BotClientMock extends Slack.BotClient implements Slack.BotClientInterface {
-    global Object BotClientMock() { return null; }
+    global BotClientMock() { }
 
     global virtual Slack.AppsUninstallResponse appsUninstall(Slack.AppsUninstallRequest req) { return null; }
 

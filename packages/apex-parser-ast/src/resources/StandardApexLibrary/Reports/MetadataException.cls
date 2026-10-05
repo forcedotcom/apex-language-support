@@ -2,11 +2,11 @@
  * No selected report columns
  */
 global class MetadataException extends Exception {
-    global Object MetadataException() { return null; }
+    global MetadataException() { }
 
-    global Object MetadataException(Exception null) { return null; }
+    global MetadataException(Exception null) { }
 
-    global Object MetadataException(String null, Exception null) { return null; }
+    global MetadataException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

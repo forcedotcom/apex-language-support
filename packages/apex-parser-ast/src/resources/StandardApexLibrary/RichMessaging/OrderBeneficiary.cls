@@ -16,7 +16,7 @@ global with sharing class OrderBeneficiary {
     @AuraEnabled
     global String phone { get; set; }
 
-    global Object OrderBeneficiary() { return null; }
+    global OrderBeneficiary() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

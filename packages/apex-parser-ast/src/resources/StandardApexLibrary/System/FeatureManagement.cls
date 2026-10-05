@@ -5,7 +5,7 @@
  * The set methods (setPackageBooleanValue, setPackageDateValue, setPackageIntegerValue) use DML operations on setup sObjects. To learn more about mixing operations in a test, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_dml_non_mix_sobjects_test_methods.htm" target="_blank">Mixed DML Operations in Test Methods</a>.
  */
 global class FeatureManagement {
-    global Object FeatureManagement() { return null; }
+    global FeatureManagement() { }
 
     /**
      * Hides or reveals custom permissions, or reveals custom objects, in your subscriber’s org.

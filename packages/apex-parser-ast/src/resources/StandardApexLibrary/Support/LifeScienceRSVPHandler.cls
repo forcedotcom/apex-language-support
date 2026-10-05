@@ -1,5 +1,5 @@
 global with sharing class LifeScienceRSVPHandler implements Messaging.InboundEmailHandler {
-    global Object LifeScienceRSVPHandler() { return null; }
+    global LifeScienceRSVPHandler() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -25,7 +25,7 @@
  * </design:component>
  */
 global abstract class DynamicPickList {
-    global Object DynamicPickList() { return null; }
+    global DynamicPickList() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

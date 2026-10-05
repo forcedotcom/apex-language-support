@@ -16,7 +16,7 @@
  * }
  */
 global with sharing class JurisdictionResponse {
-    global Object JurisdictionResponse() { return null; }
+    global JurisdictionResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

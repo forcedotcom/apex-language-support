@@ -1,5 +1,5 @@
 global class ChatPostEphemeralResponse {
-    global Object ChatPostEphemeralResponse() { return null; }
+    global ChatPostEphemeralResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

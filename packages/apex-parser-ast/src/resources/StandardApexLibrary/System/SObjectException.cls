@@ -2,13 +2,13 @@
  * Any problem with sObject records, such as attempting to change a field in an update statement that can only be changed during insert.
  */
 global class SObjectException extends Exception {
-    Object SObjectException() { return null; }
+    global SObjectException() { }
 
-    Object SObjectException(Exception param1) { return null; }
+    global SObjectException(Exception param1) { }
 
-    Object SObjectException(String param1) { return null; }
+    global SObjectException(String param1) { }
 
-    Object SObjectException(String param1, Exception param2) { return null; }
+    global SObjectException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

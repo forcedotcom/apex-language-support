@@ -5,7 +5,7 @@
  * This class is available in API version 43.0 and later.
  */
 global class UserManagement {
-    global Object UserManagement() { return null; }
+    global UserManagement() { }
 
     /**
      * Deregisters an identity verification method. Use this method to let users delete an existing verification method.

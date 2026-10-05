@@ -5,7 +5,7 @@ global class Network {
     /**
      * Creates a new instance of the System.Network class.
      */
-    global Object Network() { return null; }
+    global Network() { }
 
     global static System.PageReference communitiesLanding() { return null; }
 

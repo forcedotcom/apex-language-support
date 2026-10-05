@@ -1,5 +1,5 @@
 global with sharing class UnreferencedRefundNotification extends commercepayments.BaseNotification {
-    global Object UnreferencedRefundNotification() { return null; }
+    global UnreferencedRefundNotification() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

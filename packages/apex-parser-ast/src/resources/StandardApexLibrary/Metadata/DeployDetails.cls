@@ -15,7 +15,7 @@ global class DeployDetails {
      */
     global List componentSuccesses { get; set; }
 
-    global Object DeployDetails() { return null; }
+    global DeployDetails() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

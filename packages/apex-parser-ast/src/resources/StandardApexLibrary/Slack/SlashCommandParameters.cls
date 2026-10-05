@@ -1,5 +1,5 @@
 global class SlashCommandParameters {
-    global Object SlashCommandParameters(String command, String text) { return null; }
+    global SlashCommandParameters(String command, String text) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

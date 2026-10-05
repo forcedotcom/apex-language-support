@@ -5,7 +5,7 @@ global with sharing class ZipReader {
     /**
      * Creates a new instance of the ZipReader class using the specified blob data.
      */
-    global Object ZipReader(Blob apexData) { return null; }
+    global ZipReader(Blob apexData) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

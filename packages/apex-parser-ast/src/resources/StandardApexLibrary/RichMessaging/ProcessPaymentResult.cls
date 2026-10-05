@@ -20,14 +20,14 @@ global class ProcessPaymentResult {
     /**
      * Creates a new instance of the RichMessaging.ProcessPaymentResult class.
      */
-    global Object ProcessPaymentResult(RichMessaging.ProcessPaymentResultStatus resultStatus) { return null; }
+    global ProcessPaymentResult(RichMessaging.ProcessPaymentResultStatus resultStatus) { }
 
     /**
      * Creates a new instance of the RichMessaging.ProcessPaymentResult class.
      */
-    global Object ProcessPaymentResult(RichMessaging.ProcessPaymentResultStatus resultStatus, String errorMessage) { return null; }
+    global ProcessPaymentResult(RichMessaging.ProcessPaymentResultStatus resultStatus, String errorMessage) { }
 
-    global Object ProcessPaymentResult(RichMessaging.ProcessPaymentResultStatus resultStatus, String errorMessage, String successMessage) { return null; }
+    global ProcessPaymentResult(RichMessaging.ProcessPaymentResultStatus resultStatus, String errorMessage, String successMessage) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

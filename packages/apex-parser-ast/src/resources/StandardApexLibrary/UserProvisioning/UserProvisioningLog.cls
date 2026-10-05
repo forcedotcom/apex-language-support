@@ -9,7 +9,7 @@
  * UserProvisioning.UserProvisioningLog.log(uprId, inputParamsStr);
  */
 global class UserProvisioningLog {
-    global Object UserProvisioningLog() { return null; }
+    global UserProvisioningLog() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

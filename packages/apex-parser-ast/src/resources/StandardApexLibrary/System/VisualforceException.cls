@@ -2,13 +2,13 @@
  * Any problem with a Visualforce page. For more information on Visualforce, see the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.pages.meta/pages/" target="_blank" title="Adobe Acrobat PDF (New Window)">Visualforce Developer Guide</a>.
  */
 global class VisualforceException extends Exception {
-    Object VisualforceException() { return null; }
+    global VisualforceException() { }
 
-    Object VisualforceException(Exception param1) { return null; }
+    global VisualforceException(Exception param1) { }
 
-    Object VisualforceException(String param1) { return null; }
+    global VisualforceException(String param1) { }
 
-    Object VisualforceException(String param1, Exception param2) { return null; }
+    global VisualforceException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

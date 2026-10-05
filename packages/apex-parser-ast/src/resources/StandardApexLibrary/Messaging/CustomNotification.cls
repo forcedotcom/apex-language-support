@@ -58,16 +58,16 @@ global class CustomNotification {
     /**
      * Creates a new instance of the Messaging.CustomNotification class.
      */
-    global Object CustomNotification() { return null; }
+    global CustomNotification() { }
 
     /**
      * Creates an instance of the Messaging.CustomNotification class using the specified parameters. When you use this constructor, you don’t need to call the various setter methods to define the custom notification attributes.
      * <p>Usage
      * A client may see a truncated notification title or body depending on the delivery channel or app, and how the Connect API notification parameters are configured. For more information on the trimMessages query parameter, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.chatterapi.meta/chatterapi/connect_resources_notifications_list.htm" target="_blank" title="HTML (New Window)">Notification </a>.
      */
-    global Object CustomNotification(String typeId, String sender, String title, String body, String targetId, String targetPageRef) { return null; }
+    global CustomNotification(String typeId, String sender, String title, String body, String targetId, String targetPageRef) { }
 
-    global Object CustomNotification(String typeId, String sender, String title, String body, String targetId, String targetPageRef, String actionGroup) { return null; }
+    global CustomNotification(String typeId, String sender, String title, String body, String targetId, String targetPageRef, String actionGroup) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

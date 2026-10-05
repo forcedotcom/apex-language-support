@@ -5,12 +5,12 @@ global class BucketFieldValue {
     /**
      * Creates an instance of the Reports.BucketFieldValue class. You can then set values by using the class’s set methods.
      */
-    global Object BucketFieldValue() { return null; }
+    global BucketFieldValue() { }
 
     /**
      * Creates an instance of the Reports.BucketFieldValue class using the specified parameters.
      */
-    global Object BucketFieldValue(String label, List sourceDimensionValues, Double rangeUpperBound) { return null; }
+    global BucketFieldValue(String label, List sourceDimensionValues, Double rangeUpperBound) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

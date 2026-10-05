@@ -1,5 +1,5 @@
 global abstract class PluginBatchable extends UserProvisioning.FlowProvisionBase implements Database.AllowsCallouts, Database.Batchable, Database.Stateful {
-    global Object PluginBatchable(List newRows) { return null; }
+    global PluginBatchable(List newRows) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

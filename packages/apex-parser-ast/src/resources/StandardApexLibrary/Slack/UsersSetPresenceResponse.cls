@@ -1,5 +1,5 @@
 global class UsersSetPresenceResponse {
-    global Object UsersSetPresenceResponse() { return null; }
+    global UsersSetPresenceResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

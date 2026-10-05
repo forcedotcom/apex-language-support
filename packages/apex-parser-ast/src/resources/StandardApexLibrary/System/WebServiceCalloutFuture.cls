@@ -1,5 +1,5 @@
 global abstract class WebServiceCalloutFuture {
-    global Object WebServiceCalloutFuture() { return null; }
+    global WebServiceCalloutFuture() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

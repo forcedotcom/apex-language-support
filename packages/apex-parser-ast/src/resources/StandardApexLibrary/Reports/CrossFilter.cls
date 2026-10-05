@@ -5,12 +5,12 @@ global class CrossFilter {
     /**
      * Creates an instance of the Reports.CrossFilter class. You can then set values by using the class’s set methods.
      */
-    global Object CrossFilter() { return null; }
+    global CrossFilter() { }
 
     /**
      * Creates an instance of the Reports.CrossFilter class using the specified parameters.
      */
-    global Object CrossFilter(List criteria, Boolean includesObject, String primaryEntityField, String relatedEntity, String relatedEntityJoinField) { return null; }
+    global CrossFilter(List criteria, Boolean includesObject, String primaryEntityField, String relatedEntity, String relatedEntityJoinField) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

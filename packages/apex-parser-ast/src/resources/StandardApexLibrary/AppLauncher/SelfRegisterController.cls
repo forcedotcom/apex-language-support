@@ -2,7 +2,7 @@
  * This class and its methods are for internal use only.
  */
 global class SelfRegisterController {
-    global Object SelfRegisterController() { return null; }
+    global SelfRegisterController() { }
 
     @AuraEnabled
     global static String commonSelfRegisterGetRedirectUrl(String firstname, String lastname, String email, String password, String confirmPassword, String accountId, String regConfirmUrl, String extraFields, String startUrl, Boolean includePassword, Boolean redirect, Boolean enableBuyer, String buyerParams) { return null; }

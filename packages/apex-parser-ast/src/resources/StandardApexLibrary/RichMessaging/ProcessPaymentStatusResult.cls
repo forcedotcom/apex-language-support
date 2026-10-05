@@ -7,11 +7,11 @@ global with sharing class ProcessPaymentStatusResult {
     @InvocableVariable
     global Boolean success;
 
-    global Object ProcessPaymentStatusResult() { return null; }
+    global ProcessPaymentStatusResult() { }
 
-    global Object ProcessPaymentStatusResult(Boolean success) { return null; }
+    global ProcessPaymentStatusResult(Boolean success) { }
 
-    global Object ProcessPaymentStatusResult(Boolean success, String errorMessage) { return null; }
+    global ProcessPaymentStatusResult(Boolean success, String errorMessage) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

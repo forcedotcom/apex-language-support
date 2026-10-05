@@ -28,7 +28,7 @@ global class ChatScheduleMessageRequest {
     global override String toString() { return null; }
 
     global class Builder {
-        global Object Builder() { return null; }
+        global Builder() { }
 
         global Slack.ChatScheduleMessageRequest.Builder attachmentsAsString(String attachmentsAsString) { return null; }
 

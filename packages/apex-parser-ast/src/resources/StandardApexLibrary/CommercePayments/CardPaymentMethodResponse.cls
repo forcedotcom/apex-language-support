@@ -2,7 +2,7 @@
  * This class contains details about the card payment method.
  */
 global with sharing class CardPaymentMethodResponse {
-    global Object CardPaymentMethodResponse() { return null; }
+    global CardPaymentMethodResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

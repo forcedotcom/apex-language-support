@@ -2,9 +2,9 @@
  * Contains the unique API name and display name for the report type.
  */
 global class ReportType {
-    global Object ReportType() { return null; }
+    global ReportType() { }
 
-    global Object ReportType(String type, String label) { return null; }
+    global ReportType(String type, String label) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

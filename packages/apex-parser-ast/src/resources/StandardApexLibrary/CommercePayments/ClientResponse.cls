@@ -1,5 +1,5 @@
 global with sharing class ClientResponse {
-    global Object ClientResponse(String token, Map response) { return null; }
+    global ClientResponse(String token, Map response) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

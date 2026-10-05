@@ -2,13 +2,13 @@
  * An illegal header argument was provided to an Apex REST call. For example, a call to the RestResponse.addHeader(name, value) method throws this exception if the header name is cookie.
  */
 global class InvalidHeaderException extends Exception {
-    global Object InvalidHeaderException() { return null; }
+    global InvalidHeaderException() { }
 
-    global Object InvalidHeaderException(Exception null) { return null; }
+    global InvalidHeaderException(Exception null) { }
 
-    global Object InvalidHeaderException(String null) { return null; }
+    global InvalidHeaderException(String null) { }
 
-    global Object InvalidHeaderException(String null, Exception null) { return null; }
+    global InvalidHeaderException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

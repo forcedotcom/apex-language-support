@@ -4,13 +4,13 @@
  * Can’t validate the JWT using a certificate, a public key, or the remote keys endpoint, depending on which method you use
  */
 global class JWTValidationException extends Exception {
-    global Object JWTValidationException() { return null; }
+    global JWTValidationException() { }
 
-    global Object JWTValidationException(Exception null) { return null; }
+    global JWTValidationException(Exception null) { }
 
-    global Object JWTValidationException(String message) { return null; }
+    global JWTValidationException(String message) { }
 
-    global Object JWTValidationException(String null, Exception null) { return null; }
+    global JWTValidationException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

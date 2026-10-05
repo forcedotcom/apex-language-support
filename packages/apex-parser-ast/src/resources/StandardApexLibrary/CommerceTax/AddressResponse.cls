@@ -22,7 +22,7 @@
  * addressesRes.setSoldTo(soldToAddress);
  */
 global with sharing class AddressResponse {
-    global Object AddressResponse() { return null; }
+    global AddressResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

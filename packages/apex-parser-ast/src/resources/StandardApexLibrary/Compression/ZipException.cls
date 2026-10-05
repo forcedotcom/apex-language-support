@@ -2,9 +2,9 @@
  * Any problem with the zip operations, such as a zip entry name isn’t found.
  */
 global class ZipException extends Exception {
-    global Object ZipException() { return null; }
+    global ZipException() { }
 
-    global Object ZipException(String null, Exception null) { return null; }
+    global ZipException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

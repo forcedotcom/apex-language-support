@@ -1,5 +1,5 @@
 global class TestEventService {
-    global Object TestEventService() { return null; }
+    global TestEventService() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

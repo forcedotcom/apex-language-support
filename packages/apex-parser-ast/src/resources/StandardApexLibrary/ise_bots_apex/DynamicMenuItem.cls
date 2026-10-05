@@ -64,7 +64,7 @@ global with sharing class DynamicMenuItem {
     @AuraEnabled
     global Date sortByDate { get; set; }
 
-    global Object DynamicMenuItem() { return null; }
+    global DynamicMenuItem() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -1,5 +1,5 @@
 global class Channel {
-    global Object Channel() { return null; }
+    global Channel() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -84,7 +84,7 @@
  * ]
  */
 global without sharing class GetAppointmentSlotsInput {
-    global Object GetAppointmentSlotsInput() { return null; }
+    global GetAppointmentSlotsInput() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

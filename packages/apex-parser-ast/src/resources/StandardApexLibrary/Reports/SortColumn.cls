@@ -2,9 +2,9 @@
  * Contains information about the sort column used in the report.
  */
 global class SortColumn {
-    global Object SortColumn() { return null; }
+    global SortColumn() { }
 
-    global Object SortColumn(String sortColumn, reports.ColumnSortOrder sortOrder) { return null; }
+    global SortColumn(String sortColumn, reports.ColumnSortOrder sortOrder) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

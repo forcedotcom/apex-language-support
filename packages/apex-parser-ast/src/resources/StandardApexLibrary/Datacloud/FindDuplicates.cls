@@ -2,7 +2,7 @@
  * Performs rule-based searches for duplicate records. The input is an array of sObjects. Each sObject represents a record you want to find duplicates of. The output identifies the detected duplicates for each input sObject based on active duplicate rules for the given object.
  */
 global class FindDuplicates {
-    global Object FindDuplicates() { return null; }
+    global FindDuplicates() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

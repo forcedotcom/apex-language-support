@@ -16,7 +16,7 @@ global with sharing class ServiceResourceSchedule {
     /**
      * Creates a new instance of lxscheduler.ServiceResourceSchedule class.
      */
-    global Object ServiceResourceSchedule(String serviceResourceId, Set unavailableTimeslots) { return null; }
+    global ServiceResourceSchedule(String serviceResourceId, Set unavailableTimeslots) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

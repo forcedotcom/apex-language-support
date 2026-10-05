@@ -1,5 +1,5 @@
 global class EmailDomainChangedEvent extends Slack.Event {
-    global Object EmailDomainChangedEvent() { return null; }
+    global EmailDomainChangedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

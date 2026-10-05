@@ -1,5 +1,5 @@
 global class CommerceStoreController {
-    global Object CommerceStoreController() { return null; }
+    global CommerceStoreController() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

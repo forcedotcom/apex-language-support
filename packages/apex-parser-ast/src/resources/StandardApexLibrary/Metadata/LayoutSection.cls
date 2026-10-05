@@ -35,7 +35,7 @@ global class LayoutSection extends Metadata.MetadataValue {
      */
     global Metadata.LayoutSectionStyle style { get; set; }
 
-    global Object LayoutSection() { return null; }
+    global LayoutSection() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

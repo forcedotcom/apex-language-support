@@ -19,7 +19,7 @@
  *         }
  */
 global with sharing class ReferencedRefundNotification extends commercepayments.BaseNotification {
-    global Object ReferencedRefundNotification() { return null; }
+    global ReferencedRefundNotification() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

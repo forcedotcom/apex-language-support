@@ -33,7 +33,7 @@ global with sharing class ReferencedRefundRequest extends commercepayments.Refun
     global String macAddress { get; set; }
     global String phone { get; set; }
 
-    global Object ReferencedRefundRequest(Double amount, String paymentId) { return null; }
+    global ReferencedRefundRequest(Double amount, String paymentId) { }
 
     global override virtual Boolean equals(Object obj) { return false; }
 

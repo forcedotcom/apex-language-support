@@ -1,5 +1,5 @@
 global class MessageDeletedEvent extends Slack.Event {
-    global Object MessageDeletedEvent() { return null; }
+    global MessageDeletedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -40,7 +40,7 @@ global class MessageDeletedEvent extends Slack.Event {
     global override String toString() { return null; }
 
     global class Edited {
-        global Object Edited() { return null; }
+        global Edited() { }
 
         global Slack.MessageDeletedEvent.Edited clone() { return null; }
 
@@ -60,7 +60,7 @@ global class MessageDeletedEvent extends Slack.Event {
     }
 
     global class Message {
-        global Object Message() { return null; }
+        global Message() { }
 
         global Slack.MessageDeletedEvent.Message clone() { return null; }
 

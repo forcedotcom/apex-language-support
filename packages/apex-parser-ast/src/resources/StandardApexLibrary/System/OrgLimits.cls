@@ -7,7 +7,7 @@
  * Limit values are updated asynchronously, in near-real-time.
  */
 global class OrgLimits {
-    global Object OrgLimits() { return null; }
+    global OrgLimits() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

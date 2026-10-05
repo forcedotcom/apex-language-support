@@ -14,7 +14,7 @@ global class FilesRemoteShareRequest {
     global override String toString() { return null; }
 
     global class Builder {
-        global Object Builder() { return null; }
+        global Builder() { }
 
         global Slack.FilesRemoteShareRequest build() { return null; }
 

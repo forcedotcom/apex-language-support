@@ -5,12 +5,12 @@ global class ReportCsf {
     /**
      * Creates an instance of the Reports.ReportCsf class. You can then set values by using the class’s set methods.
      */
-    global Object ReportCsf() { return null; }
+    global ReportCsf() { }
 
     /**
      * Creates an instance of the Reports.ReportCsf class using the specified parameters.
      */
-    global Object ReportCsf(String label, String description, reports.FormulaType formulaType, Integer decimalPlaces, String downGroup, reports.CsfGroupType downGroupType, String acrossGroup, reports.CsfGroupType acrossGroupType, String formula) { return null; }
+    global ReportCsf(String label, String description, reports.FormulaType formulaType, Integer decimalPlaces, String downGroup, reports.CsfGroupType downGroupType, String acrossGroup, reports.CsfGroupType acrossGroupType, String formula) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

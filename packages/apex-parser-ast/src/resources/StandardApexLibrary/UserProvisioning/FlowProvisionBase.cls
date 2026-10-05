@@ -1,5 +1,5 @@
 global abstract class FlowProvisionBase implements Database.AllowsCallouts, Database.Batchable, Database.Stateful {
-    global Object FlowProvisionBase(String uprId) { return null; }
+    global FlowProvisionBase(String uprId) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

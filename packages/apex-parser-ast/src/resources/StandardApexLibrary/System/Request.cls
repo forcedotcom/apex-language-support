@@ -19,7 +19,7 @@
  * //instead of checking System.isFuture() || System.isQueueable() || ...
  */
 global abstract with sharing class Request {
-    global Object Request() { return null; }
+    global Request() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -70,7 +70,7 @@ global class Event {
      */
     global String userId;
 
-    global Object Event(String organizationId, String userId, String entityName, String action, String resourceType, String entityId, Datetime timeStamp, Map data) { return null; }
+    global Event(String organizationId, String userId, String entityName, String action, String resourceType, String entityId, Datetime timeStamp, Map data) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -8,7 +8,7 @@
  * The values that are returned by the DataSource.Provider class determine which settings are available in the external data source definition in Salesforce. To access the external data source definition from Setup, enter External Data Sources in the Quick Find box, then select External Data Sources.
  */
 global abstract class Provider extends DataSource.DataSourceUtil {
-    global Object Provider() { return null; }
+    global Provider() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

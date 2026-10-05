@@ -43,7 +43,7 @@ global class DesignTimePageContext {
      */
     global String pageType { get; set; }
 
-    global Object DesignTimePageContext() { return null; }
+    global DesignTimePageContext() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

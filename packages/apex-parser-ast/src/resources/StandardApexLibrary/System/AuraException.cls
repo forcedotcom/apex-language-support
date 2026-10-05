@@ -2,13 +2,13 @@
  * Legacy Aura-related exception. Use System.AuraHandledException instead.
  */
 global class AuraException extends Exception {
-    Object AuraException() { return null; }
+    global AuraException() { }
 
-    Object AuraException(Exception param1) { return null; }
+    global AuraException(Exception param1) { }
 
-    Object AuraException(String param1) { return null; }
+    global AuraException(String param1) { }
 
-    Object AuraException(String param1, Exception param2) { return null; }
+    global AuraException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

@@ -1,5 +1,5 @@
 global abstract class UserProvisioningProcessHandler {
-    global Object UserProvisioningProcessHandler() { return null; }
+    global UserProvisioningProcessHandler() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

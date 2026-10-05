@@ -39,7 +39,7 @@ global with sharing class CaptureRequest extends commercepayments.BaseRequest {
     global String paymentAuthorizationId { get; set; }
     global String phone { get; set; }
 
-    global Object CaptureRequest(Double amount, String authorizationId) { return null; }
+    global CaptureRequest(Double amount, String authorizationId) { }
 
     global override virtual Boolean equals(Object obj) { return false; }
 

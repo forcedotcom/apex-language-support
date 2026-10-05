@@ -6,7 +6,7 @@
  * User user = [select id, AboutMe from User where id=:userId];
  */
 global class LoadParameters {
-    global Object LoadParameters() { return null; }
+    global LoadParameters() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

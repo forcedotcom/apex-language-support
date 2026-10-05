@@ -1,5 +1,5 @@
 global class ConversationsAcceptSharedInviteResponse {
-    global Object ConversationsAcceptSharedInviteResponse() { return null; }
+    global ConversationsAcceptSharedInviteResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

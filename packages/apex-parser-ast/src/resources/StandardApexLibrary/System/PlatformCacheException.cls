@@ -1,11 +1,11 @@
 global class PlatformCacheException extends Exception {
-    Object PlatformCacheException() { return null; }
+    global PlatformCacheException() { }
 
-    Object PlatformCacheException(Exception param1) { return null; }
+    global PlatformCacheException(Exception param1) { }
 
-    Object PlatformCacheException(String param1) { return null; }
+    global PlatformCacheException(String param1) { }
 
-    Object PlatformCacheException(String param1, Exception param2) { return null; }
+    global PlatformCacheException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

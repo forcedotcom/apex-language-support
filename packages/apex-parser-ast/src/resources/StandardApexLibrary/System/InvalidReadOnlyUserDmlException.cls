@@ -1,11 +1,11 @@
 global class InvalidReadOnlyUserDmlException extends Exception {
-    Object InvalidReadOnlyUserDmlException() { return null; }
+    global InvalidReadOnlyUserDmlException() { }
 
-    Object InvalidReadOnlyUserDmlException(Exception param1) { return null; }
+    global InvalidReadOnlyUserDmlException(Exception param1) { }
 
-    Object InvalidReadOnlyUserDmlException(String param1) { return null; }
+    global InvalidReadOnlyUserDmlException(String param1) { }
 
-    Object InvalidReadOnlyUserDmlException(String param1, Exception param2) { return null; }
+    global InvalidReadOnlyUserDmlException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

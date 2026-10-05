@@ -1,5 +1,5 @@
 global class SfdcOps {
-    global Object SfdcOps() { return null; }
+    global SfdcOps() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

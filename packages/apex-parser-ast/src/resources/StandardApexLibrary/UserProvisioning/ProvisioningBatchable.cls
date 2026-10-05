@@ -1,5 +1,5 @@
 global class ProvisioningBatchable extends UserProvisioning.PluginBatchable implements Database.AllowsCallouts, Database.Batchable, Database.Stateful {
-    global Object ProvisioningBatchable(List newRows) { return null; }
+    global ProvisioningBatchable(List newRows) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

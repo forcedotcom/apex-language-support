@@ -40,7 +40,7 @@ global class LeadConvert {
     /**
      * Creates a new instance of the Database.LeadConvert class.
      */
-    Object LeadConvert() { return null; }
+    global LeadConvert() { }
 
     global Boolean equals(Object obj) { return false; }
 

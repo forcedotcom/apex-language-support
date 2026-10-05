@@ -27,7 +27,7 @@
  *     }
  */
 global with sharing class AuthorizationReversalResponse extends commercepayments.AbstractTransactionResponse {
-    global Object AuthorizationReversalResponse() { return null; }
+    global AuthorizationReversalResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

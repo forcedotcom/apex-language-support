@@ -1,5 +1,5 @@
 global class ChannelHistoryChangedEvent extends Slack.Event {
-    global Object ChannelHistoryChangedEvent() { return null; }
+    global ChannelHistoryChangedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

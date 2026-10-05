@@ -2,13 +2,13 @@
  * Any problem with type conversions, such as attempting to convert the String 'a' to an Integer using the valueOf method.
  */
 global class TypeException extends Exception {
-    Object TypeException() { return null; }
+    global TypeException() { }
 
-    Object TypeException(Exception param1) { return null; }
+    global TypeException(Exception param1) { }
 
-    Object TypeException(String param1) { return null; }
+    global TypeException(String param1) { }
 
-    Object TypeException(String param1, Exception param2) { return null; }
+    global TypeException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

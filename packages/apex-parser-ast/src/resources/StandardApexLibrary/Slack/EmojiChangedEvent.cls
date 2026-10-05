@@ -1,5 +1,5 @@
 global class EmojiChangedEvent extends Slack.Event {
-    global Object EmojiChangedEvent() { return null; }
+    global EmojiChangedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

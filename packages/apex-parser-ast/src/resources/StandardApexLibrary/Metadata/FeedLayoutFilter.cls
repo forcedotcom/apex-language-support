@@ -20,7 +20,7 @@ global class FeedLayoutFilter extends Metadata.MetadataValue {
      */
     global Metadata.FeedItemTypeEnum feedItemType { get; set; }
 
-    global Object FeedLayoutFilter() { return null; }
+    global FeedLayoutFilter() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

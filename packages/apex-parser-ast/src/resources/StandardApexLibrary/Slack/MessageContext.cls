@@ -14,7 +14,7 @@ global class MessageContext {
     global override virtual String toString() { return null; }
 
     global class Builder {
-        global Object Builder() { return null; }
+        global Builder() { }
 
         global Slack.MessageContext build() { return null; }
 

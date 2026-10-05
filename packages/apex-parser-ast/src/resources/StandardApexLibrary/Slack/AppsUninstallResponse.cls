@@ -1,5 +1,5 @@
 global class AppsUninstallResponse {
-    global Object AppsUninstallResponse() { return null; }
+    global AppsUninstallResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

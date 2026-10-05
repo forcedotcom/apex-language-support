@@ -50,7 +50,7 @@ global with sharing class CalculateTaxRequest extends commercetax.TaxTransaction
     /**
      * This constructor is intended for test usage only and throws an exception if used outside of the Apex test context.
      */
-    global Object CalculateTaxRequest(commercetax.CalculateTaxType taxType) { return null; }
+    global CalculateTaxRequest(commercetax.CalculateTaxType taxType) { }
 
     /**
      * Maintains the integrity of lists of type CalculateTaxRequest by determining the equality of external objects in a list. This method is dynamic and is based on the equals() method in Java.

@@ -32,7 +32,7 @@ global class VerificationResult {
     /**
      * Creates an instance of the VerificationResult class that contains the verification result from System.UserManagement.verifySelfRegistration.
      */
-    global Object VerificationResult(System.PageReference redirect, Boolean success, String message) { return null; }
+    global VerificationResult(System.PageReference redirect, Boolean success, String message) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -175,7 +175,7 @@
 global class Org {
     global final static Integer MAX_TTL_SECS;
 
-    global Object Org() { return null; }
+    global Org() { }
 
     /**
      * Returns true if the org cache contains a cached value corresponding to the specified key.
@@ -437,13 +437,13 @@ global class Org {
      * An attempt is made to access a partition that doesn’t exist or whose name is invalid.
      */
     global virtual class OrgCacheException extends Exception {
-        global Object OrgCacheException() { return null; }
+        global OrgCacheException() { }
 
-        global Object OrgCacheException(Exception null) { return null; }
+        global OrgCacheException(Exception null) { }
 
-        global Object OrgCacheException(String msg) { return null; }
+        global OrgCacheException(String msg) { }
 
-        global Object OrgCacheException(String null, Exception null) { return null; }
+        global OrgCacheException(String null, Exception null) { }
 
         global cache.Org.OrgCacheException clone() { return null; }
 

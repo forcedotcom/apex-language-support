@@ -37,7 +37,7 @@ global class SummaryLayout extends Metadata.MetadataValue {
      */
     global Metadata.SummaryLayoutStyleEnum summaryLayoutStyle { get; set; }
 
-    global Object SummaryLayout() { return null; }
+    global SummaryLayout() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

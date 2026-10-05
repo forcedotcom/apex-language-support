@@ -1,5 +1,5 @@
 global class UserResourceDeniedEvent extends Slack.Event {
-    global Object UserResourceDeniedEvent() { return null; }
+    global UserResourceDeniedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

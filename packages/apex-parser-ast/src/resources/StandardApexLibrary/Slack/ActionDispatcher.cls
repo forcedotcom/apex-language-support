@@ -1,5 +1,5 @@
 global abstract class ActionDispatcher implements Slack.RequestDispatcher {
-    global Object ActionDispatcher() { return null; }
+    global ActionDispatcher() { }
 
     global virtual Boolean allowUnauthenticatedUsers() { return false; }
 

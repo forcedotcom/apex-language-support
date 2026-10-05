@@ -34,7 +34,7 @@ global class SingleEmailMessage extends Messaging.Email {
     /**
      * Creates a new instance of the Messaging.SingleEmailMessage class.
      */
-    Object SingleEmailMessage() { return null; }
+    global SingleEmailMessage() { }
 
     global Boolean equals(Object obj) { return false; }
 

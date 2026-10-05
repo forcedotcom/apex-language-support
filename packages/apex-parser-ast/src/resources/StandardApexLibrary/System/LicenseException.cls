@@ -1,11 +1,11 @@
 global class LicenseException extends Exception {
-    Object LicenseException() { return null; }
+    global LicenseException() { }
 
-    Object LicenseException(Exception param1) { return null; }
+    global LicenseException(Exception param1) { }
 
-    Object LicenseException(String param1) { return null; }
+    global LicenseException(String param1) { }
 
-    Object LicenseException(String param1, Exception param2) { return null; }
+    global LicenseException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

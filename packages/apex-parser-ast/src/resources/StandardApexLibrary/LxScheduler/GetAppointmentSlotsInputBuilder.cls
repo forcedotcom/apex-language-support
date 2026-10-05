@@ -3,7 +3,7 @@
  * <p>A Builder object is obtained by invoking one of the GetAppointmentSlotsInputBuilder methods defined by the GetAppointmentSlotsInput class.
  */
 global class GetAppointmentSlotsInputBuilder {
-    global Object GetAppointmentSlotsInputBuilder() { return null; }
+    global GetAppointmentSlotsInputBuilder() { }
 
     /**
      * Returns an instance of the lxscheduler.GetAppointmentSlotsInput object.

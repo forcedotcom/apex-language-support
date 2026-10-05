@@ -9,9 +9,9 @@ global with sharing class CatalogSection {
     @AuraEnabled
     global String title { get; set; }
 
-    global Object CatalogSection() { return null; }
+    global CatalogSection() { }
 
-    global Object CatalogSection(String title, List productIds) { return null; }
+    global CatalogSection(String title, List productIds) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

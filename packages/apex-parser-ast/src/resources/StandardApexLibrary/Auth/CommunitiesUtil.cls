@@ -11,7 +11,7 @@
  *     return new PageReference(HOME_URL);
  */
 global class CommunitiesUtil {
-    global Object CommunitiesUtil() { return null; }
+    global CommunitiesUtil() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -65,7 +65,7 @@
  *                  totalAmount+=lineItem.amount;
  */
 global with sharing class LineItemResponse {
-    global Object LineItemResponse() { return null; }
+    global LineItemResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

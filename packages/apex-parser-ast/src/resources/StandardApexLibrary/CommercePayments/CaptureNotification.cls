@@ -13,7 +13,7 @@
  *         }
  */
 global with sharing class CaptureNotification extends commercepayments.BaseNotification {
-    global Object CaptureNotification() { return null; }
+    global CaptureNotification() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

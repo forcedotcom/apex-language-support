@@ -1,5 +1,5 @@
 global class ReactionsListResponse {
-    global Object ReactionsListResponse() { return null; }
+    global ReactionsListResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -44,7 +44,7 @@ global class ReactionsListResponse {
     global override String toString() { return null; }
 
     global class Icons {
-        global Object Icons() { return null; }
+        global Icons() { }
 
         global Slack.ReactionsListResponse.Icons clone() { return null; }
 
@@ -72,7 +72,7 @@ global class ReactionsListResponse {
     }
 
     global class Item {
-        global Object Item() { return null; }
+        global Item() { }
 
         global Slack.ReactionsListResponse.Item clone() { return null; }
 
@@ -96,7 +96,7 @@ global class ReactionsListResponse {
     }
 
     global class Message {
-        global Object Message() { return null; }
+        global Message() { }
 
         global Slack.ReactionsListResponse.Message clone() { return null; }
 
@@ -228,7 +228,7 @@ global class ReactionsListResponse {
     }
 
     global class MessageRootReply {
-        global Object MessageRootReply() { return null; }
+        global MessageRootReply() { }
 
         global Slack.ReactionsListResponse.MessageRootReply clone() { return null; }
 
@@ -248,7 +248,7 @@ global class ReactionsListResponse {
     }
 
     global class UserProfile {
-        global Object UserProfile() { return null; }
+        global UserProfile() { }
 
         global Slack.ReactionsListResponse.UserProfile clone() { return null; }
 

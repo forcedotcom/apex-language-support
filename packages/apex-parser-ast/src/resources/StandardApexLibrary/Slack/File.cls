@@ -1,5 +1,5 @@
 global class File {
-    global Object File() { return null; }
+    global File() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -484,7 +484,7 @@ global class File {
     global override String toString() { return null; }
 
     global class Address {
-        global Object Address() { return null; }
+        global Address() { }
 
         global Slack.File.Address clone() { return null; }
 
@@ -508,7 +508,7 @@ global class File {
     }
 
     global class Headers {
-        global Object Headers() { return null; }
+        global Headers() { }
 
         global Slack.File.Headers clone() { return null; }
 
@@ -536,7 +536,7 @@ global class File {
     }
 
     global class MediaProgress {
-        global Object MediaProgress() { return null; }
+        global MediaProgress() { }
 
         global Slack.File.MediaProgress clone() { return null; }
 
@@ -560,7 +560,7 @@ global class File {
     }
 
     global class PinnedInfo {
-        global Object PinnedInfo() { return null; }
+        global PinnedInfo() { }
 
         global Slack.File.PinnedInfo clone() { return null; }
 
@@ -580,7 +580,7 @@ global class File {
     }
 
     global class ShareDetail {
-        global Object ShareDetail() { return null; }
+        global ShareDetail() { }
 
         global Slack.File.ShareDetail clone() { return null; }
 
@@ -628,7 +628,7 @@ global class File {
     }
 
     global class Shares {
-        global Object Shares() { return null; }
+        global Shares() { }
 
         global Slack.File.Shares clone() { return null; }
 
@@ -648,7 +648,7 @@ global class File {
     }
 
     global class Transcription {
-        global Object Transcription() { return null; }
+        global Transcription() { }
 
         global Slack.File.Transcription clone() { return null; }
 

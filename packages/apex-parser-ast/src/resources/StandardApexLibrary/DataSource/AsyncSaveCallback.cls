@@ -2,7 +2,7 @@
  * A callback class that the Database.insertAsync or Database.updateAsync method references. Salesforce calls this class after the remote operation is completed. This class provides the compensating transaction in the completion context of the insert or update operation. Extend this class to define the actions to execute after the remote insert or update operation finishes execution.
  */
 global abstract class AsyncSaveCallback implements DataSource.IAsyncSaveCallback {
-    global Object AsyncSaveCallback() { return null; }
+    global AsyncSaveCallback() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

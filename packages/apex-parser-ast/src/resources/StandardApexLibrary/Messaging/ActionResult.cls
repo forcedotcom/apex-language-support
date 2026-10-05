@@ -44,7 +44,7 @@ global class ActionResult {
      * See the example for the NotificationActionHandler Interface.
      */
     global class Builder {
-        global Object Builder() { return null; }
+        global Builder() { }
 
         /**
          * Validates and returns the action result instance created by using the ActionResult.Builder methods.

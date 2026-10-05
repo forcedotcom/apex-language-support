@@ -10,7 +10,7 @@
  * response.setAlternativePaymentMethod(alternativePaymentMethodResponse);
  */
 global with sharing class PaymentMethodDetailsResponse {
-    global Object PaymentMethodDetailsResponse() { return null; }
+    global PaymentMethodDetailsResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

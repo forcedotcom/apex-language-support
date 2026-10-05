@@ -1,11 +1,11 @@
 global class CanvasException extends Exception {
-    Object CanvasException() { return null; }
+    global CanvasException() { }
 
-    Object CanvasException(Exception param1) { return null; }
+    global CanvasException(Exception param1) { }
 
-    Object CanvasException(String param1) { return null; }
+    global CanvasException(String param1) { }
 
-    Object CanvasException(String param1, Exception param2) { return null; }
+    global CanvasException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

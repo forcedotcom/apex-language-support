@@ -2,13 +2,13 @@
  * Any problem with a list, such as attempting to access an index that is out of bounds.
  */
 global class ListException extends Exception {
-    Object ListException() { return null; }
+    global ListException() { }
 
-    Object ListException(Exception param1) { return null; }
+    global ListException(Exception param1) { }
 
-    Object ListException(String param1) { return null; }
+    global ListException(String param1) { }
 
-    Object ListException(String param1, Exception param2) { return null; }
+    global ListException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

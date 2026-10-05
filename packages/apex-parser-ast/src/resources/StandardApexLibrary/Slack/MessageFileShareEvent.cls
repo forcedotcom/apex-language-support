@@ -1,5 +1,5 @@
 global class MessageFileShareEvent extends Slack.Event {
-    global Object MessageFileShareEvent() { return null; }
+    global MessageFileShareEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

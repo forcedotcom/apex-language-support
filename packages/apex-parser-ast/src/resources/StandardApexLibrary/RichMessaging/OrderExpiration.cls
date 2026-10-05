@@ -12,7 +12,7 @@ global with sharing class OrderExpiration {
     @AuraEnabled
     global Long timestamp { get; set; }
 
-    global Object OrderExpiration() { return null; }
+    global OrderExpiration() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

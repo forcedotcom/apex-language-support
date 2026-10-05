@@ -20,7 +20,7 @@ global class FeedLayoutComponent extends Metadata.MetadataValue {
      */
     global String page_x { get; set; }
 
-    global Object FeedLayoutComponent() { return null; }
+    global FeedLayoutComponent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

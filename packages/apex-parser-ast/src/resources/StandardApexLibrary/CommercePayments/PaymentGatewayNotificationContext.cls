@@ -11,7 +11,7 @@
  * }
  */
 global with sharing class PaymentGatewayNotificationContext {
-    global Object PaymentGatewayNotificationContext(commercepayments.PaymentGatewayNotificationRequest request) { return null; }
+    global PaymentGatewayNotificationContext(commercepayments.PaymentGatewayNotificationRequest request) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

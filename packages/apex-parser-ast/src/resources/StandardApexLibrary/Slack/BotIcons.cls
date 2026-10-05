@@ -1,5 +1,5 @@
 global class BotIcons {
-    global Object BotIcons() { return null; }
+    global BotIcons() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

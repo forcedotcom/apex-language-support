@@ -94,7 +94,7 @@
  * }
  */
 global abstract class SoqlStubProvider {
-    global Object SoqlStubProvider() { return null; }
+    global SoqlStubProvider() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

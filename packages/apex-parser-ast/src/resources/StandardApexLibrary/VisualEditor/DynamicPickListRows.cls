@@ -5,17 +5,17 @@ global class DynamicPickListRows {
     /**
      * Creates an instance of the VisualEditor.DynamicPickListRows class. You can then add rows by using the class’s addRow or addAllRows methods.
      */
-    global Object DynamicPickListRows() { return null; }
+    global DynamicPickListRows() { }
 
     /**
      * Creates an instance of the VisualEditor.DynamicPickListRows class using the specified parameter.
      */
-    global Object DynamicPickListRows(List rows) { return null; }
+    global DynamicPickListRows(List rows) { }
 
     /**
      * Creates an instance of the VisualEditor.DynamicPickListRows class using the specified parameters.
      */
-    global Object DynamicPickListRows(List rows, Boolean containsAllRows) { return null; }
+    global DynamicPickListRows(List rows, Boolean containsAllRows) { }
 
     /**
      * Adds a list of picklist items to a dynamic picklist rendered in a Lightning component on a Lightning page.

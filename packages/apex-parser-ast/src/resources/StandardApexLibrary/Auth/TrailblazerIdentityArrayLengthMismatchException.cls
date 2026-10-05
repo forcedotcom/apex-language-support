@@ -1,11 +1,11 @@
 global virtual class TrailblazerIdentityArrayLengthMismatchException extends Exception {
-    global Object TrailblazerIdentityArrayLengthMismatchException() { return null; }
+    global TrailblazerIdentityArrayLengthMismatchException() { }
 
-    global Object TrailblazerIdentityArrayLengthMismatchException(Exception null) { return null; }
+    global TrailblazerIdentityArrayLengthMismatchException(Exception null) { }
 
-    global Object TrailblazerIdentityArrayLengthMismatchException(String msg) { return null; }
+    global TrailblazerIdentityArrayLengthMismatchException(String msg) { }
 
-    global Object TrailblazerIdentityArrayLengthMismatchException(String null, Exception null) { return null; }
+    global TrailblazerIdentityArrayLengthMismatchException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

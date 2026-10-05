@@ -40,7 +40,7 @@ global with sharing class OrderItemImporter {
     @AuraEnabled
     global String name { get; set; }
 
-    global Object OrderItemImporter() { return null; }
+    global OrderItemImporter() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

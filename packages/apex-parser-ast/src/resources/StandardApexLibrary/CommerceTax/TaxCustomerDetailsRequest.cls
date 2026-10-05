@@ -32,7 +32,7 @@ global with sharing class TaxCustomerDetailsRequest {
     /**
      * Initializes the TaxCustomerDetailsRequest object. This constructor is intended for test usage and throws an exception if used outside of the Apex test context.
      */
-    global Object TaxCustomerDetailsRequest(String accountId, String code, String exemptionNo, String exemptionReason) { return null; }
+    global TaxCustomerDetailsRequest(String accountId, String code, String exemptionNo, String exemptionReason) { }
 
     /**
      * Maintains the integrity of lists of type TaxCustomerDetailsRequest by determining the equality of external objects in a list. This method is dynamic and based on the equals() method in Java.

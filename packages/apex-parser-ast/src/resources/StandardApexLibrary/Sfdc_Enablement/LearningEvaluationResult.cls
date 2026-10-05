@@ -9,7 +9,7 @@
  * See example code in sfdc_enablement.LearningItemEvaluationHandler.
  */
 global class LearningEvaluationResult {
-    global Object LearningEvaluationResult() { return null; }
+    global LearningEvaluationResult() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

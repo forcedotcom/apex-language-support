@@ -167,7 +167,7 @@ global with sharing class BankPaymentMethodRequest extends commercepayments.Base
      */
     global commercepayments.StandardEntryClassCode standardEntryClassCode { get; set; }
 
-    global Object BankPaymentMethodRequest() { return null; }
+    global BankPaymentMethodRequest() { }
 
     /**
      * Maintains the integrity of lists of type BankPaymentMethodRequest by determining the equality of external objects in a list. This method is dynamic and based on the equals method in Java.

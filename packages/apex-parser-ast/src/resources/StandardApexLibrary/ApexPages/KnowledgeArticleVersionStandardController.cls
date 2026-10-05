@@ -76,7 +76,7 @@ global class KnowledgeArticleVersionStandardController extends ApexPages.Standar
     /**
      * Creates a new instance of the ApexPages.KnowledgeArticleVersionStandardController class using the specified knowledge article.
      */
-    Object KnowledgeArticleVersionStandardController(SObject sobject) { return null; }
+    global KnowledgeArticleVersionStandardController(SObject sobject) { }
 
     global void addFields(List fieldNames) { }
 

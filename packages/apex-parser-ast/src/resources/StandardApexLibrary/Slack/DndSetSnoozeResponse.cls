@@ -1,5 +1,5 @@
 global class DndSetSnoozeResponse {
-    global Object DndSetSnoozeResponse() { return null; }
+    global DndSetSnoozeResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

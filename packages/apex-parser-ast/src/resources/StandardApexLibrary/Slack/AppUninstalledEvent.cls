@@ -1,5 +1,5 @@
 global class AppUninstalledEvent extends Slack.Event {
-    global Object AppUninstalledEvent() { return null; }
+    global AppUninstalledEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

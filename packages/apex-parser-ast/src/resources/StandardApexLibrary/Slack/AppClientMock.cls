@@ -1,5 +1,5 @@
 global virtual class AppClientMock extends Slack.AppClient implements Slack.AppClientInterface {
-    global Object AppClientMock() { return null; }
+    global AppClientMock() { }
 
     global virtual Slack.AppsEventAuthorizationsListResponse appsEventAuthorizationsList(Slack.AppsEventAuthorizationsListRequest req) { return null; }
 

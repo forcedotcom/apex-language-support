@@ -1,5 +1,5 @@
 global class SharedChannelInviteAcceptedEvent extends Slack.Event {
-    global Object SharedChannelInviteAcceptedEvent() { return null; }
+    global SharedChannelInviteAcceptedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

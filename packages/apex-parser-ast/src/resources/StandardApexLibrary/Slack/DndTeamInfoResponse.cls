@@ -1,5 +1,5 @@
 global class DndTeamInfoResponse {
-    global Object DndTeamInfoResponse() { return null; }
+    global DndTeamInfoResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -36,7 +36,7 @@ global class DndTeamInfoResponse {
     global override String toString() { return null; }
 
     global class DndTeamMemberInfo {
-        global Object DndTeamMemberInfo() { return null; }
+        global DndTeamMemberInfo() { }
 
         global Slack.DndTeamInfoResponse.DndTeamMemberInfo clone() { return null; }
 

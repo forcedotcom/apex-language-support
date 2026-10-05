@@ -5,7 +5,7 @@ global class ProcessFormResponse {
     global Id messageSessionId;
     global Id messagingComponentId;
 
-    global Object ProcessFormResponse(Map formValues, Id messageSessionId, Id messagingComponentId, String externalResourceName, String inReplyToMessageId) { return null; }
+    global ProcessFormResponse(Map formValues, Id messageSessionId, Id messagingComponentId, String externalResourceName, String inReplyToMessageId) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

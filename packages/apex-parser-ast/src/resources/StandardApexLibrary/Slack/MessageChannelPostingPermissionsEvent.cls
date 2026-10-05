@@ -1,5 +1,5 @@
 global class MessageChannelPostingPermissionsEvent extends Slack.Event {
-    global Object MessageChannelPostingPermissionsEvent() { return null; }
+    global MessageChannelPostingPermissionsEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

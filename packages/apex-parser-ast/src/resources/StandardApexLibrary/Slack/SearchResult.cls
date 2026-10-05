@@ -1,5 +1,5 @@
 global class SearchResult {
-    global Object SearchResult() { return null; }
+    global SearchResult() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -28,7 +28,7 @@ global class SearchResult {
     global override String toString() { return null; }
 
     global class Pagination {
-        global Object Pagination() { return null; }
+        global Pagination() { }
 
         global Slack.SearchResult.Pagination clone() { return null; }
 

@@ -1,5 +1,5 @@
 global class RequestedApp {
-    global Object RequestedApp() { return null; }
+    global RequestedApp() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

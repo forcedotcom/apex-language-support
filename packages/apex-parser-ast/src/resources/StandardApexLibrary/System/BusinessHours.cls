@@ -2,7 +2,7 @@
  * Use the BusinessHours methods to set the business hours at which your customer support team operates.
  */
 global class BusinessHours {
-    global Object BusinessHours() { return null; }
+    global BusinessHours() { }
 
     global static Datetime add(Id businessHoursId, Datetime startDate, Long interval) { return null; }
 

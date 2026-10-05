@@ -1,5 +1,5 @@
 global class GroupUnarchiveEvent extends Slack.Event {
-    global Object GroupUnarchiveEvent() { return null; }
+    global GroupUnarchiveEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

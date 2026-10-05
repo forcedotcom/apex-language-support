@@ -1,5 +1,5 @@
 global class UPASCleaningBatchable implements Database.AllowsCallouts, Database.Batchable, Database.Stateful {
-    global Object UPASCleaningBatchable(String uprId) { return null; }
+    global UPASCleaningBatchable(String uprId) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

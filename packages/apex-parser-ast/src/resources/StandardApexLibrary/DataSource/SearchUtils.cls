@@ -4,7 +4,7 @@
  * We recommend that you develop your own search implementation that can search columns in addition to the designated name field.
  */
 global class SearchUtils {
-    global Object SearchUtils() { return null; }
+    global SearchUtils() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

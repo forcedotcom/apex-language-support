@@ -2,13 +2,13 @@
  * A generic handled exception.
  */
 global class HandledException extends Exception {
-    Object HandledException() { return null; }
+    global HandledException() { }
 
-    Object HandledException(Exception param1) { return null; }
+    global HandledException(Exception param1) { }
 
-    Object HandledException(String param1) { return null; }
+    global HandledException(String param1) { }
 
-    Object HandledException(String param1, Exception param2) { return null; }
+    global HandledException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

@@ -10,9 +10,9 @@ global class ProcessCatalogOrderRequest {
     @InvocableVariable
     global String messagingEndUserPlatformKey;
 
-    global Object ProcessCatalogOrderRequest() { return null; }
+    global ProcessCatalogOrderRequest() { }
 
-    global Object ProcessCatalogOrderRequest(String channelAddressIdentifier, String messagingEndUserPlatformKey, String catalogId, List catalogOrderLineItems, String idempotenceKey) { return null; }
+    global ProcessCatalogOrderRequest(String channelAddressIdentifier, String messagingEndUserPlatformKey, String catalogId, List catalogOrderLineItems, String idempotenceKey) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -4,7 +4,7 @@
  * To authenticate users via an authentication provider, you must create a class that implements the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_auth_plugin.htm" target="_blank">Auth.RegistrationHandler interface</a>. When a user logs in to Salesforce via a provider such as Facebook, they’re issued an access token and in some cases, a refresh token. To retrieve and revoke these tokens, use the methods in the Auth.AuthToken class.
  */
 global class AuthToken {
-    global Object AuthToken() { return null; }
+    global AuthToken() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

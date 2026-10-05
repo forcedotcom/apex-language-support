@@ -5,7 +5,7 @@ global class ProvisioningProcessHandlerInput {
     global webservice String userId;
     global webservice String userProvisioningRequestId;
 
-    global Object ProvisioningProcessHandlerInput(String userProvisioningRequestId, String userId, String namedCredDevName, String reconFilter, String reconOffset) { return null; }
+    global ProvisioningProcessHandlerInput(String userProvisioningRequestId, String userId, String namedCredDevName, String reconFilter, String reconOffset) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

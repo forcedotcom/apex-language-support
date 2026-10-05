@@ -18,7 +18,7 @@ global class ReactionsRemoveRequest {
     global override String toString() { return null; }
 
     global class Builder {
-        global Object Builder() { return null; }
+        global Builder() { }
 
         global Slack.ReactionsRemoveRequest build() { return null; }
 

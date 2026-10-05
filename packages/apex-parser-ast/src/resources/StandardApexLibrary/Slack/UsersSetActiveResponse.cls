@@ -1,5 +1,5 @@
 global class UsersSetActiveResponse {
-    global Object UsersSetActiveResponse() { return null; }
+    global UsersSetActiveResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

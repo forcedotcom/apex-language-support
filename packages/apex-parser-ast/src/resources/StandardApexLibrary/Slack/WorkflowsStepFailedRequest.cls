@@ -12,7 +12,7 @@ global class WorkflowsStepFailedRequest {
     global override String toString() { return null; }
 
     global class Builder {
-        global Object Builder() { return null; }
+        global Builder() { }
 
         global Slack.WorkflowsStepFailedRequest build() { return null; }
 

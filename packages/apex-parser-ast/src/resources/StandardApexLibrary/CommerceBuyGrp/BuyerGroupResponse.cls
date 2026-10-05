@@ -5,12 +5,12 @@ global class BuyerGroupResponse {
     /**
      * Creates a new instance of the CommerceBuyGrp.BuyerGroupResponse class.
      */
-    global Object BuyerGroupResponse() { return null; }
+    global BuyerGroupResponse() { }
 
     /**
      * Creates a new instance of the CommerceBuyGrp.BuyerGroupResponse class using the specified buyerGroupIds payload parameter.
      */
-    global Object BuyerGroupResponse(Set buyerGroupIds) { return null; }
+    global BuyerGroupResponse(Set buyerGroupIds) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

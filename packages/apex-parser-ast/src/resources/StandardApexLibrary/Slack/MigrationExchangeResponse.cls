@@ -1,5 +1,5 @@
 global class MigrationExchangeResponse {
-    global Object MigrationExchangeResponse() { return null; }
+    global MigrationExchangeResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

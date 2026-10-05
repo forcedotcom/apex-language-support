@@ -21,7 +21,7 @@ global class AuthRequestResult {
     /**
      * Creates a new instance of the RichMessaging.AuthRequestResult class.
      */
-    global Object AuthRequestResult(System.PageReference redirectPageReference, RichMessaging.AuthRequestResultStatus resultStatus, Datetime expirationDateTime) { return null; }
+    global AuthRequestResult(System.PageReference redirectPageReference, RichMessaging.AuthRequestResultStatus resultStatus, Datetime expirationDateTime) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

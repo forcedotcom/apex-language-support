@@ -1,5 +1,5 @@
 global class UsersDeletePhotoResponse {
-    global Object UsersDeletePhotoResponse() { return null; }
+    global UsersDeletePhotoResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

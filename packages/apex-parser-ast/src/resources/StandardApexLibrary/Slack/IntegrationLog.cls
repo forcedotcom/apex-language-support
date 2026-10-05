@@ -1,5 +1,5 @@
 global class IntegrationLog {
-    global Object IntegrationLog() { return null; }
+    global IntegrationLog() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

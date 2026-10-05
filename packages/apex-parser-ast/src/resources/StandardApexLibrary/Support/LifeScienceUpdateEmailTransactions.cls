@@ -1,5 +1,5 @@
 global with sharing class LifeScienceUpdateEmailTransactions {
-    global Object LifeScienceUpdateEmailTransactions() { return null; }
+    global LifeScienceUpdateEmailTransactions() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

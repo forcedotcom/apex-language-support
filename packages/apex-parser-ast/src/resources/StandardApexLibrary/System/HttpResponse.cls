@@ -34,7 +34,7 @@
  * }
  */
 global class HttpResponse {
-    Object HttpResponse() { return null; }
+    global HttpResponse() { }
 
     global Boolean equals(Object obj) { return false; }
 

@@ -28,7 +28,7 @@ global abstract with sharing class AuditParamsRequest implements commercepayment
     /**
      * This constructor is intended for test usage and throws an exception if used outside of the Apex test context.
      */
-    global Object AuditParamsRequest(String email, String ipAddress, String macAddress, String phone) { return null; }
+    global AuditParamsRequest(String email, String ipAddress, String macAddress, String phone) { }
 
     global virtual Boolean equals(Object obj) { return false; }
 

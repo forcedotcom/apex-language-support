@@ -5,7 +5,7 @@
  * See FunctionInvokeMock Example Implementation.
  */
 global class MockFunctionInvocationFactory {
-    global Object MockFunctionInvocationFactory() { return null; }
+    global MockFunctionInvocationFactory() { }
 
     /**
      * Generate a response for an error condition during mock testing of Salesforce Functions.

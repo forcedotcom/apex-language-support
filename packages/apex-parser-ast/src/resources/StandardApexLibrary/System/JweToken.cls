@@ -1,5 +1,5 @@
 global class JweToken {
-    global Object JweToken(String alg, String enc, Blob epk, Blob encrypted_key, Blob iv, Blob ciphertext, Blob tag, Blob aad) { return null; }
+    global JweToken(String alg, String enc, Blob epk, Blob encrypted_key, Blob iv, Blob ciphertext, Blob tag, Blob aad) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

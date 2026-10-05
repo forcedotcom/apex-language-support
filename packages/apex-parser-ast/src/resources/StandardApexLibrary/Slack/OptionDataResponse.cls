@@ -1,7 +1,7 @@
 global class OptionDataResponse {
-    global Object OptionDataResponse(List optionGroups) { return null; }
+    global OptionDataResponse(List optionGroups) { }
 
-    global Object OptionDataResponse(List options) { return null; }
+    global OptionDataResponse(List options) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

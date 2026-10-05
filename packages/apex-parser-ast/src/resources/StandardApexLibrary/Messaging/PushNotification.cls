@@ -43,9 +43,9 @@
  * }
  */
 global class PushNotification {
-    global Object PushNotification() { return null; }
+    global PushNotification() { }
 
-    global Object PushNotification(Map payload) { return null; }
+    global PushNotification(Map payload) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

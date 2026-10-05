@@ -40,7 +40,7 @@ global with sharing class AlternativePaymentMethodRequest extends commercepaymen
     /**
      * Creates a new instance of the CommercePayments.AlternativePaymentMethodRequest class.
      */
-    global Object AlternativePaymentMethodRequest(String gatewayToken) { return null; }
+    global AlternativePaymentMethodRequest(String gatewayToken) { }
 
     /**
      * Maintains the integrity of lists of type AlternativePaymentMethodRequest by determining the equality of external objects in a list. This method is dynamic and based on the equals method in Java.

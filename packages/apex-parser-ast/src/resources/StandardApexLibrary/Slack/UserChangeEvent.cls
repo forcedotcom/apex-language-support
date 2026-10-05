@@ -1,5 +1,5 @@
 global class UserChangeEvent extends Slack.Event {
-    global Object UserChangeEvent() { return null; }
+    global UserChangeEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

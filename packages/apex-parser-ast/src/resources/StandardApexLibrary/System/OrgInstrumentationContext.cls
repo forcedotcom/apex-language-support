@@ -1,5 +1,5 @@
 global class OrgInstrumentationContext {
-    global Object OrgInstrumentationContext(System.OrgMetricPublishTypeEnum publishType) { return null; }
+    global OrgInstrumentationContext(System.OrgMetricPublishTypeEnum publishType) { }
 
     global void end() { }
 

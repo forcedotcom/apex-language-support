@@ -81,12 +81,12 @@ global class TokenValidationResult {
     /**
      * Creates an instance of the Auth.TokenValidationResult class to describe a valid token validation result during the OAuth 2.0 token exchange flow.
      */
-    global Object TokenValidationResult(Boolean valid) { return null; }
+    global TokenValidationResult(Boolean valid) { }
 
     /**
      * Creates an instance of the Auth.TokenValidationResult class to describe the result of token validation performed during the OAuth 2.0 token exchange flow.
      */
-    global Object TokenValidationResult(Boolean isValid, Object data, Auth.UserData userData, String token, Auth.OAuth2TokenExchangeType tokenType, String customErrorMsg) { return null; }
+    global TokenValidationResult(Boolean isValid, Object data, Auth.UserData userData, String token, Auth.OAuth2TokenExchangeType tokenType, String customErrorMsg) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

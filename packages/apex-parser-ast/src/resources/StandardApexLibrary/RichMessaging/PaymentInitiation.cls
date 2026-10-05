@@ -48,7 +48,7 @@ global with sharing class PaymentInitiation {
     @AuraEnabled
     global RichMessaging.PaymentInitiationUpi upi { get; set; }
 
-    global Object PaymentInitiation() { return null; }
+    global PaymentInitiation() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

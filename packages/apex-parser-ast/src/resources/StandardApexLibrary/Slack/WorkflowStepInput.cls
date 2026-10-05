@@ -1,5 +1,5 @@
 global class WorkflowStepInput {
-    global Object WorkflowStepInput() { return null; }
+    global WorkflowStepInput() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

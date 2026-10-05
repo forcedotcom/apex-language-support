@@ -1,5 +1,5 @@
 global class FilesSharedPublicURLResponse {
-    global Object FilesSharedPublicURLResponse() { return null; }
+    global FilesSharedPublicURLResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

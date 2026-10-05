@@ -1,5 +1,5 @@
 global class Login {
-    global Object Login() { return null; }
+    global Login() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -10,7 +10,7 @@ global class QuickActionListItem extends Metadata.MetadataValue {
      */
     global String quickActionName { get; set; }
 
-    global Object QuickActionListItem() { return null; }
+    global QuickActionListItem() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

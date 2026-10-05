@@ -1,5 +1,5 @@
 global class StarsAddResponse {
-    global Object StarsAddResponse() { return null; }
+    global StarsAddResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

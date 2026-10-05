@@ -5,7 +5,7 @@ global with sharing class CustomTaxAttributesResponse {
     /**
      * Constructor to set additional data or custom attributes in the tax response.
      */
-    global Object CustomTaxAttributesResponse() { return null; }
+    global CustomTaxAttributesResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

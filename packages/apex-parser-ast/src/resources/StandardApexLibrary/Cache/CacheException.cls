@@ -1,11 +1,11 @@
 global virtual class CacheException extends Exception {
-    global Object CacheException() { return null; }
+    global CacheException() { }
 
-    global Object CacheException(Exception null) { return null; }
+    global CacheException(Exception null) { }
 
-    global Object CacheException(String msg) { return null; }
+    global CacheException(String msg) { }
 
-    global Object CacheException(String null, Exception null) { return null; }
+    global CacheException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

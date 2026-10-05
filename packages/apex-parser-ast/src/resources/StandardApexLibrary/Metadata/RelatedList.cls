@@ -15,7 +15,7 @@ global class RelatedList extends Metadata.MetadataValue {
      */
     global String name { get; set; }
 
-    global Object RelatedList() { return null; }
+    global RelatedList() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

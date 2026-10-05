@@ -8,7 +8,7 @@ global with sharing class PaymentsHttp {
     /**
      * Initiates an HTTP request and response.
      */
-    global Object PaymentsHttp() { return null; }
+    global PaymentsHttp() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

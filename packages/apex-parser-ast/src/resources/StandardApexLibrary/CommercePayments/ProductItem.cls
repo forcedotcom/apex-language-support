@@ -16,7 +16,7 @@ global class ProductItem {
     @AuraEnabled
     global Integer subscriptionTerm { get; set; }
 
-    global Object ProductItem() { return null; }
+    global ProductItem() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

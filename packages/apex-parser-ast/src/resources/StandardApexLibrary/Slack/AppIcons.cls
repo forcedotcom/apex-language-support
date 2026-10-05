@@ -1,5 +1,5 @@
 global class AppIcons {
-    global Object AppIcons() { return null; }
+    global AppIcons() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -6,11 +6,11 @@ global class ProcessCatalogOrderResult {
     @InvocableVariable
     global RichMessaging.ProcessCatalogOrderResultStatus resultStatus;
 
-    global Object ProcessCatalogOrderResult(RichMessaging.ProcessCatalogOrderResultStatus resultStatus) { return null; }
+    global ProcessCatalogOrderResult(RichMessaging.ProcessCatalogOrderResultStatus resultStatus) { }
 
-    global Object ProcessCatalogOrderResult(RichMessaging.ProcessCatalogOrderResultStatus resultStatus, String errorMessage) { return null; }
+    global ProcessCatalogOrderResult(RichMessaging.ProcessCatalogOrderResultStatus resultStatus, String errorMessage) { }
 
-    global Object ProcessCatalogOrderResult(RichMessaging.ProcessCatalogOrderResultStatus resultStatus, String errorMessage, String catalogOrderReferenceId) { return null; }
+    global ProcessCatalogOrderResult(RichMessaging.ProcessCatalogOrderResultStatus resultStatus, String errorMessage, String catalogOrderReferenceId) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

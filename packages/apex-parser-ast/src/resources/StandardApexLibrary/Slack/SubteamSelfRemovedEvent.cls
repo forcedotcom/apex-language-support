@@ -1,5 +1,5 @@
 global class SubteamSelfRemovedEvent extends Slack.Event {
-    global Object SubteamSelfRemovedEvent() { return null; }
+    global SubteamSelfRemovedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

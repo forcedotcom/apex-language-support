@@ -1,5 +1,5 @@
 global class YubiAuthForAloha {
-    global Object YubiAuthForAloha() { return null; }
+    global YubiAuthForAloha() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

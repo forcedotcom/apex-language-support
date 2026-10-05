@@ -25,9 +25,9 @@ global with sharing class PaymentTransaction {
     @InvocableVariable
     global Long updatedTimestamp;
 
-    global Object PaymentTransaction() { return null; }
+    global PaymentTransaction() { }
 
-    global Object PaymentTransaction(String orderId, String transactionId, String statusRaw, Long createdTimestamp, Long updatedTimestamp, RichMessaging.PaymentError error, List refunds) { return null; }
+    global PaymentTransaction(String orderId, String transactionId, String statusRaw, Long createdTimestamp, Long updatedTimestamp, RichMessaging.PaymentError error, List refunds) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

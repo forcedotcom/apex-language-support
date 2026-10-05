@@ -3,7 +3,7 @@ global class MergeRequest {
     global SObject masterrecord { get; set; }
     global List recordtomergeids { get; set; }
 
-    Object MergeRequest() { return null; }
+    global MergeRequest() { }
 
     global Boolean equals(Object obj) { return false; }
 

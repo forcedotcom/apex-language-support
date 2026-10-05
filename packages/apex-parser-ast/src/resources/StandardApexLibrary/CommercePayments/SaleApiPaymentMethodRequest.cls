@@ -24,12 +24,12 @@ global class SaleApiPaymentMethodRequest extends commercepayments.BaseApiPayment
     /**
      * Constructor for building a sale payment method request. This constructor is intended for test usage and throws an exception if used outside of the Apex test context.
      */
-    global Object SaleApiPaymentMethodRequest() { return null; }
+    global SaleApiPaymentMethodRequest() { }
 
     /**
      * Sends data related to a card payment method to a gateway adapter during a sale service call.
      */
-    global Object SaleApiPaymentMethodRequest(commercepayments.CardPaymentMethodRequest cardPaymentMethodRequest) { return null; }
+    global SaleApiPaymentMethodRequest(commercepayments.CardPaymentMethodRequest cardPaymentMethodRequest) { }
 
     /**
      * Maintains the integrity of lists of type SaleApiPaymentMethodRequest by determining the equality of external objects in a list. This method is dynamic and is based on the equals method in Java.

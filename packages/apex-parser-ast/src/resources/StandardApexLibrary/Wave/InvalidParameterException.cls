@@ -1,9 +1,9 @@
 global class InvalidParameterException extends Exception {
-    global Object InvalidParameterException() { return null; }
+    global InvalidParameterException() { }
 
-    global Object InvalidParameterException(Exception null) { return null; }
+    global InvalidParameterException(Exception null) { }
 
-    global Object InvalidParameterException(String null, Exception null) { return null; }
+    global InvalidParameterException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

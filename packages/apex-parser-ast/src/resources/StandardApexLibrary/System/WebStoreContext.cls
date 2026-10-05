@@ -1,5 +1,5 @@
 global class WebStoreContext {
-    global Object WebStoreContext() { return null; }
+    global WebStoreContext() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

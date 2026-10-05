@@ -70,7 +70,7 @@ global class DeployMessage {
      */
     global Boolean success { get; set; }
 
-    global Object DeployMessage() { return null; }
+    global DeployMessage() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

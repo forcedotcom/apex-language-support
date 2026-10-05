@@ -15,7 +15,7 @@ global class InboundEmailResult {
      */
     global webservice Boolean success;
 
-    global Object InboundEmailResult() { return null; }
+    global InboundEmailResult() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

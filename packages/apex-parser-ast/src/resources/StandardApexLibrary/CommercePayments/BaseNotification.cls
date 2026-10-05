@@ -13,7 +13,7 @@
  *         }
  */
 global abstract with sharing class BaseNotification extends commercepayments.AbstractTransactionResponse {
-    global Object BaseNotification() { return null; }
+    global BaseNotification() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

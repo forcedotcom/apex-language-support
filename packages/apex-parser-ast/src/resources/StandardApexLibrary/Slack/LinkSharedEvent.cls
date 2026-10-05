@@ -1,5 +1,5 @@
 global class LinkSharedEvent extends Slack.Event {
-    global Object LinkSharedEvent() { return null; }
+    global LinkSharedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -48,7 +48,7 @@ global class LinkSharedEvent extends Slack.Event {
     global override String toString() { return null; }
 
     global class Link {
-        global Object Link() { return null; }
+        global Link() { }
 
         global Slack.LinkSharedEvent.Link clone() { return null; }
 

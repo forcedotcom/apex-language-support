@@ -15,7 +15,7 @@ global class CustomConsoleComponents extends Metadata.MetadataValue {
      */
     global Metadata.SubtabComponents subtabComponents { get; set; }
 
-    global Object CustomConsoleComponents() { return null; }
+    global CustomConsoleComponents() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

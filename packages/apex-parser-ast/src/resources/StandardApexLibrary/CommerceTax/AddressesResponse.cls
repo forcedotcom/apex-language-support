@@ -24,7 +24,7 @@
  * addressesRes.setSoldTo(soldToAddress);
  */
 global with sharing class AddressesResponse {
-    global Object AddressesResponse() { return null; }
+    global AddressesResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -36,7 +36,7 @@ global with sharing class ZipWriter {
     /**
      * Creates a new instance of the ZipWriter class.
      */
-    global Object ZipWriter() { return null; }
+    global ZipWriter() { }
 
     /**
      * Adds a copy of the specified prototype entry to the zip file and includes details such as the zip entry name, comment, last modification time, and content.

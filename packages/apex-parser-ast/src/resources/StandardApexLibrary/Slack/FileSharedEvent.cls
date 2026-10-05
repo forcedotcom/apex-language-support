@@ -1,5 +1,5 @@
 global class FileSharedEvent extends Slack.Event {
-    global Object FileSharedEvent() { return null; }
+    global FileSharedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -32,7 +32,7 @@ global class FileSharedEvent extends Slack.Event {
     global override String toString() { return null; }
 
     global class File {
-        global Object File() { return null; }
+        global File() { }
 
         global Slack.FileSharedEvent.File clone() { return null; }
 

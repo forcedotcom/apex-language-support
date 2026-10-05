@@ -1,11 +1,11 @@
 global class ProcedureException extends Exception {
-    Object ProcedureException() { return null; }
+    global ProcedureException() { }
 
-    Object ProcedureException(Exception param1) { return null; }
+    global ProcedureException(Exception param1) { }
 
-    Object ProcedureException(String param1) { return null; }
+    global ProcedureException(String param1) { }
 
-    Object ProcedureException(String param1, Exception param2) { return null; }
+    global ProcedureException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

@@ -1,5 +1,5 @@
 global class FileUnsharedEvent extends Slack.Event {
-    global Object FileUnsharedEvent() { return null; }
+    global FileUnsharedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -32,7 +32,7 @@ global class FileUnsharedEvent extends Slack.Event {
     global override String toString() { return null; }
 
     global class File {
-        global Object File() { return null; }
+        global File() { }
 
         global Slack.FileUnsharedEvent.File clone() { return null; }
 

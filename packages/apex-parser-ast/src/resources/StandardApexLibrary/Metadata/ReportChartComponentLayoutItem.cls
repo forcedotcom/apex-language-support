@@ -45,7 +45,7 @@ global class ReportChartComponentLayoutItem extends Metadata.MetadataValue {
      */
     global Metadata.ReportChartComponentSize size { get; set; }
 
-    global Object ReportChartComponentLayoutItem() { return null; }
+    global ReportChartComponentLayoutItem() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

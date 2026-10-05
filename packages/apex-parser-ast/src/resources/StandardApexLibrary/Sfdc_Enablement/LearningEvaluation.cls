@@ -6,7 +6,7 @@
  * See example code in sfdc_enablement.LearningItemEvaluationHandler.
  */
 global class LearningEvaluation {
-    global Object LearningEvaluation(String learningItemId, Map details) { return null; }
+    global LearningEvaluation(String learningItemId, Map details) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

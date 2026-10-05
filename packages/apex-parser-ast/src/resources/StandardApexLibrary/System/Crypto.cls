@@ -62,7 +62,7 @@
  * Each of the methods in this section contains a code sample to demonstrate the method's use. The samples use curl to make calls into your Salesforce org. Use your preferred developer environment to run the samples. Use the Salesforce developer <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.api_rest.meta/api_rest/intro_rest.htm" target="_blank">Introduction to REST API</a> for basic information on making REST calls into Salesforce. Also, <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_encryption_rest_api_guide.meta/platform_encryption_rest_api_guide/api_rest_encryption.htm" target="_blank">Introducing the Salesforce Shield Platform Encryption REST API</a> gives you starter information on using REST to work with Shield Platform Encryption.
  */
 global class Crypto {
-    global Object Crypto() { return null; }
+    global Crypto() { }
 
     /**
      * Decrypts the cipherText blob by using the specified algorithm, private key, and initialization vector. Use this method to decrypt blobs encrypted by using a third-party application or the encrypt method.

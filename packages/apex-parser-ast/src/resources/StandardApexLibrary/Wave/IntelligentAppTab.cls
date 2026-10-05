@@ -1,5 +1,5 @@
 global with sharing class IntelligentAppTab {
-    global Object IntelligentAppTab() { return null; }
+    global IntelligentAppTab() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

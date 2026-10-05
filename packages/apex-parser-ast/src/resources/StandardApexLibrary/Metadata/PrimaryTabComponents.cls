@@ -15,7 +15,7 @@ global class PrimaryTabComponents extends Metadata.MetadataValue {
      */
     global List containers { get; set; }
 
-    global Object PrimaryTabComponents() { return null; }
+    global PrimaryTabComponents() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

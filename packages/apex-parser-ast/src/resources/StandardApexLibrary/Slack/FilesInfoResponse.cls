@@ -1,5 +1,5 @@
 global class FilesInfoResponse {
-    global Object FilesInfoResponse() { return null; }
+    global FilesInfoResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

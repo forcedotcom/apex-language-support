@@ -9,7 +9,7 @@ global with sharing class NlpSummarizationResult {
     @AuraEnabled
     global String summary { get; set; }
 
-    global Object NlpSummarizationResult() { return null; }
+    global NlpSummarizationResult() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

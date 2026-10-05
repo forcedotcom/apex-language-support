@@ -8,9 +8,9 @@ global class PluginResult {
      */
     global Map outputParameters { get; set; }
 
-    global Object PluginResult(Map outputParameters) { return null; }
+    global PluginResult(Map outputParameters) { }
 
-    global Object PluginResult(String outputKey, Object outputValue) { return null; }
+    global PluginResult(String outputKey, Object outputValue) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

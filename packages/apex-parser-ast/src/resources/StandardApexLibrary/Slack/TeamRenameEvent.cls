@@ -1,5 +1,5 @@
 global class TeamRenameEvent extends Slack.Event {
-    global Object TeamRenameEvent() { return null; }
+    global TeamRenameEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

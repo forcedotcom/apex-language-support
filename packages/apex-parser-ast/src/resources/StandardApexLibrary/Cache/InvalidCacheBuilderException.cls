@@ -2,13 +2,13 @@
  * A get(CacheBuilder cb, String key), remove(CacheBuilder cb, String key), or validateCacheBuilder(CacheBuilder cb) method is called but the cb parameter is a class that does not implement the Cache.CacheBuilder interface.
  */
 global class InvalidCacheBuilderException extends cache.CacheException {
-    global Object InvalidCacheBuilderException() { return null; }
+    global InvalidCacheBuilderException() { }
 
-    global Object InvalidCacheBuilderException(Exception null) { return null; }
+    global InvalidCacheBuilderException(Exception null) { }
 
-    global Object InvalidCacheBuilderException(String null) { return null; }
+    global InvalidCacheBuilderException(String null) { }
 
-    global Object InvalidCacheBuilderException(String null, Exception null) { return null; }
+    global InvalidCacheBuilderException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

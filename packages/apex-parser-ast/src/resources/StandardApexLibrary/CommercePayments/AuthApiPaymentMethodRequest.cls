@@ -17,12 +17,12 @@ global with sharing class AuthApiPaymentMethodRequest extends commercepayments.B
     /**
      * Constructor for AuthApiPaymentMethodRequest.
      */
-    global Object AuthApiPaymentMethodRequest() { return null; }
+    global AuthApiPaymentMethodRequest() { }
 
     /**
      * Constructs a sample cardPaymentMethodRequest. This constructor is intended for test usage and throws an exception if used outside of the Apex test context.
      */
-    global Object AuthApiPaymentMethodRequest(commercepayments.CardPaymentMethodRequest cardPaymentMethodRequest) { return null; }
+    global AuthApiPaymentMethodRequest(commercepayments.CardPaymentMethodRequest cardPaymentMethodRequest) { }
 
     global override virtual Boolean equals(Object obj) { return false; }
 

@@ -57,12 +57,12 @@ global class SelectOption {
     /**
      * Creates a new instance of the SelectOption class using the specified value and label.
      */
-    Object SelectOption(String value, String label) { return null; }
+    global SelectOption(String value, String label) { }
 
     /**
      * Creates a new instance of the SelectOption class using the specified value, label, and disabled setting.
      */
-    Object SelectOption(String value, String label, Boolean disabled) { return null; }
+    global SelectOption(String value, String label, Boolean disabled) { }
 
     global Boolean equals(Object obj) { return false; }
 

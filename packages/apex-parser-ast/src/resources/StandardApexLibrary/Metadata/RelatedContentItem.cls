@@ -10,7 +10,7 @@ global class RelatedContentItem extends Metadata.MetadataValue {
      */
     global Metadata.LayoutItem layoutItem { get; set; }
 
-    global Object RelatedContentItem() { return null; }
+    global RelatedContentItem() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

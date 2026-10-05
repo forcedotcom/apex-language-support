@@ -1,5 +1,5 @@
 global class MessageEkmAccessDeniedEvent extends Slack.Event {
-    global Object MessageEkmAccessDeniedEvent() { return null; }
+    global MessageEkmAccessDeniedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

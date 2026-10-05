@@ -5,12 +5,12 @@ global class TopRows {
     /**
      * Creates an instance of the Reports.TopRows class. You can then set values by using the class’s set methods.
      */
-    global Object TopRows() { return null; }
+    global TopRows() { }
 
     /**
      * Creates an instance of the Reports.TopRows class using the specified parameters.
      */
-    global Object TopRows(Integer rowLimit, reports.ColumnSortOrder direction) { return null; }
+    global TopRows(Integer rowLimit, reports.ColumnSortOrder direction) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

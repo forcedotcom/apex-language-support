@@ -1,5 +1,5 @@
 global class Purpose {
-    global Object Purpose() { return null; }
+    global Purpose() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

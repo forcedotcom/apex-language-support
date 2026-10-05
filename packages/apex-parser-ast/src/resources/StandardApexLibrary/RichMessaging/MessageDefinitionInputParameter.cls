@@ -94,7 +94,7 @@ global with sharing class MessageDefinitionInputParameter {
     @AuraEnabled
     global List textValues { get; set; }
 
-    global Object MessageDefinitionInputParameter() { return null; }
+    global MessageDefinitionInputParameter() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

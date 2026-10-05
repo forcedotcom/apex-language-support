@@ -16,7 +16,7 @@
  * For an example implementation of the CommerceBuyGrp.BuyerGroupEvaluationService class, see <a class="xref" href="https://github.com/forcedotcom/commerce-extensibility/blob/main/commerce/domain/buyergroup/service/classes/BuyerGroupEvaluationServiceSample.cls" target="_blank" title="HTML (New Window)">Commerce Extensibility</a>.
  */
 global virtual class BuyerGroupEvaluationService {
-    global Object BuyerGroupEvaluationService() { return null; }
+    global BuyerGroupEvaluationService() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

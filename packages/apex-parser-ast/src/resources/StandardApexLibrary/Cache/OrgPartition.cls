@@ -146,7 +146,7 @@
  * </apex:page>
  */
 global virtual class OrgPartition extends cache.Partition {
-    global Object OrgPartition(String fullyQualifiedPartitionName) { return null; }
+    global OrgPartition(String fullyQualifiedPartitionName) { }
 
     global Boolean contains(String key) { return false; }
 

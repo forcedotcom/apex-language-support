@@ -1,5 +1,5 @@
 global class DndUpdatedEvent extends Slack.Event {
-    global Object DndUpdatedEvent() { return null; }
+    global DndUpdatedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -24,7 +24,7 @@ global class DndUpdatedEvent extends Slack.Event {
     global override String toString() { return null; }
 
     global class DndStatus {
-        global Object DndStatus() { return null; }
+        global DndStatus() { }
 
         global Slack.DndUpdatedEvent.DndStatus clone() { return null; }
 

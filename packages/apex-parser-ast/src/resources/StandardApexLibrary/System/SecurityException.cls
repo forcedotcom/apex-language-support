@@ -2,13 +2,13 @@
  * Any problem with static methods in the Crypto utility class. For more information, see Crypto Class.
  */
 global class SecurityException extends Exception {
-    Object SecurityException() { return null; }
+    global SecurityException() { }
 
-    Object SecurityException(Exception param1) { return null; }
+    global SecurityException(Exception param1) { }
 
-    Object SecurityException(String param1) { return null; }
+    global SecurityException(String param1) { }
 
-    Object SecurityException(String param1, Exception param2) { return null; }
+    global SecurityException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

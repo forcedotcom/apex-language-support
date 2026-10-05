@@ -1,5 +1,5 @@
 global abstract class EventDispatcher implements Slack.RequestDispatcher {
-    global Object EventDispatcher() { return null; }
+    global EventDispatcher() { }
 
     global virtual Boolean allowUnauthenticatedUsers() { return false; }
 

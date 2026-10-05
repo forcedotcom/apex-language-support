@@ -25,12 +25,12 @@ global with sharing class DeferredTiming extends RichMessaging.AbstractTiming {
     /**
      * Creates a new instance of the RichMessaging.DeferredTiming class.
      */
-    global Object DeferredTiming() { return null; }
+    global DeferredTiming() { }
 
     /**
      * Creates a new instance of the RichMessaging.DeferredTiming class.
      */
-    global Object DeferredTiming(Datetime deferredDate) { return null; }
+    global DeferredTiming(Datetime deferredDate) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

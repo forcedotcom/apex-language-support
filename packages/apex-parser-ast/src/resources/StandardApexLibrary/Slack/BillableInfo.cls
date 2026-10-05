@@ -1,5 +1,5 @@
 global class BillableInfo {
-    global Object BillableInfo() { return null; }
+    global BillableInfo() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

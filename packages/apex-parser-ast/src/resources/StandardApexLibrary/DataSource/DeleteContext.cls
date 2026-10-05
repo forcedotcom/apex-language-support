@@ -15,7 +15,7 @@ global class DeleteContext {
      */
     global String tableSelected { get; set; }
 
-    global Object DeleteContext() { return null; }
+    global DeleteContext() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

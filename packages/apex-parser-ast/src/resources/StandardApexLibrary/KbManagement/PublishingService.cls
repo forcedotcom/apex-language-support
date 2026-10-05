@@ -15,7 +15,7 @@
  * To use the methods in this class, you must enable Salesforce Knowledge.
  */
 global class PublishingService {
-    global Object PublishingService() { return null; }
+    global PublishingService() { }
 
     /**
      * Archives an online version of an article. If the specified scheduledDate is null, the article is archived immediately. Otherwise, it archives the article on the scheduled date.

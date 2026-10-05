@@ -2,13 +2,13 @@
  * Any attempt to mutate a read-only collection or record such as an sObject in an after-update trigger, or a final variable. This exception causes execution to halt.
  */
 global class FinalException extends Exception {
-    Object FinalException() { return null; }
+    global FinalException() { }
 
-    Object FinalException(Exception param1) { return null; }
+    global FinalException(Exception param1) { }
 
-    Object FinalException(String param1) { return null; }
+    global FinalException(String param1) { }
 
-    Object FinalException(String param1, Exception param2) { return null; }
+    global FinalException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

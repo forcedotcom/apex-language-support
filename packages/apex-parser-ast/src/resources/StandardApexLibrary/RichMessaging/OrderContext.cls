@@ -28,7 +28,7 @@ global with sharing class OrderContext {
     @AuraEnabled
     global String type { get; set; }
 
-    global Object OrderContext() { return null; }
+    global OrderContext() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

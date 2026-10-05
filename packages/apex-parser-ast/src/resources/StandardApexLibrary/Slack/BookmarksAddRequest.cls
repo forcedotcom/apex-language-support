@@ -22,7 +22,7 @@ global class BookmarksAddRequest {
     global override String toString() { return null; }
 
     global class Builder {
-        global Object Builder() { return null; }
+        global Builder() { }
 
         global Slack.BookmarksAddRequest build() { return null; }
 

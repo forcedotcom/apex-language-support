@@ -31,7 +31,7 @@ global with sharing class HeaderTaxAddressesRequest {
     /**
      * Constructor for initializing the required addresses of the tax addresses request such as the ship from, ship to, sold to, and bill to addresses. This constructor is intended for test usage and throws an exception if used outside of the Apex test context.
      */
-    global Object HeaderTaxAddressesRequest(commercetax.TaxAddressRequest shipFrom, commercetax.TaxAddressRequest shipTo, commercetax.TaxAddressRequest soldTo, commercetax.TaxAddressRequest billTo, commercetax.TaxAddressRequest taxEngineAddress) { return null; }
+    global HeaderTaxAddressesRequest(commercetax.TaxAddressRequest shipFrom, commercetax.TaxAddressRequest shipTo, commercetax.TaxAddressRequest soldTo, commercetax.TaxAddressRequest billTo, commercetax.TaxAddressRequest taxEngineAddress) { }
 
     /**
      * Maintains the integrity of lists of type HeaderTaxAddressesRequest by determining the equality of external objects in a list. This method is dynamic and is based on the equals() method in Java.

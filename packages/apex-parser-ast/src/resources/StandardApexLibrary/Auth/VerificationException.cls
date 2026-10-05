@@ -3,9 +3,9 @@
  * You can’t catch this exception. The exception immediately triggers the verification.
  */
 global with sharing class VerificationException extends Exception {
-    global Object VerificationException(Auth.VerificationPolicy policy, String activityDescription) { return null; }
+    global VerificationException(Auth.VerificationPolicy policy, String activityDescription) { }
 
-    global Object VerificationException(Auth.VerificationPolicy policy, String retUrl, String activityDescription) { return null; }
+    global VerificationException(Auth.VerificationPolicy policy, String retUrl, String activityDescription) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

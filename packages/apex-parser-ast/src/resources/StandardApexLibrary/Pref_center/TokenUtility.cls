@@ -21,7 +21,7 @@
  * System.debug(tokenForFirstIndividual);
  */
 global class TokenUtility {
-    global Object TokenUtility() { return null; }
+    global TokenUtility() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

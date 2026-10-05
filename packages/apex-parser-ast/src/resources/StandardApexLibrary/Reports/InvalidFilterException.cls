@@ -2,13 +2,13 @@
  * Filter validation error
  */
 global class InvalidFilterException extends Exception {
-    global Object InvalidFilterException() { return null; }
+    global InvalidFilterException() { }
 
-    global Object InvalidFilterException(Exception null) { return null; }
+    global InvalidFilterException(Exception null) { }
 
-    global Object InvalidFilterException(String null) { return null; }
+    global InvalidFilterException(String null) { }
 
-    global Object InvalidFilterException(String null, Exception null) { return null; }
+    global InvalidFilterException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

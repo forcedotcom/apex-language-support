@@ -1,5 +1,5 @@
 global class TestAsyncHttp {
-    global Object TestAsyncHttp() { return null; }
+    global TestAsyncHttp() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

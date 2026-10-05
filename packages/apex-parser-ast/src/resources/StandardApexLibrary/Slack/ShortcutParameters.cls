@@ -1,5 +1,5 @@
 global class ShortcutParameters {
-    global Object ShortcutParameters(String callbackId) { return null; }
+    global ShortcutParameters(String callbackId) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -145,17 +145,17 @@ global with sharing class PaymentLineItem {
     /**
      * Creates a new instance of the RichMessaging.PaymentLineItem class.
      */
-    global Object PaymentLineItem() { return null; }
+    global PaymentLineItem() { }
 
     /**
      * Creates a new instance of the RichMessaging.PaymentLineItem class.
      */
-    global Object PaymentLineItem(String label, Double amount) { return null; }
+    global PaymentLineItem(String label, Double amount) { }
 
     /**
      * Creates a new instance of the RichMessaging.PaymentLineItem class.
      */
-    global Object PaymentLineItem(String label, Double amount, RichMessaging.AbstractTiming timing) { return null; }
+    global PaymentLineItem(String label, Double amount, RichMessaging.AbstractTiming timing) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

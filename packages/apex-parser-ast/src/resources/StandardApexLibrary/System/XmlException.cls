@@ -2,13 +2,13 @@
  * Any problem with the XmlStream classes, such as failing to read or write XML.
  */
 global class XmlException extends Exception {
-    Object XmlException() { return null; }
+    global XmlException() { }
 
-    Object XmlException(Exception param1) { return null; }
+    global XmlException(Exception param1) { }
 
-    Object XmlException(String param1) { return null; }
+    global XmlException(String param1) { }
 
-    Object XmlException(String param1, Exception param2) { return null; }
+    global XmlException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

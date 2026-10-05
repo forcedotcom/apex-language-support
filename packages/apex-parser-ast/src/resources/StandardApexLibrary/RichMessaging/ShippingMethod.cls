@@ -78,12 +78,12 @@ global with sharing class ShippingMethod {
     /**
      * Creates a new instance of the RichMessaging.ShippingMethod class.
      */
-    global Object ShippingMethod() { return null; }
+    global ShippingMethod() { }
 
     /**
      * Creates a new instance of the RichMessaging.ShippingMethod class.
      */
-    global Object ShippingMethod(String label, Double amount, String detail, String identifier) { return null; }
+    global ShippingMethod(String label, Double amount, String detail, String identifier) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

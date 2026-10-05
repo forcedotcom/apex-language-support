@@ -1,5 +1,5 @@
 global class EinsteinBots {
-    global Object EinsteinBots() { return null; }
+    global EinsteinBots() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

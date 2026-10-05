@@ -1,5 +1,5 @@
 global class MatchedItem {
-    global Object MatchedItem() { return null; }
+    global MatchedItem() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -480,7 +480,7 @@ global class MatchedItem {
     global override String toString() { return null; }
 
     global class Address {
-        global Object Address() { return null; }
+        global Address() { }
 
         global Slack.MatchedItem.Address clone() { return null; }
 
@@ -504,7 +504,7 @@ global class MatchedItem {
     }
 
     global class OtherItem {
-        global Object OtherItem() { return null; }
+        global OtherItem() { }
 
         global Slack.MatchedItem.OtherItem clone() { return null; }
 

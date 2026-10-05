@@ -2,13 +2,13 @@
  * A transient problem with an Apex cursor transaction. The failed transaction can be retried.
  */
 global class TransientCursorException extends Exception {
-    Object TransientCursorException() { return null; }
+    global TransientCursorException() { }
 
-    Object TransientCursorException(Exception param1) { return null; }
+    global TransientCursorException(Exception param1) { }
 
-    Object TransientCursorException(String param1) { return null; }
+    global TransientCursorException(String param1) { }
 
-    Object TransientCursorException(String param1, Exception param2) { return null; }
+    global TransientCursorException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

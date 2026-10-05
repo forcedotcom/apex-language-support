@@ -40,7 +40,7 @@ global with sharing class AddressRequest {
     /**
      * Constructs a sample address. This constructor is intended for test usage and throws an exception if used outside of the Apex test context.
      */
-    global Object AddressRequest(String street, String city, String state, String country, String postalCode) { return null; }
+    global AddressRequest(String street, String city, String state, String country, String postalCode) { }
 
     /**
      * Maintains the integrity of lists of type AddressRequest by determining the equality of external objects in a list. This method is dynamic and is based on the equals method in Java.

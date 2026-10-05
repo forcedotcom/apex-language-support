@@ -5,7 +5,7 @@ global with sharing class ServiceResourceInfo {
     /**
      * Creates a new instance of the lxscheduler.ServiceResourceInfo class using the specified service resource details.
      */
-    global Object ServiceResourceInfo(String userId, String userName, String email, String serviceResourceId, List territoryIds, String resourceType) { return null; }
+    global ServiceResourceInfo(String userId, String userName, String email, String serviceResourceId, List territoryIds, String resourceType) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

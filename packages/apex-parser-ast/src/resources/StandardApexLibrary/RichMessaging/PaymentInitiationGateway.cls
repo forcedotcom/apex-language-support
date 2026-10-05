@@ -28,7 +28,7 @@ global with sharing class PaymentInitiationGateway {
     @AuraEnabled
     global List providerParameters { get; set; }
 
-    global Object PaymentInitiationGateway() { return null; }
+    global PaymentInitiationGateway() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

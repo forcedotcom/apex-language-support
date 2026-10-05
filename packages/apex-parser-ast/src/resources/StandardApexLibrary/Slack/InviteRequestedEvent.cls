@@ -1,5 +1,5 @@
 global class InviteRequestedEvent extends Slack.Event {
-    global Object InviteRequestedEvent() { return null; }
+    global InviteRequestedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -16,7 +16,7 @@ global class InviteRequestedEvent extends Slack.Event {
     global override String toString() { return null; }
 
     global class InviteRequest {
-        global Object InviteRequest() { return null; }
+        global InviteRequest() { }
 
         global Slack.InviteRequestedEvent.InviteRequest clone() { return null; }
 
@@ -68,7 +68,7 @@ global class InviteRequestedEvent extends Slack.Event {
     }
 
     global class Team {
-        global Object Team() { return null; }
+        global Team() { }
 
         global Slack.InviteRequestedEvent.Team clone() { return null; }
 

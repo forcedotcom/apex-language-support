@@ -37,17 +37,17 @@ global with sharing class TimeSlotOption {
     /**
      * Creates a TimeSlotOption object.
      */
-    global Object TimeSlotOption() { return null; }
+    global TimeSlotOption() { }
 
     /**
      * Creates a TimeSlotOption object with a start time and a duration.
      */
-    global Object TimeSlotOption(Datetime startTime, Integer duration) { return null; }
+    global TimeSlotOption(Datetime startTime, Integer duration) { }
 
     /**
      * Creates a TimeSlotOption object with a start and end time.
      */
-    global Object TimeSlotOption(Datetime startTime, Datetime endTime) { return null; }
+    global TimeSlotOption(Datetime startTime, Datetime endTime) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

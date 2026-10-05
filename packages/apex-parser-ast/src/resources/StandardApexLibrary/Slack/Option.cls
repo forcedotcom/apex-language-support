@@ -1,5 +1,5 @@
 global class Option {
-    global Object Option(String text, String value) { return null; }
+    global Option(String text, String value) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

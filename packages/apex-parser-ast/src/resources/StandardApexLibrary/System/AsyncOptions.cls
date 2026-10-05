@@ -18,7 +18,7 @@ global class AsyncOptions {
      */
     global Integer MinimumQueueableDelayInMinutes { get; set; }
 
-    global Object AsyncOptions() { return null; }
+    global AsyncOptions() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

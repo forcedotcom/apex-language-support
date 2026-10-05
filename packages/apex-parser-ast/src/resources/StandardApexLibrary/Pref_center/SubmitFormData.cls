@@ -28,7 +28,7 @@
  * }
  */
 global class SubmitFormData {
-    global Object SubmitFormData() { return null; }
+    global SubmitFormData() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

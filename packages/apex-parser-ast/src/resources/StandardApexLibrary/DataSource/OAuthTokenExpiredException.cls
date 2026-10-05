@@ -2,13 +2,13 @@
  * Throw this exception to indicate that an OAuth token has expired. The system then attempts to refresh the token automatically and restart the query, search, or sync operation.
  */
 global class OAuthTokenExpiredException extends DataSource.DataSourceException {
-    global Object OAuthTokenExpiredException() { return null; }
+    global OAuthTokenExpiredException() { }
 
-    global Object OAuthTokenExpiredException(Exception null) { return null; }
+    global OAuthTokenExpiredException(Exception null) { }
 
-    global Object OAuthTokenExpiredException(String null) { return null; }
+    global OAuthTokenExpiredException(String null) { }
 
-    global Object OAuthTokenExpiredException(String null, Exception null) { return null; }
+    global OAuthTokenExpiredException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

@@ -28,7 +28,7 @@ global abstract with sharing class BaseApiPaymentMethodRequest {
     /**
      * Constructs a payment method. This constructor is intended for test usage and throws an exception if used outside of the Apex test context.
      */
-    global Object BaseApiPaymentMethodRequest(commercepayments.AddressRequest address, String id, Boolean saveForFuture) { return null; }
+    global BaseApiPaymentMethodRequest(commercepayments.AddressRequest address, String id, Boolean saveForFuture) { }
 
     /**
      * Maintains the integrity of lists of type BaseApiPaymentMethodRequest by determining the equality of external objects in a list. This method is dynamic and is based on the equals method in Java.

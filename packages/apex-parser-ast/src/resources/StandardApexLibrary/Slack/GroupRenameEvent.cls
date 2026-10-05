@@ -1,5 +1,5 @@
 global class GroupRenameEvent extends Slack.Event {
-    global Object GroupRenameEvent() { return null; }
+    global GroupRenameEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -20,7 +20,7 @@ global class GroupRenameEvent extends Slack.Event {
     global override String toString() { return null; }
 
     global class Channel {
-        global Object Channel() { return null; }
+        global Channel() { }
 
         global Slack.GroupRenameEvent.Channel clone() { return null; }
 

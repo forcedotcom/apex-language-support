@@ -7,9 +7,9 @@ global with sharing class PaymentError {
     @InvocableVariable
     global String errorMessage;
 
-    global Object PaymentError() { return null; }
+    global PaymentError() { }
 
-    global Object PaymentError(String errorMessage, RichMessaging.PaymentErrorCode errorCode) { return null; }
+    global PaymentError(String errorMessage, RichMessaging.PaymentErrorCode errorCode) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

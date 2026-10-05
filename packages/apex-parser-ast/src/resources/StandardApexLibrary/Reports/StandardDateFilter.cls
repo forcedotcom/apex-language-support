@@ -2,9 +2,9 @@
  * Contains information about standard date filter available in the report—for example, the API name, start date, and end date of the standard date filter duration as well as the API name of the date field on which the filter is placed.
  */
 global class StandardDateFilter {
-    global Object StandardDateFilter() { return null; }
+    global StandardDateFilter() { }
 
-    global Object StandardDateFilter(String column, String durationValue, String startDate, String endDate) { return null; }
+    global StandardDateFilter(String column, String durationValue, String startDate, String endDate) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

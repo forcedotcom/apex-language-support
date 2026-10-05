@@ -1,5 +1,5 @@
 global class BotsInfoResponse {
-    global Object BotsInfoResponse() { return null; }
+    global BotsInfoResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -36,7 +36,7 @@ global class BotsInfoResponse {
     global override String toString() { return null; }
 
     global class Bot {
-        global Object Bot() { return null; }
+        global Bot() { }
 
         global Slack.BotsInfoResponse.Bot clone() { return null; }
 

@@ -26,7 +26,7 @@ global class Location {
     global Double latitude { get; }
     global Double longitude { get; }
 
-    Object Location() { return null; }
+    global Location() { }
 
     global Boolean equals(Object obj) { return false; }
 

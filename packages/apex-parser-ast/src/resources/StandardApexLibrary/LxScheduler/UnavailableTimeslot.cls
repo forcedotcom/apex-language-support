@@ -16,7 +16,7 @@ global with sharing class UnavailableTimeslot {
     /**
      * Creates an instance of lxscheduler.UnavailableTimeslot class.
      */
-    global Object UnavailableTimeslot(Datetime timeMin, Datetime timeMax) { return null; }
+    global UnavailableTimeslot(Datetime timeMin, Datetime timeMax) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -1,5 +1,5 @@
 global class ChannelArchiveEvent extends Slack.Event {
-    global Object ChannelArchiveEvent() { return null; }
+    global ChannelArchiveEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

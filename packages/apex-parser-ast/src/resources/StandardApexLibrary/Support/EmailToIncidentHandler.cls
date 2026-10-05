@@ -1,5 +1,5 @@
 global with sharing class EmailToIncidentHandler implements Messaging.InboundEmailHandler {
-    global Object EmailToIncidentHandler() { return null; }
+    global EmailToIncidentHandler() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -17,7 +17,7 @@
  *         }
  */
 global class ExtensionInfo {
-    global Object ExtensionInfo() { return null; }
+    global ExtensionInfo() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

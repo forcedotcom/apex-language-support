@@ -1,5 +1,5 @@
 global class TrailblazerIdentity {
-    global Object TrailblazerIdentity() { return null; }
+    global TrailblazerIdentity() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

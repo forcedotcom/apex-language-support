@@ -5,7 +5,7 @@ global with sharing class ServiceAppointmentRequestInfo {
     /**
      * Creates a new instance of the lxscheduler.ServiceAppointmentRequestInfo class using the specified start date, end date, service resources, scheduling policy, work type group, accound ID, primary resource, work type, and correlation.
      */
-    global Object ServiceAppointmentRequestInfo(Datetime startDate, Datetime endDate, List ServiceResources, String SchedulingPolicyId, String workTypeGroupId, String accountId, String primaryResourceId, String workTypeId, String correlationId) { return null; }
+    global ServiceAppointmentRequestInfo(Datetime startDate, Datetime endDate, List ServiceResources, String SchedulingPolicyId, String workTypeGroupId, String accountId, String primaryResourceId, String workTypeId, String correlationId) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

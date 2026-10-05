@@ -1,5 +1,5 @@
 global class PushUpgradeCustomizationRepository {
-    global Object PushUpgradeCustomizationRepository() { return null; }
+    global PushUpgradeCustomizationRepository() { }
 
     global static String create(String packageId, String subscriberOrgId, Boolean customUpgradeAllowed, Integer expirationDays) { return null; }
 

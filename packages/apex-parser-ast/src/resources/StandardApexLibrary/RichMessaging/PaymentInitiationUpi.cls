@@ -13,9 +13,9 @@ global with sharing class PaymentInitiationUpi {
     @AuraEnabled
     global String payeeHandle { get; set; }
 
-    global Object PaymentInitiationUpi() { return null; }
+    global PaymentInitiationUpi() { }
 
-    global Object PaymentInitiationUpi(String payeeHandle, String merchantCategoryCode, String intentLink) { return null; }
+    global PaymentInitiationUpi(String payeeHandle, String merchantCategoryCode, String intentLink) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

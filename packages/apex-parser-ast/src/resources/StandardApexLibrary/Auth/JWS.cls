@@ -9,14 +9,14 @@ global class JWS {
      * <p>Usage
      * Calls the toJSONString() method in Auth.JWT and sets the resulting string as the payload of the JWT bearer token. Alternatively, you can specify the payload directly using JWS(payload, certDevName).
      */
-    global Object JWS(Auth.JWT jwt, String certDevName) { return null; }
+    global JWS(Auth.JWT jwt, String certDevName) { }
 
     /**
      * Creates an instance of the JWS class using the specified payload and certificate used for signing the JWT bearer token.
      * <p>Usage
      * Sets the payload string as the payload of the JWT bearer token. Alternatively, if you generate the payload using Auth.JWT, you can use JWS(jwt, certDevName) instead.
      */
-    global Object JWS(String payload, String certDevName) { return null; }
+    global JWS(String payload, String certDevName) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

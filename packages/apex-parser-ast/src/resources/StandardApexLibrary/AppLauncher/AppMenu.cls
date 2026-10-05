@@ -2,7 +2,7 @@
  * Contains methods to set the appearance of apps in the App Launcher.
  */
 global class AppMenu {
-    global Object AppMenu() { return null; }
+    global AppMenu() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

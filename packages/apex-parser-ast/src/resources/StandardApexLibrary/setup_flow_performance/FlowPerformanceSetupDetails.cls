@@ -17,7 +17,7 @@ global class FlowPerformanceSetupDetails {
     @AuraEnabled
     global String templateSourceId;
 
-    global Object FlowPerformanceSetupDetails() { return null; }
+    global FlowPerformanceSetupDetails() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

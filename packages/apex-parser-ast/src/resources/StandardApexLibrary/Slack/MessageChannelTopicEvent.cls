@@ -1,5 +1,5 @@
 global class MessageChannelTopicEvent extends Slack.Event {
-    global Object MessageChannelTopicEvent() { return null; }
+    global MessageChannelTopicEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

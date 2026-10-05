@@ -9,7 +9,7 @@ global class ToastLink {
     @AuraEnabled
     global String url;
 
-    global Object ToastLink() { return null; }
+    global ToastLink() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

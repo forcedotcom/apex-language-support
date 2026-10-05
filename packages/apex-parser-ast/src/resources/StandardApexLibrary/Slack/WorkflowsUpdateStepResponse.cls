@@ -1,5 +1,5 @@
 global class WorkflowsUpdateStepResponse {
-    global Object WorkflowsUpdateStepResponse() { return null; }
+    global WorkflowsUpdateStepResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

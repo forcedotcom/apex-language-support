@@ -2,13 +2,13 @@
  * Any problem with Strings, such as a String that is exceeding your heap size.
  */
 global class StringException extends Exception {
-    Object StringException() { return null; }
+    global StringException() { }
 
-    Object StringException(Exception param1) { return null; }
+    global StringException(Exception param1) { }
 
-    Object StringException(String param1) { return null; }
+    global StringException(String param1) { }
 
-    Object StringException(String param1, Exception param2) { return null; }
+    global StringException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

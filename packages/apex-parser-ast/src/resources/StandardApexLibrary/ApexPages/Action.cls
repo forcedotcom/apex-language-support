@@ -10,7 +10,7 @@ global class Action {
     /**
      * Creates a new instance of the ApexPages.Action class using the specified action.
      */
-    global Object Action(String expression) { return null; }
+    global Action(String expression) { }
 
     /**
      * Returns the expression that is evaluated when the action is invoked.

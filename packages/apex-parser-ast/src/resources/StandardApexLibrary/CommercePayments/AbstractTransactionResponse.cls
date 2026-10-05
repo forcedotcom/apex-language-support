@@ -5,7 +5,7 @@
  * CommercePayments.AbstractTransactionResponse atr = new CommercePayments.AbstractTransactionResponse();
  */
 global abstract with sharing class AbstractTransactionResponse extends commercepayments.AbstractResponse {
-    global Object AbstractTransactionResponse() { return null; }
+    global AbstractTransactionResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

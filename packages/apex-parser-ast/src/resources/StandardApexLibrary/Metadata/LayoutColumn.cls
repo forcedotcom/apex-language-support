@@ -15,7 +15,7 @@ global class LayoutColumn extends Metadata.MetadataValue {
      */
     global String reserved { get; set; }
 
-    global Object LayoutColumn() { return null; }
+    global LayoutColumn() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

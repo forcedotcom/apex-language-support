@@ -66,7 +66,7 @@ global abstract with sharing class TaxTransactionRequest {
      */
     global Datetime transactionDate { get; set; }
 
-    global Object TaxTransactionRequest(commercetax.HeaderTaxAddressesRequest addresses, String currencyIsoCode, commercetax.TaxCustomerDetailsRequest customerDetails, String description, String documentCode, String referenceDocumentCode, Datetime transactionDate, Datetime effectiveDate, List lineItems, String referenceEntityId, commercetax.TaxSellerDetailsRequest sellerDetails) { return null; }
+    global TaxTransactionRequest(commercetax.HeaderTaxAddressesRequest addresses, String currencyIsoCode, commercetax.TaxCustomerDetailsRequest customerDetails, String description, String documentCode, String referenceDocumentCode, Datetime transactionDate, Datetime effectiveDate, List lineItems, String referenceEntityId, commercetax.TaxSellerDetailsRequest sellerDetails) { }
 
     /**
      * Maintains the integrity of lists of type TaxTransactionRequest by determining the equality of external objects in a list. This method is dynamic and based on the equals() method in Java.

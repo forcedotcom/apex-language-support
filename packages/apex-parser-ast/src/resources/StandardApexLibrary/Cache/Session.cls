@@ -163,7 +163,7 @@
 global class Session {
     global final static Integer MAX_TTL_SECS;
 
-    global Object Session() { return null; }
+    global Session() { }
 
     /**
      * Returns true if the session cache contains a cached value corresponding to the specified key.
@@ -368,13 +368,13 @@ global class Session {
      * An error occurred while adding or retrieving a value in the session cache.
      */
     global virtual class SessionCacheException extends Exception {
-        global Object SessionCacheException() { return null; }
+        global SessionCacheException() { }
 
-        global Object SessionCacheException(Exception null) { return null; }
+        global SessionCacheException(Exception null) { }
 
-        global Object SessionCacheException(String msg) { return null; }
+        global SessionCacheException(String msg) { }
 
-        global Object SessionCacheException(String null, Exception null) { return null; }
+        global SessionCacheException(String null, Exception null) { }
 
         global cache.Session.SessionCacheException clone() { return null; }
 
@@ -444,13 +444,13 @@ global class Session {
      * An attempt is made to access the cache when the session cache isn’t available.
      */
     global class SessionCacheNoSessionException extends Exception {
-        global Object SessionCacheNoSessionException() { return null; }
+        global SessionCacheNoSessionException() { }
 
-        global Object SessionCacheNoSessionException(Exception null) { return null; }
+        global SessionCacheNoSessionException(Exception null) { }
 
-        global Object SessionCacheNoSessionException(String msg) { return null; }
+        global SessionCacheNoSessionException(String msg) { }
 
-        global Object SessionCacheNoSessionException(String null, Exception null) { return null; }
+        global SessionCacheNoSessionException(String null, Exception null) { }
 
         global cache.Session.SessionCacheNoSessionException clone() { return null; }
 

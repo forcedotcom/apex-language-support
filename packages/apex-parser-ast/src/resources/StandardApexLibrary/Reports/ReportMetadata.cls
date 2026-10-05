@@ -4,9 +4,9 @@
  * Report metadata gives information about the report as a whole, such as the report type, format, summary fields, row or column groupings, and filters that are saved to the report. You can use the ReportMetadata class to retrieve report metadata and to set metadata that can be used to filter a report.
  */
 global class ReportMetadata {
-    global Object ReportMetadata() { return null; }
+    global ReportMetadata() { }
 
-    global Object ReportMetadata(String name, String developerName, Id id, List groupingsAcross, List groupingsDown, List aggregates, List buckets, List detailColumns, String reportBooleanFilter, List reportFilters, List historicalSnapshotDates, reports.ReportFormat reportFormat, reports.ReportType reportType, String currencyCode, String scope, String division, List sortBy, reports.StandardDateFilter standardDateFilter, Boolean hasDetailRows, Boolean hasRecordCount, List standardFilters, String description, Boolean showSubtotals, Boolean showGrandTotal, reports.TopRows topRows, Map customSummaryFormula, List crossFilters) { return null; }
+    global ReportMetadata(String name, String developerName, Id id, List groupingsAcross, List groupingsDown, List aggregates, List buckets, List detailColumns, String reportBooleanFilter, List reportFilters, List historicalSnapshotDates, reports.ReportFormat reportFormat, reports.ReportType reportType, String currencyCode, String scope, String division, List sortBy, reports.StandardDateFilter standardDateFilter, Boolean hasDetailRows, Boolean hasRecordCount, List standardFilters, String description, Boolean showSubtotals, Boolean showGrandTotal, reports.TopRows topRows, Map customSummaryFormula, List crossFilters) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

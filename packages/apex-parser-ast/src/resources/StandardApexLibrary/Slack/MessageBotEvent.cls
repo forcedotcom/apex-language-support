@@ -1,5 +1,5 @@
 global class MessageBotEvent extends Slack.Event {
-    global Object MessageBotEvent() { return null; }
+    global MessageBotEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -19,7 +19,7 @@
  * String packageName = domain.getPackageName(); // Returns abcpackage
  */
 global class DomainParser {
-    global Object DomainParser() { return null; }
+    global DomainParser() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

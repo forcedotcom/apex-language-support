@@ -2,13 +2,13 @@
  * Any problem with external object records, such as connection timeouts during attempts to access the data that’s stored on external systems.
  */
 global class ExternalObjectException extends Exception {
-    Object ExternalObjectException() { return null; }
+    global ExternalObjectException() { }
 
-    Object ExternalObjectException(Exception param1) { return null; }
+    global ExternalObjectException(Exception param1) { }
 
-    Object ExternalObjectException(String param1) { return null; }
+    global ExternalObjectException(String param1) { }
 
-    Object ExternalObjectException(String param1, Exception param2) { return null; }
+    global ExternalObjectException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

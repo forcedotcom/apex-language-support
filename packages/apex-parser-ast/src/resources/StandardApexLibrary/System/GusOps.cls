@@ -1,5 +1,5 @@
 global class GusOps {
-    global Object GusOps() { return null; }
+    global GusOps() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

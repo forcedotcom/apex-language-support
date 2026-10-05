@@ -33,7 +33,7 @@ global class Address extends System.Location {
     global String statecode { get; }
     global String street { get; }
 
-    Object Address() { return null; }
+    global Address() { }
 
     global Boolean equals(Object obj) { return false; }
 

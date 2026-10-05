@@ -2,7 +2,7 @@
  * Contains methods for verifying users’ identity, creating custom login flows, customizing security levels, and defining trusted IP ranges for a current session.
  */
 global class SessionManagement {
-    global Object SessionManagement() { return null; }
+    global SessionManagement() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

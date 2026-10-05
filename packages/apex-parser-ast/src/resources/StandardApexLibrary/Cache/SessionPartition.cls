@@ -137,7 +137,7 @@
  * </apex:page>
  */
 global virtual class SessionPartition extends cache.Partition {
-    global Object SessionPartition(String fullyQualifiedPartitionName) { return null; }
+    global SessionPartition(String fullyQualifiedPartitionName) { }
 
     global Boolean contains(String key) { return false; }
 

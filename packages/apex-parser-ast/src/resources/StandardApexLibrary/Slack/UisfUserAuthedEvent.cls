@@ -1,5 +1,5 @@
 global class UisfUserAuthedEvent extends Slack.Event {
-    global Object UisfUserAuthedEvent() { return null; }
+    global UisfUserAuthedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -10,7 +10,7 @@
  * }
  */
 global class PaymentGatewayNotificationRequest {
-    global Object PaymentGatewayNotificationRequest(Map headers, String requestBody) { return null; }
+    global PaymentGatewayNotificationRequest(Map headers, String requestBody) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

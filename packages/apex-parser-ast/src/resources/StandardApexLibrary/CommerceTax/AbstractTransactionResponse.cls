@@ -2,7 +2,7 @@
  * Abstract class that contains methods for setting tax fields based on the external tax provider's response. Response classes that extend AbstractTransactionResponse inherit these methods.
  */
 global abstract with sharing class AbstractTransactionResponse {
-    global Object AbstractTransactionResponse() { return null; }
+    global AbstractTransactionResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

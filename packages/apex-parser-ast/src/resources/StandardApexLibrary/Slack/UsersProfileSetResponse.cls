@@ -1,5 +1,5 @@
 global class UsersProfileSetResponse {
-    global Object UsersProfileSetResponse() { return null; }
+    global UsersProfileSetResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

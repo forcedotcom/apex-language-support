@@ -38,7 +38,7 @@ global class CustomMetadata extends Metadata.Metadata {
      */
     global List values { get; set; }
 
-    global Object CustomMetadata() { return null; }
+    global CustomMetadata() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

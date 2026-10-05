@@ -4,7 +4,7 @@
  * In the context of a package, use the getCurrentPackageId method to retrieve the packageID.
  */
 global class Packaging {
-    global Object Packaging() { return null; }
+    global Packaging() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

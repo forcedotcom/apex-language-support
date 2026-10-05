@@ -1,5 +1,5 @@
 global class UsersIdentityResponse {
-    global Object UsersIdentityResponse() { return null; }
+    global UsersIdentityResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -40,7 +40,7 @@ global class UsersIdentityResponse {
     global override String toString() { return null; }
 
     global class Team {
-        global Object Team() { return null; }
+        global Team() { }
 
         global Slack.UsersIdentityResponse.Team clone() { return null; }
 
@@ -60,7 +60,7 @@ global class UsersIdentityResponse {
     }
 
     global class User {
-        global Object User() { return null; }
+        global User() { }
 
         global Slack.UsersIdentityResponse.User clone() { return null; }
 

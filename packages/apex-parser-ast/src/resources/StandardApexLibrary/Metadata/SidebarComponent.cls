@@ -65,7 +65,7 @@ global class SidebarComponent extends Metadata.MetadataValue {
      */
     global Integer width { get; set; }
 
-    global Object SidebarComponent() { return null; }
+    global SidebarComponent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -9,7 +9,7 @@ global class PropertyTypeDetails {
     @AuraEnabled
     global String propertyName;
 
-    global Object PropertyTypeDetails() { return null; }
+    global PropertyTypeDetails() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

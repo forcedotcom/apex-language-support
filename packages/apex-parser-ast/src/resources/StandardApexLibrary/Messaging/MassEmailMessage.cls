@@ -14,7 +14,7 @@ global class MassEmailMessage extends Messaging.Email {
     /**
      * Creates a new instance of the Messaging.MassEmailMessage class.
      */
-    Object MassEmailMessage() { return null; }
+    global MassEmailMessage() { }
 
     global Boolean equals(Object obj) { return false; }
 

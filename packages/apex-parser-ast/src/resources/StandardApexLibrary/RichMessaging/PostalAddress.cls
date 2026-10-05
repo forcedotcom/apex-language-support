@@ -54,7 +54,7 @@ global class PostalAddress {
     /**
      * Creates a new instance of the RichMessaging.PostalAddress class.
      */
-    global Object PostalAddress(List addressLines, String subLocality, String locality, String postalCode, String subAdministrativeArea, String administrativeArea, String country, String countryCode) { return null; }
+    global PostalAddress(List addressLines, String subLocality, String locality, String postalCode, String subAdministrativeArea, String administrativeArea, String country, String countryCode) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

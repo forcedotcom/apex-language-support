@@ -110,7 +110,7 @@ global with sharing class AuthorizationRequest extends commercepayments.BaseRequ
     /**
      * Constructor for building the amount in an authorization request. This constructor is intended for test usage and throws an exception if used outside of the Apex test context.
      */
-    global Object AuthorizationRequest(Double amount) { return null; }
+    global AuthorizationRequest(Double amount) { }
 
     /**
      * Maintains the integrity of lists of type AuthorizationRequest by determining the equality of external objects in a list. This method is dynamic and based on the equals method in Java.

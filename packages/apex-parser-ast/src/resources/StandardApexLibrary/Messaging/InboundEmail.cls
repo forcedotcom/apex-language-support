@@ -107,7 +107,7 @@ global class InboundEmail {
     /**
      * Creates a new instance of the Messaging.InboundEmail class.
      */
-    global Object InboundEmail() { return null; }
+    global InboundEmail() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -138,7 +138,7 @@ global class InboundEmail {
         /**
          * Creates a new instance of the Messaging.InboundEmail.AuthenticationResult class.
          */
-        global Object AuthenticationResult() { return null; }
+        global AuthenticationResult() { }
 
         global Messaging.InboundEmail.AuthenticationResult clone() { return null; }
 
@@ -167,7 +167,7 @@ global class InboundEmail {
         /**
          * Creates a new instance of the Messaging.InboundEmail.AuthenticationResultField class.
          */
-        global Object AuthenticationResultField() { return null; }
+        global AuthenticationResultField() { }
 
         global Messaging.InboundEmail.AuthenticationResultField clone() { return null; }
 
@@ -208,7 +208,7 @@ global class InboundEmail {
         /**
          * Creates a new instance of the Messaging.InboundEmail.BinaryAttachment class.
          */
-        global Object BinaryAttachment() { return null; }
+        global BinaryAttachment() { }
 
         global Messaging.InboundEmail.BinaryAttachment clone() { return null; }
 
@@ -234,7 +234,7 @@ global class InboundEmail {
          */
         global webservice String value;
 
-        global Object Header() { return null; }
+        global Header() { }
 
         global Messaging.InboundEmail.Header clone() { return null; }
 
@@ -287,7 +287,7 @@ global class InboundEmail {
         /**
          * Creates a new instance of the Messaging.InboundEmail.TextAttachment class.
          */
-        global Object TextAttachment() { return null; }
+        global TextAttachment() { }
 
         global Messaging.InboundEmail.TextAttachment clone() { return null; }
 

@@ -4,7 +4,7 @@
  * Salesforce Functions: The exception is thrown when the functionName parameter to Function.get() doesn’t have the correct project name.function name format. For more information on Salesforce functions, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_class_functions_Function.htm" target="_blank">Function.get()</a>.
  */
 global class InvalidParameterValueException extends Exception {
-    Object InvalidParameterValueException(String param1, String param2) { return null; }
+    global InvalidParameterValueException(String param1, String param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

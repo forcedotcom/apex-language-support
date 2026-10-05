@@ -39,14 +39,14 @@
  * loadFormData.setButtonLabel('myButton', 'Save Preferences');
  */
 global class LoadFormData {
-    global Object LoadFormData() { return null; }
+    global LoadFormData() { }
 
     /**
      * Creates an instance of the LoadFormData class for running tests on any custom Apex classes you create for Preference Manager.
      * <p>Usage
      * This constructor is available in API version 56.0 and later.
      */
-    global Object LoadFormData(Map data) { return null; }
+    global LoadFormData(Map data) { }
 
     /**
      * Add a defined, selectable option for a checkbox, picklist, or radio button field in a preference form.

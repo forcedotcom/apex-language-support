@@ -15,9 +15,9 @@ global with sharing class Refund {
     @InvocableVariable
     global Long updatedTimestamp;
 
-    global Object Refund() { return null; }
+    global Refund() { }
 
-    global Object Refund(String id, RichMessaging.CurrencyAmount currencyAmount, String speedProcessedRaw, String statusRaw, Long createdTimestamp, Long updatedTimestamp) { return null; }
+    global Refund(String id, RichMessaging.CurrencyAmount currencyAmount, String speedProcessedRaw, String statusRaw, Long createdTimestamp, Long updatedTimestamp) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

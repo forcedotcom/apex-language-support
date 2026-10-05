@@ -1,11 +1,11 @@
 global class RequiredFeatureMissingException extends Exception {
-    Object RequiredFeatureMissingException() { return null; }
+    global RequiredFeatureMissingException() { }
 
-    Object RequiredFeatureMissingException(Exception param1) { return null; }
+    global RequiredFeatureMissingException(Exception param1) { }
 
-    Object RequiredFeatureMissingException(String param1) { return null; }
+    global RequiredFeatureMissingException(String param1) { }
 
-    Object RequiredFeatureMissingException(String param1, Exception param2) { return null; }
+    global RequiredFeatureMissingException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

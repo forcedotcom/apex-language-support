@@ -1,5 +1,5 @@
 global class CommerceIdentitySynchronizationAction {
-    global Object CommerceIdentitySynchronizationAction() { return null; }
+    global CommerceIdentitySynchronizationAction() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -13,7 +13,7 @@ global class CommerceIdentitySynchronizationAction {
         global String errorMessage;
         global Boolean isSuccess;
 
-        global Object UserSynchronizationResult() { return null; }
+        global UserSynchronizationResult() { }
 
         global Auth.CommerceIdentitySynchronizationAction.UserSynchronizationResult clone() { return null; }
 

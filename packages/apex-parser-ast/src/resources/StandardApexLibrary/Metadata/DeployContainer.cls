@@ -13,7 +13,7 @@
  * Metadata.Operations.enqueueDeployment(mdContainer, callback);
  */
 global class DeployContainer {
-    global Object DeployContainer() { return null; }
+    global DeployContainer() { }
 
     /**
      * Add a custom metadata component to the container.

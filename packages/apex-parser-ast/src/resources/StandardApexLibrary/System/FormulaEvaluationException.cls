@@ -1,11 +1,11 @@
 global class FormulaEvaluationException extends Exception {
-    Object FormulaEvaluationException() { return null; }
+    global FormulaEvaluationException() { }
 
-    Object FormulaEvaluationException(Exception param1) { return null; }
+    global FormulaEvaluationException(Exception param1) { }
 
-    Object FormulaEvaluationException(String param1) { return null; }
+    global FormulaEvaluationException(String param1) { }
 
-    Object FormulaEvaluationException(String param1, Exception param2) { return null; }
+    global FormulaEvaluationException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

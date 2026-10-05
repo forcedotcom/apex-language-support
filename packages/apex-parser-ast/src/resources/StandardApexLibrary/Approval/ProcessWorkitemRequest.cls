@@ -14,7 +14,7 @@ global class ProcessWorkitemRequest extends Approval.ProcessRequest {
     global String action { get; set; }
     global String workitemid { get; set; }
 
-    Object ProcessWorkitemRequest() { return null; }
+    global ProcessWorkitemRequest() { }
 
     global Boolean equals(Object obj) { return false; }
 

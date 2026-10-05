@@ -20,7 +20,7 @@ global class Order {
      */
     global String tableName { get; set; }
 
-    global Object Order() { return null; }
+    global Order() { }
 
     global Boolean equals(Object obj) { return false; }
 

@@ -6,7 +6,7 @@
  * Contains information about the payment gateway’s response following an authorization transaction. The gateway adapter uses the payment gateway’s response to populate the PostAuthorizationResponse fields. The payments platform uses the information from this class to settle the transaction.
  */
 global with sharing class PostAuthorizationResponse extends commercepayments.AbstractTransactionResponse {
-    global Object PostAuthorizationResponse() { return null; }
+    global PostAuthorizationResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

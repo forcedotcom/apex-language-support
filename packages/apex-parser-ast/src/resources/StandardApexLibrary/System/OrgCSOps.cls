@@ -1,5 +1,5 @@
 global class OrgCSOps {
-    global Object OrgCSOps() { return null; }
+    global OrgCSOps() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

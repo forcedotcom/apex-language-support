@@ -1,5 +1,5 @@
 global class AppRequestedEvent extends Slack.Event {
-    global Object AppRequestedEvent() { return null; }
+    global AppRequestedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

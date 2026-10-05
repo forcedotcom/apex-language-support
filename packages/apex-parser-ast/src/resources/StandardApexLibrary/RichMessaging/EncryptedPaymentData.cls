@@ -8,7 +8,7 @@ global class EncryptedPaymentData {
     @InvocableVariable
     global String version;
 
-    global Object EncryptedPaymentData(RichMessaging.EncryptedPaymentDataHeader header, String data, String signature, String version) { return null; }
+    global EncryptedPaymentData(RichMessaging.EncryptedPaymentDataHeader header, String data, String signature, String version) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

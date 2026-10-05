@@ -40,7 +40,7 @@ global class Container extends Metadata.MetadataValue {
      */
     global Integer width { get; set; }
 
-    global Object Container() { return null; }
+    global Container() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

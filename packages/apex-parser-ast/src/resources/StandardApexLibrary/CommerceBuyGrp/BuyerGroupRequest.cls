@@ -2,7 +2,7 @@
  * Contains methods to retrieve account and store details used to identify the buyer groups associated with a user.
  */
 global class BuyerGroupRequest {
-    global Object BuyerGroupRequest(String storeId, String accountId, Map requestContextParameters) { return null; }
+    global BuyerGroupRequest(String storeId, String accountId, Map requestContextParameters) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -4,7 +4,7 @@
  * Use the methods in this class to generate the payload in a JWT bearer token for the OAuth 2.0 JWT bearer token flow. For more information and a full code sample, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_class_Auth_JWTBearerTokenExchange.htm" target="_blank">JWTBearerTokenExchange Class</a>.
  */
 global class JWT {
-    global Object JWT() { return null; }
+    global JWT() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

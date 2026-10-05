@@ -26,7 +26,7 @@ global with sharing class GatewayErrorResponse implements commercepayments.Gatew
     /**
      * Constructor to create a GatewayErrorResponse object that accepts errorCode and errorMessage.
      */
-    global Object GatewayErrorResponse(String errorCode, String errorMessage) { return null; }
+    global GatewayErrorResponse(String errorCode, String errorMessage) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

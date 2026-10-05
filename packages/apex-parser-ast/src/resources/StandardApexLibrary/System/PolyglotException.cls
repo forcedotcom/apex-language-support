@@ -1,11 +1,11 @@
 global class PolyglotException extends Exception {
-    Object PolyglotException() { return null; }
+    global PolyglotException() { }
 
-    Object PolyglotException(Exception param1) { return null; }
+    global PolyglotException(Exception param1) { }
 
-    Object PolyglotException(String param1) { return null; }
+    global PolyglotException(String param1) { }
 
-    Object PolyglotException(String param1, Exception param2) { return null; }
+    global PolyglotException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

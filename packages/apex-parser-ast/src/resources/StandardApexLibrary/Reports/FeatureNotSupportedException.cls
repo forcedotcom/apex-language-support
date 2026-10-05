@@ -2,11 +2,11 @@
  * Invalid report format
  */
 global class FeatureNotSupportedException extends Exception {
-    global Object FeatureNotSupportedException() { return null; }
+    global FeatureNotSupportedException() { }
 
-    global Object FeatureNotSupportedException(Exception null) { return null; }
+    global FeatureNotSupportedException(Exception null) { }
 
-    global Object FeatureNotSupportedException(String null, Exception null) { return null; }
+    global FeatureNotSupportedException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

@@ -1,5 +1,5 @@
 global class ConnectUserProfile {
-    global Object ConnectUserProfile() { return null; }
+    global ConnectUserProfile() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -15,7 +15,7 @@ global with sharing class NlpResponse {
     @AuraEnabled
     global industriesNlpSvc.NlpSummarizationResult summarizationResult { get; set; }
 
-    global Object NlpResponse() { return null; }
+    global NlpResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

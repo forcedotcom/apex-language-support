@@ -5,7 +5,7 @@ global class EvaluatedCondition {
     /**
      * Creates a new instance of the Reports.EvaluatedConditions class using the specified parameters.
      */
-    global Object EvaluatedCondition(String aggregateName, String aggregateLabel, Double compareTo, Double value, String displayCompareTo, String displayValue, reports.EvaluatedConditionOperator operator) { return null; }
+    global EvaluatedCondition(String aggregateName, String aggregateLabel, Double compareTo, Double value, String displayCompareTo, String displayValue, reports.EvaluatedConditionOperator operator) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

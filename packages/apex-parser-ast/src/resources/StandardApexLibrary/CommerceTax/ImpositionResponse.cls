@@ -12,7 +12,7 @@
  *                    }
  */
 global with sharing class ImpositionResponse {
-    global Object ImpositionResponse() { return null; }
+    global ImpositionResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

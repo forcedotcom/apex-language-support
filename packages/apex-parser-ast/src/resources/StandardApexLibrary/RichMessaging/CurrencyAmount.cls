@@ -11,9 +11,9 @@ global with sharing class CurrencyAmount {
     @InvocableVariable
     global String currencyCode;
 
-    global Object CurrencyAmount() { return null; }
+    global CurrencyAmount() { }
 
-    global Object CurrencyAmount(String currencyCode, Decimal amount) { return null; }
+    global CurrencyAmount(String currencyCode, Decimal amount) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

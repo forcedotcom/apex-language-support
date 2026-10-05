@@ -9,7 +9,7 @@
  * commercepayments.NotificationSaveResult saveResult = commercepayments.NotificationClient.record(notification);
  */
 global with sharing class NotificationClient {
-    global Object NotificationClient() { return null; }
+    global NotificationClient() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -35,7 +35,7 @@ global class StandardController {
     /**
      * Creates a new instance of the ApexPages.StandardController class for the specified standard or custom object.
      */
-    Object StandardController(SObject sobject) { return null; }
+    global StandardController(SObject sobject) { }
 
     /**
      * When a Visualforce page is loaded, the fields accessible to the page are based on the fields referenced in the Visualforce markup. This method adds a reference to each field specified in fieldNames so that the controller can explicitly access those fields as well.

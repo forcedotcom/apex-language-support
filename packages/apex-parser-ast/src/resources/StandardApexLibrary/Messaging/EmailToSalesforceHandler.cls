@@ -1,5 +1,5 @@
 global with sharing class EmailToSalesforceHandler implements Messaging.InboundEmailHandler {
-    global Object EmailToSalesforceHandler() { return null; }
+    global EmailToSalesforceHandler() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

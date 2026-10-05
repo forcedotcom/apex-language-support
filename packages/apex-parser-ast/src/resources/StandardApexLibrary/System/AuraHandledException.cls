@@ -2,7 +2,7 @@
  * Returns a custom error message to a JavaScript controller. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.lightning.meta/lightning/controllers_server_apex_custom_errors.htm" target="_blank" title="HTML (New Window)">Returning Errors from an Apex Server-Side Controller</a>.
  */
 global class AuraHandledException extends Exception {
-    Object AuraHandledException(String param1) { return null; }
+    global AuraHandledException(String param1) { }
 
     global Boolean equals(Object obj) { return false; }
 

@@ -48,7 +48,7 @@
  *                  totalAmount+=lineItem.amount;
  */
 global with sharing class TaxDetailsResponse {
-    global Object TaxDetailsResponse() { return null; }
+    global TaxDetailsResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

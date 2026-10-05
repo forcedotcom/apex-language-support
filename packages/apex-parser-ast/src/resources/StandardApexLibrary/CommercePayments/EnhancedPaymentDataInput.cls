@@ -72,7 +72,7 @@ global with sharing class EnhancedPaymentDataInput {
      */
     global Double totalTaxAmount { get; set; }
 
-    global Object EnhancedPaymentDataInput() { return null; }
+    global EnhancedPaymentDataInput() { }
 
     /**
      * Maintains the integrity of lists of type EnhancedPaymentDataInput by determining the equality of external objects in a list. This method is dynamic and based on the equals method in Java.

@@ -18,7 +18,7 @@ global class ProcessSubmitRequest extends Approval.ProcessRequest {
     global Boolean skipentrycriteria { get; set; }
     global String submitterid { get; set; }
 
-    Object ProcessSubmitRequest() { return null; }
+    global ProcessSubmitRequest() { }
 
     global Boolean equals(Object obj) { return false; }
 

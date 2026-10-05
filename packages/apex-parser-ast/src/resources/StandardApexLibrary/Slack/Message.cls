@@ -1,5 +1,5 @@
 global class Message {
-    global Object Message() { return null; }
+    global Message() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -192,7 +192,7 @@ global class Message {
     global override String toString() { return null; }
 
     global class Edited {
-        global Object Edited() { return null; }
+        global Edited() { }
 
         global Slack.Message.Edited clone() { return null; }
 
@@ -212,7 +212,7 @@ global class Message {
     }
 
     global class Icons {
-        global Object Icons() { return null; }
+        global Icons() { }
 
         global Slack.Message.Icons clone() { return null; }
 
@@ -244,7 +244,7 @@ global class Message {
     }
 
     global class MessageItem {
-        global Object MessageItem() { return null; }
+        global MessageItem() { }
 
         global Slack.Message.MessageItem clone() { return null; }
 
@@ -388,7 +388,7 @@ global class Message {
     }
 
     global class MessageRoot {
-        global Object MessageRoot() { return null; }
+        global MessageRoot() { }
 
         global Slack.Message.MessageRoot clone() { return null; }
 
@@ -484,7 +484,7 @@ global class Message {
     }
 
     global class MessageRootReply {
-        global Object MessageRootReply() { return null; }
+        global MessageRootReply() { }
 
         global Slack.Message.MessageRootReply clone() { return null; }
 
@@ -504,7 +504,7 @@ global class Message {
     }
 
     global class Metadata {
-        global Object Metadata() { return null; }
+        global Metadata() { }
 
         global Slack.Message.Metadata clone() { return null; }
 

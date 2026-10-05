@@ -1,5 +1,5 @@
 global class StarsListResponse {
-    global Object StarsListResponse() { return null; }
+    global StarsListResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -40,7 +40,7 @@ global class StarsListResponse {
     global override String toString() { return null; }
 
     global class Comment {
-        global Object Comment() { return null; }
+        global Comment() { }
 
         global Slack.StarsListResponse.Comment clone() { return null; }
 
@@ -84,7 +84,7 @@ global class StarsListResponse {
     }
 
     global class Edited {
-        global Object Edited() { return null; }
+        global Edited() { }
 
         global Slack.StarsListResponse.Edited clone() { return null; }
 
@@ -104,7 +104,7 @@ global class StarsListResponse {
     }
 
     global class Item {
-        global Object Item() { return null; }
+        global Item() { }
 
         global Slack.StarsListResponse.Item clone() { return null; }
 
@@ -140,7 +140,7 @@ global class StarsListResponse {
     }
 
     global class Message {
-        global Object Message() { return null; }
+        global Message() { }
 
         global Slack.StarsListResponse.Message clone() { return null; }
 
@@ -256,7 +256,7 @@ global class StarsListResponse {
     }
 
     global class MessageRootReply {
-        global Object MessageRootReply() { return null; }
+        global MessageRootReply() { }
 
         global Slack.StarsListResponse.MessageRootReply clone() { return null; }
 

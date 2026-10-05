@@ -23,7 +23,7 @@ global class TableSelection {
      */
     global String tableSelected { get; set; }
 
-    global Object TableSelection() { return null; }
+    global TableSelection() { }
 
     global Boolean equals(Object obj) { return false; }
 

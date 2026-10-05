@@ -1,5 +1,5 @@
 global class TokensRevokedEvent extends Slack.Event {
-    global Object TokensRevokedEvent() { return null; }
+    global TokensRevokedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -16,7 +16,7 @@ global class TokensRevokedEvent extends Slack.Event {
     global override String toString() { return null; }
 
     global class Tokens {
-        global Object Tokens() { return null; }
+        global Tokens() { }
 
         global Slack.TokensRevokedEvent.Tokens clone() { return null; }
 

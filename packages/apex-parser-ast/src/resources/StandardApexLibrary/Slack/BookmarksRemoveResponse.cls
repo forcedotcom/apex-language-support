@@ -1,5 +1,5 @@
 global class BookmarksRemoveResponse {
-    global Object BookmarksRemoveResponse() { return null; }
+    global BookmarksRemoveResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

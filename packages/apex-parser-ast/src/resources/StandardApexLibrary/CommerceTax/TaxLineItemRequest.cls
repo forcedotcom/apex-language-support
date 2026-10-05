@@ -62,7 +62,7 @@ global with sharing class TaxLineItemRequest {
     /**
      * Initializes the request for the tax line item. This constructor is intended for test usage and throws an exception if used outside of the Apex test context.
      */
-    global Object TaxLineItemRequest(commercetax.LineTaxAddressesRequest addresses, Double amount, String description, String productCode, Double quantity, String lineNumber, String taxCode, Datetime effectiveDate) { return null; }
+    global TaxLineItemRequest(commercetax.LineTaxAddressesRequest addresses, Double amount, String description, String productCode, Double quantity, String lineNumber, String taxCode, Datetime effectiveDate) { }
 
     /**
      * Maintains the integrity of lists of type TaxLineItemRequest by determining the equality of external objects in a list. This method is dynamic and is based on the equals() method in Java.

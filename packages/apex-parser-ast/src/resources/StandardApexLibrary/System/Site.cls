@@ -2,7 +2,7 @@
  * Use the Site Class to manage your sites. Change, reset, validate, and check the expiration of passwords. Create site users, person accounts, and portal users. Get the admin email and ID. Get various URLs, the path prefix, the ID, the template, and the type of the site. Log in to the site.
  */
 global class Site {
-    global Object Site() { return null; }
+    global Site() { }
 
     global static System.PageReference changePassword(String newPassword, String verifyNewPassword) { return null; }
 

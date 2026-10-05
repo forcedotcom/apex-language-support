@@ -1,5 +1,5 @@
 global class UserMappingUrlServiceProvider {
-    global Object UserMappingUrlServiceProvider() { return null; }
+    global UserMappingUrlServiceProvider() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

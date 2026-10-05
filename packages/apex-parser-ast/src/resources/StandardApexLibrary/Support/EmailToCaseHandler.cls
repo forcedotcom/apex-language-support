@@ -1,5 +1,5 @@
 global with sharing class EmailToCaseHandler implements Messaging.InboundEmailHandler {
-    global Object EmailToCaseHandler() { return null; }
+    global EmailToCaseHandler() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

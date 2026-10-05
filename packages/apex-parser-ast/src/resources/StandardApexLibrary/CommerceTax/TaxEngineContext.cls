@@ -29,7 +29,7 @@ global with sharing class TaxEngineContext {
     /**
      * Initializes the TaxEngineContext object. This constructor is intended for test usage and throws an exception if used outside of the Apex test context.
      */
-    global Object TaxEngineContext(commercetax.TaxEngineRequest request, commercetax.RequestType requestType, String namedUri) { return null; }
+    global TaxEngineContext(commercetax.TaxEngineRequest request, commercetax.RequestType requestType, String namedUri) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -2,13 +2,13 @@
  * Any problem with the serialization of data. This exception is used with Visualforce pages. For more information on Visualforce, see the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.pages.meta/pages/" target="_blank" title="Adobe Acrobat PDF (New Window)">Visualforce Developer Guide</a>.
  */
 global class SerializationException extends Exception {
-    Object SerializationException() { return null; }
+    global SerializationException() { }
 
-    Object SerializationException(Exception param1) { return null; }
+    global SerializationException(Exception param1) { }
 
-    Object SerializationException(String param1) { return null; }
+    global SerializationException(String param1) { }
 
-    Object SerializationException(String param1, Exception param2) { return null; }
+    global SerializationException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

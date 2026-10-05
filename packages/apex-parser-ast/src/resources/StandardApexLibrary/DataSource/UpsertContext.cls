@@ -15,7 +15,7 @@ global class UpsertContext {
      */
     global String tableSelected { get; set; }
 
-    global Object UpsertContext() { return null; }
+    global UpsertContext() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

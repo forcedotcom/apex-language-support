@@ -1,5 +1,5 @@
 global class ChannelUnsharedEvent extends Slack.Event {
-    global Object ChannelUnsharedEvent() { return null; }
+    global ChannelUnsharedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

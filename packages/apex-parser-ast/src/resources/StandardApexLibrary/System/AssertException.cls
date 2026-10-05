@@ -2,13 +2,13 @@
  * A System.assert failure that halts code execution. Optionally contains the custom message specified in the last (msg) argument to the assert() method.
  */
 global class AssertException extends Exception {
-    Object AssertException() { return null; }
+    global AssertException() { }
 
-    Object AssertException(Exception param1) { return null; }
+    global AssertException(Exception param1) { }
 
-    Object AssertException(String param1) { return null; }
+    global AssertException(String param1) { }
 
-    Object AssertException(String param1, Exception param2) { return null; }
+    global AssertException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

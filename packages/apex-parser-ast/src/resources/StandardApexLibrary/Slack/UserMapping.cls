@@ -1,5 +1,5 @@
 global class UserMapping {
-    global Object UserMapping(String salesforceId, String slackUserId) { return null; }
+    global UserMapping(String salesforceId, String slackUserId) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

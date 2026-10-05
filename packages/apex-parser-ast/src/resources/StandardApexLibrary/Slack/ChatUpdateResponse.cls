@@ -1,5 +1,5 @@
 global class ChatUpdateResponse {
-    global Object ChatUpdateResponse() { return null; }
+    global ChatUpdateResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -25,7 +25,7 @@ global class ConsoleComponent extends Metadata.MetadataValue {
      */
     global Integer width { get; set; }
 
-    global Object ConsoleComponent() { return null; }
+    global ConsoleComponent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

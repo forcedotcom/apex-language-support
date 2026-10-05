@@ -1,5 +1,5 @@
 global class FfxPortalData {
-    global Object FfxPortalData() { return null; }
+    global FfxPortalData() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

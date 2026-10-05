@@ -1,5 +1,5 @@
 global class Usergroup {
-    global Object Usergroup() { return null; }
+    global Usergroup() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -92,7 +92,7 @@ global class Usergroup {
     global override String toString() { return null; }
 
     global class Prefs {
-        global Object Prefs() { return null; }
+        global Prefs() { }
 
         global Slack.Usergroup.Prefs clone() { return null; }
 

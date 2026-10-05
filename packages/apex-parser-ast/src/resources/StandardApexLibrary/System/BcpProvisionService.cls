@@ -1,5 +1,5 @@
 global class BcpProvisionService {
-    global Object BcpProvisionService() { return null; }
+    global BcpProvisionService() { }
 
     global static void enableC2C() { }
 

@@ -1,5 +1,5 @@
 global class TeamAccessGrantedEvent extends Slack.Event {
-    global Object TeamAccessGrantedEvent() { return null; }
+    global TeamAccessGrantedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

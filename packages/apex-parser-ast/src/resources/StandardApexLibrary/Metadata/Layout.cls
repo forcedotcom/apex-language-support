@@ -121,7 +121,7 @@ global class Layout extends Metadata.Metadata {
      */
     global Metadata.SummaryLayout summaryLayout { get; set; }
 
-    global Object Layout() { return null; }
+    global Layout() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

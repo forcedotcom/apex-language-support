@@ -92,12 +92,12 @@ global class UserData {
     /**
      * Creates a new instance of the Auth.UserData class using the specified arguments.
      */
-    global Object UserData(String identifier, String firstName, String lastName, String fullName, String email, String link, String username, String locale, String provider, String siteLoginUrl, Map attributeMap) { return null; }
+    global UserData(String identifier, String firstName, String lastName, String fullName, String email, String link, String username, String locale, String provider, String siteLoginUrl, Map attributeMap) { }
 
     /**
      * Creates an instance of the Auth.UserData class that includes the ID token and user info response from the identity provider, if returned during single sign-on.
      */
-    global Object UserData(String identifier, String firstName, String lastName, String fullName, String email, String link, String username, String locale, String provider, String siteLoginUrl, Map attributeMap, String idToken, String userInfoJSONString) { return null; }
+    global UserData(String identifier, String firstName, String lastName, String fullName, String email, String link, String username, String locale, String provider, String siteLoginUrl, Map attributeMap, String idToken, String userInfoJSONString) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

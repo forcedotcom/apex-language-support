@@ -4,7 +4,7 @@
  * Use the methods in the System.JSON class to perform round-trip JSON serialization and deserialization of Apex objects.
  */
 global class JSON {
-    global Object JSON() { return null; }
+    global JSON() { }
 
     /**
      * Returns a new JSON generator.

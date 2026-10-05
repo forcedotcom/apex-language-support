@@ -1,5 +1,5 @@
 global class DeletingBatchable implements Database.AllowsCallouts, Database.Batchable, Database.Stateful {
-    global Object DeletingBatchable(String uprId) { return null; }
+    global DeletingBatchable(String uprId) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -1,5 +1,5 @@
 global class View {
-    global Object View() { return null; }
+    global View() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

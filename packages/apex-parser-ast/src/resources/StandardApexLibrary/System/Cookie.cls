@@ -72,19 +72,19 @@ global class Cookie {
     /**
      * Creates a new instance of the Cookie class using the specified name, value, path, age, and the secure setting.
      */
-    Object Cookie(String name, String value, String path, Integer maxAge, Boolean isSecure) { return null; }
+    global Cookie(String name, String value, String path, Integer maxAge, Boolean isSecure) { }
 
     /**
      * Creates a new instance of the Cookie class using the specified name, value, path, and age, and settings for security and cross-domain behavior.
      * <p>Note
      * Google Chrome 80 introduces a new default cookie attribute setting of SameSite, which is set to Lax. Previously, the SameSite cookie attribute defaulted to the value of None. When SameSite is set to None, cookies must be tagged with the isSecure attribute indicating that they require an encrypted HTTPS connection.
      */
-    Object Cookie(String name, String value, String path, Integer maxAge, Boolean isSecure, String sameSite) { return null; }
+    global Cookie(String name, String value, String path, Integer maxAge, Boolean isSecure, String sameSite) { }
 
     /**
      * Creates a new instance of the Cookie class using the specified name, value, path, age, and settings for security, cross-domain behavior, and JavaScript access.
      */
-    Object Cookie(String name, String value, String path, Integer maxAge, Boolean isSecure, String sameSite, Boolean isHttpOnly) { return null; }
+    global Cookie(String name, String value, String path, Integer maxAge, Boolean isSecure, String sameSite, Boolean isHttpOnly) { }
 
     global Boolean equals(Object obj) { return false; }
 

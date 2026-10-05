@@ -27,12 +27,12 @@ global class Version {
     /**
      * Creates a new instance of the Version class as a two-part package version using the specified major and minor version numbers.
      */
-    Object Version(Integer major, Integer minor) { return null; }
+    global Version(Integer major, Integer minor) { }
 
     /**
      * Creates a new instance of the Version class as a three-part package version using the specified major, minor, and patch version numbers.
      */
-    Object Version(Integer major, Integer minor, Integer patch) { return null; }
+    global Version(Integer major, Integer minor, Integer patch) { }
 
     /**
      * Compares the current version with the specified version.

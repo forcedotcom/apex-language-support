@@ -1,5 +1,5 @@
 global class SearchAllResponse {
-    global Object SearchAllResponse() { return null; }
+    global SearchAllResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -48,7 +48,7 @@ global class SearchAllResponse {
     global override String toString() { return null; }
 
     global class Posts {
-        global Object Posts() { return null; }
+        global Posts() { }
 
         global Slack.SearchAllResponse.Posts clone() { return null; }
 

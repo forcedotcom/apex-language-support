@@ -2,13 +2,13 @@
  * Any problem with SOQL queries, such as assigning a query that returns no records or more than one record to a singleton sObject variable.
  */
 global class QueryException extends Exception {
-    Object QueryException() { return null; }
+    global QueryException() { }
 
-    Object QueryException(Exception param1) { return null; }
+    global QueryException(Exception param1) { }
 
-    Object QueryException(String param1) { return null; }
+    global QueryException(String param1) { }
 
-    Object QueryException(String param1, Exception param2) { return null; }
+    global QueryException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

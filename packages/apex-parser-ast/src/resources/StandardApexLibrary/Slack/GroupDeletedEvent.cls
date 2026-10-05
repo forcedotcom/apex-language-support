@@ -1,5 +1,5 @@
 global class GroupDeletedEvent extends Slack.Event {
-    global Object GroupDeletedEvent() { return null; }
+    global GroupDeletedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

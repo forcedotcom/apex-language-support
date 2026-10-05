@@ -3,7 +3,7 @@ global class ScanResult {
     global Map result { get; set; }
     global String scanLocator { get; set; }
 
-    global Object ScanResult(Map result, String scanLocator, Boolean isDone) { return null; }
+    global ScanResult(Map result, String scanLocator, Boolean isDone) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

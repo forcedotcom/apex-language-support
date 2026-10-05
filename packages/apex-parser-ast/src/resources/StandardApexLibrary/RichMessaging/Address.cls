@@ -100,7 +100,7 @@ global with sharing class Address {
     @AuraEnabled
     global String subLocality { get; set; }
 
-    global Object Address() { return null; }
+    global Address() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

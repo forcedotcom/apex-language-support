@@ -24,17 +24,17 @@ global class Resolution {
     /**
      * Default constructor for the Resolution class.
      */
-    global Object Resolution() { return null; }
+    global Resolution() { }
 
     /**
      * Constructor that takes the name of an extension provider as an argument.
      */
-    global Object Resolution(String providerName) { return null; }
+    global Resolution(String providerName) { }
 
     /**
      * Constructor that takes a CommerceExtension.ResolutionStates object as an argument.
      */
-    global Object Resolution(CommerceExtension.ResolutionStates resolutionState) { return null; }
+    global Resolution(CommerceExtension.ResolutionStates resolutionState) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

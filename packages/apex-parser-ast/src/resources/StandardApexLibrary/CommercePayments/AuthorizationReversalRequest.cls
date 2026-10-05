@@ -64,7 +64,7 @@ global with sharing class AuthorizationReversalRequest extends commercepayments.
     /**
      * Constructor for building the amount in an authorization reversal request. This constructor is intended for test usage and throws an exception if used outside of the Apex test context.
      */
-    global Object AuthorizationReversalRequest(Double amount, String authorizationId) { return null; }
+    global AuthorizationReversalRequest(Double amount, String authorizationId) { }
 
     /**
      * Maintains the integrity of lists of type AuthorizationReversalRequest by determining the equality of external objects in a list. This method is dynamic and based on the equals method in Java.

@@ -2,13 +2,13 @@
  * This exception is thrown if you try to access items that are outside the bounds of a list. This exception is used by the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_classes_iterable.htm" target="_blank">Iterator</a> next method. For example, if iterator.hasNext() == false and you call iterator.next(), this exception is thrown. This exception is also used by the Apex Flex Queue methods and is thrown if you attempt to access a job at an invalid position in the flex queue.
  */
 global class NoSuchElementException extends Exception {
-    Object NoSuchElementException() { return null; }
+    global NoSuchElementException() { }
 
-    Object NoSuchElementException(Exception param1) { return null; }
+    global NoSuchElementException(Exception param1) { }
 
-    Object NoSuchElementException(String param1) { return null; }
+    global NoSuchElementException(String param1) { }
 
-    Object NoSuchElementException(String param1, Exception param2) { return null; }
+    global NoSuchElementException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

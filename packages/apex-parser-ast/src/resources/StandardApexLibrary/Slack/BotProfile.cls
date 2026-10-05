@@ -1,5 +1,5 @@
 global class BotProfile {
-    global Object BotProfile() { return null; }
+    global BotProfile() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -36,7 +36,7 @@ global class BotProfile {
     global override String toString() { return null; }
 
     global class Icons {
-        global Object Icons() { return null; }
+        global Icons() { }
 
         global Slack.BotProfile.Icons clone() { return null; }
 

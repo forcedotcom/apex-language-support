@@ -6,7 +6,7 @@
  * If you don't specify an execution user, the plug-in runs as an Automated Process User, which is a system user that executes tasks behind the scenes. Most ExternalClientAppOauthHandler methods require that you specify an execution user, with the exception of the customAttributes method.
  */
 global virtual class ExternalClientAppOauthHandler {
-    global Object ExternalClientAppOauthHandler() { return null; }
+    global ExternalClientAppOauthHandler() { }
 
     /**
      * Authorizes the specified user to access the external client app. If the external client app is set for users to self-authorize, this method isn’t invoked.

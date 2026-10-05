@@ -16,17 +16,17 @@ global class Message {
     /**
      * Creates a new instance of the ApexPages.Message class using the specified message severity and summary.
      */
-    Object Message(ApexPages.Severity severity, String message) { return null; }
+    global Message(ApexPages.Severity severity, String message) { }
 
     /**
      * Creates a new instance of the ApexPages.Message class using the specified message severity, summary, and message detail.
      */
-    Object Message(ApexPages.Severity severity, String summary, String detail) { return null; }
+    global Message(ApexPages.Severity severity, String summary, String detail) { }
 
     /**
      * Creates a new instance of the ApexPages.Message class using the specified severity, summary, detail, and component ID.
      */
-    Object Message(ApexPages.Severity severity, String summary, String detail, String id) { return null; }
+    global Message(ApexPages.Severity severity, String summary, String detail, String id) { }
 
     global Boolean equals(Object obj) { return false; }
 

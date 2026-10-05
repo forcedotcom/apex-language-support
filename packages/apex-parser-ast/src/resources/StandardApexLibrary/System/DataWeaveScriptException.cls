@@ -2,13 +2,13 @@
  * Any run-time script errors that occur within DataWeave in Apex.
  */
 global class DataWeaveScriptException extends Exception {
-    Object DataWeaveScriptException() { return null; }
+    global DataWeaveScriptException() { }
 
-    Object DataWeaveScriptException(Exception param1) { return null; }
+    global DataWeaveScriptException(Exception param1) { }
 
-    Object DataWeaveScriptException(String param1) { return null; }
+    global DataWeaveScriptException(String param1) { }
 
-    Object DataWeaveScriptException(String param1, Exception param2) { return null; }
+    global DataWeaveScriptException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

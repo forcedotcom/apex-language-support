@@ -31,7 +31,7 @@ global with sharing class TaxAddressesRequest {
     /**
      * Constructor for defining addresses for the tax addresses request. This constructor is intended for test usage and throws an exception if used outside of the Apex test context.
      */
-    global Object TaxAddressesRequest(commercetax.TaxAddressRequest shipFrom, commercetax.TaxAddressRequest shipTo, commercetax.TaxAddressRequest soldTo, commercetax.TaxAddressRequest billTo, commercetax.TaxAddressRequest taxEngineAddress) { return null; }
+    global TaxAddressesRequest(commercetax.TaxAddressRequest shipFrom, commercetax.TaxAddressRequest shipTo, commercetax.TaxAddressRequest soldTo, commercetax.TaxAddressRequest billTo, commercetax.TaxAddressRequest taxEngineAddress) { }
 
     /**
      * Maintains the integrity of lists of type TaxAddressesRequest by determining the equality of external objects in a list. This method is dynamic and is based on the equals() method in Java.

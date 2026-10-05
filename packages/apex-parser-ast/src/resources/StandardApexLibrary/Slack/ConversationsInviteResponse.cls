@@ -1,5 +1,5 @@
 global class ConversationsInviteResponse {
-    global Object ConversationsInviteResponse() { return null; }
+    global ConversationsInviteResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -40,7 +40,7 @@ global class ConversationsInviteResponse {
     global override String toString() { return null; }
 
     global class Error {
-        global Object Error() { return null; }
+        global Error() { }
 
         global Slack.ConversationsInviteResponse.Error clone() { return null; }
 

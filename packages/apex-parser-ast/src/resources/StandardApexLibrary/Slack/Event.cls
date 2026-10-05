@@ -1,5 +1,5 @@
 global abstract class Event {
-    global Object Event() { return null; }
+    global Event() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

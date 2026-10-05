@@ -1,5 +1,5 @@
 global class ImCreatedEvent extends Slack.Event {
-    global Object ImCreatedEvent() { return null; }
+    global ImCreatedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -20,7 +20,7 @@ global class ImCreatedEvent extends Slack.Event {
     global override String toString() { return null; }
 
     global class Channel {
-        global Object Channel() { return null; }
+        global Channel() { }
 
         global Slack.ImCreatedEvent.Channel clone() { return null; }
 

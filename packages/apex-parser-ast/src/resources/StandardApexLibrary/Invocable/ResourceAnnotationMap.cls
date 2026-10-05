@@ -11,7 +11,7 @@ global class ResourceAnnotationMap {
     @AuraEnabled
     global String resourceType { get; set; }
 
-    global Object ResourceAnnotationMap() { return null; }
+    global ResourceAnnotationMap() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

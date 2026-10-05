@@ -2,13 +2,13 @@
  * Any problem with email, such as failure to deliver. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_forcecom_email_outbound.htm" target="_blank">Outbound Email</a>.
  */
 global class EmailException extends Exception {
-    Object EmailException() { return null; }
+    global EmailException() { }
 
-    Object EmailException(Exception param1) { return null; }
+    global EmailException(Exception param1) { }
 
-    Object EmailException(String param1) { return null; }
+    global EmailException(String param1) { }
 
-    Object EmailException(String param1, Exception param2) { return null; }
+    global EmailException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

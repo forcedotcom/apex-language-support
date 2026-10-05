@@ -13,7 +13,7 @@ global class Test {
     global final static String KEY_SUB_LOCATION;
     global final static String KEY_VERSION;
 
-    global Object Test() { return null; }
+    global Test() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

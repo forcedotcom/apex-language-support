@@ -1,5 +1,5 @@
 global with sharing class UnreferencedRefundResponse extends commercepayments.AbstractTransactionResponse {
-    global Object UnreferencedRefundResponse() { return null; }
+    global UnreferencedRefundResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

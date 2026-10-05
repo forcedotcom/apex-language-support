@@ -21,7 +21,7 @@ global class AuthProviderCallbackState {
     /**
      * Creates an instance of the AuthProviderCallbackState class using the specified HTTP headers, body, and query parameters of the authentication request.
      */
-    global Object AuthProviderCallbackState(Map headers, String body, Map queryParameters) { return null; }
+    global AuthProviderCallbackState(Map headers, String body, Map queryParameters) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

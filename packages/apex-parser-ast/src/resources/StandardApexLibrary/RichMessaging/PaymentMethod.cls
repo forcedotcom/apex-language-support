@@ -24,7 +24,7 @@ global class PaymentMethod {
     /**
      * Creates a new instance of the RichMessaging.PaymentMethod class.
      */
-    global Object PaymentMethod(String network, String paymentType, String displayName) { return null; }
+    global PaymentMethod(String network, String paymentType, String displayName) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

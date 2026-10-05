@@ -20,7 +20,7 @@ global class ConversationsAcceptSharedInviteRequest {
     global override String toString() { return null; }
 
     global class Builder {
-        global Object Builder() { return null; }
+        global Builder() { }
 
         global Slack.ConversationsAcceptSharedInviteRequest build() { return null; }
 

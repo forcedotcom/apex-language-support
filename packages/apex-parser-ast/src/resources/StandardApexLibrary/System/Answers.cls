@@ -29,7 +29,7 @@
  * Answers.setBestReply(questionId,replyId);
  */
 global class Answers {
-    global Object Answers() { return null; }
+    global Answers() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

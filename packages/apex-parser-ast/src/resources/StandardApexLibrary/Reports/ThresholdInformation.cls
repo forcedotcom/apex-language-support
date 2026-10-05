@@ -5,7 +5,7 @@ global class ThresholdInformation {
     /**
      * Creates a new instance of the Reports.EvaluatedCondition class.
      */
-    global Object ThresholdInformation(List evaluatedConditions) { return null; }
+    global ThresholdInformation(List evaluatedConditions) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

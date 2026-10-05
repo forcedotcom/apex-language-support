@@ -4,7 +4,7 @@
  * See <a class="xref" href="https://help.salesforce.com/s/articleView?id=platform.external_services_aysnc_ops_testing.htm&amp;type=5&amp;language=en_US" target="_blank">Create Unit Testing for Asynchronous Callouts</a> in the "Extend Salesforce with Clicks, Not Code" Help Guide.
  */
 global class ExternalServiceTest {
-    global Object ExternalServiceTest() { return null; }
+    global ExternalServiceTest() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

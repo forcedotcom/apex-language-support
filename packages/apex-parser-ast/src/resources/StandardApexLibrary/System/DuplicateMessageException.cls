@@ -2,13 +2,13 @@
  * Attempt to enqueue job with duplicate queueable signature
  */
 global class DuplicateMessageException extends Exception {
-    Object DuplicateMessageException() { return null; }
+    global DuplicateMessageException() { }
 
-    Object DuplicateMessageException(Exception param1) { return null; }
+    global DuplicateMessageException(Exception param1) { }
 
-    Object DuplicateMessageException(String param1) { return null; }
+    global DuplicateMessageException(String param1) { }
 
-    Object DuplicateMessageException(String param1, Exception param2) { return null; }
+    global DuplicateMessageException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

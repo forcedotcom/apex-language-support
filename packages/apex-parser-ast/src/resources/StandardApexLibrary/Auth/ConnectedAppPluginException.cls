@@ -2,13 +2,13 @@
  * Throw this exception to indicate that an error occurred while running the custom behavior for a connected app. To get the error message and write it to debug log, use the String getMessage().
  */
 global class ConnectedAppPluginException extends Exception {
-    global Object ConnectedAppPluginException() { return null; }
+    global ConnectedAppPluginException() { }
 
-    global Object ConnectedAppPluginException(Exception null) { return null; }
+    global ConnectedAppPluginException(Exception null) { }
 
-    global Object ConnectedAppPluginException(String null) { return null; }
+    global ConnectedAppPluginException(String null) { }
 
-    global Object ConnectedAppPluginException(String null, Exception null) { return null; }
+    global ConnectedAppPluginException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

@@ -1,5 +1,5 @@
 global class ReactionRemovedEvent extends Slack.Event {
-    global Object ReactionRemovedEvent() { return null; }
+    global ReactionRemovedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -32,7 +32,7 @@ global class ReactionRemovedEvent extends Slack.Event {
     global override String toString() { return null; }
 
     global class Item {
-        global Object Item() { return null; }
+        global Item() { }
 
         global Slack.ReactionRemovedEvent.Item clone() { return null; }
 

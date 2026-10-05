@@ -2,7 +2,7 @@
  * Use the Http class to initiate an HTTP request and response.
  */
 global class Http {
-    Object Http() { return null; }
+    global Http() { }
 
     global Boolean equals(Object obj) { return false; }
 

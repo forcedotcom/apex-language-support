@@ -104,12 +104,12 @@ global class PageReference {
     /**
      * Generate a new instance of the PageReference class for the specified sObject record.
      */
-    Object PageReference(SObject sobject) { return null; }
+    global PageReference(SObject sobject) { }
 
     /**
      * Creates a new instance of the PageReference class using the specified URL.
      */
-    Object PageReference(String url) { return null; }
+    global PageReference(String url) { }
 
     global Boolean equals(Object obj) { return false; }
 

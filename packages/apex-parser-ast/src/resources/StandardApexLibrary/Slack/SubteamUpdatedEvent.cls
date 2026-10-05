@@ -1,5 +1,5 @@
 global class SubteamUpdatedEvent extends Slack.Event {
-    global Object SubteamUpdatedEvent() { return null; }
+    global SubteamUpdatedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -20,7 +20,7 @@ global class SubteamUpdatedEvent extends Slack.Event {
     global override String toString() { return null; }
 
     global class Prefs {
-        global Object Prefs() { return null; }
+        global Prefs() { }
 
         global Slack.SubteamUpdatedEvent.Prefs clone() { return null; }
 
@@ -40,7 +40,7 @@ global class SubteamUpdatedEvent extends Slack.Event {
     }
 
     global class Subteam {
-        global Object Subteam() { return null; }
+        global Subteam() { }
 
         global Slack.SubteamUpdatedEvent.Subteam clone() { return null; }
 

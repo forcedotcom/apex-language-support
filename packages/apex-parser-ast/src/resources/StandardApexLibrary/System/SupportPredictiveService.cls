@@ -1,5 +1,5 @@
 global class SupportPredictiveService {
-    global Object SupportPredictiveService() { return null; }
+    global SupportPredictiveService() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

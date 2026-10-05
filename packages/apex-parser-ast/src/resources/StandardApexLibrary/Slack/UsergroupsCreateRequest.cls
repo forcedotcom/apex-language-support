@@ -20,7 +20,7 @@ global class UsergroupsCreateRequest {
     global override String toString() { return null; }
 
     global class Builder {
-        global Object Builder() { return null; }
+        global Builder() { }
 
         global Slack.UsergroupsCreateRequest build() { return null; }
 

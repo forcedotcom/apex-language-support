@@ -1,5 +1,5 @@
 global with sharing class UnitOfWork {
-    global Object UnitOfWork() { return null; }
+    global UnitOfWork() { }
 
     global void commitWork() { }
 

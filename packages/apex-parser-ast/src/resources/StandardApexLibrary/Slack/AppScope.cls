@@ -1,5 +1,5 @@
 global class AppScope {
-    global Object AppScope() { return null; }
+    global AppScope() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

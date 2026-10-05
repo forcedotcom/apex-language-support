@@ -1,5 +1,5 @@
 global with sharing class SparkPlugApi {
-    global Object SparkPlugApi() { return null; }
+    global SparkPlugApi() { }
 
     global static webservice Process.SparkPlugApi.SparkPlugDescribeResult describePlugin(String className) { return null; }
 
@@ -18,7 +18,7 @@ global with sharing class SparkPlugApi {
         global webservice String name;
         global webservice List outputParameters;
 
-        global Object SparkPlugDescribeResult() { return null; }
+        global SparkPlugDescribeResult() { }
 
         global Process.SparkPlugApi.SparkPlugDescribeResult clone() { return null; }
 
@@ -34,7 +34,7 @@ global with sharing class SparkPlugApi {
         global webservice String parameterType;
         global webservice Boolean required;
 
-        global Object SparkPlugParameter() { return null; }
+        global SparkPlugParameter() { }
 
         global Process.SparkPlugApi.SparkPlugParameter clone() { return null; }
 

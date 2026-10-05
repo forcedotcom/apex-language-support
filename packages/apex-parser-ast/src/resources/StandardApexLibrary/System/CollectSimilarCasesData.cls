@@ -1,5 +1,5 @@
 global class CollectSimilarCasesData implements Database.Batchable {
-    global Object CollectSimilarCasesData(Integer nCases, Integer similarCutoffNumber, Boolean isStrategyTest) { return null; }
+    global CollectSimilarCasesData(Integer nCases, Integer similarCutoffNumber, Boolean isStrategyTest) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

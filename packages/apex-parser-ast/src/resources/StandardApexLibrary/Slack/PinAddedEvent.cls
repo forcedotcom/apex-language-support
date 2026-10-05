@@ -1,5 +1,5 @@
 global class PinAddedEvent extends Slack.Event {
-    global Object PinAddedEvent() { return null; }
+    global PinAddedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -40,7 +40,7 @@ global class PinAddedEvent extends Slack.Event {
     global override String toString() { return null; }
 
     global class Item {
-        global Object Item() { return null; }
+        global Item() { }
 
         global Slack.PinAddedEvent.Item clone() { return null; }
 
@@ -80,7 +80,7 @@ global class PinAddedEvent extends Slack.Event {
     }
 
     global class Message {
-        global Object Message() { return null; }
+        global Message() { }
 
         global Slack.PinAddedEvent.Message clone() { return null; }
 
@@ -136,7 +136,7 @@ global class PinAddedEvent extends Slack.Event {
     }
 
     global class PinnedInfo {
-        global Object PinnedInfo() { return null; }
+        global PinnedInfo() { }
 
         global Slack.PinAddedEvent.PinnedInfo clone() { return null; }
 

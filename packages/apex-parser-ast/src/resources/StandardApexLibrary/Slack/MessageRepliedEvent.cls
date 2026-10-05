@@ -1,5 +1,5 @@
 global class MessageRepliedEvent extends Slack.Event {
-    global Object MessageRepliedEvent() { return null; }
+    global MessageRepliedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -32,7 +32,7 @@ global class MessageRepliedEvent extends Slack.Event {
     global override String toString() { return null; }
 
     global class Edited {
-        global Object Edited() { return null; }
+        global Edited() { }
 
         global Slack.MessageRepliedEvent.Edited clone() { return null; }
 
@@ -52,7 +52,7 @@ global class MessageRepliedEvent extends Slack.Event {
     }
 
     global class Message {
-        global Object Message() { return null; }
+        global Message() { }
 
         global Slack.MessageRepliedEvent.Message clone() { return null; }
 

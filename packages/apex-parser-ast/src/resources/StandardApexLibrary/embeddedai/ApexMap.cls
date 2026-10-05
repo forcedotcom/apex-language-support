@@ -18,12 +18,12 @@ global with sharing class ApexMap {
     /**
      * Initializes the ApexMap class.
      */
-    global Object ApexMap() { return null; }
+    global ApexMap() { }
 
     /**
      * Initializes a new instance of the ApexMap class by assigning the specified key and value. This constructor creates a single key–value entry that can be included in an embedded AI Apex map for passing contextual data to embedded AI logic.
      */
-    global Object ApexMap(String key, String value) { return null; }
+    global ApexMap(String key, String value) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -2,11 +2,11 @@
  * Error running report
  */
 global class ReportRunException extends Exception {
-    global Object ReportRunException() { return null; }
+    global ReportRunException() { }
 
-    global Object ReportRunException(Exception null) { return null; }
+    global ReportRunException(Exception null) { }
 
-    global Object ReportRunException(String null, Exception null) { return null; }
+    global ReportRunException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

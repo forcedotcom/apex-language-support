@@ -2,7 +2,7 @@
  * Use the methods in the EmailMessages class to interact with emails and email threading.
  */
 global class EmailMessages {
-    global Object EmailMessages() { return null; }
+    global EmailMessages() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

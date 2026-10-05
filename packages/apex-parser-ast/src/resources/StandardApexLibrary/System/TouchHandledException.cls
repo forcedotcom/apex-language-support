@@ -1,5 +1,5 @@
 global class TouchHandledException extends Exception {
-    Object TouchHandledException(String param1) { return null; }
+    global TouchHandledException(String param1) { }
 
     global Boolean equals(Object obj) { return false; }
 

@@ -2,13 +2,13 @@
  * Any problem with starting flow interviews from Apex. For example, if an active version of the flow can’t be found or it can’t be started from Apex.
  */
 global class FlowException extends Exception {
-    Object FlowException() { return null; }
+    global FlowException() { }
 
-    Object FlowException(Exception param1) { return null; }
+    global FlowException(Exception param1) { }
 
-    Object FlowException(String param1) { return null; }
+    global FlowException(String param1) { }
 
-    Object FlowException(String param1, Exception param2) { return null; }
+    global FlowException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

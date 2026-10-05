@@ -13,7 +13,7 @@
  *     .build();
  */
 global class Formula {
-    global Object Formula() { return null; }
+    global Formula() { }
 
     /**
      * Creates an instance of FormulaBuilder for configuring the formula with formula expression, context type, and output data type as inputs.

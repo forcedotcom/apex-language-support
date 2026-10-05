@@ -8,7 +8,7 @@ global class PluginRequest {
      */
     global final Map inputParameters { get; }
 
-    global Object PluginRequest(Map inputParameters) { return null; }
+    global PluginRequest(Map inputParameters) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

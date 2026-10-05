@@ -14,7 +14,7 @@ global class ConversationsOpenRequest {
     global override String toString() { return null; }
 
     global class Builder {
-        global Object Builder() { return null; }
+        global Builder() { }
 
         global Slack.ConversationsOpenRequest build() { return null; }
 

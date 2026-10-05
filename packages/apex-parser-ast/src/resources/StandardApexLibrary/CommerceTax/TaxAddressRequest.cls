@@ -56,7 +56,7 @@ global with sharing class TaxAddressRequest {
     /**
      * Initializes the TaxAddressRequest object using address details. This constructor is intended for test usage and throws an exception if used outside of the Apex test context.
      */
-    global Object TaxAddressRequest(String city, String country, Double latitude, Double longitude, String postalCode, String state, String street, String locationCode) { return null; }
+    global TaxAddressRequest(String city, String country, Double latitude, Double longitude, String postalCode, String state, String street, String locationCode) { }
 
     /**
      * Maintains the integrity of lists of type TaxAddressRequest by determining the equality of external objects in a list. This method is dynamic and based on the equals() method in Java.

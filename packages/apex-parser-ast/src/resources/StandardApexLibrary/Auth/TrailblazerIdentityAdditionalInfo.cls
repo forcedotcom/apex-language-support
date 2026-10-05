@@ -7,7 +7,7 @@ global class TrailblazerIdentityAdditionalInfo {
     global String userId { get; set; }
     global String userType { get; set; }
 
-    global Object TrailblazerIdentityAdditionalInfo(String oStatus, String oActive, String oType, String oId, String uActive, String uId, String uType) { return null; }
+    global TrailblazerIdentityAdditionalInfo(String oStatus, String oActive, String oType, String oId, String uActive, String uId, String uType) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -1,5 +1,5 @@
 global class OrgMonitorFramework {
-    global Object OrgMonitorFramework() { return null; }
+    global OrgMonitorFramework() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

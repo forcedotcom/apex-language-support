@@ -1,5 +1,5 @@
 global class StarAddedEvent extends Slack.Event {
-    global Object StarAddedEvent() { return null; }
+    global StarAddedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -24,7 +24,7 @@ global class StarAddedEvent extends Slack.Event {
     global override String toString() { return null; }
 
     global class Edited {
-        global Object Edited() { return null; }
+        global Edited() { }
 
         global Slack.StarAddedEvent.Edited clone() { return null; }
 
@@ -44,7 +44,7 @@ global class StarAddedEvent extends Slack.Event {
     }
 
     global class Item {
-        global Object Item() { return null; }
+        global Item() { }
 
         global Slack.StarAddedEvent.Item clone() { return null; }
 
@@ -84,7 +84,7 @@ global class StarAddedEvent extends Slack.Event {
     }
 
     global class Message {
-        global Object Message() { return null; }
+        global Message() { }
 
         global Slack.StarAddedEvent.Message clone() { return null; }
 

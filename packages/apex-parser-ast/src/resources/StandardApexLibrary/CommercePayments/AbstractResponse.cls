@@ -6,7 +6,7 @@
  * This class can’t be instantiated on its own. This class implements the GatewayResponse class. Other GatewayResponse classes extend this class to inherit common properties.
  */
 global abstract with sharing class AbstractResponse implements commercepayments.GatewayResponse {
-    global Object AbstractResponse() { return null; }
+    global AbstractResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

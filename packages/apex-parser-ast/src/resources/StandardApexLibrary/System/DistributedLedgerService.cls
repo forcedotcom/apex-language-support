@@ -1,5 +1,5 @@
 global class DistributedLedgerService {
-    global Object DistributedLedgerService() { return null; }
+    global DistributedLedgerService() { }
 
     global static void enableC2C() { }
 

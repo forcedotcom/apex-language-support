@@ -1,5 +1,5 @@
 global class C2CToken {
-    global Object C2CToken() { return null; }
+    global C2CToken() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

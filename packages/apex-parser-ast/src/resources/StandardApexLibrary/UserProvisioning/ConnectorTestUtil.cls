@@ -27,7 +27,7 @@
  */
 @IsTest
 global class ConnectorTestUtil {
-    global Object ConnectorTestUtil() { return null; }
+    global ConnectorTestUtil() { }
 
     /**
      * Creates an instance of a connected app to simulate provisioning.

@@ -2,7 +2,7 @@
  * Contains details about the tax rules used for tax calculation.
  */
 global with sharing class RuleDetailsResponse {
-    global Object RuleDetailsResponse() { return null; }
+    global RuleDetailsResponse() { }
 
     /**
      * Contains information about the tax rules used when calculating tax for line items.

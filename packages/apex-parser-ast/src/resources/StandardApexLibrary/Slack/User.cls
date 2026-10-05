@@ -1,5 +1,5 @@
 global class User {
-    global Object User() { return null; }
+    global User() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -124,7 +124,7 @@ global class User {
     global override String toString() { return null; }
 
     global class EnterpriseUser {
-        global Object EnterpriseUser() { return null; }
+        global EnterpriseUser() { }
 
         global Slack.User.EnterpriseUser clone() { return null; }
 
@@ -164,7 +164,7 @@ global class User {
     }
 
     global class Field {
-        global Object Field() { return null; }
+        global Field() { }
 
         global Slack.User.Field clone() { return null; }
 
@@ -188,7 +188,7 @@ global class User {
     }
 
     global class Profile {
-        global Object Profile() { return null; }
+        global Profile() { }
 
         global Slack.User.Profile clone() { return null; }
 
@@ -340,7 +340,7 @@ global class User {
     }
 
     global class StatusEmojiDisplayInfo {
-        global Object StatusEmojiDisplayInfo() { return null; }
+        global StatusEmojiDisplayInfo() { }
 
         global Slack.User.StatusEmojiDisplayInfo clone() { return null; }
 

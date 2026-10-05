@@ -1,5 +1,5 @@
 global class WorkflowsStepFailedResponse {
-    global Object WorkflowsStepFailedResponse() { return null; }
+    global WorkflowsStepFailedResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

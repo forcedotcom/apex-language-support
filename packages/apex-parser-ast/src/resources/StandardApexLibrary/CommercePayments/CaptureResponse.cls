@@ -5,7 +5,7 @@
  * CommercePayments.Capture Response ctr = new CommercePayments.CaptureResponse();
  */
 global with sharing class CaptureResponse extends commercepayments.AbstractTransactionResponse {
-    global Object CaptureResponse() { return null; }
+    global CaptureResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

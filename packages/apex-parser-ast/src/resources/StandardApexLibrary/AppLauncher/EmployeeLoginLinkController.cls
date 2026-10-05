@@ -2,7 +2,7 @@
  * This class and its methods are for internal use only.
  */
 global class EmployeeLoginLinkController {
-    global Object EmployeeLoginLinkController() { return null; }
+    global EmployeeLoginLinkController() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -31,7 +31,7 @@ global class PluginDescribeResult {
     /**
      * Creates a new instance of the Process.PluginDescribeResult class.
      */
-    global Object PluginDescribeResult() { return null; }
+    global PluginDescribeResult() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -71,12 +71,12 @@ global class PluginDescribeResult {
         /**
          * Creates a new instance of the Process.PluginDescribeResult.InputParameter class using the specified name, parameter type, and required option.
          */
-        global Object InputParameter(String name, Process.PluginDescribeResult.ParameterType parameterType, Boolean required) { return null; }
+        global InputParameter(String name, Process.PluginDescribeResult.ParameterType parameterType, Boolean required) { }
 
         /**
          * Creates a new instance of the Process.PluginDescribeResult.InputParameter class using the specified name, description, parameter type, and required option.
          */
-        global Object InputParameter(String name, String description, Process.PluginDescribeResult.ParameterType parameterType, Boolean required) { return null; }
+        global InputParameter(String name, String description, Process.PluginDescribeResult.ParameterType parameterType, Boolean required) { }
 
         global Process.PluginDescribeResult.InputParameter clone() { return null; }
 
@@ -114,12 +114,12 @@ global class PluginDescribeResult {
         /**
          * Creates a new instance of the Process.PluginDescribeResult.OutputParameter class using the specified name, description, and parameter type.
          */
-        global Object OutputParameter(String name, Process.PluginDescribeResult.ParameterType parameterType) { return null; }
+        global OutputParameter(String name, Process.PluginDescribeResult.ParameterType parameterType) { }
 
         /**
          * Creates a new instance of the Process.PluginDescribeResult.OutputParameter class using the specified name, description, and parameter type.
          */
-        global Object OutputParameter(String name, String description, Process.PluginDescribeResult.ParameterType parameterType) { return null; }
+        global OutputParameter(String name, String description, Process.PluginDescribeResult.ParameterType parameterType) { }
 
         global Process.PluginDescribeResult.OutputParameter clone() { return null; }
 

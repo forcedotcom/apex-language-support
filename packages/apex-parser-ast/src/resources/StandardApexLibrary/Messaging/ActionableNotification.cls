@@ -56,7 +56,7 @@ global class ActionableNotification {
      * See the example for the Messaging.ActionableNotification class.
      */
     global class Builder {
-        global Object Builder() { return null; }
+        global Builder() { }
 
         /**
          * Returns an instance of the Messaging.ActionableNotification class.

@@ -17,9 +17,9 @@ global with sharing class ProcessPaymentStatusRequest {
     @InvocableVariable
     global List transactions;
 
-    global Object ProcessPaymentStatusRequest() { return null; }
+    global ProcessPaymentStatusRequest() { }
 
-    global Object ProcessPaymentStatusRequest(String channelAddressIdentifier, String platformKey, String contextRecordId, String referenceId, RichMessaging.PaymentStatus status, RichMessaging.CurrencyAmount currencyAmount, List transactions) { return null; }
+    global ProcessPaymentStatusRequest(String channelAddressIdentifier, String platformKey, String contextRecordId, String referenceId, RichMessaging.PaymentStatus status, RichMessaging.CurrencyAmount currencyAmount, List transactions) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

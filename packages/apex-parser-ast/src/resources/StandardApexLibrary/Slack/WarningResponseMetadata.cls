@@ -1,5 +1,5 @@
 global class WarningResponseMetadata {
-    global Object WarningResponseMetadata() { return null; }
+    global WarningResponseMetadata() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

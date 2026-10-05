@@ -17,7 +17,7 @@ global with sharing class Discount {
     @AuraEnabled
     global String programName { get; set; }
 
-    global Object Discount() { return null; }
+    global Discount() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

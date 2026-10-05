@@ -33,7 +33,7 @@
  * }
  */
 global with sharing class Templates {
-    global Object Templates() { return null; }
+    global Templates() { }
 
     @AuraEnabled
     global static Map cdpQueryMetadata(String entityType, String entityCategory, String entityName, String dataspace) { return null; }

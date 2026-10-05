@@ -6,9 +6,9 @@ global class CatalogOrderLineItem {
     @InvocableVariable
     global RichMessaging.CurrencyAmount unitPrice;
 
-    global Object CatalogOrderLineItem() { return null; }
+    global CatalogOrderLineItem() { }
 
-    global Object CatalogOrderLineItem(String productId, RichMessaging.CurrencyAmount unitPrice, Integer quantity) { return null; }
+    global CatalogOrderLineItem(String productId, RichMessaging.CurrencyAmount unitPrice, Integer quantity) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

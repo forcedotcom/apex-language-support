@@ -39,7 +39,7 @@ global class QueueableDuplicateSignature {
      * System.enqueueJob(new MyQueueable(), options);
      */
     global class Builder {
-        global Object Builder() { return null; }
+        global Builder() { }
 
         /**
          * Adds an ID to build a unique signature for a queueable job. You can then enqueue the job by using the signature as the AsyncOptions parameter to System.enqueueJob().

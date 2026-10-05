@@ -1,5 +1,5 @@
 global class ViewsPublishResponse {
-    global Object ViewsPublishResponse() { return null; }
+    global ViewsPublishResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -5,7 +5,7 @@ global with sharing class CustomMetadataTypeInfo {
     /**
      * Constructor for providing custom metadata type information.
      */
-    global Object CustomMetadataTypeInfo(String cmtRecordId, String cmtSfResultCodeFieldName) { return null; }
+    global CustomMetadataTypeInfo(String cmtRecordId, String cmtSfResultCodeFieldName) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

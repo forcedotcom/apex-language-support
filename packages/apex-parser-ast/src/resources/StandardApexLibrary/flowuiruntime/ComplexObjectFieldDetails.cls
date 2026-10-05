@@ -11,7 +11,7 @@ global class ComplexObjectFieldDetails {
     @AuraEnabled
     global String type;
 
-    global Object ComplexObjectFieldDetails() { return null; }
+    global ComplexObjectFieldDetails() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

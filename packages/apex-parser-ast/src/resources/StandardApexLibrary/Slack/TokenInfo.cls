@@ -1,5 +1,5 @@
 global class TokenInfo {
-    global Object TokenInfo() { return null; }
+    global TokenInfo() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

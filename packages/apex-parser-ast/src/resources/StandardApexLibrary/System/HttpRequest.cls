@@ -46,7 +46,7 @@ global class HttpRequest {
     /**
      * Creates a new instance of the HttpRequest class.
      */
-    Object HttpRequest() { return null; }
+    global HttpRequest() { }
 
     global Boolean equals(Object obj) { return false; }
 

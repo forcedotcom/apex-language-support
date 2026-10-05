@@ -71,7 +71,7 @@ global virtual class Column extends DataSource.DataSourceUtil {
      */
     global DataSource.DataType type { get; set; }
 
-    global Object Column() { return null; }
+    global Column() { }
 
     /**
      * Returns a new column of data type BOOLEAN_TYPE.

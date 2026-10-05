@@ -48,7 +48,7 @@ global class JsonValueOutput {
     /**
      * The Get User Data from JSON String action in Flow Builder uses this constructor to create an instance of the Auth.JsonValueOutput class.
      */
-    global Object JsonValueOutput(String stringValue, Boolean booleanValue, Integer integerValue, Double doubleValue, String jsonStringValue, String jsonArrayValue) { return null; }
+    global JsonValueOutput(String stringValue, Boolean booleanValue, Integer integerValue, Double doubleValue, String jsonStringValue, String jsonArrayValue) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

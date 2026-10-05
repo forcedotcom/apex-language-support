@@ -47,14 +47,14 @@ global class JWTBearerTokenExchange {
     /**
      * Creates an instance of the Auth.JWTBearerTokenExchange class.
      */
-    global Object JWTBearerTokenExchange() { return null; }
+    global JWTBearerTokenExchange() { }
 
     /**
      * Creates an instance of the JWTBearerTokenExchange class using the specified token endpoint and the signed JWT bearer token.
      */
-    global Object JWTBearerTokenExchange(String tokenEndpoint, Auth.JWS jws) { return null; }
+    global JWTBearerTokenExchange(String tokenEndpoint, Auth.JWS jws) { }
 
-    global Object JWTBearerTokenExchange(String tokenEndpoint, Auth.JWS jws, Boolean isDPoP, String dpopCertName) { return null; }
+    global JWTBearerTokenExchange(String tokenEndpoint, Auth.JWS jws, Boolean isDPoP, String dpopCertName) { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -117,13 +117,13 @@ global class JWTBearerTokenExchange {
      * To get the error message and write it to debug log, use the String getMessage().
      */
     global class JWTBearerTokenExchangeException extends Exception {
-        global Object JWTBearerTokenExchangeException() { return null; }
+        global JWTBearerTokenExchangeException() { }
 
-        global Object JWTBearerTokenExchangeException(Exception null) { return null; }
+        global JWTBearerTokenExchangeException(Exception null) { }
 
-        global Object JWTBearerTokenExchangeException(String null) { return null; }
+        global JWTBearerTokenExchangeException(String null) { }
 
-        global Object JWTBearerTokenExchangeException(String null, Exception null) { return null; }
+        global JWTBearerTokenExchangeException(String null, Exception null) { }
 
         global Auth.JWTBearerTokenExchange.JWTBearerTokenExchangeException clone() { return null; }
 

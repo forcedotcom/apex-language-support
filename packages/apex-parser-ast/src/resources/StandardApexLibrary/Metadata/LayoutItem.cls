@@ -75,7 +75,7 @@ global class LayoutItem extends Metadata.MetadataValue {
      */
     global String width { get; set; }
 
-    global Object LayoutItem() { return null; }
+    global LayoutItem() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

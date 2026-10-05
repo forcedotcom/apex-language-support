@@ -90,7 +90,7 @@ global class RestRequest {
     /**
      * Creates a new instance of the System.RestRequest class.
      */
-    global Object RestRequest() { return null; }
+    global RestRequest() { }
 
     /**
      * Adds a header to the request header map in an Apex test.

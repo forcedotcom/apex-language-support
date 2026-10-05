@@ -7,7 +7,7 @@
  * Sanitize SObjects that have been deserialized from an untrusted source
  */
 global class Security {
-    global Object Security() { return null; }
+    global Security() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

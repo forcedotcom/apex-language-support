@@ -5,16 +5,16 @@ global class ResolutionException extends Exception {
     /**
      * Default constructor for the ResolutionException class.
      */
-    global Object ResolutionException() { return null; }
+    global ResolutionException() { }
 
     /**
      * Constructor that takes an exception as an argument,
      */
-    global Object ResolutionException(Exception null) { return null; }
+    global ResolutionException(Exception null) { }
 
-    global Object ResolutionException(String null) { return null; }
+    global ResolutionException(String null) { }
 
-    global Object ResolutionException(String null, Exception null) { return null; }
+    global ResolutionException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

@@ -1,7 +1,7 @@
 global with sharing class LifeScienceAttendees {
     global List attendees;
 
-    global Object LifeScienceAttendees() { return null; }
+    global LifeScienceAttendees() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -12,7 +12,7 @@ global with sharing class LifeScienceAttendees {
     global override virtual String toString() { return null; }
 
     global class Attendee {
-        global Object Attendee() { return null; }
+        global Attendee() { }
 
         global Support.LifeScienceAttendees.Attendee clone() { return null; }
 

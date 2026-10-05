@@ -1,5 +1,5 @@
 global class AuthTestResponse {
-    global Object AuthTestResponse() { return null; }
+    global AuthTestResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

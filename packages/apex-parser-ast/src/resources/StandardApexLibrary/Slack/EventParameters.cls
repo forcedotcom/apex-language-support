@@ -1,5 +1,5 @@
 global class EventParameters {
-    global Object EventParameters(Slack.Event event, String eventId, Integer eventTime) { return null; }
+    global EventParameters(Slack.Event event, String eventId, Integer eventTime) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

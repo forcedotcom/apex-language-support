@@ -15,7 +15,7 @@ global class SubtabComponents extends Metadata.MetadataValue {
      */
     global List containers { get; set; }
 
-    global Object SubtabComponents() { return null; }
+    global SubtabComponents() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

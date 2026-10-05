@@ -166,7 +166,7 @@
  * }
  */
 global abstract class Connection extends DataSource.DataSourceUtil {
-    global Object Connection() { return null; }
+    global Connection() { }
 
     /**
      * Invoked when external object records are deleted via the Salesforce user interface, APIs, or Apex.

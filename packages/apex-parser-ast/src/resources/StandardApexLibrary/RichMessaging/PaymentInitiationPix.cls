@@ -32,7 +32,7 @@ global with sharing class PaymentInitiationPix {
     @AuraEnabled
     global String keyType { get; set; }
 
-    global Object PaymentInitiationPix() { return null; }
+    global PaymentInitiationPix() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

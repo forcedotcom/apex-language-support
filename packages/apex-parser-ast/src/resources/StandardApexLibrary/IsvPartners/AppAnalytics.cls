@@ -9,7 +9,7 @@
  *              MyPageInteractions.SUBMIT_CLICKED, jobId);
  */
 global class AppAnalytics {
-    global Object AppAnalytics() { return null; }
+    global AppAnalytics() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

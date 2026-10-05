@@ -8,13 +8,13 @@
  * To get the error message and write it to debug log, use the String getMessage().
  */
 global class DiscoveryCustomErrorException extends Exception {
-    global Object DiscoveryCustomErrorException() { return null; }
+    global DiscoveryCustomErrorException() { }
 
-    global Object DiscoveryCustomErrorException(Exception null) { return null; }
+    global DiscoveryCustomErrorException(Exception null) { }
 
-    global Object DiscoveryCustomErrorException(String null) { return null; }
+    global DiscoveryCustomErrorException(String null) { }
 
-    global Object DiscoveryCustomErrorException(String null, Exception null) { return null; }
+    global DiscoveryCustomErrorException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

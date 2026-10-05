@@ -1,5 +1,5 @@
 global class TeamProfileGetResponse {
-    global Object TeamProfileGetResponse() { return null; }
+    global TeamProfileGetResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -36,7 +36,7 @@ global class TeamProfileGetResponse {
     global override String toString() { return null; }
 
     global class Profiles {
-        global Object Profiles() { return null; }
+        global Profiles() { }
 
         global Slack.TeamProfileGetResponse.Profiles clone() { return null; }
 
@@ -52,7 +52,7 @@ global class TeamProfileGetResponse {
     }
 
     global class Section {
-        global Object Section() { return null; }
+        global Section() { }
 
         global Slack.TeamProfileGetResponse.Section clone() { return null; }
 

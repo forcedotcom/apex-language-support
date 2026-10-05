@@ -10,9 +10,9 @@ global class ProvisioningProcessHandlerOutput {
     global webservice String reconState;
     global webservice String status;
 
-    global Object ProvisioningProcessHandlerOutput() { return null; }
+    global ProvisioningProcessHandlerOutput() { }
 
-    global Object ProvisioningProcessHandlerOutput(String status, String details, String externalUserId, String externalUsername, String externalEmail, String externalFirstName, String externalLastName, String UPAStatus, String nextReconOffset) { return null; }
+    global ProvisioningProcessHandlerOutput(String status, String details, String externalUserId, String externalUsername, String externalEmail, String externalFirstName, String externalLastName, String UPAStatus, String nextReconOffset) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

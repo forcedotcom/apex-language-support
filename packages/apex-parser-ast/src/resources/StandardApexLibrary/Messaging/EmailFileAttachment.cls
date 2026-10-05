@@ -34,7 +34,7 @@ global class EmailFileAttachment {
     /**
      * Creates a new instance of the Messaging.EmailFileAttachment class.
      */
-    Object EmailFileAttachment() { return null; }
+    global EmailFileAttachment() { }
 
     global Boolean equals(Object obj) { return false; }
 

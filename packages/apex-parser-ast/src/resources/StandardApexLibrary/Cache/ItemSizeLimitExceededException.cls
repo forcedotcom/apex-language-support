@@ -2,13 +2,13 @@
  * A cache put call is made with an item that exceeds the maximum size limit. To fix this error, break the item into multiple, smaller items.
  */
 global class ItemSizeLimitExceededException extends cache.CacheException {
-    global Object ItemSizeLimitExceededException() { return null; }
+    global ItemSizeLimitExceededException() { }
 
-    global Object ItemSizeLimitExceededException(Exception null) { return null; }
+    global ItemSizeLimitExceededException(Exception null) { }
 
-    global Object ItemSizeLimitExceededException(String null) { return null; }
+    global ItemSizeLimitExceededException(String null) { }
 
-    global Object ItemSizeLimitExceededException(String null, Exception null) { return null; }
+    global ItemSizeLimitExceededException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

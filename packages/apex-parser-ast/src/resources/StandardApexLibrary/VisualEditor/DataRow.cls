@@ -5,12 +5,12 @@ global class DataRow {
     /**
      * Creates an instance of the VisualEditor.DataRow class using the specified label and value.
      */
-    global Object DataRow(String label, Object value) { return null; }
+    global DataRow(String label, Object value) { }
 
     /**
      * Creates an instance of the VisualEditor.DataRow class using the specified label, value, and selected option.
      */
-    global Object DataRow(String label, Object value, Boolean selected) { return null; }
+    global DataRow(String label, Object value, Boolean selected) { }
 
     /**
      * Compares the current VisualEditor.DataRow object to the specified one. Returns an integer value that is the result of the comparison.

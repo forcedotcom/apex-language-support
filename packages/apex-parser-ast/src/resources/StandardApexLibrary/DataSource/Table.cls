@@ -36,7 +36,7 @@ global class Table extends DataSource.DataSourceUtil {
      */
     global String nameColumn { get; set; }
 
-    global Object Table() { return null; }
+    global Table() { }
 
     global Boolean equals(Object obj) { return false; }
 

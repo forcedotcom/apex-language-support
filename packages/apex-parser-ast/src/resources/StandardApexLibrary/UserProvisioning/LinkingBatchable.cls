@@ -1,5 +1,5 @@
 global class LinkingBatchable extends UserProvisioning.FlowProvisionBase implements Database.AllowsCallouts, Database.Batchable, Database.Stateful {
-    global Object LinkingBatchable(String uprId) { return null; }
+    global LinkingBatchable(String uprId) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

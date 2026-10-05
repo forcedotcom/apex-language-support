@@ -1,11 +1,11 @@
 global virtual class RetryableException extends Exception {
-    global Object RetryableException() { return null; }
+    global RetryableException() { }
 
-    global Object RetryableException(Exception null) { return null; }
+    global RetryableException(Exception null) { }
 
-    global Object RetryableException(String null) { return null; }
+    global RetryableException(String null) { }
 
-    global Object RetryableException(String null, Exception null) { return null; }
+    global RetryableException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

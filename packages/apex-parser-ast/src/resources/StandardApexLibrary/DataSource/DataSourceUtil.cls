@@ -2,7 +2,7 @@
  * Parent class for the DataSource.Provider, DataSource.Connection, DataSource.Table, and DataSource.Column classes.
  */
 global abstract class DataSourceUtil {
-    global Object DataSourceUtil() { return null; }
+    global DataSourceUtil() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

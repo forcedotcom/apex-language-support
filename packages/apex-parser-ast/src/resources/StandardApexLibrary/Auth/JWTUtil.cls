@@ -5,7 +5,7 @@
  * If the methods in this class fail, Salesforce returns an Auth.JWTValidationException exception.
  */
 global class JWTUtil {
-    global Object JWTUtil() { return null; }
+    global JWTUtil() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

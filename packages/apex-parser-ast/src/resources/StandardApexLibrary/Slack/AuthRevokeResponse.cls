@@ -1,5 +1,5 @@
 global class AuthRevokeResponse {
-    global Object AuthRevokeResponse() { return null; }
+    global AuthRevokeResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -5,7 +5,7 @@ global class AuthRequestResponse {
     /**
      * Creates a new instance of the RichMessaging.AuthRequestResponse class.
      */
-    global Object AuthRequestResponse(String accessToken, String contextRecordId, String authProviderName) { return null; }
+    global AuthRequestResponse(String accessToken, String contextRecordId, String authProviderName) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

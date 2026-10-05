@@ -7,7 +7,7 @@ global class ResourceDescriptor {
     @AuraEnabled
     global String resourceTemplate { get; set; }
 
-    global Object ResourceDescriptor() { return null; }
+    global ResourceDescriptor() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

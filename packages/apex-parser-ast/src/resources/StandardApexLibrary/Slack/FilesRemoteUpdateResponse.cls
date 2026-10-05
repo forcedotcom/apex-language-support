@@ -1,5 +1,5 @@
 global class FilesRemoteUpdateResponse {
-    global Object FilesRemoteUpdateResponse() { return null; }
+    global FilesRemoteUpdateResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

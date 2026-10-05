@@ -9,7 +9,7 @@ global class XmlStreamReader {
     /**
      * Creates a new instance of the XmlStreamReader class for the specified XML input.
      */
-    Object XmlStreamReader(String xml) { return null; }
+    global XmlStreamReader(String xml) { }
 
     global Boolean equals(Object obj) { return false; }
 

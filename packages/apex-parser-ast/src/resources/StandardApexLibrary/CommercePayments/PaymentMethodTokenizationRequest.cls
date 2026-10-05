@@ -73,12 +73,12 @@ global class PaymentMethodTokenizationRequest extends commercepayments.BaseReque
     /**
      * The following are constructors for PaymentMethodTokenizationRequest.
      */
-    global Object PaymentMethodTokenizationRequest() { return null; }
+    global PaymentMethodTokenizationRequest() { }
 
     /**
      * Payment gateway ID constructor used with paymentMethodTokenizationRequest. This constructor is intended for test usage and throws an exception if used outside of the Apex test context.
      */
-    global Object PaymentMethodTokenizationRequest(String paymentGatewayId) { return null; }
+    global PaymentMethodTokenizationRequest(String paymentGatewayId) { }
 
     /**
      * Maintains the integrity of lists of type PaymentMethodTokenizationRequest by determining the equality of external objects in a list. This method is dynamic and is based on the equals method in Java.

@@ -30,7 +30,7 @@ global class SummaryLayoutItem extends Metadata.MetadataValue {
      */
     global Integer posZ { get; set; }
 
-    global Object SummaryLayoutItem() { return null; }
+    global SummaryLayoutItem() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -12,7 +12,7 @@
  * }
  */
 global with sharing class PaymentGatewayContext {
-    global Object PaymentGatewayContext(commercepayments.PaymentGatewayRequest request, commercepayments.RequestType requestType) { return null; }
+    global PaymentGatewayContext(commercepayments.PaymentGatewayRequest request, commercepayments.RequestType requestType) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

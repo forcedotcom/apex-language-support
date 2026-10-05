@@ -1,5 +1,5 @@
 global with sharing class MIDataPipelineEmailHandler implements Messaging.InboundEmailHandler {
-    global Object MIDataPipelineEmailHandler() { return null; }
+    global MIDataPipelineEmailHandler() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

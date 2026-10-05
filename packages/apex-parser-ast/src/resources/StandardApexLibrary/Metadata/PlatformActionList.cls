@@ -20,7 +20,7 @@ global class PlatformActionList extends Metadata.MetadataValue {
      */
     global String relatedSourceEntity { get; set; }
 
-    global Object PlatformActionList() { return null; }
+    global PlatformActionList() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

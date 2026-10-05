@@ -17,7 +17,7 @@ global class QueryContext extends DataSource.ReadContext {
      */
     global DataSource.TableSelection tableSelection { get; set; }
 
-    global Object QueryContext() { return null; }
+    global QueryContext() { }
 
     global override Boolean equals(Object obj) { return false; }
 

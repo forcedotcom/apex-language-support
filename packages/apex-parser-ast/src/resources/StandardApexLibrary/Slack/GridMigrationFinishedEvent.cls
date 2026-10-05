@@ -1,5 +1,5 @@
 global class GridMigrationFinishedEvent extends Slack.Event {
-    global Object GridMigrationFinishedEvent() { return null; }
+    global GridMigrationFinishedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

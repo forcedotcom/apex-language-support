@@ -13,7 +13,7 @@ global class Math {
      */
     global final static Double PI;
 
-    global Object Math() { return null; }
+    global Math() { }
 
     /**
      * Returns the absolute value of the specified Decimal.

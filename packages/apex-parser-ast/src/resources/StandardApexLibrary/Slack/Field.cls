@@ -1,5 +1,5 @@
 global class Field {
-    global Object Field() { return null; }
+    global Field() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

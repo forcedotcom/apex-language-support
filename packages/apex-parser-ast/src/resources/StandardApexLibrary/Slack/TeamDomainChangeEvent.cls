@@ -1,5 +1,5 @@
 global class TeamDomainChangeEvent extends Slack.Event {
-    global Object TeamDomainChangeEvent() { return null; }
+    global TeamDomainChangeEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

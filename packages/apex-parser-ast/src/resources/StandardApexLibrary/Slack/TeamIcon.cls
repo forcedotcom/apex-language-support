@@ -1,5 +1,5 @@
 global class TeamIcon {
-    global Object TeamIcon() { return null; }
+    global TeamIcon() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

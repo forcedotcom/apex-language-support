@@ -26,7 +26,7 @@ global class FilesListRequest {
     global override String toString() { return null; }
 
     global class Builder {
-        global Object Builder() { return null; }
+        global Builder() { }
 
         global Slack.FilesListRequest build() { return null; }
 

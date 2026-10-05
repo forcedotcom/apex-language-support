@@ -3,7 +3,7 @@ global class CollectingBatchable extends UserProvisioning.PluginBatchable implem
     global String reconOffset;
     global String status;
 
-    global Object CollectingBatchable(String reconOffset, String uprId, String connectedAppId) { return null; }
+    global CollectingBatchable(String reconOffset, String uprId, String connectedAppId) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

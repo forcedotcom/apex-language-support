@@ -1,5 +1,5 @@
 global class ApiTestResponse {
-    global Object ApiTestResponse() { return null; }
+    global ApiTestResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -36,7 +36,7 @@ global class ApiTestResponse {
     global override String toString() { return null; }
 
     global class Args {
-        global Object Args() { return null; }
+        global Args() { }
 
         global Slack.ApiTestResponse.Args clone() { return null; }
 

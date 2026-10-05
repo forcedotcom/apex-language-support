@@ -2,13 +2,13 @@
  * Invalid historical report format
  */
 global class InvalidSnapshotDateException extends Exception {
-    global Object InvalidSnapshotDateException() { return null; }
+    global InvalidSnapshotDateException() { }
 
-    global Object InvalidSnapshotDateException(Exception null) { return null; }
+    global InvalidSnapshotDateException(Exception null) { }
 
-    global Object InvalidSnapshotDateException(String null) { return null; }
+    global InvalidSnapshotDateException(String null) { }
 
-    global Object InvalidSnapshotDateException(String null, Exception null) { return null; }
+    global InvalidSnapshotDateException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

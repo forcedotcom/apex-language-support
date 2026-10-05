@@ -80,7 +80,7 @@
  *      }
  */
 global with sharing class PaymentMethodTokenizationResponse extends commercepayments.AbstractTransactionResponse {
-    global Object PaymentMethodTokenizationResponse() { return null; }
+    global PaymentMethodTokenizationResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

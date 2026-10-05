@@ -1,5 +1,5 @@
 global class FileComment {
-    global Object FileComment() { return null; }
+    global FileComment() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -1,5 +1,5 @@
 global class Paging {
-    global Object Paging() { return null; }
+    global Paging() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

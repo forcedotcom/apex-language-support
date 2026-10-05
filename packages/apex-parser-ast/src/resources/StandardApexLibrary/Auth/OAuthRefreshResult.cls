@@ -23,12 +23,12 @@ global class OAuthRefreshResult {
     /**
      * Creates an instance of the OAuthRefreshResult class using the specified access token and refresh token for a custom authentication provider plug-in. Use this method when you know that the refresh was successful.
      */
-    global Object OAuthRefreshResult(String accessToken, String refreshToken) { return null; }
+    global OAuthRefreshResult(String accessToken, String refreshToken) { }
 
     /**
      * Creates an instance of the OAuthRefreshResult class using the specified access token, refresh token, and error for a custom authentication provider plug-in.
      */
-    global Object OAuthRefreshResult(String accessToken, String refreshToken, String error) { return null; }
+    global OAuthRefreshResult(String accessToken, String refreshToken, String error) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

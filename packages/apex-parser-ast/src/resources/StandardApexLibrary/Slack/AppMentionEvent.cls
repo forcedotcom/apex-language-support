@@ -1,5 +1,5 @@
 global class AppMentionEvent extends Slack.Event {
-    global Object AppMentionEvent() { return null; }
+    global AppMentionEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -62,7 +62,7 @@ global class AppMentionEvent extends Slack.Event {
     global override String toString() { return null; }
 
     global class Edited {
-        global Object Edited() { return null; }
+        global Edited() { }
 
         global Slack.AppMentionEvent.Edited clone() { return null; }
 

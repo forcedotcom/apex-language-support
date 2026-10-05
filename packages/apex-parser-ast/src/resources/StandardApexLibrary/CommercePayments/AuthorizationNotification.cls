@@ -1,5 +1,5 @@
 global with sharing class AuthorizationNotification extends commercepayments.BaseNotification {
-    global Object AuthorizationNotification() { return null; }
+    global AuthorizationNotification() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

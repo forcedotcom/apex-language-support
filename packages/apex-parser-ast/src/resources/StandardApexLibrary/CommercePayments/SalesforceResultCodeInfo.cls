@@ -9,12 +9,12 @@ global with sharing class SalesforceResultCodeInfo {
     /**
      * Constructor for providing the customMetadataTypeInfo for the result of the transaction.
      */
-    global Object SalesforceResultCodeInfo(commercepayments.CustomMetadataTypeInfo customMetadataTypeInfo) { return null; }
+    global SalesforceResultCodeInfo(commercepayments.CustomMetadataTypeInfo customMetadataTypeInfo) { }
 
     /**
      * Constructor that provides the salesforceResultCode for the transaction result.
      */
-    global Object SalesforceResultCodeInfo(commercepayments.SalesforceResultCode salesforceResultCode) { return null; }
+    global SalesforceResultCodeInfo(commercepayments.SalesforceResultCode salesforceResultCode) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

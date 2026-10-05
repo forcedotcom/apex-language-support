@@ -1,5 +1,5 @@
 global class ActionInvoker {
-    global Object ActionInvoker() { return null; }
+    global ActionInvoker() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -16,7 +16,7 @@ global class ActionInvoker {
         @AuraEnabled
         global String message { get; set; }
 
-        global Object Error() { return null; }
+        global Error() { }
 
         global Invocable.ActionInvoker.Error clone() { return null; }
 
@@ -35,7 +35,7 @@ global class ActionInvoker {
         @AuraEnabled
         global Map outputParameters { get; set; }
 
-        global Object Result() { return null; }
+        global Result() { }
 
         global Invocable.ActionInvoker.Result clone() { return null; }
 

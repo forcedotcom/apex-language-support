@@ -2,11 +2,11 @@
  * Unable to access report instance
  */
 global class InstanceAccessException extends Exception {
-    global Object InstanceAccessException() { return null; }
+    global InstanceAccessException() { }
 
-    global Object InstanceAccessException(Exception null) { return null; }
+    global InstanceAccessException(Exception null) { }
 
-    global Object InstanceAccessException(String null, Exception null) { return null; }
+    global InstanceAccessException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

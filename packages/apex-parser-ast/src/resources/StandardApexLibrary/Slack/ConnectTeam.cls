@@ -1,5 +1,5 @@
 global class ConnectTeam {
-    global Object ConnectTeam() { return null; }
+    global ConnectTeam() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

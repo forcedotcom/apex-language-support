@@ -28,7 +28,7 @@ global with sharing class ErrorResponse implements commercetax.TaxEngineResponse
     /**
      * Constructor to initialize an ErrorResponse object from the result code, error code, and error message sent from the tax engine.
      */
-    global Object ErrorResponse(commercetax.ResultCode resultCode, String errorCode, String errorMessage) { return null; }
+    global ErrorResponse(commercetax.ResultCode resultCode, String errorCode, String errorMessage) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

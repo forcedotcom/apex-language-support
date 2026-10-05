@@ -1,5 +1,5 @@
 global class ChatGetPermalinkResponse {
-    global Object ChatGetPermalinkResponse() { return null; }
+    global ChatGetPermalinkResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

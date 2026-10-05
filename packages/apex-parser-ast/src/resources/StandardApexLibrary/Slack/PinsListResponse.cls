@@ -1,5 +1,5 @@
 global class PinsListResponse {
-    global Object PinsListResponse() { return null; }
+    global PinsListResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -36,7 +36,7 @@ global class PinsListResponse {
     global override String toString() { return null; }
 
     global class MessageItem {
-        global Object MessageItem() { return null; }
+        global MessageItem() { }
 
         global Slack.PinsListResponse.MessageItem clone() { return null; }
 

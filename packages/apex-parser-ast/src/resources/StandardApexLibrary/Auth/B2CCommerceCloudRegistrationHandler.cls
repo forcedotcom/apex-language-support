@@ -1,5 +1,5 @@
 global class B2CCommerceCloudRegistrationHandler {
-    global Object B2CCommerceCloudRegistrationHandler() { return null; }
+    global B2CCommerceCloudRegistrationHandler() { }
 
     global User createUser(Auth.UserData data) { return null; }
 

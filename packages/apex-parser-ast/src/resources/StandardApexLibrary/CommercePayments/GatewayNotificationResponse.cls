@@ -16,7 +16,7 @@
  * return gnr;
  */
 global class GatewayNotificationResponse {
-    global Object GatewayNotificationResponse() { return null; }
+    global GatewayNotificationResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -46,7 +46,7 @@
  * }
  */
 global with sharing class CalculateTaxResponse extends commercetax.AbstractTransactionResponse implements commercetax.TaxEngineResponse {
-    global Object CalculateTaxResponse() { return null; }
+    global CalculateTaxResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

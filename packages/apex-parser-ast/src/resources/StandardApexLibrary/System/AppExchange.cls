@@ -1,5 +1,5 @@
 global class AppExchange {
-    global Object AppExchange() { return null; }
+    global AppExchange() { }
 
     global static void calculateListingPopularity(String testUserName, String testCronString) { }
 

@@ -1,5 +1,5 @@
 global class PackageOMCopyForRzoneEnvironment {
-    global Object PackageOMCopyForRzoneEnvironment() { return null; }
+    global PackageOMCopyForRzoneEnvironment() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -8,7 +8,7 @@ global class EncryptedPaymentDataHeader {
     @InvocableVariable
     global String transactionId;
 
-    global Object EncryptedPaymentDataHeader(String transactionId, String publicKeyHash, String ephemeralPublicKey, String applicationData) { return null; }
+    global EncryptedPaymentDataHeader(String transactionId, String publicKeyHash, String ephemeralPublicKey, String applicationData) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

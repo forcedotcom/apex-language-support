@@ -1,9 +1,9 @@
 global class WaveQueryException extends Exception {
-    global Object WaveQueryException() { return null; }
+    global WaveQueryException() { }
 
-    global Object WaveQueryException(Exception null) { return null; }
+    global WaveQueryException(Exception null) { }
 
-    global Object WaveQueryException(String null, Exception null) { return null; }
+    global WaveQueryException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

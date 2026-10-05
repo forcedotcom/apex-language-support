@@ -61,12 +61,12 @@ global with sharing class RecurringTiming extends RichMessaging.AbstractTiming {
     /**
      * Creates a new instance of the RichMessaging.RecurringTiming class.
      */
-    global Object RecurringTiming() { return null; }
+    global RecurringTiming() { }
 
     /**
      * Creates a new instance of the RichMessaging.RecurringTiming class.
      */
-    global Object RecurringTiming(Date startDate, Date endDate, Integer intervalCount, RichMessaging.TimingIntervalUnit intervalUnit) { return null; }
+    global RecurringTiming(Date startDate, Date endDate, Integer intervalCount, RichMessaging.TimingIntervalUnit intervalUnit) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

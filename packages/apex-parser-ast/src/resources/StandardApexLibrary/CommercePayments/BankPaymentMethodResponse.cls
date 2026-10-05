@@ -2,7 +2,7 @@
  * This class contains information about the bank payment method response. The gateway adapter reads the gateway response and generates a BankPaymentMethodResponse, populating the required fields to create a bank payment method.
  */
 global with sharing class BankPaymentMethodResponse {
-    global Object BankPaymentMethodResponse() { return null; }
+    global BankPaymentMethodResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

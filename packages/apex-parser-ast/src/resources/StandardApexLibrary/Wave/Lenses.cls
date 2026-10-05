@@ -1,5 +1,5 @@
 global with sharing class Lenses {
-    global Object Lenses() { return null; }
+    global Lenses() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

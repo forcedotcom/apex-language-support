@@ -14,7 +14,7 @@
  * saleResponse.setSalesforceResultCodeInfo(getSalesforceResultCodeInfo(commercepayments.SalesforceResultCode.SUCCESS.name()));
  */
 global class SaleResponse extends commercepayments.AbstractTransactionResponse {
-    global Object SaleResponse() { return null; }
+    global SaleResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

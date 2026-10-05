@@ -1,5 +1,5 @@
 global class CommittingBatchable implements Database.AllowsCallouts, Database.Batchable, Database.Stateful {
-    global Object CommittingBatchable(String uprId) { return null; }
+    global CommittingBatchable(String uprId) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -10,7 +10,7 @@ global class DataCategoryGroupSobjectTypePair {
     /**
      * Creates a new instance of the Schema.DataCategoryGroupSobjectTypePair class.
      */
-    Object DataCategoryGroupSobjectTypePair() { return null; }
+    global DataCategoryGroupSobjectTypePair() { }
 
     global Boolean equals(Object obj) { return false; }
 

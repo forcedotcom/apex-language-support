@@ -95,7 +95,7 @@ global class ChangeEventHeader {
      */
     global String transactionkey { get; set; }
 
-    Object ChangeEventHeader() { return null; }
+    global ChangeEventHeader() { }
 
     global Boolean equals(Object obj) { return false; }
 

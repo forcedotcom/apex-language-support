@@ -2,13 +2,13 @@
  * An illegal argument was provided to a method call. For example, a method that requires a non-null argument throws this exception if a null value is passed into the method.
  */
 global with sharing class IllegalArgumentException extends Exception {
-    global Object IllegalArgumentException() { return null; }
+    global IllegalArgumentException() { }
 
-    global Object IllegalArgumentException(Exception null) { return null; }
+    global IllegalArgumentException(Exception null) { }
 
-    global Object IllegalArgumentException(String null) { return null; }
+    global IllegalArgumentException(String null) { }
 
-    global Object IllegalArgumentException(String null, Exception null) { return null; }
+    global IllegalArgumentException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

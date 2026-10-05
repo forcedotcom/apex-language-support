@@ -2,7 +2,7 @@
  * Use the Cases class to interact with case records.
  */
 global class Cases {
-    global Object Cases() { return null; }
+    global Cases() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

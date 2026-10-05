@@ -1,5 +1,5 @@
 global class SearchMessagesResponse {
-    global Object SearchMessagesResponse() { return null; }
+    global SearchMessagesResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

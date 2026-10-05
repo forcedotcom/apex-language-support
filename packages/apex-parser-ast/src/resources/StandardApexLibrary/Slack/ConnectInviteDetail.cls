@@ -1,5 +1,5 @@
 global class ConnectInviteDetail {
-    global Object ConnectInviteDetail() { return null; }
+    global ConnectInviteDetail() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

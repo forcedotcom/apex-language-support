@@ -1,5 +1,5 @@
 global class DndInfoResponse {
-    global Object DndInfoResponse() { return null; }
+    global DndInfoResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

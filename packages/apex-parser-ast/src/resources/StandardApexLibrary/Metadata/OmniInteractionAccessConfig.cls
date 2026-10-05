@@ -14,7 +14,7 @@ global class OmniInteractionAccessConfig extends Metadata.Metadata {
     global String masterLabel { get; set; }
     global String setupOwner { get; set; }
 
-    global Object OmniInteractionAccessConfig() { return null; }
+    global OmniInteractionAccessConfig() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

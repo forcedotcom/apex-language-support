@@ -1,5 +1,5 @@
 global class ChannelDeletedEvent extends Slack.Event {
-    global Object ChannelDeletedEvent() { return null; }
+    global ChannelDeletedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

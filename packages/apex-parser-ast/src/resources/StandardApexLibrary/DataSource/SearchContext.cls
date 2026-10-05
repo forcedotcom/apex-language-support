@@ -20,12 +20,12 @@ global class SearchContext extends DataSource.ReadContext {
     /**
      * Creates an instance of the SearchContext class.
      */
-    global Object SearchContext() { return null; }
+    global SearchContext() { }
 
     /**
      * Creates an instance of the SearchContext class with the specified parameter values.
      */
-    global Object SearchContext(List metadata, Integer offset, Integer maxResults, List tableSelections, String searchPhrase) { return null; }
+    global SearchContext(List metadata, Integer offset, Integer maxResults, List tableSelections, String searchPhrase) { }
 
     global override Boolean equals(Object obj) { return false; }
 

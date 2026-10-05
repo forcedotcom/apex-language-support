@@ -1,11 +1,11 @@
 global class UnsupportedOperationException extends cache.CacheException {
-    global Object UnsupportedOperationException() { return null; }
+    global UnsupportedOperationException() { }
 
-    global Object UnsupportedOperationException(Exception null) { return null; }
+    global UnsupportedOperationException(Exception null) { }
 
-    global Object UnsupportedOperationException(String null) { return null; }
+    global UnsupportedOperationException(String null) { }
 
-    global Object UnsupportedOperationException(String null, Exception null) { return null; }
+    global UnsupportedOperationException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

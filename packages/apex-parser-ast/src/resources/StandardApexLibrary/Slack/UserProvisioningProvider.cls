@@ -1,5 +1,5 @@
 global class UserProvisioningProvider {
-    global Object UserProvisioningProvider() { return null; }
+    global UserProvisioningProvider() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

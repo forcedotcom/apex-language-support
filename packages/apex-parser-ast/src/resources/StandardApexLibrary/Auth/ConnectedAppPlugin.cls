@@ -54,7 +54,7 @@
  * }
  */
 global abstract class ConnectedAppPlugin {
-    global Object ConnectedAppPlugin() { return null; }
+    global ConnectedAppPlugin() { }
 
     /**
      * Deprecated and available only in API versions 35.0 and 36.0. As of version 37.0, use authorize(userId, connectedAppId, isAdminApproved, context) instead.

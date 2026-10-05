@@ -1,5 +1,5 @@
 global class ReactionsGetResponse {
-    global Object ReactionsGetResponse() { return null; }
+    global ReactionsGetResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -44,7 +44,7 @@ global class ReactionsGetResponse {
     global override String toString() { return null; }
 
     global class Message {
-        global Object Message() { return null; }
+        global Message() { }
 
         global Slack.ReactionsGetResponse.Message clone() { return null; }
 

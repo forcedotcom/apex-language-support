@@ -31,12 +31,12 @@ global class AuthProviderTokenResponse {
     /**
      * Creates an instance of the AuthProviderTokenResponse class for a custom authentication provider plug-in using the specified arguments.
      */
-    global Object AuthProviderTokenResponse(String provider, String oauthToken, String oauthSecretOrRefreshToken, String state) { return null; }
+    global AuthProviderTokenResponse(String provider, String oauthToken, String oauthSecretOrRefreshToken, String state) { }
 
     /**
      * Creates an instance of the AuthProviderTokenResponse class for a custom authentication provider plug-in using the specified arguments. This constructor includes a parameter for the ID token.
      */
-    global Object AuthProviderTokenResponse(String provider, String oauthToken, String oauthSecretOrRefreshToken, String state, String idToken) { return null; }
+    global AuthProviderTokenResponse(String provider, String oauthToken, String oauthSecretOrRefreshToken, String state, String idToken) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

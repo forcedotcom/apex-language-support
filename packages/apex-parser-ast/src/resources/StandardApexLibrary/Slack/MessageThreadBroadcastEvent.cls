@@ -1,5 +1,5 @@
 global class MessageThreadBroadcastEvent extends Slack.Event {
-    global Object MessageThreadBroadcastEvent() { return null; }
+    global MessageThreadBroadcastEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

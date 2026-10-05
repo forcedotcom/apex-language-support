@@ -4,7 +4,7 @@
  * After you obtain the partition object (an instance of Cache.OrgPartition or Cache.SessionPartition), the methods to add, retrieve, and manage the cache values in a partition take the key name. The key name that you supply to these methods (get(), put(), remove(), and contains()) doesn’t include the namespace.partition prefix.
  */
 global abstract class Partition {
-    global Object Partition() { return null; }
+    global Partition() { }
 
     /**
      * Returns true if the cache partition contains a cached value corresponding to the specified key.

@@ -2,7 +2,7 @@
  * Provides methods to get the current stack depth, maximum stack depth, and the minimum queueable delay for Queueable transactions, and to determine if maximum stack depth is set.
  */
 global class AsyncInfo {
-    global Object AsyncInfo() { return null; }
+    global AsyncInfo() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

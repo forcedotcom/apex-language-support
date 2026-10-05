@@ -2,7 +2,7 @@ global class ConsentRequestInput {
     @AuraEnabled
     global List recordList { get; set; }
 
-    global Object ConsentRequestInput() { return null; }
+    global ConsentRequestInput() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

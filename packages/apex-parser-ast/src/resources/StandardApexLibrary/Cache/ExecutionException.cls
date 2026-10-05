@@ -1,11 +1,11 @@
 global class ExecutionException extends cache.CacheException {
-    global Object ExecutionException() { return null; }
+    global ExecutionException() { }
 
-    global Object ExecutionException(Exception null) { return null; }
+    global ExecutionException(Exception null) { }
 
-    global Object ExecutionException(String null) { return null; }
+    global ExecutionException(String null) { }
 
-    global Object ExecutionException(String null, Exception null) { return null; }
+    global ExecutionException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

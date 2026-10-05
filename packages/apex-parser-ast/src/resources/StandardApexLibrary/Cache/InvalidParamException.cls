@@ -8,13 +8,13 @@
  * Another referenced value is null.
  */
 global class InvalidParamException extends cache.CacheException {
-    global Object InvalidParamException() { return null; }
+    global InvalidParamException() { }
 
-    global Object InvalidParamException(Exception null) { return null; }
+    global InvalidParamException(Exception null) { }
 
-    global Object InvalidParamException(String null) { return null; }
+    global InvalidParamException(String null) { }
 
-    global Object InvalidParamException(String null, Exception null) { return null; }
+    global InvalidParamException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

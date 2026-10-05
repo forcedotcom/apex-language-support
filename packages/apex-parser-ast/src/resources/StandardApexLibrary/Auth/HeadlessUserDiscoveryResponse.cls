@@ -18,7 +18,7 @@ global class HeadlessUserDiscoveryResponse {
     /**
      * Creates an instance of the Auth.HeadlessUserDiscoveryResponse class to describe the result of headless user discovery based on data passed into the login_hint during headless login, passwordless login, and forgot password flows.
      */
-    global Object HeadlessUserDiscoveryResponse(Set userIds, String customErrorMessage) { return null; }
+    global HeadlessUserDiscoveryResponse(Set userIds, String customErrorMessage) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

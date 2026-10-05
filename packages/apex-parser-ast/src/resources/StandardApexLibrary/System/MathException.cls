@@ -2,13 +2,13 @@
  * Any problem with a mathematical operation, such as dividing by zero.
  */
 global class MathException extends Exception {
-    Object MathException() { return null; }
+    global MathException() { }
 
-    Object MathException(Exception param1) { return null; }
+    global MathException(Exception param1) { }
 
-    Object MathException(String param1) { return null; }
+    global MathException(String param1) { }
 
-    Object MathException(String param1, Exception param2) { return null; }
+    global MathException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

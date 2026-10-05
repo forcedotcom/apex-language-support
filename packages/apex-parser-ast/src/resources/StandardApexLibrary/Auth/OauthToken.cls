@@ -5,7 +5,7 @@
  * This class is distinct from the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_class_Auth_AuthToken.htm" target="_blank">Auth.AuthToken</a> class, which contains a method to revoke tokens issued by a third-party provider instead of Salesforce tokens.
  */
 global class OauthToken {
-    global Object OauthToken() { return null; }
+    global OauthToken() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

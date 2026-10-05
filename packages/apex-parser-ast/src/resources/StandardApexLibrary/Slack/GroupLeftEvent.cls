@@ -1,5 +1,5 @@
 global class GroupLeftEvent extends Slack.Event {
-    global Object GroupLeftEvent() { return null; }
+    global GroupLeftEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

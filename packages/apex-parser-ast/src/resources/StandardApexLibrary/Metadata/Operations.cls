@@ -87,7 +87,7 @@
  * }
  */
 global class Operations {
-    global Object Operations() { return null; }
+    global Operations() { }
 
     /**
      * Deploys custom metadata components asynchronously.

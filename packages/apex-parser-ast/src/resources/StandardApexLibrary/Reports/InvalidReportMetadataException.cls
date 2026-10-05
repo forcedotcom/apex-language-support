@@ -2,13 +2,13 @@
  * Missing metadata for filters
  */
 global class InvalidReportMetadataException extends Exception {
-    global Object InvalidReportMetadataException() { return null; }
+    global InvalidReportMetadataException() { }
 
-    global Object InvalidReportMetadataException(Exception null) { return null; }
+    global InvalidReportMetadataException(Exception null) { }
 
-    global Object InvalidReportMetadataException(String null) { return null; }
+    global InvalidReportMetadataException(String null) { }
 
-    global Object InvalidReportMetadataException(String null, Exception null) { return null; }
+    global InvalidReportMetadataException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

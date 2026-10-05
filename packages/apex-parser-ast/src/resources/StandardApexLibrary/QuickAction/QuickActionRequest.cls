@@ -28,7 +28,7 @@ global class QuickActionRequest {
     /**
      * Creates a new instance of the QuickAction.QuickActionRequest class.
      */
-    Object QuickActionRequest() { return null; }
+    global QuickActionRequest() { }
 
     global Boolean equals(Object obj) { return false; }
 

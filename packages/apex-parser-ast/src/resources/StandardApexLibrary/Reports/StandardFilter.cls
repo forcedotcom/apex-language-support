@@ -4,9 +4,9 @@
  * Use to get or set standard filters on a report. Standard filters vary by report type. For example, standard filters for reports on the Opportunity object are Show, Opportunity Status, and Probability.
  */
 global class StandardFilter {
-    global Object StandardFilter() { return null; }
+    global StandardFilter() { }
 
-    global Object StandardFilter(String name, String value) { return null; }
+    global StandardFilter(String name, String value) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

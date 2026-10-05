@@ -15,7 +15,7 @@ global class LensesSearchOptions {
     @AuraEnabled
     global String sortParam { get; set; }
 
-    global Object LensesSearchOptions() { return null; }
+    global LensesSearchOptions() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -5,7 +5,7 @@
  * As of API version 39.0, use the abstract class AuthProviderPluginClass to create a custom external authentication provider. This class replaces the AuthProviderPlugin interface. If you’ve already implemented a custom authentication provider plug-in using the interface, it still works. However, use AuthProviderPluginClass to extend your plug-in. If you haven’t created an interface, create a custom authentication provider plug-in by extending this abstract class. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/authproviderplugin.htm" target="_blank">Create a Custom Authentication Provider Plug-in</a>.
  */
 global abstract class AuthProviderPluginClass implements Auth.AuthProviderPlugin {
-    global Object AuthProviderPluginClass() { return null; }
+    global AuthProviderPluginClass() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

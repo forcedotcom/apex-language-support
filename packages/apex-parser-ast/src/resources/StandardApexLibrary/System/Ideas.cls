@@ -102,7 +102,7 @@
  * </apex:page>
  */
 global class Ideas {
-    global Object Ideas() { return null; }
+    global Ideas() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

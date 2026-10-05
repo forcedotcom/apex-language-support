@@ -1,5 +1,5 @@
 global class PackageBundleService {
-    global Object PackageBundleService() { return null; }
+    global PackageBundleService() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

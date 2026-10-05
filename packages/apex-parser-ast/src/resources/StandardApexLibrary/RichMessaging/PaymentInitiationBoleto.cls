@@ -8,9 +8,9 @@ global with sharing class PaymentInitiationBoleto {
     @AuraEnabled
     global String digitableLine { get; set; }
 
-    global Object PaymentInitiationBoleto() { return null; }
+    global PaymentInitiationBoleto() { }
 
-    global Object PaymentInitiationBoleto(String digitableLine) { return null; }
+    global PaymentInitiationBoleto(String digitableLine) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

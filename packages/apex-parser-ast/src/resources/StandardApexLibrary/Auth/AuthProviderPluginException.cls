@@ -2,13 +2,13 @@
  * Throw this exception to indicate that an error occurred when using the auth provider plug-in. Use to display a custom error message to the user. To get the error message and write it to debug log, use the String getMessage().
  */
 global class AuthProviderPluginException extends Exception {
-    global Object AuthProviderPluginException() { return null; }
+    global AuthProviderPluginException() { }
 
-    global Object AuthProviderPluginException(Exception null) { return null; }
+    global AuthProviderPluginException(Exception null) { }
 
-    global Object AuthProviderPluginException(String null) { return null; }
+    global AuthProviderPluginException(String null) { }
 
-    global Object AuthProviderPluginException(String null, Exception null) { return null; }
+    global AuthProviderPluginException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

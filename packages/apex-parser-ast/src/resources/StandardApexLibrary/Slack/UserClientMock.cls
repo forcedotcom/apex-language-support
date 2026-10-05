@@ -1,5 +1,5 @@
 global virtual class UserClientMock extends Slack.UserClient implements Slack.UserClientInterface {
-    global Object UserClientMock() { return null; }
+    global UserClientMock() { }
 
     global virtual Slack.ApiTestResponse apiTest(Slack.ApiTestRequest req) { return null; }
 

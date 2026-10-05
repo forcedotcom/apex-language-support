@@ -4,7 +4,7 @@
  * See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/token_exchange_handler.htm" target="_blank">Token Exchange Handler Validation and Subject Mapping</a>.
  */
 global abstract class Oauth2TokenExchangeHandler {
-    global Object Oauth2TokenExchangeHandler() { return null; }
+    global Oauth2TokenExchangeHandler() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

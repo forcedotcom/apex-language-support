@@ -10,7 +10,7 @@
  * lineItemResponse.setAmountDetails(amountResponse);
  */
 global with sharing class AmountDetailsResponse {
-    global Object AmountDetailsResponse() { return null; }
+    global AmountDetailsResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

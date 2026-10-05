@@ -13,7 +13,7 @@ global class InboundEnvelope {
      */
     global webservice String toAddress;
 
-    global Object InboundEnvelope() { return null; }
+    global InboundEnvelope() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

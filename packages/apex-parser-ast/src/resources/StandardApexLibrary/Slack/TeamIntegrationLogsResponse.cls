@@ -1,5 +1,5 @@
 global class TeamIntegrationLogsResponse {
-    global Object TeamIntegrationLogsResponse() { return null; }
+    global TeamIntegrationLogsResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

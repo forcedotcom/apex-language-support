@@ -1,5 +1,5 @@
 global class AppRequest {
-    global Object AppRequest() { return null; }
+    global AppRequest() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -44,7 +44,7 @@ global class AppRequest {
     global override String toString() { return null; }
 
     global class PreviousResolution {
-        global Object PreviousResolution() { return null; }
+        global PreviousResolution() { }
 
         global Slack.AppRequest.PreviousResolution clone() { return null; }
 
@@ -64,7 +64,7 @@ global class AppRequest {
     }
 
     global class Team {
-        global Object Team() { return null; }
+        global Team() { }
 
         global Slack.AppRequest.Team clone() { return null; }
 
@@ -88,7 +88,7 @@ global class AppRequest {
     }
 
     global class User {
-        global Object User() { return null; }
+        global User() { }
 
         global Slack.AppRequest.User clone() { return null; }
 

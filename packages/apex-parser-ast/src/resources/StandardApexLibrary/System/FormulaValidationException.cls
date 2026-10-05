@@ -1,11 +1,11 @@
 global class FormulaValidationException extends Exception {
-    Object FormulaValidationException() { return null; }
+    global FormulaValidationException() { }
 
-    Object FormulaValidationException(Exception param1) { return null; }
+    global FormulaValidationException(Exception param1) { }
 
-    Object FormulaValidationException(String param1) { return null; }
+    global FormulaValidationException(String param1) { }
 
-    Object FormulaValidationException(String param1, Exception param2) { return null; }
+    global FormulaValidationException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

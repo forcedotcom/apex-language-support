@@ -49,7 +49,7 @@ global class StandardSetController {
     /**
      * Creates an instance of the ApexPages.StandardSetController class for the list of objects returned by the query locator.
      */
-    Object StandardSetController(Database.QueryLocator queryLocator) { return null; }
+    global StandardSetController(Database.QueryLocator queryLocator) { }
 
     /**
      * Creates an instance of the ApexPages.StandardSetController class for the specified list of standard or custom objects.
@@ -57,7 +57,7 @@ global class StandardSetController {
      * List<account> accountList = [SELECT Name FROM Account LIMIT 20];
      * ApexPages.StandardSetController ssc = new ApexPages.StandardSetController(accountList);
      */
-    Object StandardSetController(List records) { return null; }
+    global StandardSetController(List records) { }
 
     global void addFields(List fieldNames) { }
 

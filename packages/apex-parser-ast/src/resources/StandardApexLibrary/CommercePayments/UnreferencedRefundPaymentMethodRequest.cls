@@ -5,9 +5,9 @@ global with sharing class UnreferencedRefundPaymentMethodRequest extends commerc
     global commercepayments.PaymentMethodIdType idType { get; set; }
     global Boolean saveForFuture { get; set; }
 
-    global Object UnreferencedRefundPaymentMethodRequest() { return null; }
+    global UnreferencedRefundPaymentMethodRequest() { }
 
-    global Object UnreferencedRefundPaymentMethodRequest(commercepayments.CardPaymentMethodRequest cardPaymentMethodRequest) { return null; }
+    global UnreferencedRefundPaymentMethodRequest(commercepayments.CardPaymentMethodRequest cardPaymentMethodRequest) { }
 
     global override virtual Boolean equals(Object obj) { return false; }
 

@@ -5,16 +5,16 @@ global class ReportFilter {
     /**
      * Creates a new instance of the Reports.ReportFilter class. You can then set values by using the “set” methods.
      */
-    global Object ReportFilter() { return null; }
+    global ReportFilter() { }
 
     /**
      * Creates a new instance of the Reports.ReportFilter class by using the specified parameters.
      */
-    global Object ReportFilter(String column, String operator, String value) { return null; }
+    global ReportFilter(String column, String operator, String value) { }
 
-    global Object ReportFilter(String column, String operator, String value, reports.ReportFilterType filterType) { return null; }
+    global ReportFilter(String column, String operator, String value, reports.ReportFilterType filterType) { }
 
-    global Object ReportFilter(String column, String operator, String value, reports.ReportFilterType filterType, String entityName) { return null; }
+    global ReportFilter(String column, String operator, String value, reports.ReportFilterType filterType, String entityName) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

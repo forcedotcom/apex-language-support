@@ -50,7 +50,7 @@
  * }
  */
 global abstract class LearningItemEvaluationHandler {
-    global Object LearningItemEvaluationHandler() { return null; }
+    global LearningItemEvaluationHandler() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -1,5 +1,5 @@
 global class RequestingBatchable implements Database.AllowsCallouts, Database.Batchable, Database.Stateful {
-    global Object RequestingBatchable(List newRows) { return null; }
+    global RequestingBatchable(List newRows) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

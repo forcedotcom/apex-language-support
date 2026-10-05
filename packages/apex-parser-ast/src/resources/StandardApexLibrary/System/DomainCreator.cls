@@ -19,7 +19,7 @@
  * String fullRecordURL = 'https://' + myLightningHostname + '/lightning/r/Account/' + acct.Id + '/view';
  */
 global class DomainCreator {
-    global Object DomainCreator() { return null; }
+    global DomainCreator() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

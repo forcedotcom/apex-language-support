@@ -17,7 +17,7 @@ global with sharing class UnreferencedRefundRequest extends commercepayments.Ref
     global Map paymentMethodData { get; set; }
     global String phone { get; set; }
 
-    global Object UnreferencedRefundRequest(Double amount, commercepayments.UnreferencedRefundPaymentMethodRequest paymentMethod) { return null; }
+    global UnreferencedRefundRequest(Double amount, commercepayments.UnreferencedRefundPaymentMethodRequest paymentMethod) { }
 
     global override virtual Boolean equals(Object obj) { return false; }
 

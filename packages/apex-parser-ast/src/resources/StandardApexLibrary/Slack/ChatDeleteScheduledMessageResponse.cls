@@ -1,5 +1,5 @@
 global class ChatDeleteScheduledMessageResponse {
-    global Object ChatDeleteScheduledMessageResponse() { return null; }
+    global ChatDeleteScheduledMessageResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

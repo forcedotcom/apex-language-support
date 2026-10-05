@@ -40,7 +40,7 @@ global with sharing class OrderItemCommerceAttributes {
     @AuraEnabled
     global String retailerId { get; set; }
 
-    global Object OrderItemCommerceAttributes() { return null; }
+    global OrderItemCommerceAttributes() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

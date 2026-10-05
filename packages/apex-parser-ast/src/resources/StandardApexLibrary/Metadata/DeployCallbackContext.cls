@@ -11,7 +11,7 @@
  * }
  */
 global virtual class DeployCallbackContext {
-    global Object DeployCallbackContext() { return null; }
+    global DeployCallbackContext() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

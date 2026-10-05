@@ -10,7 +10,7 @@
  * String response = lxscheduler.SchedulerResources.getAppointmentSlots(input);
  */
 global class SchedulerResources {
-    global Object SchedulerResources() { return null; }
+    global SchedulerResources() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

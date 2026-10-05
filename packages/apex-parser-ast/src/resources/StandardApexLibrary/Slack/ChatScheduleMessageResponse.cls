@@ -1,5 +1,5 @@
 global class ChatScheduleMessageResponse {
-    global Object ChatScheduleMessageResponse() { return null; }
+    global ChatScheduleMessageResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -52,7 +52,7 @@ global class ChatScheduleMessageResponse {
     global override String toString() { return null; }
 
     global class ScheduledMessage {
-        global Object ScheduledMessage() { return null; }
+        global ScheduledMessage() { }
 
         global Slack.ChatScheduleMessageResponse.ScheduledMessage clone() { return null; }
 

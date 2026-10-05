@@ -2,13 +2,13 @@
  * This error occurs when the execution of the CacheBuilder fails; this could be due to an error in parsing, a permissions error while accessing records, or an issue with Apex callouts.
  */
 global class CacheBuilderExecutionException extends cache.CacheException {
-    global Object CacheBuilderExecutionException() { return null; }
+    global CacheBuilderExecutionException() { }
 
-    global Object CacheBuilderExecutionException(Exception null) { return null; }
+    global CacheBuilderExecutionException(Exception null) { }
 
-    global Object CacheBuilderExecutionException(String null) { return null; }
+    global CacheBuilderExecutionException(String null) { }
 
-    global Object CacheBuilderExecutionException(String null, Exception null) { return null; }
+    global CacheBuilderExecutionException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

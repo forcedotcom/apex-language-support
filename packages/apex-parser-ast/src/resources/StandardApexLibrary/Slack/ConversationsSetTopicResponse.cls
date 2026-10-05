@@ -1,5 +1,5 @@
 global class ConversationsSetTopicResponse {
-    global Object ConversationsSetTopicResponse() { return null; }
+    global ConversationsSetTopicResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

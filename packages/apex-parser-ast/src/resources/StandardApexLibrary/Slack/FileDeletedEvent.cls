@@ -1,5 +1,5 @@
 global class FileDeletedEvent extends Slack.Event {
-    global Object FileDeletedEvent() { return null; }
+    global FileDeletedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

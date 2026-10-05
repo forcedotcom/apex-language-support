@@ -130,7 +130,7 @@ global class DeployResult {
      */
     global Boolean success { get; set; }
 
-    global Object DeployResult() { return null; }
+    global DeployResult() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

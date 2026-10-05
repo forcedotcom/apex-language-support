@@ -41,7 +41,7 @@ global class RelatedListItem extends Metadata.MetadataValue {
      */
     global Metadata.SortOrder sortOrder { get; set; }
 
-    global Object RelatedListItem() { return null; }
+    global RelatedListItem() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

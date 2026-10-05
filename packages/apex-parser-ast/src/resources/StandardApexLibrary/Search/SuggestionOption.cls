@@ -2,7 +2,7 @@
  * Options that narrow record and article suggestion results returned from a call to System.Search.suggest(String, String, Search.SuggestionOption).
  */
 global class SuggestionOption {
-    Object SuggestionOption() { return null; }
+    global SuggestionOption() { }
 
     global Boolean equals(Object obj) { return false; }
 

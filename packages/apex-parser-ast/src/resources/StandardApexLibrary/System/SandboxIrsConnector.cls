@@ -1,5 +1,5 @@
 global class SandboxIrsConnector {
-    global Object SandboxIrsConnector() { return null; }
+    global SandboxIrsConnector() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

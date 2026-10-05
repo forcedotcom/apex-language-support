@@ -8,7 +8,7 @@
  * response.setGatewayTokenDetails('gateway token details');
  */
 global with sharing class AlternativePaymentMethodResponse {
-    global Object AlternativePaymentMethodResponse() { return null; }
+    global AlternativePaymentMethodResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

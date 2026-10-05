@@ -2,7 +2,7 @@
  * Any problem with dereferencing null. For an example, see NullPointerException Example.
  */
 global class NullPointerException extends Exception {
-    Object NullPointerException() { return null; }
+    global NullPointerException() { }
 
     global Boolean equals(Object obj) { return false; }
 

@@ -15,10 +15,10 @@ global class AuthConfiguration {
     /**
      * Creates an instance of the AuthConfiguration class using the specified URL for an Experience Cloud site or a My Domain subdomain and the start URL for authenticated users.
      */
-    global Object AuthConfiguration(String URL, String start_URL) { return null; }
+    global AuthConfiguration(String URL, String start_URL) { }
 
     @Deprecated
-    global Object AuthConfiguration(Id networkId, String start_URL) { return null; }
+    global AuthConfiguration(Id networkId, String start_URL) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

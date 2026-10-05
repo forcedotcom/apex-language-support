@@ -1,5 +1,5 @@
 global class UsergroupsUpdateResponse {
-    global Object UsergroupsUpdateResponse() { return null; }
+    global UsergroupsUpdateResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

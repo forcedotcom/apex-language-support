@@ -1,5 +1,5 @@
 global class LegalOrgOps {
-    global Object LegalOrgOps() { return null; }
+    global LegalOrgOps() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

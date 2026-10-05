@@ -105,7 +105,7 @@ global with sharing class LineItemInput {
     @AuraEnabled
     global String uom { get; set; }
 
-    global Object LineItemInput() { return null; }
+    global LineItemInput() { }
 
     /**
      * Maintains the integrity of lists of type LineItemInput by determining the equality of external objects in a list. This method is dynamic and based on the equals method in Java.

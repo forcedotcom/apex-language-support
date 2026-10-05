@@ -5,7 +5,7 @@ global class NotificationActionContext {
     /**
      * Creates a new instance of the Reports.NotificationActionContext class using the specified parameters.
      */
-    global Object NotificationActionContext(reports.ReportInstance reportInstance, reports.ThresholdInformation thresholdInformation) { return null; }
+    global NotificationActionContext(reports.ReportInstance reportInstance, reports.ThresholdInformation thresholdInformation) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

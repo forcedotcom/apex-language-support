@@ -66,7 +66,7 @@ global class GeneratedUserData {
     /**
      * The Generate User Data action in Flow Builder uses this constructor to create an instance of the Auth.GeneratedUserData class.
      */
-    global Object GeneratedUserData(String firstName, String lastName, String email, String username, String alias, String languageLocaleKey, String localesIdKey, String emailEncodingKey, String timeZoneSidKey) { return null; }
+    global GeneratedUserData(String firstName, String lastName, String email, String username, String alias, String languageLocaleKey, String localesIdKey, String emailEncodingKey, String timeZoneSidKey) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

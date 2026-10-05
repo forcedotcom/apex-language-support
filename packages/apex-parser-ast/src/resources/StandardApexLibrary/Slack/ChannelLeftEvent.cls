@@ -1,5 +1,5 @@
 global class ChannelLeftEvent extends Slack.Event {
-    global Object ChannelLeftEvent() { return null; }
+    global ChannelLeftEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

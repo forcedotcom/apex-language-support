@@ -54,7 +54,7 @@
  * }
  */
 global with sharing class SaleNotification extends commercepayments.BaseNotification {
-    global Object SaleNotification() { return null; }
+    global SaleNotification() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

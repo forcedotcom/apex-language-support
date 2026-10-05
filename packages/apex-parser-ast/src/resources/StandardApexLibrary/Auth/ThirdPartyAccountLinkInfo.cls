@@ -9,7 +9,7 @@ global class ThirdPartyAccountLinkInfo {
     global String thirdPartyAccountLinkKey { get; set; }
     global String userId { get; set; }
 
-    global Object ThirdPartyAccountLinkInfo(String oHandle, String oRemoteIdentifier, String oUserId, String oSsoProviderId) { return null; }
+    global ThirdPartyAccountLinkInfo(String oHandle, String oRemoteIdentifier, String oUserId, String oSsoProviderId) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

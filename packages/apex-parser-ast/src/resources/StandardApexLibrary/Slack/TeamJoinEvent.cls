@@ -1,5 +1,5 @@
 global class TeamJoinEvent extends Slack.Event {
-    global Object TeamJoinEvent() { return null; }
+    global TeamJoinEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

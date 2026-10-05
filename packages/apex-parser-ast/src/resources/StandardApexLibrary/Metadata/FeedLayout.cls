@@ -55,7 +55,7 @@ global class FeedLayout extends Metadata.MetadataValue {
      */
     global Boolean useInlineFiltersInConsole { get; set; }
 
-    global Object FeedLayout() { return null; }
+    global FeedLayout() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

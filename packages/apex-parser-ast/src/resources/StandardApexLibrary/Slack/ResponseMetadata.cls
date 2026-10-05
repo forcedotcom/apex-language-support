@@ -1,5 +1,5 @@
 global class ResponseMetadata {
-    global Object ResponseMetadata() { return null; }
+    global ResponseMetadata() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

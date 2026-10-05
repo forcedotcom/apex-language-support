@@ -4,7 +4,7 @@
  * The constructor for this class can’t be called directly. Create an instance of this class using the SkillRequirementBuilder.build() method.
  */
 global without sharing class SkillRequirement {
-    global Object SkillRequirement() { return null; }
+    global SkillRequirement() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

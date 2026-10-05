@@ -226,6 +226,30 @@ describe('apexStubGenerator', () => {
   });
 
   describe('Constructor Handling', () => {
+    test('uses the Symbol Table API constructor flag and class visibility', () => {
+      const [stub] = generateApexStubs({
+        typeStubs: [
+          {
+            name: 'Document',
+            kind: 'CLASS',
+            modifiers: ['global'],
+            methods: [
+              {
+                name: 'Document',
+                isConstructor: true,
+                returnType: null,
+                modifiers: [],
+                parameters: [],
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(stub.source).toContain('global Document() { }');
+      expect(stub.source).not.toContain('Object Document()');
+    });
+
     test('converts <init> to class constructor', () => {
       const input = {
         typeStubs: [

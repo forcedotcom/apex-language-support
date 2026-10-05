@@ -1,5 +1,5 @@
 global with sharing class EmailToSubmissionHandler implements Messaging.InboundEmailHandler {
-    global Object EmailToSubmissionHandler() { return null; }
+    global EmailToSubmissionHandler() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

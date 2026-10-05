@@ -48,7 +48,7 @@ global class AddressableContact {
     /**
      * Creates a new instance of the RichMessaging.AddressableContact class.
      */
-    global Object AddressableContact(String givenName, String phoneticGivenName, String familyName, String phoneticFamilyName, String emailAddress, String phoneNumber, RichMessaging.PostalAddress postalAddress) { return null; }
+    global AddressableContact(String givenName, String phoneticGivenName, String familyName, String phoneticFamilyName, String emailAddress, String phoneNumber, RichMessaging.PostalAddress postalAddress) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

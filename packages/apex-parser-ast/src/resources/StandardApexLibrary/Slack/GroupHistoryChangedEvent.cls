@@ -1,5 +1,5 @@
 global class GroupHistoryChangedEvent extends Slack.Event {
-    global Object GroupHistoryChangedEvent() { return null; }
+    global GroupHistoryChangedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

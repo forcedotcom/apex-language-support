@@ -1,5 +1,5 @@
 global class CallRejectedEvent extends Slack.Event {
-    global Object CallRejectedEvent() { return null; }
+    global CallRejectedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

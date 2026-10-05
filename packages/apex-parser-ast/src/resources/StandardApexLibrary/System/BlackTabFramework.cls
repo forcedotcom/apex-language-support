@@ -1,5 +1,5 @@
 global class BlackTabFramework {
-    global Object BlackTabFramework() { return null; }
+    global BlackTabFramework() { }
 
     global static String cancelBlackTabRequest(String requestId, Set instances, Set orgs, String caseId, String userId) { return null; }
 

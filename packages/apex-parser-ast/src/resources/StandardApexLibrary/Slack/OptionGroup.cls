@@ -1,5 +1,5 @@
 global class OptionGroup {
-    global Object OptionGroup(String label, List options) { return null; }
+    global OptionGroup(String label, List options) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

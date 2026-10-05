@@ -2,7 +2,7 @@
  * Contains methods for obtaining information about the context user.
  */
 global class UserInfo {
-    global Object UserInfo() { return null; }
+    global UserInfo() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

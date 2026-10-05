@@ -7,7 +7,7 @@ global class MultiStaticResourceCalloutMock implements System.HttpCalloutMock {
     /**
      * Creates a new instance of the System.MultiStaticResourceCalloutMock class.
      */
-    global Object MultiStaticResourceCalloutMock() { return null; }
+    global MultiStaticResourceCalloutMock() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

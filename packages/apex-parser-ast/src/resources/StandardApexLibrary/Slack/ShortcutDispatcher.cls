@@ -1,5 +1,5 @@
 global abstract class ShortcutDispatcher implements Slack.RequestDispatcher {
-    global Object ShortcutDispatcher() { return null; }
+    global ShortcutDispatcher() { }
 
     global virtual Boolean allowUnauthenticatedUsers() { return false; }
 

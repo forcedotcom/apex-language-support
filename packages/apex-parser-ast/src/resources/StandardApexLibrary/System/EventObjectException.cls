@@ -1,11 +1,11 @@
 global class EventObjectException extends Exception {
-    Object EventObjectException() { return null; }
+    global EventObjectException() { }
 
-    Object EventObjectException(Exception param1) { return null; }
+    global EventObjectException(Exception param1) { }
 
-    Object EventObjectException(String param1) { return null; }
+    global EventObjectException(String param1) { }
 
-    Object EventObjectException(String param1, Exception param2) { return null; }
+    global EventObjectException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

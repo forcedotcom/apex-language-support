@@ -59,7 +59,7 @@
  * }
  */
 global with sharing class TokenizeNotification extends commercepayments.BaseNotification {
-    global Object TokenizeNotification() { return null; }
+    global TokenizeNotification() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -1,5 +1,5 @@
 global class PinsRemoveResponse {
-    global Object PinsRemoveResponse() { return null; }
+    global PinsRemoveResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -2,13 +2,13 @@
  * A non-recoverable internal error within Salesforce has occurred. This exception causes execution to halt. If necessary, contact Salesforce Customer Support for more information.
  */
 global class UnexpectedException extends Exception {
-    Object UnexpectedException() { return null; }
+    global UnexpectedException() { }
 
-    Object UnexpectedException(Exception param1) { return null; }
+    global UnexpectedException(Exception param1) { }
 
-    Object UnexpectedException(String param1) { return null; }
+    global UnexpectedException(String param1) { }
 
-    Object UnexpectedException(String param1, Exception param2) { return null; }
+    global UnexpectedException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

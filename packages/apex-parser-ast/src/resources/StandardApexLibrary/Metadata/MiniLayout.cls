@@ -15,7 +15,7 @@ global class MiniLayout extends Metadata.MetadataValue {
      */
     global List relatedLists { get; set; }
 
-    global Object MiniLayout() { return null; }
+    global MiniLayout() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

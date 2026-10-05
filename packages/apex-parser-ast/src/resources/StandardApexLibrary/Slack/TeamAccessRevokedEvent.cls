@@ -1,5 +1,5 @@
 global class TeamAccessRevokedEvent extends Slack.Event {
-    global Object TeamAccessRevokedEvent() { return null; }
+    global TeamAccessRevokedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -1,11 +1,11 @@
 global class WaveTemplateException extends Exception {
-    Object WaveTemplateException() { return null; }
+    global WaveTemplateException() { }
 
-    Object WaveTemplateException(Exception param1) { return null; }
+    global WaveTemplateException(Exception param1) { }
 
-    Object WaveTemplateException(String param1) { return null; }
+    global WaveTemplateException(String param1) { }
 
-    Object WaveTemplateException(String param1, Exception param2) { return null; }
+    global WaveTemplateException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

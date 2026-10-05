@@ -1,5 +1,5 @@
 global class FilePublicEvent extends Slack.Event {
-    global Object FilePublicEvent() { return null; }
+    global FilePublicEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -28,7 +28,7 @@ global class FilePublicEvent extends Slack.Event {
     global override String toString() { return null; }
 
     global class File {
-        global Object File() { return null; }
+        global File() { }
 
         global Slack.FilePublicEvent.File clone() { return null; }
 

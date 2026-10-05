@@ -1,5 +1,5 @@
 global class UsersLookupByEmailResponse {
-    global Object UsersLookupByEmailResponse() { return null; }
+    global UsersLookupByEmailResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -7,7 +7,7 @@ global class StaticResourceCalloutMock implements System.HttpCalloutMock {
     /**
      * Creates a new instance of the StaticResourceCalloutMock class.
      */
-    global Object StaticResourceCalloutMock() { return null; }
+    global StaticResourceCalloutMock() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

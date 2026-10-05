@@ -1,5 +1,5 @@
 global class Latest {
-    global Object Latest() { return null; }
+    global Latest() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -88,7 +88,7 @@ global class Latest {
     global override String toString() { return null; }
 
     global class Edited {
-        global Object Edited() { return null; }
+        global Edited() { }
 
         global Slack.Latest.Edited clone() { return null; }
 

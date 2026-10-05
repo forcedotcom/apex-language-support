@@ -3,7 +3,7 @@
  * <p>A Builder object is obtained by invoking one of the SkillRequirementBuilder methods defined by the SkillRequirement class.
  */
 global without sharing class SkillRequirementBuilder {
-    global Object SkillRequirementBuilder() { return null; }
+    global SkillRequirementBuilder() { }
 
     /**
      * Returns an instance of the lxscheduler.SkillRequirement object.

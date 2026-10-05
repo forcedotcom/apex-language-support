@@ -19,7 +19,7 @@ global class DagsSearchOptions {
     @AuraEnabled
     global List status { get; set; }
 
-    global Object DagsSearchOptions() { return null; }
+    global DagsSearchOptions() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

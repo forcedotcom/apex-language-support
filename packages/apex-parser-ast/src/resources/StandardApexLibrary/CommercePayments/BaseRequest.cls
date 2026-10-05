@@ -11,7 +11,7 @@ global abstract with sharing class BaseRequest extends commercepayments.AuditPar
     global String macAddress { get; set; }
     global String phone { get; set; }
 
-    global Object BaseRequest(Boolean duplicate, String idempotencyKey) { return null; }
+    global BaseRequest(Boolean duplicate, String idempotencyKey) { }
 
     global override virtual Boolean equals(Object obj) { return false; }
 

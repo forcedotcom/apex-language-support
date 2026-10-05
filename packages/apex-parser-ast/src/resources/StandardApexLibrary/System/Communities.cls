@@ -1,5 +1,5 @@
 global class Communities {
-    global Object Communities() { return null; }
+    global Communities() { }
 
     global static System.PageReference communitiesLanding() { return null; }
 

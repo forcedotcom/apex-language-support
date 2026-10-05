@@ -3,7 +3,7 @@
  * <p>A Builder object is obtained by invoking one of the WorkTypeBuilder methods defined by the WorkType class.
  */
 global without sharing class WorkTypeBuilder {
-    global Object WorkTypeBuilder() { return null; }
+    global WorkTypeBuilder() { }
 
     /**
      * Returns an instance of the lxscheduler.WorkType object.

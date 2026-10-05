@@ -1,7 +1,7 @@
 global class WorkCapacityInfo {
     global List serviceAppointmentIds;
 
-    global Object WorkCapacityInfo(List serviceAppointmentIds) { return null; }
+    global WorkCapacityInfo(List serviceAppointmentIds) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

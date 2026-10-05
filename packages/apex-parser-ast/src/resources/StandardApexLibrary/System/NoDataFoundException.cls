@@ -4,7 +4,7 @@
  * Salesforce Functions: The exception is thrown when the project or function name provided in the functionName parameter to the Function.get() method can't be found. For more information on Salesforce functions, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_class_functions_Function.htm" target="_blank">Function.get()</a>.
  */
 global class NoDataFoundException extends Exception {
-    Object NoDataFoundException() { return null; }
+    global NoDataFoundException() { }
 
     global Boolean equals(Object obj) { return false; }
 

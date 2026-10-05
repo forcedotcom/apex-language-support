@@ -1,5 +1,5 @@
 global class FilesRevokePublicURLResponse {
-    global Object FilesRevokePublicURLResponse() { return null; }
+    global FilesRevokePublicURLResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -1,5 +1,5 @@
 global class OrgInstrumentationService {
-    global Object OrgInstrumentationService(System.OrgMetricServiceEnum service, String subServiceName, String featureGroupName, String featureName) { return null; }
+    global OrgInstrumentationService(System.OrgMetricServiceEnum service, String subServiceName, String featureGroupName, String featureName) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

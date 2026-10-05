@@ -276,18 +276,20 @@ function generateProperty(property, indent = '    ') {
 /**
  * Generate method/constructor signature and body
  */
-function generateMethod(method, className, typeKind, indent = '    ') {
+function generateMethod(method, className, typeKind, indent = '    ', classModifiers = []) {
     const documentation = formatDocumentation(method.documentation, indent);
     const annotations = formatAnnotations(method.annotations, indent);
+    const isConstructor = method.isConstructor === true || method.name === '<init>';
     const modifiers = formatModifiers(method.modifiers);
+    if (isConstructor && !modifiers.some(modifier => VISIBILITY_MODIFIERS.includes(modifier))) {
+        const classVisibility = classModifiers.find(modifier => VISIBILITY_MODIFIERS.includes(modifier));
+        if (classVisibility) modifiers.unshift(classVisibility);
+    }
     // Apex interface methods inherit their visibility from the interface.
     const methodModifiers = typeKind === 'INTERFACE'
         ? modifiers.filter(modifier => !VISIBILITY_MODIFIERS.includes(modifier))
         : modifiers;
     const modStr = methodModifiers.length > 0 ? methodModifiers.join(' ') + ' ' : '';
-
-    // Handle constructor
-    const isConstructor = method.name === '<init>';
 
     // Demangle method name to extract clean name and generic return type
     const { cleanName, genericReturnType } = isConstructor
@@ -313,7 +315,7 @@ function generateMethod(method, className, typeKind, indent = '    ') {
     }).join(', ');
 
     // Generate body - use base type name for default return
-    const returnTypeName = genericReturnType || formatType(method.returnType);
+    const returnTypeName = isConstructor ? 'void' : genericReturnType || formatType(method.returnType);
     const defaultReturn = getDefaultReturn(returnTypeName);
 
     let body;
@@ -439,7 +441,7 @@ function generateTypeBody(typeStub, indent = '') {
 
     if (methods.length > 0) {
         methods.forEach((method, idx) => {
-            lines.push(generateMethod(method, className, typeStub.kind, innerIndent));
+            lines.push(generateMethod(method, className, typeStub.kind, innerIndent, modifiers));
             if (idx < methods.length - 1) {
                 lines.push('');
             }

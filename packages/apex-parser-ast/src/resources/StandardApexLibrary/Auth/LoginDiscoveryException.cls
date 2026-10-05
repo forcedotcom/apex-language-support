@@ -2,13 +2,13 @@
  * Throw this exception to indicate that an error occurred when executing the Login Discovery handler. For an example, see LoginDiscoveryHandler Example Implementation. To get the error message and write it to debug log, use the String getMessage().
  */
 global class LoginDiscoveryException extends Exception {
-    global Object LoginDiscoveryException() { return null; }
+    global LoginDiscoveryException() { }
 
-    global Object LoginDiscoveryException(Exception null) { return null; }
+    global LoginDiscoveryException(Exception null) { }
 
-    global Object LoginDiscoveryException(String null) { return null; }
+    global LoginDiscoveryException(String null) { }
 
-    global Object LoginDiscoveryException(String null, Exception null) { return null; }
+    global LoginDiscoveryException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

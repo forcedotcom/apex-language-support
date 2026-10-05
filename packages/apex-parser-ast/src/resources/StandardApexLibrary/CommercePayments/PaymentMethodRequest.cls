@@ -3,7 +3,7 @@ global with sharing class PaymentMethodRequest {
     global commercepayments.CardPaymentMethodRequest cardPaymentMethod { get; set; }
     global String id { get; set; }
 
-    global Object PaymentMethodRequest(commercepayments.CardPaymentMethodRequest cardPaymentMethodRequest) { return null; }
+    global PaymentMethodRequest(commercepayments.CardPaymentMethodRequest cardPaymentMethodRequest) { }
 
     global virtual Boolean equals(Object obj) { return false; }
 

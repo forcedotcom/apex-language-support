@@ -1,5 +1,5 @@
 global class AppHomeOpenedEvent extends Slack.Event {
-    global Object AppHomeOpenedEvent() { return null; }
+    global AppHomeOpenedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -2,13 +2,13 @@
  * Throw this exception to indicate that an error occurred while communicating with an external data source.
  */
 global virtual class DataSourceException extends Exception {
-    global Object DataSourceException() { return null; }
+    global DataSourceException() { }
 
-    global Object DataSourceException(Exception null) { return null; }
+    global DataSourceException(Exception null) { }
 
-    global Object DataSourceException(String null) { return null; }
+    global DataSourceException(String null) { }
 
-    global Object DataSourceException(String null, Exception null) { return null; }
+    global DataSourceException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

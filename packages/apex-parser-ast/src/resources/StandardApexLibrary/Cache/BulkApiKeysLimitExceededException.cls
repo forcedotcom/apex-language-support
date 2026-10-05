@@ -2,13 +2,13 @@
  * The number of key parameters passed into a bulk method - get(keys) or contains(setOfKeys) exceeds the maximum limit of 10.
  */
 global class BulkApiKeysLimitExceededException extends cache.CacheException {
-    global Object BulkApiKeysLimitExceededException() { return null; }
+    global BulkApiKeysLimitExceededException() { }
 
-    global Object BulkApiKeysLimitExceededException(Exception null) { return null; }
+    global BulkApiKeysLimitExceededException(Exception null) { }
 
-    global Object BulkApiKeysLimitExceededException(String null) { return null; }
+    global BulkApiKeysLimitExceededException(String null) { }
 
-    global Object BulkApiKeysLimitExceededException(String null, Exception null) { return null; }
+    global BulkApiKeysLimitExceededException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

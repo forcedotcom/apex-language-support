@@ -2,7 +2,7 @@
  * Parent class for other RichMessaging timing classes.
  */
 global virtual class AbstractTiming {
-    global Object AbstractTiming() { return null; }
+    global AbstractTiming() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

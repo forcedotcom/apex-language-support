@@ -1,5 +1,5 @@
 global class UserResourceRemovedEvent extends Slack.Event {
-    global Object UserResourceRemovedEvent() { return null; }
+    global UserResourceRemovedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

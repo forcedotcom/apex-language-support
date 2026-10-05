@@ -1,5 +1,5 @@
 global virtual class WorkCapacityCalculation {
-    global Object WorkCapacityCalculation() { return null; }
+    global WorkCapacityCalculation() { }
 
     global virtual Support.WorkCapacityDuration calculateActualUsage(Support.WorkCapacityInfo inputWorkCapacity) { return null; }
 

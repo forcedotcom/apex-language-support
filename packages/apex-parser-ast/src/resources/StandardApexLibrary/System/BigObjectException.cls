@@ -2,13 +2,13 @@
  * Any problem with big object records, such as connection timeouts during attempts to access or insert big object records.
  */
 global class BigObjectException extends Exception {
-    Object BigObjectException() { return null; }
+    global BigObjectException() { }
 
-    Object BigObjectException(Exception param1) { return null; }
+    global BigObjectException(Exception param1) { }
 
-    Object BigObjectException(String param1) { return null; }
+    global BigObjectException(String param1) { }
 
-    Object BigObjectException(String param1, Exception param2) { return null; }
+    global BigObjectException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

@@ -1,11 +1,11 @@
 global virtual class InvalidReplayIdException extends Exception {
-    global Object InvalidReplayIdException() { return null; }
+    global InvalidReplayIdException() { }
 
-    global Object InvalidReplayIdException(Exception null) { return null; }
+    global InvalidReplayIdException(Exception null) { }
 
-    global Object InvalidReplayIdException(String null) { return null; }
+    global InvalidReplayIdException(String null) { }
 
-    global Object InvalidReplayIdException(String null, Exception null) { return null; }
+    global InvalidReplayIdException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

@@ -4,9 +4,9 @@ global class MatchEngineSettings {
     global Integer maxMatchResults { get; set; }
     global Integer minMatchConfidenceThreshold { get; set; }
 
-    global Object MatchEngineSettings(Integer maxBatchSize, Integer maxMatchResults, Integer minMatchConfidenceThreshold) { return null; }
+    global MatchEngineSettings(Integer maxBatchSize, Integer maxMatchResults, Integer minMatchConfidenceThreshold) { }
 
-    global Object MatchEngineSettings(Integer maxBatchSize, Integer maxMatchResults, Integer minMatchConfidenceThreshold, Set matchableFields) { return null; }
+    global MatchEngineSettings(Integer maxBatchSize, Integer maxMatchResults, Integer minMatchConfidenceThreshold, Set matchableFields) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

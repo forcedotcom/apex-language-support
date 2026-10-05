@@ -2,13 +2,13 @@
  * Any problem with SOSL queries executed with SOAP API search() call, for example, when the searchString parameter contains fewer than two characters. For more information, see the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.api.meta/api/" target="_blank" title="HTML (New Window)">SOAP API Developer Guide</a>.
  */
 global class SearchException extends Exception {
-    Object SearchException() { return null; }
+    global SearchException() { }
 
-    Object SearchException(Exception param1) { return null; }
+    global SearchException(Exception param1) { }
 
-    Object SearchException(String param1) { return null; }
+    global SearchException(String param1) { }
 
-    Object SearchException(String param1, Exception param2) { return null; }
+    global SearchException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

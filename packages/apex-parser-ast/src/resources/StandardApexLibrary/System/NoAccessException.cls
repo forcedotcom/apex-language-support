@@ -2,7 +2,7 @@
  * Any problem with unauthorized access, such as trying to access an sObject that the current user doesn’t have access to. This exception is used with Visualforce pages. For more information on Visualforce, see the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.pages.meta/pages/" target="_blank" title="Adobe Acrobat PDF (New Window)">Visualforce Developer Guide</a>.
  */
 global class NoAccessException extends Exception {
-    Object NoAccessException() { return null; }
+    global NoAccessException() { }
 
     global Boolean equals(Object obj) { return false; }
 

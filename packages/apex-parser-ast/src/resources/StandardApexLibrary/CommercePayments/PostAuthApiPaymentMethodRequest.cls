@@ -22,14 +22,14 @@ global with sharing class PostAuthApiPaymentMethodRequest extends commercepaymen
     /**
      * Constructor for PostAuthApiPaymentMethodRequest.
      */
-    global Object PostAuthApiPaymentMethodRequest() { return null; }
+    global PostAuthApiPaymentMethodRequest() { }
 
-    global Object PostAuthApiPaymentMethodRequest(commercepayments.AlternativePaymentMethodRequest paymentMethodRequest) { return null; }
+    global PostAuthApiPaymentMethodRequest(commercepayments.AlternativePaymentMethodRequest paymentMethodRequest) { }
 
     /**
      * Constructs a sample cardPaymentMethodRequest. This constructor is intended for test usage and throws an exception if used outside of the Apex test context.
      */
-    global Object PostAuthApiPaymentMethodRequest(commercepayments.CardPaymentMethodRequest paymentMethodRequest) { return null; }
+    global PostAuthApiPaymentMethodRequest(commercepayments.CardPaymentMethodRequest paymentMethodRequest) { }
 
     global override virtual Boolean equals(Object obj) { return false; }
 

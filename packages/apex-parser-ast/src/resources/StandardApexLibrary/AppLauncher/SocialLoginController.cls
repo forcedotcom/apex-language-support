@@ -2,7 +2,7 @@
  * This class and its methods are for internal use only.
  */
 global class SocialLoginController {
-    global Object SocialLoginController() { return null; }
+    global SocialLoginController() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

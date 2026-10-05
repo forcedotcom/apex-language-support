@@ -48,7 +48,7 @@ global class TemplatesSearchOptions {
     @AuraEnabled
     global String type { get; set; }
 
-    global Object TemplatesSearchOptions() { return null; }
+    global TemplatesSearchOptions() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

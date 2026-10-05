@@ -1,5 +1,5 @@
 global abstract class SlashCommandDispatcher implements Slack.RequestDispatcher {
-    global Object SlashCommandDispatcher() { return null; }
+    global SlashCommandDispatcher() { }
 
     global virtual Boolean allowUnauthenticatedUsers() { return false; }
 

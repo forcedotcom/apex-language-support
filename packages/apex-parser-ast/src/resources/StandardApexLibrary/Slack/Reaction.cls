@@ -1,5 +1,5 @@
 global class Reaction {
-    global Object Reaction() { return null; }
+    global Reaction() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

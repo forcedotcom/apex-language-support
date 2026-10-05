@@ -55,7 +55,7 @@ global class AnalyticsCloudComponentLayoutItem extends Metadata.MetadataValue {
      */
     global String width { get; set; }
 
-    global Object AnalyticsCloudComponentLayoutItem() { return null; }
+    global AnalyticsCloudComponentLayoutItem() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

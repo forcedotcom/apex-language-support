@@ -2,13 +2,13 @@
  * Any problem with JSON serialization and deserialization operations. For more information, see the methods of System.JSON, System.JSONParser, and System.JSONGenerator.
  */
 global class JSONException extends Exception {
-    Object JSONException() { return null; }
+    global JSONException() { }
 
-    Object JSONException(Exception param1) { return null; }
+    global JSONException(Exception param1) { }
 
-    Object JSONException(String param1) { return null; }
+    global JSONException(String param1) { }
 
-    Object JSONException(String param1, Exception param2) { return null; }
+    global JSONException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

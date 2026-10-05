@@ -2,13 +2,13 @@
  * Any problem with an asynchronous operation, such as failing to enqueue an asynchronous call.
  */
 global class AsyncException extends Exception {
-    Object AsyncException() { return null; }
+    global AsyncException() { }
 
-    Object AsyncException(Exception param1) { return null; }
+    global AsyncException(Exception param1) { }
 
-    Object AsyncException(String param1) { return null; }
+    global AsyncException(String param1) { }
 
-    Object AsyncException(String param1, Exception param2) { return null; }
+    global AsyncException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

@@ -1,5 +1,5 @@
 global class CallsUpdateResponse {
-    global Object CallsUpdateResponse() { return null; }
+    global CallsUpdateResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

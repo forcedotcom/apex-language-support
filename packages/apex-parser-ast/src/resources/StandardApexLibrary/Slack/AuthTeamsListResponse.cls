@@ -1,5 +1,5 @@
 global class AuthTeamsListResponse {
-    global Object AuthTeamsListResponse() { return null; }
+    global AuthTeamsListResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -40,7 +40,7 @@ global class AuthTeamsListResponse {
     global override String toString() { return null; }
 
     global class Team {
-        global Object Team() { return null; }
+        global Team() { }
 
         global Slack.AuthTeamsListResponse.Team clone() { return null; }
 

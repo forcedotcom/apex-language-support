@@ -20,7 +20,7 @@ global class ColumnSelection {
      */
     global String tableName { get; set; }
 
-    global Object ColumnSelection() { return null; }
+    global ColumnSelection() { }
 
     global Boolean equals(Object obj) { return false; }
 

@@ -1,5 +1,5 @@
 global class Reminder {
-    global Object Reminder() { return null; }
+    global Reminder() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -48,7 +48,7 @@ global class Reminder {
     global override String toString() { return null; }
 
     global class Recurrence {
-        global Object Recurrence() { return null; }
+        global Recurrence() { }
 
         global Slack.Reminder.Recurrence clone() { return null; }
 

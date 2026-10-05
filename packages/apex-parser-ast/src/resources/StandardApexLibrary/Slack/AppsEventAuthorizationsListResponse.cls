@@ -1,5 +1,5 @@
 global class AppsEventAuthorizationsListResponse {
-    global Object AppsEventAuthorizationsListResponse() { return null; }
+    global AppsEventAuthorizationsListResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -40,7 +40,7 @@ global class AppsEventAuthorizationsListResponse {
     global override String toString() { return null; }
 
     global class Authorization {
-        global Object Authorization() { return null; }
+        global Authorization() { }
 
         global Slack.AppsEventAuthorizationsListResponse.Authorization clone() { return null; }
 

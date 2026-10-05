@@ -24,12 +24,12 @@ global with sharing class RecordApexRepresentation {
     /**
      * Initializes the RecordApexRepresentation class.
      */
-    global Object RecordApexRepresentation() { return null; }
+    global RecordApexRepresentation() { }
 
     /**
      * Initializes a new instance of the RecordApexRepresentation class with the specified object type, primary record data, and related record data. This constructor represents a structured record and its relationships for consumption by embedded AI logic.
      */
-    global Object RecordApexRepresentation(String objectType, List recordData, List relatedRecordData) { return null; }
+    global RecordApexRepresentation(String objectType, List recordData, List relatedRecordData) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

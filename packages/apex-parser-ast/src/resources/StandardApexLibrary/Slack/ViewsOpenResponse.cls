@@ -1,5 +1,5 @@
 global class ViewsOpenResponse {
-    global Object ViewsOpenResponse() { return null; }
+    global ViewsOpenResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

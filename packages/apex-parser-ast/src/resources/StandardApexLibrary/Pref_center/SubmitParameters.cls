@@ -6,7 +6,7 @@
  * User user = [select id, AboutMe from User where id=:userId];
  */
 global class SubmitParameters {
-    global Object SubmitParameters() { return null; }
+    global SubmitParameters() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

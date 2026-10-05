@@ -83,7 +83,7 @@ global with sharing class CardPaymentMethodRequest extends commercepayments.Base
     /**
      * Sets the cardCategory value for the card payment method request.
      */
-    global Object CardPaymentMethodRequest(commercepayments.CardCategory cardCategory) { return null; }
+    global CardPaymentMethodRequest(commercepayments.CardCategory cardCategory) { }
 
     /**
      * Maintains the integrity of lists of type CardPaymentMethodRequest by determining the equality of external objects in a list. This method is dynamic and based on the equals method in Java.

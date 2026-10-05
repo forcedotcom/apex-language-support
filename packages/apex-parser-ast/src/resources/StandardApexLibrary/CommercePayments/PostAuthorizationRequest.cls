@@ -42,7 +42,7 @@ global with sharing class PostAuthorizationRequest extends commercepayments.Base
     /**
      * Constructor for building the amount in a postauthorization request. This constructor is intended for test usage and throws an exception if used outside of the Apex test context.
      */
-    global Object PostAuthorizationRequest(Double amount) { return null; }
+    global PostAuthorizationRequest(Double amount) { }
 
     global override virtual Boolean equals(Object obj) { return false; }
 

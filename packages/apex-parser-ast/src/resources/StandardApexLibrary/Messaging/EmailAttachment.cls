@@ -4,7 +4,7 @@ global class EmailAttachment {
     global String contenttype { get; set; }
     global String filename { get; set; }
 
-    Object EmailAttachment() { return null; }
+    global EmailAttachment() { }
 
     global Boolean equals(Object obj) { return false; }
 

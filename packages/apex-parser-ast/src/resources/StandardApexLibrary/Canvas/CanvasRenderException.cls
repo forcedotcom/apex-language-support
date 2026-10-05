@@ -2,13 +2,13 @@
  * Use this class in your implementation of Canvas.CanvasLifecycleHandler.onRender(renderContext). To show an error to the user in your onRender() implementation, throw a Canvas.CanvasRenderException, and the canvas framework will render the error message to the user.  This exception will be managed only within the onRender() method.
  */
 global class CanvasRenderException extends Exception {
-    global Object CanvasRenderException() { return null; }
+    global CanvasRenderException() { }
 
-    global Object CanvasRenderException(Exception null) { return null; }
+    global CanvasRenderException(Exception null) { }
 
-    global Object CanvasRenderException(String null) { return null; }
+    global CanvasRenderException(String null) { }
 
-    global Object CanvasRenderException(String null, Exception null) { return null; }
+    global CanvasRenderException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

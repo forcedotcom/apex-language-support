@@ -10,7 +10,7 @@ global class XmlStreamWriter {
     /**
      * Creates a new instance of the XmlStreamWriter class.
      */
-    Object XmlStreamWriter() { return null; }
+    global XmlStreamWriter() { }
 
     /**
      * Closes this instance of an XmlStreamWriter and free any resources associated with it.

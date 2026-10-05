@@ -3,7 +3,7 @@ global class WorkCapacityDuration {
     global List durations;
     global List serviceAppointmentIds;
 
-    global Object WorkCapacityDuration() { return null; }
+    global WorkCapacityDuration() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

@@ -2,7 +2,7 @@
  * This class and its methods are for internal use only.
  */
 global class CommunityLogoController {
-    global Object CommunityLogoController() { return null; }
+    global CommunityLogoController() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

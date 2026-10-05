@@ -1,11 +1,11 @@
 global class EmailTemplateRenderException extends Exception {
-    Object EmailTemplateRenderException() { return null; }
+    global EmailTemplateRenderException() { }
 
-    Object EmailTemplateRenderException(Exception param1) { return null; }
+    global EmailTemplateRenderException(Exception param1) { }
 
-    Object EmailTemplateRenderException(String param1) { return null; }
+    global EmailTemplateRenderException(String param1) { }
 
-    Object EmailTemplateRenderException(String param1, Exception param2) { return null; }
+    global EmailTemplateRenderException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

@@ -2,13 +2,13 @@
  * Any problem with Apex cursors in a transaction.
  */
 global class FatalCursorException extends Exception {
-    Object FatalCursorException() { return null; }
+    global FatalCursorException() { }
 
-    Object FatalCursorException(Exception param1) { return null; }
+    global FatalCursorException(Exception param1) { }
 
-    Object FatalCursorException(String param1) { return null; }
+    global FatalCursorException(String param1) { }
 
-    Object FatalCursorException(String param1, Exception param2) { return null; }
+    global FatalCursorException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

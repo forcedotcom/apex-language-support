@@ -1,5 +1,5 @@
 global class TestHarness {
-    global Object TestHarness() { return null; }
+    global TestHarness() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

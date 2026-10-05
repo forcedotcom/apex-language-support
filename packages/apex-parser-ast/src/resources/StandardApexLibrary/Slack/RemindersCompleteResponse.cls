@@ -1,5 +1,5 @@
 global class RemindersCompleteResponse {
-    global Object RemindersCompleteResponse() { return null; }
+    global RemindersCompleteResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

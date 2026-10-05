@@ -32,7 +32,7 @@ global class RequestContext {
     global override virtual String toString() { return null; }
 
     global class Builder {
-        global Object Builder() { return null; }
+        global Builder() { }
 
         global Slack.RequestContext.Builder actionPayload(Slack.ActionPayload actionPayload) { return null; }
 

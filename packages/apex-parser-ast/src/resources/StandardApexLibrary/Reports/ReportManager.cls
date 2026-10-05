@@ -4,7 +4,7 @@
  * Gets instances of reports and describes the metadata of Reports.
  */
 global class ReportManager {
-    global Object ReportManager() { return null; }
+    global ReportManager() { }
 
     /**
      * Retrieves report, report type, and extended metadata for a tabular, summary, or matrix report.

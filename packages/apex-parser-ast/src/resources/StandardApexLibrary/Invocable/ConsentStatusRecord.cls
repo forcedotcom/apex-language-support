@@ -22,7 +22,7 @@ global class ConsentStatusRecord {
     @AuraEnabled
     global String senderCode { get; set; }
 
-    global Object ConsentStatusRecord() { return null; }
+    global ConsentStatusRecord() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

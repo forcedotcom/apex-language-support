@@ -61,7 +61,7 @@
  * }
  */
 global abstract class LearningItemSerializeDeserializer {
-    global Object LearningItemSerializeDeserializer() { return null; }
+    global LearningItemSerializeDeserializer() { }
 
     /**
      * Deserializes the provided custom content string and returns the record ID of the learning item.

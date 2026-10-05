@@ -30,9 +30,9 @@ global class Filter {
      */
     global DataSource.FilterType type { get; set; }
 
-    global Object Filter() { return null; }
+    global Filter() { }
 
-    global Object Filter(DataSource.FilterType type, String tableName, String columnName, Object columnValue) { return null; }
+    global Filter(DataSource.FilterType type, String tableName, String columnName, Object columnValue) { }
 
     global Boolean equals(Object obj) { return false; }
 

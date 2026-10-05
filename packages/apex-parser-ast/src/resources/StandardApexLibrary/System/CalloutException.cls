@@ -2,13 +2,13 @@
  * Any problem with a web service operation, such as failing to make a callout to an external system.
  */
 global class CalloutException extends Exception {
-    Object CalloutException() { return null; }
+    global CalloutException() { }
 
-    Object CalloutException(Exception param1) { return null; }
+    global CalloutException(Exception param1) { }
 
-    Object CalloutException(String param1) { return null; }
+    global CalloutException(String param1) { }
 
-    Object CalloutException(String param1, Exception param2) { return null; }
+    global CalloutException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

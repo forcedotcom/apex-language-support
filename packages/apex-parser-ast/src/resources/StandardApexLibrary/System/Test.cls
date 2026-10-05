@@ -2,7 +2,7 @@
  * Contains methods related to Apex tests.
  */
 global class Test {
-    global Object Test() { return null; }
+    global Test() { }
 
     /**
      * Calculates aggregate permissions in a specified permission set group for testing.

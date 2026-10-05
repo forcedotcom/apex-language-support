@@ -2,13 +2,13 @@
  * A governor limit has been exceeded. This exception can’t be caught.
  */
 global class LimitException extends Exception {
-    Object LimitException() { return null; }
+    global LimitException() { }
 
-    Object LimitException(Exception param1) { return null; }
+    global LimitException(Exception param1) { }
 
-    Object LimitException(String param1) { return null; }
+    global LimitException(String param1) { }
 
-    Object LimitException(String param1, Exception param2) { return null; }
+    global LimitException(String param1, Exception param2) { }
 
     global Boolean equals(Object obj) { return false; }
 

@@ -6,7 +6,7 @@
  * See the Push Notification Example.
  */
 global class PushNotificationPayload {
-    global Object PushNotificationPayload() { return null; }
+    global PushNotificationPayload() { }
 
     /**
      * Helper method that creates a valid Apple payload from the specified arguments.

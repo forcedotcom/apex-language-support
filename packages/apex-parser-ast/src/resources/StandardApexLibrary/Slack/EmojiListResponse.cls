@@ -1,5 +1,5 @@
 global class EmojiListResponse {
-    global Object EmojiListResponse() { return null; }
+    global EmojiListResponse() { }
 
     global virtual Boolean equals(Object o) { return false; }
 
@@ -48,7 +48,7 @@ global class EmojiListResponse {
     global override String toString() { return null; }
 
     global class Category {
-        global Object Category() { return null; }
+        global Category() { }
 
         global Slack.EmojiListResponse.Category clone() { return null; }
 

@@ -1,11 +1,11 @@
 global with sharing class PrefCenterException extends Exception {
-    global Object PrefCenterException() { return null; }
+    global PrefCenterException() { }
 
-    global Object PrefCenterException(Exception null) { return null; }
+    global PrefCenterException(Exception null) { }
 
-    global Object PrefCenterException(String null) { return null; }
+    global PrefCenterException(String null) { }
 
-    global Object PrefCenterException(String null, Exception null) { return null; }
+    global PrefCenterException(String null, Exception null) { }
 
     global override virtual Boolean equals(Object o) { return false; }
 

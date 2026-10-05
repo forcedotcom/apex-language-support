@@ -12,7 +12,7 @@ global with sharing class PaymentGatewayProperties {
     @AuraEnabled
     global Map value { get; set; }
 
-    global Object PaymentGatewayProperties(String key, String value) { return null; }
+    global PaymentGatewayProperties(String key, String value) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

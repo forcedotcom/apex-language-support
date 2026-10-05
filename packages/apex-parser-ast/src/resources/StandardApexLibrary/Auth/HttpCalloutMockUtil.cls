@@ -8,7 +8,7 @@
  */
 @IsTest
 global class HttpCalloutMockUtil {
-    global Object HttpCalloutMockUtil() { return null; }
+    global HttpCalloutMockUtil() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

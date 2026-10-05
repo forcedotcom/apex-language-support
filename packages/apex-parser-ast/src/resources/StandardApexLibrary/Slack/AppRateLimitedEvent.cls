@@ -1,5 +1,5 @@
 global class AppRateLimitedEvent extends Slack.Event {
-    global Object AppRateLimitedEvent() { return null; }
+    global AppRateLimitedEvent() { }
 
     global virtual Boolean equals(Object o) { return false; }
 

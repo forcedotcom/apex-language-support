@@ -2,9 +2,9 @@
  * Contains methods for describing fields that are used for grouping.
  */
 global class GroupingInfo {
-    global Object GroupingInfo() { return null; }
+    global GroupingInfo() { }
 
-    global Object GroupingInfo(String name, reports.ColumnSortOrder sortOrder, reports.DateGranularity dateGranularity, String sortAggregate) { return null; }
+    global GroupingInfo(String name, reports.ColumnSortOrder sortOrder, reports.DateGranularity dateGranularity, String sortAggregate) { }
 
     global virtual Boolean equals(Object o) { return false; }
 

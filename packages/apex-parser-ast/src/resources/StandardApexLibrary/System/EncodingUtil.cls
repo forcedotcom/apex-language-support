@@ -5,7 +5,7 @@
  * You cannot use the EncodingUtil methods to move documents with non-ASCII characters to Salesforce. You can, however, download a document from Salesforce. To do so, query the ID of the document using the API query call, then request it by ID.
  */
 global class EncodingUtil {
-    global Object EncodingUtil() { return null; }
+    global EncodingUtil() { }
 
     /**
      * Converts a Base64-encoded String to a Blob representing its normal form.

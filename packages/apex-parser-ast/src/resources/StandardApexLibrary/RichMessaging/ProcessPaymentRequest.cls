@@ -45,7 +45,7 @@ global class ProcessPaymentRequest {
     @InvocableVariable
     global String transactionIdentifier;
 
-    global Object ProcessPaymentRequest(String transactionIdentifier, RichMessaging.EncryptedPaymentData paymentData, RichMessaging.AddressableContact billingContact, RichMessaging.AddressableContact shippingContact, RichMessaging.PaymentMethod paymentMethod, RichMessaging.ShippingMethod shippingMethod, String contextRecordId) { return null; }
+    global ProcessPaymentRequest(String transactionIdentifier, RichMessaging.EncryptedPaymentData paymentData, RichMessaging.AddressableContact billingContact, RichMessaging.AddressableContact shippingContact, RichMessaging.PaymentMethod paymentMethod, RichMessaging.ShippingMethod shippingMethod, String contextRecordId) { }
 
     global virtual Boolean equals(Object o) { return false; }
 
