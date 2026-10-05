@@ -516,6 +516,7 @@ export {
   ResolveDependentUris,
   CheckMemberConflicts,
   FindOccurrenceCandidates,
+  ResolveMethodRenameFamily,
   EnsureWorkspaceLoaded,
   WorkspaceBatchIngest,
   CompileDocument,

@@ -69,6 +69,8 @@ describe('ApexLibResolveHandler', () => {
       positionAt: () => ({ line: 0, character: 0 }),
       offsetAt: () => 0,
       lineCount: 1,
+      getLineRange: jest.fn(),
+      getEOLCharacters: jest.fn(),
     };
 
     mockGetDocument = jest.fn().mockResolvedValue(mockDocument);

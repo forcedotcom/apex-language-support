@@ -392,9 +392,15 @@ export class HoverPage extends BasePage {
     maxTime?: number,
   ): Promise<boolean> {
     const effectiveMaxTime = maxTime || (this.isDesktopMode ? 5000 : 2000);
+    // Cursor positioning uses VS Code Find and is separate from hover latency.
+    await positionCursorOnWord(this.page, searchText);
     const startTime = Date.now();
     try {
-      await this.hoverOnWordWithRetry(searchText, searchText, effectiveMaxTime);
+      await this.retryHoverRequest(
+        () => triggerHover(this.page),
+        searchText,
+        effectiveMaxTime,
+      );
       const elapsedTime = Date.now() - startTime;
       return elapsedTime <= effectiveMaxTime;
     } catch {

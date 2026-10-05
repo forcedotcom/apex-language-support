@@ -1228,10 +1228,8 @@ export class ApexSymbolCollectorListener
    */
   enterAnnotation(ctx: AnnotationContext): void {
     try {
-      // Extract qualified annotation name via parser context
-      const qn = ctx.qualifiedName?.();
-      const ids = qn?.id_list();
-      const name = ids?.map((id) => id.getText()).join('.');
+      // The annotation name is a single parser-owned id in parser 5.2.
+      const name = ctx.id()?.getText();
       if (!name) {
         return;
       }
@@ -1274,21 +1272,9 @@ export class ApexSymbolCollectorListener
 
   /**
    * Return the canonical token spelling for a valid annotation literal.
-   * Annotation semantics intentionally do not fall back to the composite
-   * element-value text when the parser produces another expression shape.
    */
   private annotationElementValue(ctx: ElementValueContext): string | undefined {
-    const expression = ctx.expression?.();
-    if (!expression || !isContextType(expression, PrimaryExpressionContext)) {
-      return undefined;
-    }
-
-    const primary = expression.primary?.();
-    if (!primary || !isContextType(primary, LiteralPrimaryContext)) {
-      return undefined;
-    }
-
-    const literal = primary.literal?.();
+    const literal = ctx.literal?.();
     if (!literal) {
       return undefined;
     }
