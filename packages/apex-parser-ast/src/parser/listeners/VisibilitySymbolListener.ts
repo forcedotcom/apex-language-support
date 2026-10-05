@@ -1005,10 +1005,7 @@ export class VisibilitySymbolListener
   }
 
   enterAnnotation(ctx: AnnotationContext): void {
-    // Extract annotation name similar to ApexSymbolCollectorListener
-    const qn = ctx.qualifiedName?.();
-    const ids = qn?.id_list();
-    const name = ids?.map((id) => id.getText()).join('.');
+    const name = ctx.id()?.getText();
     if (!name) {
       return;
     }
