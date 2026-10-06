@@ -1,6 +1,6 @@
 /**
  * Contains information about a deleted record.
- * <p>Usage
+ * Usage
  * The getDeletedRecords method of the Database.GetDeletedResult class returns a list of Database.DeletedRecord objects. Use the methods in the Database.DeletedRecord class to retrieve details about each deleted record.
  */
 global class DeletedRecord {

@@ -1,6 +1,6 @@
 /**
  * Contains the normalized response fields from payment gateways that are common to all the other gateway responses.
- * <p>Usage
+ * Usage
  * You must specify the CommercePayments namespace when creating an instance of this class. The constructor of this class takes no arguments. For example:
  * CommercePayments.AbstractResponse abr = new CommercePayments.AbstractResponse();
  * This class can’t be instantiated on its own. This class implements the GatewayResponse class. Other GatewayResponse classes extend this class to inherit common properties.

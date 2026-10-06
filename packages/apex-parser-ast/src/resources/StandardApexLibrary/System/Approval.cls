@@ -1,6 +1,6 @@
 /**
  * Contains methods for processing approval requests and setting approval-process locks and unlocks on records.
- * <p>Usage
+ * Usage
  * Salesforce admins can edit locked records. Depending on your approval process configuration settings, an assigned approver can also edit locked records. Locks and unlocks that are set programmatically use the same record editability settings as other approval-process locks and unlocks.
  * Record locks and unlocks are treated as DML. They’re blocked before a callout, they count toward your DML limits, and if a failure occurs, they’re rolled back along with the rest of your transaction. To change this rollback behavior, use an allOrNone parameter.
  * Approval is also used as a namespace for the ProcessRequest and ProcessResult classes.

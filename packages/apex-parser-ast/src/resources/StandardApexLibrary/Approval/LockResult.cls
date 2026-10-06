@@ -1,8 +1,8 @@
 /**
  * The result of a record lock returned by a System.Approval.lock() method.
- * <p>Usage
+ * Usage
  * The System.Approval.lock() methods return Approval.LockResult objects. Each element in a LockResult array corresponds to an element in the ID or sObject array passed as a parameter to a lock method. The first element in the LockResult array corresponds to the first element in the ID or sObject array, the second element corresponds to the second element, and so on. If only one ID or sObject is passed in, the LockResult array contains a single element.
- * <p>Example
+ * Example
  * The following example obtains and iterates through the returned Approval.LockResult objects. It locks some queried accounts using Approval.lock with a false second parameter to allow partial processing of records on failure. Next, it iterates through the results to determine whether the operation was successful for each record. It writes the ID of every record that was processed successfully to the debug log, or writes error messages and failed fields of the failed records.
  * // Query the accounts to lock
  * Account[] accts = [SELECT Id from Account WHERE Name LIKE 'Acme%'];
@@ -39,7 +39,7 @@ global class LockResult {
 
     /**
      * Returns the ID of the sObject you are trying to lock.
-     * <p>Usage
+     * Usage
      * If the field contains a value, the object was locked. If the field is empty, the operation was not successful.
      */
     global Id getId() { return null; }

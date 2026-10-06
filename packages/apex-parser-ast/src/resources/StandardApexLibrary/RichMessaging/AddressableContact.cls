@@ -4,43 +4,43 @@
 global class AddressableContact {
     /**
      * The contact’s email address.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String emailAddress;
     /**
      * The contact’s surname.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String familyName;
     /**
      * The contact’s first name.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String givenName;
     /**
      * The contact’s phone number.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String phoneNumber;
     /**
      * The phonetic spelling of the contact’s surname.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String phoneticFamilyName;
     /**
      * The phonetic spelling of the contact’s first name.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String phoneticGivenName;
     /**
      * The contact’s postal address.
-     * <p>RichMessaging.PostalAddress
+     * RichMessaging.PostalAddress
      */
     @InvocableVariable
     global RichMessaging.PostalAddress postalAddress;

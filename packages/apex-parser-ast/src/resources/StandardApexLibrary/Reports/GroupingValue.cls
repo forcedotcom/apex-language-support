@@ -21,7 +21,7 @@ global class GroupingValue {
 
     /**
      * Returns the value of the field that is used as a row or column grouping.
-     * <p>Usage
+     * Usage
      * The value depends on the field’s data type.
      * Currency fields:
      * amount: Of type currency. A data cell’s value.

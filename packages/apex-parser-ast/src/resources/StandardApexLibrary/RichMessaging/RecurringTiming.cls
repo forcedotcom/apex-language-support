@@ -4,56 +4,56 @@
 global with sharing class RecurringTiming extends RichMessaging.AbstractTiming {
     /**
      * The end date. Enabled for Lightning components.
-     * <p>Date
+     * Date
      */
     @InvocableVariable
     global Date endDateValue;
     /**
      * The number of interval units that make up the total payment interval. Enabled for Lightning components.
-     * <p>Integer
+     * Integer
      */
     @InvocableVariable
     global Integer intervalCountValue;
     /**
      * The amount of time—in calendar units, such as day, month, or year—that represents a fraction of the total payment interval. Enabled for Lightning components.
-     * <p>RichMessaging.TimingIntervalUnit
+     * RichMessaging.TimingIntervalUnit
      */
     @InvocableVariable
     global RichMessaging.TimingIntervalUnit intervalUnitValue;
     /**
      * The start date. Enabled for Lightning components.
-     * <p>Date
+     * Date
      */
     @InvocableVariable
     global Date startDateValue;
 
     /**
      * The end date. Invocable variable.
-     * <p>Date
+     * Date
      */
     @AuraEnabled
     global Date endDate { get; set; }
     /**
      * The number of interval units that make up the total payment interval. Invocable variable.
-     * <p>Integer
+     * Integer
      */
     @AuraEnabled
     global Integer intervalCount { get; set; }
     /**
      * The amount of time—in calendar units, such as day, month, or year—that represents a fraction of the total payment interval. Invocable variable.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String intervalUnit { get; set; }
     /**
      * The start date. Invocable variable.
-     * <p>Date
+     * Date
      */
     @AuraEnabled
     global Date startDate { get; set; }
     /**
      * Always returns “RecurringTiming”.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String timingType { get; }

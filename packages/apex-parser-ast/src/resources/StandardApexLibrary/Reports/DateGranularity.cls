@@ -1,8 +1,8 @@
 /**
  * The Reports.DateGranularity enum describes the date interval that is used for grouping.
- * <p>Usage
+ * Usage
  * The GroupingInfo.getDateGranularity method returns a Reports.DateGranularity enum value. The GroupingInfo.setDateGranularity method takes the enum value as an argument.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the Reports.DateGranularity enum.
  */
 global enum DateGranularity {

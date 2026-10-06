@@ -1,10 +1,10 @@
 /**
  * When a payment gateway sends a notification for a refund transaction, the payment gateway adapter creates the ReferencedRefundNotification object to store information about notification.
- * <p>Usage
+ * Usage
  * This class is used with asynchronous payments. When a payment gateway sends a notification for a refund transcation, the gateway adapter creates an object of type ReferencedRefundNotification to populate the respective values.
  * The constructor of this class takes no arguments. For example:
  * CommercePayments.ReferencedRefundNotification rrn = new CommercePayments.ReferencedRefundNotification();
- * <p>Example
+ * Example
  * commercepayments.NotificationStatus notificationStatus = null;
  *         if (success) {
  *             notificationStatus = commercepayments.NotificationStatus.Success;

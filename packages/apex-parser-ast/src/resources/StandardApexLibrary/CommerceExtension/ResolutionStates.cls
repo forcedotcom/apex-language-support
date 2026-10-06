@@ -1,6 +1,6 @@
 /**
  * Potential resolution states for a resolution strategy.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the CommerceExtension.ResolutionStates enum.
  */
 global enum ResolutionStates {

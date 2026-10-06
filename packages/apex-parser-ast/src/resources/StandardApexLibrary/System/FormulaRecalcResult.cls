@@ -1,8 +1,8 @@
 /**
  * The return type of the Formula.recalculateFormulas method.
- * <p>Usage
+ * Usage
  * Indicates the result and status of recalculating formulas on a single sObject. Holds a reference to the sObject and a list of all the fields that were recalculated.
- * <p>Example
+ * Example
  * This example assumes that you have a formula field called divide__c with formula “1 / LEN(Name).
  * List<Account> accounts = [SELECT Name FROM Account WHERE Name='Acme'];
  * accounts[0].Name = '';

@@ -1,73 +1,73 @@
 /**
  * Describes a column on a DataSource.Table. This class extends the DataSourceUtil class and inherits its methods.
- * <p>Usage
+ * Usage
  * A list of column metadata is provided by the DataSource.Connection class when the sync() method is invoked. Each column can become a field on an external object.
  * The metadata is stored in Salesforce. Updating the Apex code to return new or updated values for the column metadata doesn’t automatically update the stored metadata in Salesforce.
  */
 global virtual class Column extends DataSource.DataSourceUtil {
     /**
      * If the data type is numeric, the number of decimal places to the right of the decimal point.
-     * <p>Integer
+     * Integer
      */
     global Integer decimalPlaces { get; set; }
     /**
      * Description of what the column represents.
-     * <p>String
+     * String
      */
     global String description { get; set; }
     /**
      * Whether a result set can be filtered based on the values of the column.
-     * <p>Boolean
+     * Boolean
      */
     global Boolean filterable { get; set; }
     /**
      * Returns true if the picklist is sorted alphabetically, false otherwise.
-     * <p>Boolean
+     * Boolean
      */
     global Boolean isPicklistAlphabeticallySorted { get; set; }
     /**
      * Returns true if the picklist is restricted, false otherwise.
-     * <p>Boolean
+     * Boolean
      */
     global Boolean isPicklistRestricted { get; set; }
     /**
      * User-friendly name for the column that appears in the Salesforce user interface.
-     * <p>String
+     * String
      */
     global String label { get; set; }
     /**
      * If the column is a string data type, the number of characters in the column. If the column is a numeric data type, the total number of digits on both sides of the decimal point, but excluding the decimal point.
-     * <p>Integer
+     * Integer
      */
     global Integer length { get; set; }
     /**
      * Name of the column in the external system.
-     * <p>String
+     * String
      */
     global String name { get; set; }
     /**
      * If the data type is a picklist, the picklist values.
-     * <p>List<Map<String,String>>
+     * List<Map<String,String>>
      */
     global List picklistValues { get; set; }
     /**
      * API name of the custom field on the parent object whose values are compared against this column’s values. Matching values identify related records in an indirect lookup relationship. Applies only when the column’s data type is INDIRECT_LOOKUP_TYPE. For other data types, this value is ignored.
-     * <p>String
+     * String
      */
     global String referenceTargetField { get; set; }
     /**
      * API name of the parent object in the relationship that’s represented by this column. Applies only when the column’s data type is LOOKUP_TYPE, EXTERNAL_LOOKUP_TYPE, or INDIRECT_LOOKUP_TYPE. For other data types, this value is ignored.
-     * <p>String
+     * String
      */
     global String referenceTo { get; set; }
     /**
      * Whether a result set can be sorted based on the values of the column via an ORDER BY clause.
-     * <p>Boolean
+     * Boolean
      */
     global Boolean sortable { get; set; }
     /**
      * Data type of the column.
-     * <p>DataSource.DataType
+     * DataSource.DataType
      */
     global DataSource.DataType type { get; set; }
 

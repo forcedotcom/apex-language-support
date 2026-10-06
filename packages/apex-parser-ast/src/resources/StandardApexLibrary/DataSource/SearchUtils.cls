@@ -1,6 +1,6 @@
 /**
  * Helper class for implementing search on a custom adapter for Salesforce Connect.
- * <p>Usage
+ * Usage
  * We recommend that you develop your own search implementation that can search columns in addition to the designated name field.
  */
 global class SearchUtils {

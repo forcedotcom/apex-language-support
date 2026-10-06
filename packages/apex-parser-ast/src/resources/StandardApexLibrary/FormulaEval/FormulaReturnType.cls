@@ -1,6 +1,6 @@
 /**
  * Specifies the return type for the withReturnType(returnType) method.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the FormulaEval.FormulaReturnType enum.
  */
 global enum FormulaReturnType {

@@ -1,8 +1,8 @@
 /**
  * Sends data related to a bank payment method to a gateway adapter during a service call.
- * <p>Usage
+ * Usage
  * Use the BankPaymentMethodRequest class to include bank payment details in a Tokenize request. The gateway adapter reads the fields from this class when constructing the tokenized JSON request for the payment gateway. You can create an instance of this class by calling bankPaymentMethod on the PaymentMethodTokenizationRequest class.
- * <p>Example
+ * Example
  * private String buildTokenizationRequest(commercepayments.PaymentMethodTokenizationRequest tokenizeRequest) {
  *     commercepayments.BankPaymentMethodRequest bankPaymentMethod = tokenizeRequest.bankPaymentMethod;
  *
@@ -93,77 +93,77 @@
 global with sharing class BankPaymentMethodRequest extends commercepayments.BasePaymentMethodRequest {
     /**
      * The first name of the account holder for the bank payment method.
-     * <p>String
+     * String
      */
     global String accountHolderFirstName { get; set; }
     /**
      * The last name of the account holder for the bank payment method.
-     * <p>String
+     * String
      */
     global String accountHolderLastName { get; set; }
     /**
      * The name of the account holder for the bank payment method.
-     * <p>String
+     * String
      */
     global String accountHolderName { get; set; }
     /**
      * The type of the account holder.
-     * <p>commercepayments.AccountHolderType
+     * commercepayments.AccountHolderType
      */
     global commercepayments.AccountHolderType accountHolderType { get; set; }
     /**
      * Salesforce Payments account ID associated with the bank payment method.
-     * <p>String
+     * String
      */
     global String accountId { get; set; }
     /**
      * The unique account number for the bank account.
-     * <p>String
+     * String
      */
     global String accountNumber { get; set; }
     /**
      * The type for the bank account.
-     * <p>commercepayments.AccountType
+     * commercepayments.AccountType
      */
     global commercepayments.AccountType accountType { get; set; }
     /**
      * Indicates whether a token for recurring payments is being requested (true) or not (false). The token enables the payment method to be used for recurring payments.
-     * <p>Boolean
+     * Boolean
      */
     global Boolean autoPay { get; set; }
     /**
      * The routing number is a unique nine-digit code that identifies the bank.
-     * <p>String
+     * String
      */
     global String bankCode { get; set; }
     /**
      * The bank type associated with the bank payment method.
-     * <p>commercepayments.BankType
+     * commercepayments.BankType
      */
     global commercepayments.BankType bankType { get; set; }
     /**
      * Additional details about the bank account.
-     * <p>String
+     * String
      */
     global String comments { get; set; }
     /**
      * The email address of the bank account holder.
-     * <p>String
+     * String
      */
     global String email { get; set; }
     /**
      * Authorization from the account holder to debit their payment method.
-     * <p>String
+     * String
      */
     global String mandate { get; set; }
     /**
      * The nick name of the account holder.
-     * <p>String
+     * String
      */
     global String nickName { get; set; }
     /**
      * The three-letter code that identifies the type of electronic payment transaction being processed within the Automated Clearing House (ACH) network.
-     * <p>commercepayments.StandardEntryClassCode
+     * commercepayments.StandardEntryClassCode
      */
     global commercepayments.StandardEntryClassCode standardEntryClassCode { get; set; }
 

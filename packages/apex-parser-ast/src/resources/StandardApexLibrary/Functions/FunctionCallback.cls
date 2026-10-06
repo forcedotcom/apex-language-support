@@ -1,6 +1,6 @@
 /**
  * Represents the callback Salesforce calls when an asynchronous, queued Function invocation has completed.
- * <p>Usage
+ * Usage
  * When invoking Functions asynchronously via Function.invoke(payload, callback), you provide your own class that implements FunctionCallback.
  */
 global interface FunctionCallback {

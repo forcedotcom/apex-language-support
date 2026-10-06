@@ -1,6 +1,6 @@
 /**
  * A Schema.sObjectType object is returned from the field describe result using the getReferenceTo method, or from the sObject describe result using the getSObjectType method.
- * <p>Usage
+ * Usage
  * Schema.DescribeFieldResult F = Account.Industry.getDescribe();
  * List<Schema.sObjectType> P = F.getReferenceTo();
  */
@@ -21,14 +21,14 @@ global class SObjectType {
 
     /**
      * Constructs a new sObject of this type.
-     * <p>Example
+     * Example
      * For an example, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_dynamic_dml.htm" target="_blank">Dynamic DML</a>.
      */
     global SObject newSObject() { return null; }
 
     /**
      * Constructs a new sObject of this type, with the specified ID.
-     * <p>Usage
+     * Usage
      * For the argument, pass the ID of an existing record in the database.
      * After you create a new sObject, the sObject returned has all fields set to null. You can set any updateable field to desired values and then update the record in the database. Only the fields you set new values for are updated and all other fields which are not system fields are preserved.
      */
@@ -36,9 +36,9 @@ global class SObjectType {
 
     /**
      * Constructs a new sObject of this type, and optionally, of the specified record type ID and with default custom field values.
-     * <p>Important
+     * Important
      * Where possible, we changed noninclusive terms to align with our company value of Equality. We maintained certain terms to avoid any effect on customer implementations.
-     * <p>Usage
+     * Usage
      * For required fields that have no default values, make sure to provide a value before inserting the new sObject. Otherwise, the insertion results in an error. An example is the Account Name field or a master-detail relationship field.
      * Since picklists and multi-select picklists can have default values specified per record type, this method populates the default value corresponding to the record type specified.
      * If fields have no predefined default values and the loadDefaults argument is true, this method creates the sObject with field values of null.
@@ -48,7 +48,7 @@ global class SObjectType {
      * To learn more about default field values, see “Default Field Values” in the Salesforce online help.
      * Note
      * You can also use this method to create a platform event with a prepopulated EventUuid field value for Apex publish callbacks. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_publish_callbacks.htm" target="_blank">Get the Result of Asynchronous Platform Event Publishing with Apex Publish Callbacks</a> in the Platform Events Developer Guide.
-     * <p>Example: Creating New sObject with Default Values
+     * Example: Creating New sObject with Default Values
      * This sample creates an account with any default values populated for its custom fields, if any, using the newSObject method. It also creates a second account for a specific record type. For both accounts, the sample sets the Name field, which is a required field that doesn’t have a default value, before inserting the new accounts.
      * // Create an account with predefined default values
      * Account acct = (Account)Account.sObjectType.newSObject(null, true);

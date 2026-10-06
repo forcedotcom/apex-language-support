@@ -1,6 +1,6 @@
 /**
  * Contains methods that provide a list or map of all OrgLimit instances for Salesforce your org, such as SOAP API requests, Bulk API requests, and Streaming API limits.
- * <p>Usage
+ * Usage
  * Use the System.OrgLimits getAll and getMap methods to obtain either a list or a map of all your org limits. To get details on each limit, use instance methods from System.OrgLimit.
  * For comparison, the Limits Class returns Apex governor limits and not Salesforce API limits.
  * Note
@@ -18,7 +18,7 @@ global class OrgLimits {
 
     /**
      * Returns a map of all OrgLimit instances with the limit name as key.
-     * <p>Example
+     * Example
      * Map<String,System.OrgLimit> limitsMap = OrgLimits.getMap();
      * System.OrgLimit apiRequestsLimit = limitsMap.get('DailyApiRequests');
      * System.debug('Limit Name: ' + apiRequestsLimit.getName());

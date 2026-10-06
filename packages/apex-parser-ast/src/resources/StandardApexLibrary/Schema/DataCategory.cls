@@ -1,6 +1,6 @@
 /**
  * Represents the categories within a category group.
- * <p>Usage
+ * Usage
  * The Schema.DataCategory object is returned by the getTopCategories method.
  */
 global class DataCategory {

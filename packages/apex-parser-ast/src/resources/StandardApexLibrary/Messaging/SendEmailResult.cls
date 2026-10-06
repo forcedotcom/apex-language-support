@@ -1,6 +1,6 @@
 /**
  * Contains the result of sending an email message.
- * <p>Usage
+ * Usage
  */
 global class SendEmailResult {
     global List errors { get; }

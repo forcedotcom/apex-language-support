@@ -1,6 +1,6 @@
 /**
  * The result of an undelete DML operation returned by the Database.undelete method.
- * <p>Usage
+ * Usage
  * An array of Database.UndeleteResult objects is returned with the undelete database method. Each element in the UndeleteResult array corresponds to the sObject array passed as the sObject[] parameter in the undelete Database method; that is, the first element in the UndeleteResult array matches the first element passed in the sObject array, the second element corresponds with the second element, and so on. If only one sObject is passed in, the UndeleteResults array contains a single element.
  */
 global class UndeleteResult {
@@ -17,7 +17,7 @@ global class UndeleteResult {
 
     /**
      * Returns the ID of the sObject you were trying to undelete.
-     * <p>Usage
+     * Usage
      * If this field contains a value, the object was successfully undeleted. If this field is empty, the operation was not successful for that object.
      */
     global Id getId() { return null; }

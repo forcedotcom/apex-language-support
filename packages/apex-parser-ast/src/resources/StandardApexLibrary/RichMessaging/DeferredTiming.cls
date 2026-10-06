@@ -4,20 +4,20 @@
 global with sharing class DeferredTiming extends RichMessaging.AbstractTiming {
     /**
      * The deferred date. Enabled for Lightning components.
-     * <p>Datetime
+     * Datetime
      */
     @InvocableVariable
     global Datetime deferredDateValue;
 
     /**
      * The deferred date. Invocable variable.
-     * <p>Datetime
+     * Datetime
      */
     @AuraEnabled
     global Datetime deferredDate { get; set; }
     /**
      * Always returns “DeferredTiming”.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String timingType { get; }

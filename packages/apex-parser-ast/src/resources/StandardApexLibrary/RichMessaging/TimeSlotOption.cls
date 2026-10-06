@@ -4,32 +4,32 @@
 global with sharing class TimeSlotOption {
     /**
      * The duration in seconds.
-     * <p>Integer
+     * Integer
      */
     @InvocableVariable
     global Integer duration;
     /**
      * The start time.
-     * <p>Datetime
+     * Datetime
      */
     @InvocableVariable
     global Datetime startTime;
 
     /**
      * The duration in seconds. Enabled for Lightning components.
-     * <p>Integer
+     * Integer
      */
     @AuraEnabled
     global Integer durationValue { get; set; }
     /**
      * The end time. Enabled for Lightning components.
-     * <p>Datetime
+     * Datetime
      */
     @AuraEnabled
     global Datetime endTimeValue { get; }
     /**
      * The start time. Enabled for Lightning components.
-     * <p>Datetime
+     * Datetime
      */
     @AuraEnabled
     global Datetime startTimeValue { get; set; }

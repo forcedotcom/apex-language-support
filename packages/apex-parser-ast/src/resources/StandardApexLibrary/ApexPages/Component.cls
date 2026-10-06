@@ -4,38 +4,38 @@
 global abstract class Component {
     /**
      * Returns a reference to the child components for the component.
-     * <p>Example
+     * Example
      * Component.Apex.PageBlock pageBlk = new Component.Apex.PageBlock();
      *
      * Component.Apex.PageBlockSection pageBlkSection = new Component.Apex.PageBlockSection(title='dummy header');
      *
      * pageBlk.childComponents.add(pageBlkSection);
-     * <p>List<ApexPages.Component>
+     * List<ApexPages.Component>
      */
     global List childComponents { get; }
     global List componentIterations { get; }
     /**
      * Sets the content of an attribute using the expression language notation. The notation for this is expressions.name_of_attribute.
-     * <p>Example
+     * Example
      * Component.Apex.InputField inpFld = new
      * Component.Apex.InputField();
      * inpField.expressions.value = '{!Account.Name}';
      * inpField.expressions.id = '{!$User.FirstName}';
-     * <p>String
+     * String
      */
     global ApexPages.expressions expressions { get; }
     /**
      * Sets the content of a facet to a dynamic component. The notation is facet.name_of_facet.
-     * <p>Usage
+     * Usage
      * Note
      * This property is only accessible by components that support facets.
-     * <p>Example
+     * Example
      * Component.Apex.DataTable myDT = new
      * Component.Apex.DataTable();
      * Component.Apex.OutputText footer = new
      * Component.Apex.OutputText(value='Footer Copyright');
      * myDT.facets.footer = footer;
-     * <p>String
+     * String
      */
     global ApexPages.facets facets { get; }
     global String id { get; set; }

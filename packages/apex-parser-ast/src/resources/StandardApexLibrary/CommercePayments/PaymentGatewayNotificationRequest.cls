@@ -1,9 +1,9 @@
 /**
  * Contains the notification request data from the gateway.
- * <p>Usage
+ * Usage
  * When the payment gateway sends a notification for a payment request, the payments platform sends the notification request to the gateway adapter. If the notification payload contains an eventCode of CAPTURE, the adapter constructs a CaptureNotification. If the notification payload contains an eventCode of REFUND, the adapter constructs a ReferencedRefundNotification. If the notification payload contains eventCode of AUTHORISATION, the adapter constructs a GatewayNotificationResponse.
  * You can obtain a notification request from PaymentGatewayNotificationContext by invoking its getPaymentGatewayNotificationRequest method.
- * <p>Example
+ * Example
  * global commercepayments.GatewayNotificationResponse
  *     processNotification(commercepayments.PaymentGatewayNotificationContext gatewayNotificationContext) {
  *         commercepayments.PaymentGatewayNotificationRequest notificationRequest = gatewayNotificationContext.getPaymentGatewayNotificationRequest();

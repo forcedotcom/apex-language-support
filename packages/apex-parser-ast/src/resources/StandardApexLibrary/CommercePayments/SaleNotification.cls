@@ -1,8 +1,8 @@
 /**
  * When a payment gateway sends a notification for a sale payment, the payment gateway adapter creates the SaleNotification object to store information about notification.
- * <p>Usage
+ * Usage
  * SaleNotification is used in asynchronous payment gateway adapters. Specify the CommercePayments namespace when creating an instance of this class. The constructor of this class takes no arguments. For example: commercePayments.SaleNotification saleNotification = new commercepayments.SaleNotification();
- * <p>Example
+ * Example
  * global commercepayments.GatewayNotificationResponse processNotification(commercepayments.PaymentGatewayNotificationContext gatewayNotificationContext) {
  *     commercepayments.PaymentGatewayNotificationRequest gatewayNotificationRequest = gatewayNotificationContext.getPaymentGatewayNotificationRequest();
  *     Blob request = gatewayNotificationRequest.getRequestBody();

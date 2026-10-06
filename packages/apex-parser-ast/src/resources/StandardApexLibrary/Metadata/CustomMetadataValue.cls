@@ -1,6 +1,6 @@
 /**
  * Represents custom metadata values for a custom metadata component.
- * <p>Usage
+ * Usage
  * Use Metadata.CustomMetadataValue to access values for custom fields of custom metadata records.
  * Supported Apex primitive types are:
  * Boolean
@@ -11,7 +11,7 @@
  * Integer
  * Long
  * String
- * <p>Example
+ * Example
  * // Set a custom field value for a custom metadata record
  * Metadata.CustomMetadataValue customField = new Metadata.CustomMetadataValue();
  * customField.field = 'CustomField1__c';
@@ -21,12 +21,12 @@
 global class CustomMetadataValue extends Metadata.MetadataValue {
     /**
      * The field name for the custom metadata value.
-     * <p>String
+     * String
      */
     global String field { get; set; }
     /**
      * The field value for the custom metadata value.
-     * <p>Object
+     * Object
      * Supported Apex primitive types are:
      * Boolean
      * Date

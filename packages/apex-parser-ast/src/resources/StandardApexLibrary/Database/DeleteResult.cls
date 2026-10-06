@@ -1,8 +1,8 @@
 /**
  * Represents the result of a delete DML operation returned by the Database.delete method.
- * <p>Usage
+ * Usage
  * An array of Database.DeleteResult objects is returned with the delete database method. Each element in the DeleteResult array corresponds to the sObject array passed as the sObject[] parameter in the delete Database method; that is, the first element in the DeleteResult array matches the first element passed in the sObject array, the second element corresponds with the second element, and so on. If only one sObject is passed in, the DeleteResult array contains a single element.
- * <p>Example
+ * Example
  * The following example shows how to obtain and iterate through the returned Database.DeleteResult objects. It deletes some queried accounts using Database.delete with a false second parameter to allow partial processing of records on failure. Next, it iterates through the results to determine whether the operation was successful or not for each record. It writes the ID of every record that was processed successfully to the debug log, or error messages and fields of the failed records.
  * // Query the accounts to delete
  * Account[] accts = [SELECT Id from Account WHERE Name LIKE 'Acme%'];

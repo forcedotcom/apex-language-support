@@ -4,13 +4,13 @@
 global with sharing class ApexMap {
     /**
      * Represents key of the key-value pair. This property is used to store the unique ID or name of the data.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String key { get; set; }
     /**
      * Represents value of the key-value pair. This property is used to store the data associated with the key.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String value { get; set; }

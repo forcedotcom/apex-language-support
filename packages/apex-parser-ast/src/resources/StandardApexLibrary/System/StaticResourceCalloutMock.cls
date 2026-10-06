@@ -1,6 +1,6 @@
 /**
  * Utility class used to specify a fake response for testing HTTP callouts.
- * <p>Usage
+ * Usage
  * Use the methods in this class to set the response properties for testing HTTP callouts.
  */
 global class StaticResourceCalloutMock implements System.HttpCalloutMock {

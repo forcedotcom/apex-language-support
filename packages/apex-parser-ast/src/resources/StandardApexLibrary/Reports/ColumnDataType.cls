@@ -1,6 +1,6 @@
 /**
  * The Reports.ColumnDataType enum describes the type of data in a column. It is returned by the getDataType method.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the Reports.ColumnDataType enum.
  */
 global enum ColumnDataType {

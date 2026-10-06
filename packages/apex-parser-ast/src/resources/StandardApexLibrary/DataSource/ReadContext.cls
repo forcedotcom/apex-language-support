@@ -4,17 +4,17 @@
 global abstract class ReadContext {
     /**
      * Maximum number of rows that the query can return.
-     * <p>Integer
+     * Integer
      */
     global Integer maxResults { get; set; }
     /**
      * Describes the external system’s tables to query.
-     * <p>List<DataSource.Table>
+     * List<DataSource.Table>
      */
     global List metadata { get; set; }
     /**
      * The starting row offset into the query’s result set. Used for client-driven paging.
-     * <p>Integer
+     * Integer
      */
     global Integer offset { get; set; }
     global Integer startRowNumZeroOffset { get; set; }

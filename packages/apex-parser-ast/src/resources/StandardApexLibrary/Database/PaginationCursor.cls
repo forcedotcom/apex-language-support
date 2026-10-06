@@ -1,6 +1,6 @@
 /**
  * This class represents a pagination cursor that can traverse a SOQL query result set. It contains methods that fetch rows by page. It also contains a method that returns the total number of rows in the result set.
- * <p>Usage
+ * Usage
  * A pagination cursor is created when a SOQL query is executed on a Database.getPaginationCursor() or a Database.getPaginationCursorWithBinds() call. When the SOQL query is invoked, the corresponding rows are returned from the pagination cursor.
  * Use a pagination cursor for traversing human-viewable data, such as a list of records in a UI. The maximum number of rows per pagination cursor is 100,000, regardless of whether the operation is synchronous or asynchronous.
  * For a comparison between pagination cursors and standard cursors, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_cursors.htm" target="_blank" title="HTML (New Window)">Apex Cursors</a> in the Apex Developer Guide.

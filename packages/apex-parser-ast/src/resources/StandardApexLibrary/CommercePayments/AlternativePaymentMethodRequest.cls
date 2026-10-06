@@ -1,6 +1,6 @@
 /**
  * The class contains information about the alternative payment method that are required for a gateway to process the request.
- * <p>Example
+ * Example
  * commercepayments.PostAuthApiPaymentMethodRequest apiPaymentMethod =(commercepayments.PostAuthApiPaymentMethodRequest) postAuthRequest.paymentMethod;
  * commercepayments.AlternativePaymentMethodRequest alternativePaymentMethod= (commercepayments.AlternativePaymentMethodRequest) apiPaymentMethod.alternativePaymentMethod;
  * String gatewayToken = (String)alternativePaymentMethod.gatewayToken;
@@ -12,28 +12,28 @@
 global with sharing class AlternativePaymentMethodRequest extends commercepayments.BasePaymentMethodRequest {
     /**
      * Salesforce account ID to which this payment method is linked.
-     * <p>String
+     * String
      */
     global String accountId { get; set; }
     /**
      * Email address of the card holder.
-     * <p>String
+     * String
      */
     global String email { get; set; }
     /**
      * A unique, alphanumeric ID, that a payment gateway generates when it first processes a payment.
-     * <p>The token replaces the actual payment data so that the data is kept secure. This token is stored as encrypted text, and can be used for recurring payments.
-     * <p>String
+     * The token replaces the actual payment data so that the data is kept secure. This token is stored as encrypted text, and can be used for recurring payments.
+     * String
      */
     global String gatewayToken { get; set; }
     /**
      * Information about the gateway token.
-     * <p>String
+     * String
      */
     global String gatewayTokenDetails { get; set; }
     /**
      * Name that you assign to the PaymentMethod object.
-     * <p>String
+     * String
      */
     global String name { get; set; }
 

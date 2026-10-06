@@ -1,9 +1,9 @@
 /**
  * Wraps the information related to a payment request.
- * <p>Usage
+ * Usage
  * The constructor of this class takes no arguments. For example:
  * CommercePayments.PaymentGatewayContext pgc = new CommercePayments.PaymentGatewayContext();
- * <p>Example
+ * Example
  * global commercepayments.GatewayResponse processRequest(commercepayments.PaymentGatewayContext gatewayContext) {
  *     commercepayments.RequestType requestType = gatewayContext.getPaymentRequestType();
  *     if (requestType == commercepayments.RequestType.Capture) {

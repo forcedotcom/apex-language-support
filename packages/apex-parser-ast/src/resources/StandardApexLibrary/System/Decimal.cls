@@ -1,6 +1,6 @@
 /**
  * Contains methods for the Decimal primitive data type.
- * <p>Usage
+ * Usage
  * Note
  * Two Decimal objects that are numerically equivalent but differ in scale (such as 1.1 and 1.10) generally do not have the same hashcode. Use caution when such Decimal objects are used in Sets or as Map keys.
  * For more information on Decimal, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/langCon_apex_primitives.htm" target="_blank">Decimal Data Type</a>.
@@ -8,7 +8,7 @@
 global class Decimal {
     /**
      * Returns the absolute value of the Decimal.
-     * <p>Example
+     * Example
      * Decimal myDecimal = -6.02214129;
      * System.assertEquals(6.02214129, myDecimal.abs());
      */
@@ -16,7 +16,7 @@ global class Decimal {
 
     /**
      * Divides this Decimal by the specified divisor, and sets the scale, that is, the number of decimal places, of the result using the specified scale.
-     * <p>Example
+     * Example
      * Decimal decimalNumber = 19;
      * Decimal result = decimalNumber.divide(100, 3);
      * System.assertEquals(0.190, result);
@@ -25,7 +25,7 @@ global class Decimal {
 
     /**
      * Divides this Decimal by the specified divisor, sets the scale, that is, the number of decimal places, of the result using the specified scale, and if necessary, rounds the value using the rounding mode.
-     * <p>Example
+     * Example
      * Decimal myDecimal = 12.4567;
      * Decimal divDec = myDecimal.divide(7, 2, System.RoundingMode.UP);
      * System.assertEquals(divDec, 1.78);
@@ -34,7 +34,7 @@ global class Decimal {
 
     /**
      * Returns the Double value of this Decimal.
-     * <p>Example
+     * Example
      * Decimal myDecimal = 6.62606957;
      * Double value = myDecimal.doubleValue();
      * System.assertEquals(6.62606957, value);
@@ -45,9 +45,9 @@ global class Decimal {
 
     /**
      * Returns the String value of this Decimal using the locale of the context user.
-     * <p>Usage
+     * Usage
      * Scientific notation will be used if an exponent is needed.
-     * <p>Example
+     * Example
      * // U.S. locale
      * Decimal myDecimal = 12345.6789;
      * system.assertEquals('12,345.679', myDecimal.format());
@@ -58,7 +58,7 @@ global class Decimal {
 
     /**
      * Returns the Integer value of this Decimal.
-     * <p>Example
+     * Example
      * Decimal myDecimal = 1.602176565;
      * system.assertEquals(1, myDecimal.intValue());
      */
@@ -66,7 +66,7 @@ global class Decimal {
 
     /**
      * Returns the Long value of this Decimal.
-     * <p>Example
+     * Example
      * Decimal myDecimal = 376.730313461;
      * system.assertEquals(376, myDecimal.longValue());
      */
@@ -74,10 +74,10 @@ global class Decimal {
 
     /**
      * Returns the value of this decimal raised to the power of the specified exponent.
-     * <p>Usage
+     * Usage
      * If you use MyDecimal.pow(0), 1 is returned.
      * The Math.pow method does accept negative values.
-     * <p>Example
+     * Example
      * Decimal myDecimal = 4.12;
      * Decimal powDec = myDecimal.pow(2);
      * System.assertEquals(powDec, 16.9744);
@@ -86,7 +86,7 @@ global class Decimal {
 
     /**
      * Returns the total number of digits for the Decimal.
-     * <p>Example
+     * Example
      * For example, if the Decimal value was 123.45, precision returns 5. If the Decimal value is 123.123, precision returns 6.
      * Decimal D1 = 123.45;
      * Integer precision1 = D1.precision();
@@ -99,9 +99,9 @@ global class Decimal {
 
     /**
      * Returns the rounded approximation of this Decimal. The number is rounded to zero decimal places using half-even rounding mode, that is, it rounds towards the “nearest neighbor” unless both neighbors are equidistant, in which case, this mode rounds towards the even neighbor.
-     * <p>Usage
+     * Usage
      * Note that this rounding mode statistically minimizes cumulative error when applied repeatedly over a sequence of calculations.
-     * <p>Example
+     * Example
      * Decimal D = 4.5;
      * Long L = D.round();
      * System.assertEquals(4, L);
@@ -127,7 +127,7 @@ global class Decimal {
 
     /**
      * Returns the scale of the Decimal, that is, the number of decimal places.
-     * <p>Example
+     * Example
      * Decimal myDecimal = 9.27400968;
      * system.assertEquals(8, myDecimal.scale());
      */
@@ -135,12 +135,12 @@ global class Decimal {
 
     /**
      * Returns the Decimal scaled to the specified number of decimal places, using half-even rounding, if necessary. Half-even rounding mode rounds toward the “nearest neighbor.” If both neighbors are equidistant, the number is rounded toward the even neighbor.
-     * <p>Usage
+     * Usage
      * If you do not explicitly set the scale for a Decimal, the item from which the Decimal is created determines the scale.
      * If the Decimal is created as part of a query, the scale is based on the scale of the field returned from the query.
      * If the Decimal is created from a String, the scale is the number of characters after the decimal point of the String.
      * If the Decimal is created from a non-decimal number, the number is first converted to a String. The scale is then set using the number of characters after the decimal point.
-     * <p>Example
+     * Example
      * Decimal myDecimal = 8.987551787;
      * Decimal setScaled = myDecimal.setscale(3);
      * System.assertEquals(8.988, setScaled);
@@ -149,7 +149,7 @@ global class Decimal {
 
     /**
      * Returns the Decimal scaled to the specified number of decimal places, using the specified rounding mode, if necessary.
-     * <p>Usage
+     * Usage
      * If you do not explicitly set the scale for a Decimal, the item from which the Decimal is created determines the scale.
      * If the Decimal is created as part of a query, the scale is based on the scale of the field returned from the query.
      * If the Decimal is created from a String, the scale is the number of characters after the decimal point of the String.
@@ -159,7 +159,7 @@ global class Decimal {
 
     /**
      * Returns the Decimal with any trailing zeros removed.
-     * <p>Example
+     * Example
      * Decimal myDecimal = 1.10000;
      * Decimal stripped = myDecimal.stripTrailingZeros();
      * System.assertEquals(stripped, 1.1);
@@ -168,7 +168,7 @@ global class Decimal {
 
     /**
      * Returns the String value of this Decimal, without using scientific notation.
-     * <p>Example
+     * Example
      * Decimal myDecimal = 12345.6789;
      * System.assertEquals('12345.6789', myDecimal.toPlainString());
      */
@@ -178,7 +178,7 @@ global class Decimal {
 
     /**
      * Returns a Decimal that contains the value of the specified Double.
-     * <p>Example
+     * Example
      * Double myDouble = 2.718281828459045;
      * Decimal myDecimal = Decimal.valueOf(myDouble);
      * System.assertEquals(2.718281828459045, myDecimal);
@@ -187,7 +187,7 @@ global class Decimal {
 
     /**
      * Returns a Decimal that contains the value of the specified Long.
-     * <p>Example
+     * Example
      * Long myLong = 299792458;
      * Decimal myDecimal = Decimal.valueOf(myLong);
      * System.assertEquals(299792458, myDecimal);
@@ -196,7 +196,7 @@ global class Decimal {
 
     /**
      * Returns a Decimal that contains the value of the specified String. As in Java, the string is interpreted as representing a signed Decimal.
-     * <p>Example
+     * Example
      * String temp = '12.4567';
      * Decimal myDecimal = Decimal.valueOf(temp);
      */

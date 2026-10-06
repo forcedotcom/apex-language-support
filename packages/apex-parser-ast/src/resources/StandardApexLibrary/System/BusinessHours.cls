@@ -19,7 +19,7 @@ global class BusinessHours {
 
     /**
      * Returns true if the specified target date occurs within business hours. Holidays are included in the calculation.
-     * <p>Example
+     * Example
      * The following example finds whether a given time is within the default business hours.
      * // Get the default business hours
      * BusinessHours bh = [SELECT Id FROM BusinessHours WHERE IsDefault=true];

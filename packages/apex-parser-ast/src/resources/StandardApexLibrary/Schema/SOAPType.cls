@@ -1,6 +1,6 @@
 /**
  * A Schema.SOAPType enum value is returned by the field describe result getSoapType method.
- * <p>Usage
+ * Usage
  * To programmatically retrieve the list of valid SOAPType enum values, use this code sample.
  * system.debug(SoapType.values().size()); //Gets the number of supported values
  * for (SoapType st : SoapType.values()) system.debug(st);

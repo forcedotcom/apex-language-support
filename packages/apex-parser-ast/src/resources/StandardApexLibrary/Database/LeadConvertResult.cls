@@ -1,6 +1,6 @@
 /**
  * The result of a lead conversion.
- * <p>Usage
+ * Usage
  * An array of LeadConvertResult objects is returned with the convertLead Database method. Each element in the LeadConvertResult array corresponds to the sObject array passed as the SObject[] parameter in the convertLead Database method, that is, the first element in the LeadConvertResult array matches the first element passed in the SObject array, the second element corresponds to the second element, and so on. If only one sObject is passed in, the LeadConvertResult array contains a single element.
  */
 global class LeadConvertResult {

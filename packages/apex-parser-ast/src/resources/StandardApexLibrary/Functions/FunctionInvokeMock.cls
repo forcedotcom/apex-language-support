@@ -1,6 +1,6 @@
 /**
  * Use the FunctionInvokeMock interface to mock Salesforce Functions responses during testing.
- * <p>Usage
+ * Usage
  * To mock Salesforce Functions testing, implement an appropriate mock response in the respond(functionName,payload) method of the FunctionInvokeMock interface. During mock testing of a Salesforce Functions, Apex runtime sends the response specified in the respond() method, rather than invoking the function itself. Appropriate success and error messages can be configured with the createSuccessResponse(invocationId,message) and createErrorResponse(invocationId,functionsErrorType,errorMsg) methods in Functions.MockFunctionInvocationFactory.
  */
 global interface FunctionInvokeMock {

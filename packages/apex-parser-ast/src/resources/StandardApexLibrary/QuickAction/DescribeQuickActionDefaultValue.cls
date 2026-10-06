@@ -1,6 +1,6 @@
 /**
  * Returns a default value for a quick action.
- * <p>Usage
+ * Usage
  * Represents the default values of fields to use in default layouts.
  */
 global class DescribeQuickActionDefaultValue {

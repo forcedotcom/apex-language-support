@@ -4,13 +4,13 @@
 global with sharing class PaymentInitiation {
     /**
      * The Boleto payment initiation variable.
-     * <p>RichMessaging.PaymentInitiationBoleto
+     * RichMessaging.PaymentInitiationBoleto
      */
     @InvocableVariable
     global RichMessaging.PaymentInitiationBoleto boletoValue;
     /**
      * The gateway payment initiation variable.
-     * <p>RichMessaging.PaymentInitiationGateway
+     * RichMessaging.PaymentInitiationGateway
      */
     @InvocableVariable
     global RichMessaging.PaymentInitiationGateway gatewayValue;
@@ -18,7 +18,7 @@ global with sharing class PaymentInitiation {
     global RichMessaging.PaymentInitiationMode modeValue;
     /**
      * The PIX payment initiation variable.
-     * <p>RichMessaging.PaymentInitiationPix
+     * RichMessaging.PaymentInitiationPix
      */
     @InvocableVariable
     global RichMessaging.PaymentInitiationPix pixValue;
@@ -27,13 +27,13 @@ global with sharing class PaymentInitiation {
 
     /**
      * The Boleto payment initiation details.
-     * <p>RichMessaging.PaymentInitiationBoleto
+     * RichMessaging.PaymentInitiationBoleto
      */
     @AuraEnabled
     global RichMessaging.PaymentInitiationBoleto boleto { get; set; }
     /**
      * The gateway-based payment initiation details.
-     * <p>RichMessaging.PaymentInitiationGateway
+     * RichMessaging.PaymentInitiationGateway
      */
     @AuraEnabled
     global RichMessaging.PaymentInitiationGateway gateway { get; set; }
@@ -41,7 +41,7 @@ global with sharing class PaymentInitiation {
     global String mode { get; set; }
     /**
      * The PIX payment initiation details.
-     * <p>RichMessaging.PaymentInitiationPix
+     * RichMessaging.PaymentInitiationPix
      */
     @AuraEnabled
     global RichMessaging.PaymentInitiationPix pix { get; set; }

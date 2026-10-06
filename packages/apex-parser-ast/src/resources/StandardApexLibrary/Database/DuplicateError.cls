@@ -1,6 +1,6 @@
 /**
  * Contains information about an error that occurred when an attempt was made to save a duplicate record. Use if your organization has set up duplicate rules, which are part of the Duplicate Management feature.
- * <p>Example
+ * Example
  * When you try to save a record that’s identified as a duplicate record by a duplicate rule, you’ll receive a duplicate error. If the duplicate rule contains the Allow action, an attempt will be made to bypass the error.
  * // Try to save a duplicate account
  * Account duplicateAccount = new Account(Name='Acme',  BillingCity='San Francisco');
@@ -32,7 +32,7 @@ global class DuplicateError extends Database.Error {
 
     /**
      * Returns the details of a duplicate rule and duplicate records found by the duplicate rule.
-     * <p>Example
+     * Example
      * This example shows the code used to get the possible duplicates and related match information after saving a new contact. This code is part of a custom application that implements duplicate management when users add a contact. See DuplicateResult Class to check out the entire sample applicaton.
      * Datacloud.DuplicateResult duplicateResult =
      *                             duplicateError.getDuplicateResult();

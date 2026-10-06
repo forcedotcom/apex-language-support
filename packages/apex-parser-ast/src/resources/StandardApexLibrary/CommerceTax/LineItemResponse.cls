@@ -1,6 +1,6 @@
 /**
  * Response class that stores details of a list of one or more line items on which the tax engine has calculated tax.
- * <p>Example
+ * Example
  * This example uses a LineItemResponse list to store information about each line item that was processed as part of the request. For simplicity, the sample code uses a static value of 1 for the tax rate. However, most integrations typically have a more complex process for determining a tax rate. Most integrations also build a TaxDetailsResponse list to store the actual tax value information that they assign to each line item in the LineItemResponse list.
  * Double totalTax = 0.0;
  *              Double totalAmount = 0.0;

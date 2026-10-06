@@ -1,8 +1,8 @@
 /**
  * Represents a capture request. This class extends the BaseRequest class and inherits all its methods.
- * <p>Usage
+ * Usage
  * The CaptureRequest class’s buildCaptureRequest method creates a CaptureRequest object to store payment information, such as value and currency, as JSON strings.
- * <p>Example
+ * Example
  * Builds a CaptureRequest object for a multicurrency org.
  *     private String buildCaptureRequest(commercepayments.CaptureRequest captureRequest) {
  *         Boolean IS_MULTICURRENCY_ORG = UserInfo.isMultiCurrencyOrganization();
@@ -17,14 +17,14 @@
 global with sharing class CaptureRequest extends commercepayments.BaseRequest {
     /**
      * Account ID value. References an account record.
-     * <p>String
+     * String
      */
     global String accountId { get; set; }
     @AuraEnabled
     global Map additionalData { get; set; }
     /**
      * Amount of currency that needs to be captured.
-     * <p>Double
+     * Double
      */
     global Double amount { get; set; }
     global Boolean duplicate { get; set; }
@@ -34,7 +34,7 @@ global with sharing class CaptureRequest extends commercepayments.BaseRequest {
     global String macAddress { get; set; }
     /**
      * ID value that references a PaymentAuthorization.
-     * <p>String
+     * String
      */
     global String paymentAuthorizationId { get; set; }
     global String phone { get; set; }

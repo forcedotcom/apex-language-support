@@ -1,6 +1,6 @@
 /**
  * Contains the credentials for authenticating to the external system.
- * <p>Usage
+ * Usage
  * If your extension of the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_class_DataSource_Provider.htm" target="_blank">DataSource.Provider</a> class returns <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_enum_DataSource_AuthenticationCapability.htm" target="_blank">DataSource.AuthenticationCapability</a> values that indicate support for authentication, the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_class_DataSource_Connection.htm" target="_blank">DataSource.Connection</a> class is instantiated with a <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_class_DataSource_ConnectionParams.htm" target="_blank">DataSource.ConnectionParams</a> instance in the constructor.
  * The authentication credentials in the DataSource.ConnectionParams instance depend on the Identity Type field of the external data source definition in Salesforce.
  * If Identity Type is set to Named Principal, the credentials come from the external data source definition.
@@ -12,24 +12,24 @@
 global class ConnectionParams {
     /**
      * The name of the certificate for establishing each connection to the external system.
-     * <p>String
+     * String
      * The value comes from the external data source definition in Salesforce.
      */
     global String certificateName { get; set; }
     /**
      * The URL of the external system.
-     * <p>String
+     * String
      * The value comes from the external data source definition in Salesforce.
      */
     global String endpoint { get; set; }
     /**
      * The OAuth token that’s issued by the external system.
-     * <p>String
+     * String
      */
     global String oauthToken { get; set; }
     /**
      * The password for authenticating to the external system.
-     * <p>String
+     * String
      * The value depends on the Identity Type field of the external data source definition in Salesforce.
      * If Identity Type is set to Named Principal, the credentials come from the external data source definition.
      * If Identity Type is set to Per User:
@@ -39,23 +39,23 @@ global class ConnectionParams {
     global String password { get; set; }
     /**
      * An instance of DataSource.IdentityType, which determines which set of credentials to use to access the external system.
-     * <p>DataSource.IdentityType
+     * DataSource.IdentityType
      */
     global DataSource.IdentityType principalType { get; set; }
     /**
      * The type of protocol that’s used to authenticate to the external system.
-     * <p>DataSource.AuthenticationProtocol
+     * DataSource.AuthenticationProtocol
      */
     global DataSource.AuthenticationProtocol protocol { get; set; }
     /**
      * Reserved for future use.
-     * <p>String
+     * String
      * Reserved for future use.
      */
     global String repository { get; set; }
     /**
      * The username for authenticating to the external system.
-     * <p>String
+     * String
      * The value depends on the Identity Type field of the external data source definition in Salesforce.
      * If Identity Type is set to Named Principal, the credentials come from the external data source definition.
      * If Identity Type is set to Per User:

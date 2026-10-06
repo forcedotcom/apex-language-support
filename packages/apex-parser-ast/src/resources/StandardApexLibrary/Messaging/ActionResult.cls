@@ -1,6 +1,6 @@
 /**
  * Contains information about the execution of an actionable notification.
- * <p>Usage
+ * Usage
  * This ActionResult instance represents the successful execution of an actionable notification.
  * Messaging.ActionResult result =
  * new Messaging.ActionResult.Builder()
@@ -40,7 +40,7 @@ global class ActionResult {
 
     /**
      * Contains methods to build and validate an instance of the Messaging.ActionResult class.
-     * <p>Usage
+     * Usage
      * See the example for the NotificationActionHandler Interface.
      */
     global class Builder {

@@ -1,10 +1,10 @@
 /**
  * Wraps the information related to a gateway notification.
- * <p>Usage
+ * Usage
  * This class is used with asynchronous payments. It wraps all of the information related to a notification from the payment gateway. The payments platform provides its context to the payment gateway adapters.
  * The constructor of this class takes no arguments. For example:
  * CommercePayments.PaymentGatewayNotificationContext pgnc = new CommercePayments.PaymentGatewayNotificationContext();
- * <p>Example
+ * Example
  * global commercepayments.GatewayNotificationResponse
  * processNotification(commercepayments.PaymentGatewayNotificationContext gatewayNotificationContext) {
  * commercepayments.PaymentGatewayNotificationRequest notificationRequest = gatewayNotificationContext.getPaymentGatewayNotificationRequest();

@@ -1,6 +1,6 @@
 /**
  * The QuickAction.QuickActionDefaultsHandler interface lets you specify the default values for the standard Email and Send Email actions in the case feed. You can use this interface to specify the From address, CC address, BCC address, subject, and email body for the Email action in the case feed. You can use the interface to pre-populate these fields based on the context where the action is displayed, such as the case origin (for example, country) and subject.
- * <p>Usage
+ * Usage
  * To specify default values for the standard Email action in the case feed, create a class that implements QuickAction.QuickActionDefaultsHandler.
  * The QuickAction.QuickActionDefaultsHandler interface works in Salesforce Classic and Lightning Experience.
  * When working in Lightning Experience, keep the following things in mind:

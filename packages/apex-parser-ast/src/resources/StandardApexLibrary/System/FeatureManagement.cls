@@ -1,6 +1,6 @@
 /**
  * Use the methods in the System.FeatureManagement class to check and modify the values of feature parameters, and to show or hide custom objects and custom permissions in your subscribers’ orgs.
- * <p>Usage
+ * Usage
  * For information about feature parameters, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.pkg2_dev.meta/pkg2_dev/sfdx_dev_dev2gp_fma_manage_features.htm" target="_blank">Manage Features in Second Generation Managed Packages</a> in the Second-Generation Managed Packaging Developer Guide, or <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.pkg1_dev.meta/pkg1_dev/fma_manage_features.htm" target="_blank">Manage Features in First-Generation Managed Packages</a> in the First-Generation Managed Packaging Developer Guide.
  * The set methods (setPackageBooleanValue, setPackageDateValue, setPackageIntegerValue) use DML operations on setup sObjects. To learn more about mixing operations in a test, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_dml_non_mix_sobjects_test_methods.htm" target="_blank">Mixed DML Operations in Test Methods</a>.
  */
@@ -9,7 +9,7 @@ global class FeatureManagement {
 
     /**
      * Hides or reveals custom permissions, or reveals custom objects, in your subscriber’s org.
-     * <p>Usage
+     * Usage
      * Warning
      * For custom permissions, you can toggle the protected value indefinitely. However, after you’ve released unprotected objects to subscribers, you can’t set visibility to Protected. Be sure to protect any custom objects that you want to hide before you release the first package version that contains them.
      * To hide custom permissions in released packages:

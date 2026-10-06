@@ -1,6 +1,6 @@
 /**
  * The Support.MilestoneTriggerTimeCalculator interface calculates the time trigger for a milestone.
- * <p>Implement the Support.MilestoneTriggerTimeCalculator interface to calculate a dynamic time trigger for a milestone based on the milestone type, the properties of the case, and case-related objects. To implement the Support.MilestoneTriggerTimeCalculator interface, you must first declare a class with the implements keyword as follows:
+ * Implement the Support.MilestoneTriggerTimeCalculator interface to calculate a dynamic time trigger for a milestone based on the milestone type, the properties of the case, and case-related objects. To implement the Support.MilestoneTriggerTimeCalculator interface, you must first declare a class with the implements keyword as follows:
  * global class Employee implements Support.MilestoneTriggerTimeCalculator {
  * Next, your class must provide an implementation for the following method:
  * global Integer calculateMilestoneTriggerTime(String caseId, String milestoneTypeId)

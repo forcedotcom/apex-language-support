@@ -1,9 +1,9 @@
 /**
  * Contains metadata information about a Salesforce Classic standard or custom app available in the Salesforce user interface.
- * <p>Usage
+ * Usage
  * The Schema.describeTabs method returns a list of Schema.DescribeTabSetResult objects that describe Salesforce Classic standard and custom apps.
  * The methods in the Schema.DescribeTabSetResult class can be called using their property counterparts. For each method starting with get, you can omit the get prefix and the ending parentheses () to call the property counterpart. For example, tabSetResultObj.label is equivalent to tabSetResultObj.getLabel(). Similarly, for each method starting with is, omit the is prefix and the ending parentheses (). For example, tabSetResultObj.isSelected is equivalent to tabSetResultObj.selected.
- * <p>Example
+ * Example
  * This example shows how to call the Schema.describeTabs method to get describe information for all available Salesforce Classic apps. This example iterates through each describe result and gets more metadata information for the Sales app.
  * // App we're interested to get more info about
  * String appName = 'Sales';
@@ -58,7 +58,7 @@ global class DescribeTabSetResult {
 
     /**
      * Returns the display label for the standard or custom app.
-     * <p>Usage
+     * Usage
      * The display label changes when tabs are renamed in the Salesforce user interface. See the Salesforce online help for more information.
      */
     global String getLabel() { return null; }
@@ -70,7 +70,7 @@ global class DescribeTabSetResult {
 
     /**
      * Returns the developer namespace prefix of a Salesforce AppExchange managed package.
-     * <p>Usage
+     * Usage
      * This namespace prefix corresponds to the namespace prefix of the Developer Edition organization that was enabled to allow publishing a managed package. This method applies to a custom app containing a set of tabs and installed as part of a managed package.
      */
     global String getNamespace() { return null; }

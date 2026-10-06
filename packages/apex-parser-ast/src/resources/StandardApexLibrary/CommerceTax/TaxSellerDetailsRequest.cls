@@ -4,7 +4,7 @@
 global with sharing class TaxSellerDetailsRequest {
     /**
      * Tax code used for tax calculation.
-     * <p>String
+     * String
      */
     global String code { get; set; }
 

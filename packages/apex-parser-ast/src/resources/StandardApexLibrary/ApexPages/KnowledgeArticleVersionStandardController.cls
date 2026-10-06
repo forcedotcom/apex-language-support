@@ -1,10 +1,10 @@
 /**
  * KnowledgeArticleVersionStandardController objects offer article-specific functionality in addition to what is provided by the StandardController.
- * <p>Usage
+ * Usage
  * In addition to the method listed above, the KnowledgeArticleVersionStandardController class inherits all the methods associated with StandardController.
  * Note
  * Though inherited, the edit, delete, and save methods don't serve a function when used with the KnowledgeArticleVersionStandardController class.
- * <p>Example
+ * Example
  * The following example shows how a KnowledgeArticleVersionStandardController object can be used to create a custom extension controller. In this example, you create a class named AgentContributionArticleController that allows customer-support agents to see pre-populated fields on the draft articles they create while closing cases.
  * Prerequisites:
  * Create an article type called FAQ. For instructions, see “Create Article Types” in the Salesforce online help.

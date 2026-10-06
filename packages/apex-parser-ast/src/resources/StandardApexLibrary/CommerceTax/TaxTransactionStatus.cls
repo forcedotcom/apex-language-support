@@ -1,8 +1,8 @@
 /**
  * Shows whether the tax transaction has been committed or uncommitted.
- * <p>Usage
+ * Usage
  * Used by the CalculateTaxResponse class method.
- * <p>Enum Values
+ * Enum Values
  * The commercetax.TaxTransactionStatus enum includes these values.
  */
 global enum TaxTransactionStatus {

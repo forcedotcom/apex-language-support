@@ -1,13 +1,13 @@
 /**
  * Sends data related to a card payment method to a gateway adapter during a sale service call.
- * <p>Usage
+ * Usage
  * This class holds information about a payment method that was used for a Sale request. SaleApiPaymentMethodRequest contains all the possible payment methods as fields, but only one value is populated for a given request. Gateway adapters use this class when constructing a sale request. The object of this class is obtained through the paymentMethod field on the SaleRequest object.
  */
 global class SaleApiPaymentMethodRequest extends commercepayments.BaseApiPaymentMethodRequest {
     global commercepayments.AddressRequest address { get; set; }
     /**
      * Contains details of the card used in a payment method.
-     * <p>CardPaymentMethodRequest
+     * CardPaymentMethodRequest
      */
     @AuraEnabled
     global commercepayments.CardPaymentMethodRequest cardPaymentMethod { get; set; }
@@ -16,7 +16,7 @@ global class SaleApiPaymentMethodRequest extends commercepayments.BaseApiPayment
     global Boolean saveForFuture { get; set; }
     /**
      * Contains details of the standard entry class code used in a payment method.
-     * <p>commercepayments.StandardEntryClassCode
+     * commercepayments.StandardEntryClassCode
      */
     @AuraEnabled
     global commercepayments.StandardEntryClassCode standardEntryClassCode { get; set; }

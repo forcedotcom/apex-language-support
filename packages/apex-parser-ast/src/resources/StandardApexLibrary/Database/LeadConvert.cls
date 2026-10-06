@@ -1,10 +1,10 @@
 /**
  * Contains information used for lead conversion.
- * <p>Usage
+ * Usage
  * The convertLead Database method converts a lead into an account and contact or an account and person account, as well as (optionally) an opportunity. The convertLead takes an instance of the Database.LeadConvert class as a parameter. Create an instance of this class and set the information required for conversion, such as setting the lead, and destination account and contact.
  * Note
  * The Database.convertLead() method can take one LeadConvert object or a list of LeadConvert objects.
- * <p>Example
+ * Example
  * This example shows how to use the Database.convertLead method to convert a lead. It inserts a new lead, creates a LeadConvert object, sets its status to converted, then passes it to the Database.convertLead method. Finally, it verifies that the conversion was successful.
  * Lead myLead = new Lead(LastName = 'Fry', Company='Fry And Sons');
  * insert as user myLead;
@@ -126,7 +126,7 @@ global class LeadConvert {
 
     /**
      * Sets the ID of the contact into which the lead will be merged (this contact must be associated with the account specified with setAccountId, and setAccountId must be specified). This value is required only when updating an existing contact.
-     * <p>Usage
+     * Usage
      * If setContactId is specified, then the application creates a new contact that is implicitly associated with the account. The contact name and other existing data are not overwritten (unless setOverwriteLeadSource is set to true, in which case only the LeadSource field is overwritten).
      * Important
      * If you are converting a lead into a person account, do not specify setContactId or an error will result. Specify only setAccountId of the person account.
@@ -157,7 +157,7 @@ global class LeadConvert {
 
     /**
      * Sets the name of the opportunity to create. If no name is specified, this value defaults to the company name of the lead.
-     * <p>Usage
+     * Usage
      * The maximum length of this field is 80 characters.
      * If setDoNotCreateOpportunity is true, no Opportunity is created and this field must be left blank; otherwise, an error is returned.
      */
@@ -172,7 +172,7 @@ global class LeadConvert {
 
     /**
      * Specifies the ID of the person to own any newly created account, contact, and opportunity. If the application does not specify this value, the owner of the new object will be the owner of the lead.
-     * <p>Usage
+     * Usage
      * This method is not applicable when merging with existing objects—if setOwnerId is specified, the ownerId field is not overwritten in an existing account or contact.
      */
     global void setOwnerId(Id param1) { }

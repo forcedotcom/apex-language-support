@@ -1,8 +1,8 @@
 /**
  * The result of a record unlock, returned by a System.Approval.unlock() method.
- * <p>Usage
+ * Usage
  * The System.Approval.unlock() methods return Approval.UnlockResult objects. Each element in an UnlockResult array corresponds to an element in the ID or sObject array passed as a parameter to an unlock method. The first element in the UnlockResult array corresponds to the first element in the ID or sObject array, the second element corresponds to the second element, and so on. If only one ID or sObject is passed in, the UnlockResult array contains a single element.
- * <p>Example
+ * Example
  * The following example shows how to obtain and iterate through the returned Approval.UnlockResult objects. It locks some queried accounts using Approval.unlock with a false second parameter to allow partial processing of records on failure. Next, it iterates through the results to determine whether the operation was successful for each record. It writes the ID of every record that was processed successfully to the debug log, or writes error messages and failed fields of the failed records.
  * // Query the accounts to unlock
  * Account[] accts = [SELECT Id from Account WHERE Name LIKE 'Acme%'];
@@ -58,7 +58,7 @@ global class UnlockResult {
 
     /**
      * Returns the ID of the sObject you are trying to unlock.
-     * <p>Usage
+     * Usage
      * If the field contains a value, the object was unlocked. If the field is empty, the operation was not successfult.
      */
     global Id getId() { return null; }

@@ -1,8 +1,8 @@
 /**
  * Stores details of the tax values that an external tax engine calculates in response to a tax calculation request.
- * <p>Usage
+ * Usage
  * If your tax calculation request contains multiple line items, we recommend building your adapter using a list of TaxDetailsResponse instances. Each instance represents the tax details calculated for a given line item.
- * <p>Example
+ * Example
  * List<commercetax.TaxDetailsResponse> taxDetailsResponses = new List<commercetax.TaxDetailsResponse>();
  *                  for(integer i =0;i<1;i++){
  *                      Integer rate  = 1;

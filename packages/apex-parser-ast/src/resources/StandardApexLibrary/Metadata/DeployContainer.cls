@@ -1,8 +1,8 @@
 /**
  * Represents a container for custom metadata components to be deployed.
- * <p>Usage
+ * Usage
  * Use Metadata.DeployContainer to manage custom metadata components for deployment. A container must have one or more components before being deployed.
- * <p>Example
+ * Example
  * // Use DeployContainer for deployment
  * Metadata.DeployContainer mdContainer = new Metadata.DeployContainer();
  * mdContainer.addMetadata(customMetadata);

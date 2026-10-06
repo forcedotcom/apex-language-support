@@ -1,13 +1,13 @@
 /**
  * Contains methods for creating and manipulating data.
- * <p>Usage
+ * Usage
  * Some Database methods also exist as DML statements.
  * By default, database operations run in user mode. To explicitly specify the access mode of database operation, set the accessLevel parameter.
  */
 global class Database {
     /**
      * Converts a list of LeadConvert objects into accounts and contacts, as well as (optionally) opportunities.
-     * <p>Usage
+     * Usage
      * We recommend passing a maximum of 100 LeadConvert objects to the convertLead method. Including more than 100 objects per call can result in Apex governor limit errors.
      * Each executed convertLead method counts against the governor limit for DML statements.
      */
@@ -15,7 +15,7 @@ global class Database {
 
     /**
      * Converts a list of LeadConvert objects into accounts and contacts, and, optionally, opportunities.
-     * <p>Usage
+     * Usage
      * We recommend passing a maximum of 100 LeadConvert objects to the convertLead method. Including more than 100 objects per call can result in Apex governor limit errors.
      * Each executed convertLead method counts against the governor limit for DML statements.
      */
@@ -23,7 +23,7 @@ global class Database {
 
     /**
      * Converts a list of LeadConvert objects into accounts and contacts, as well as (optionally) opportunities.
-     * <p>Usage
+     * Usage
      * We recommend passing a maximum of 100 LeadConvert objects to the convertLead method. Including more than 100 objects per call can result in Apex governor limit errors.
      * Each executed convertLead method counts against the governor limit for DML statements.
      */
@@ -31,7 +31,7 @@ global class Database {
 
     /**
      * Converts a list of LeadConvert objects into accounts and contacts, as well as (optionally) opportunities.
-     * <p>Usage
+     * Usage
      * We recommend passing a maximum of 100 LeadConvert objects to the convertLead method. Including more than 100 objects per call can result in Apex governor limit errors.
      * Each executed convertLead method counts against the governor limit for DML statements.
      */
@@ -39,7 +39,7 @@ global class Database {
 
     /**
      * Converts a list of LeadConvert objects into accounts and contacts, as well as (optionally) opportunities.
-     * <p>Usage
+     * Usage
      * We recommend passing a maximum of 100 LeadConvert objects to the convertLead method. Including more than 100 objects per call can result in Apex governor limit errors.
      * Each executed convertLead method counts against the governor limit for DML statements.
      */
@@ -47,7 +47,7 @@ global class Database {
 
     /**
      * Converts a list of LeadConvert objects into accounts and contacts, as well as (optionally) opportunities.
-     * <p>Usage
+     * Usage
      * We recommend passing a maximum of 100 LeadConvert objects to the convertLead method. Including more than 100 objects per call can result in Apex governor limit errors.
      * Each executed convertLead method counts against the governor limit for DML statements.
      */
@@ -55,7 +55,7 @@ global class Database {
 
     /**
      * Converts a lead into an account and contact, and, optionally, an opportunity.
-     * <p>Usage
+     * Usage
      * We recommend passing a maximum of 100 LeadConvert objects to the convertLead method. Including more than 100 objects per call can result in Apex governor limit errors.
      * Each executed convertLead method counts against the governor limit for DML statements.
      */
@@ -63,7 +63,7 @@ global class Database {
 
     /**
      * Converts a lead into an account and contact, and, optionally, an opportunity.
-     * <p>Usage
+     * Usage
      * We recommend passing a maximum of 100 LeadConvert objects to the convertLead method. Including more than 100 objects per call can result in Apex governor limit errors.
      * Each executed convertLead method counts against the governor limit for DML statements.
      */
@@ -71,7 +71,7 @@ global class Database {
 
     /**
      * Converts a lead into an account and contact, as well as (optionally) an opportunity.
-     * <p>Usage
+     * Usage
      * We recommend passing a maximum of 100 LeadConvert objects to the convertLead method. Including more than 100 objects per call can result in Apex governor limit errors.
      * Each executed convertLead method counts against the governor limit for DML statements.
      */
@@ -79,7 +79,7 @@ global class Database {
 
     /**
      * Converts a lead into an account and contact, as well as (optionally) an opportunity.
-     * <p>Usage
+     * Usage
      * We recommend passing a maximum of 100 LeadConvert objects to the convertLead method. Including more than 100 objects per call can result in Apex governor limit errors.
      * Each executed convertLead method counts against the governor limit for DML statements.
      */
@@ -87,7 +87,7 @@ global class Database {
 
     /**
      * Converts a lead into an account and contact, as well as (optionally) an opportunity.
-     * <p>Usage
+     * Usage
      * We recommend passing a maximum of 100 LeadConvert objects to the convertLead method. Including more than 100 objects per call can result in Apex governor limit errors.
      * Each executed convertLead method counts against the governor limit for DML statements.
      */
@@ -95,7 +95,7 @@ global class Database {
 
     /**
      * Converts a lead into an account and contact, as well as (optionally) an opportunity.
-     * <p>Usage
+     * Usage
      * We recommend passing a maximum of 100 LeadConvert objects to the convertLead method. Including more than 100 objects per call can result in Apex governor limit errors.
      * Each executed convertLead method counts against the governor limit for DML statements.
      */
@@ -103,10 +103,10 @@ global class Database {
 
     /**
      * Returns the number of records that a dynamic SOQL query would return when executed.
-     * <p>Usage
+     * Usage
      * For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_dynamic_soql.htm" target="_blank">Dynamic SOQL</a>.
      * Each executed countQuery method counts against the governor limit for SOQL queries.
-     * <p>Example
+     * Example
      * String QueryString =
      *     'SELECT count() FROM Account';
      * Integer i =
@@ -116,7 +116,7 @@ global class Database {
 
     /**
      * Returns the number of records that a dynamic SOQL query would return when executed.
-     * <p>Usage
+     * Usage
      * For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_dynamic_soql.htm" target="_blank">Dynamic SOQL</a>.
      * Each executed countQuery method counts against the governor limit for SOQL queries.
      */
@@ -126,7 +126,7 @@ global class Database {
 
     /**
      * Deletes a list of existing sObject records, such as individual accounts or contacts, from your organization’s data.
-     * <p>Usage
+     * Usage
      * delete is analogous to the delete() statement in the SOAP API.
      * Each executed delete method counts against the governor limit for DML statements.
      * To delete a share object record for a custom object, you must pass an sObject instead of a recordID. The recordID parameter isn't supported for share objects for custom objects.
@@ -135,7 +135,7 @@ global class Database {
 
     /**
      * Deletes a list of existing sObject records, such as individual accounts or contacts, from your organization’s data.
-     * <p>Usage
+     * Usage
      * delete is analogous to the delete() statement in the SOAP API.
      * Each executed delete method counts against the governor limit for DML statements.
      */
@@ -145,7 +145,7 @@ global class Database {
 
     /**
      * Deletes a list of existing sObject records, such as individual accounts or contacts, from your organization’s data.
-     * <p>Usage
+     * Usage
      * delete is analogous to the delete() statement in the SOAP API.
      * Each executed delete method counts against the governor limit for DML statements.
      * To delete a share object record for a custom object, you must pass an sObject instead of a recordID. The recordID parameter isn't supported for share objects for custom objects.
@@ -156,7 +156,7 @@ global class Database {
 
     /**
      * Deletes a list of existing sObject records, such as individual accounts or contacts, from your organization’s data.
-     * <p>Usage
+     * Usage
      * delete is analogous to the delete() statement in the SOAP API.
      * Each executed delete method counts against the governor limit for DML statements.
      */
@@ -164,7 +164,7 @@ global class Database {
 
     /**
      * Deletes a list of existing sObject records, such as individual accounts or contacts, from your organization’s data.
-     * <p>Usage
+     * Usage
      * delete is analogous to the delete() statement in the SOAP API.
      * Each executed delete method counts against the governor limit for DML statements.
      * To delete a share object record for a custom object, you must pass an sObject instead of a recordID. The recordID parameter isn't supported for share objects for custom objects.
@@ -173,7 +173,7 @@ global class Database {
 
     /**
      * Deletes a list of existing sObject records, such as individual accounts or contacts, from your organization’s data.
-     * <p>Usage
+     * Usage
      * delete is analogous to the delete() statement in the SOAP API.
      * Each executed delete method counts against the governor limit for DML statements.
      */
@@ -181,7 +181,7 @@ global class Database {
 
     /**
      * Deletes existing sObject records, such as individual accounts or contacts, from your organization’s data.
-     * <p>Usage
+     * Usage
      * delete is analogous to the delete() statement in the SOAP API.
      * Each executed delete method counts against the governor limit for DML statements.
      * To delete a share object record for a custom object, you must pass an sObject instead of a recordID. The recordID parameter isn't supported for share objects for custom objects.
@@ -190,7 +190,7 @@ global class Database {
 
     /**
      * Deletes an existing sObject record, such as an individual account or contact, from your organization's data.
-     * <p>Usage
+     * Usage
      * delete is analogous to the delete() statement in the SOAP API.
      * Each executed delete method counts against the governor limit for DML statements.
      */
@@ -200,7 +200,7 @@ global class Database {
 
     /**
      * Deletes existing sObject records, such as individual accounts or contacts, from your organization’s data.
-     * <p>Usage
+     * Usage
      * delete is analogous to the delete() statement in the SOAP API.
      * Each executed delete method counts against the governor limit for DML statements.
      * To delete a share object record for a custom object, you must pass an sObject instead of a recordID. The recordID parameter isn't supported for share objects for custom objects.
@@ -211,7 +211,7 @@ global class Database {
 
     /**
      * Deletes an existing sObject record, such as an individual account or contact, from your organization's data.
-     * <p>Usage
+     * Usage
      * delete is analogous to the delete() statement in the SOAP API.
      * Each executed delete method counts against the governor limit for DML statements.
      */
@@ -219,7 +219,7 @@ global class Database {
 
     /**
      * Deletes existing sObject records, such as individual accounts or contacts, from your organization’s data.
-     * <p>Usage
+     * Usage
      * delete is analogous to the delete() statement in the SOAP API.
      * Each executed delete method counts against the governor limit for DML statements.
      * To delete a share object record for a custom object, you must pass an sObject instead of a recordID. The recordID parameter isn't supported for share objects for custom objects.
@@ -228,7 +228,7 @@ global class Database {
 
     /**
      * Deletes an existing sObject record, such as an individual account or contact, from your organization's data.
-     * <p>Usage
+     * Usage
      * delete is analogous to the delete() statement in the SOAP API.
      * Each executed delete method counts against the governor limit for DML statements.
      */
@@ -284,7 +284,7 @@ global class Database {
 
     /**
      * Initiates requests to delete the external data that corresponds to the specified external object records. The requests are executed synchronously and are sent to the external systems that are defined by the external objects' associated external data sources. If the Apex transaction contains pending changes, the synchronous operations can't be completed and throw exceptions.
-     * <p>Usage
+     * Usage
      * The batch limit for big objects using deleteImmediate() is 50,000 records at once.
      * @return Status results for the delete operation.
      */
@@ -292,7 +292,7 @@ global class Database {
 
     /**
      * Initiates requests to delete the external data that corresponds to the specified external object records. The requests are executed synchronously and are sent to the external systems that are defined by the external objects' associated external data sources. If the Apex transaction contains pending changes, the synchronous operations can't be completed and throw exceptions.
-     * <p>Usage
+     * Usage
      * The batch limit for big objects using deleteImmediate() is 50,000 records at once.
      * @return Status results for the delete operation.
      */
@@ -312,7 +312,7 @@ global class Database {
 
     /**
      * Permanently deletes the specified records from the Recycle Bin.
-     * <p>Usage
+     * Usage
      * Note the following:
      * After records are deleted using this method, they cannot be undeleted.
      * Only 10,000 records can be specified for deletion.
@@ -324,7 +324,7 @@ global class Database {
 
     /**
      * Permanently deletes the specified sObjects from the Recycle Bin.
-     * <p>Usage
+     * Usage
      * Note the following:
      * After an sObject is deleted using this method, it cannot be undeleted.
      * Only 10,000 sObjects can be specified for deletion.
@@ -335,7 +335,7 @@ global class Database {
 
     /**
      * Permanently deletes the specified sObject from the Recycle Bin.
-     * <p>Usage
+     * Usage
      * Note the following:
      * After an sObject is deleted using this method, it cannot be undeleted.
      * Only 10,000 sObjects can be specified for deletion.
@@ -391,9 +391,9 @@ global class Database {
 
     /**
      * Returns the list of individual records that have been deleted for an sObject type within the specified start and end dates and times and that are still in the Recycle Bin.
-     * <p>Usage
+     * Usage
      * Because the Recycle Bin holds records up to 15 days, results are returned for no more than 15 days previous to the day the call is executed (or earlier if an administrator has purged the Recycle Bin).
-     * <p>Example
+     * Example
      * Database.GetDeletedResult r =
      *  Database.getDeleted(
      *   'Merchandise__c',
@@ -413,7 +413,7 @@ global class Database {
 
     /**
      * Creates a QueryLocator object used in batch Apex or Visualforce.
-     * <p>Usage
+     * Usage
      * The access level is evaluated only when the QueryLocator is created. A QueryLocator can be long lived, such as when used in a batch. We don’t reevaluate the object and field-level security with each iteration of the QueryLocator. As a result, if you specify user mode, and then change the security settings after the QueryLocator is created, the new settings aren’t enforced.
      * You can't use getQueryLocator with any query that contains an <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/langCon_apex_SOQL_agg_fns.htm" target="_blank">aggregate function</a>.
      * Each executed getQueryLocator method counts against the governor limit of 10,000 total records retrieved and the total number of SOQL queries issued.
@@ -423,7 +423,7 @@ global class Database {
 
     /**
      * Creates a QueryLocator object used in batch Apex or Visualforce.
-     * <p>Usage
+     * Usage
      * You can't use getQueryLocator with any query that contains an <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/langCon_apex_SOQL_agg_fns.htm" target="_blank">aggregate function</a>.
      * Each executed getQueryLocator method counts against the governor limit of 10,000 total records retrieved and the total number of SOQL queries issued.
      * For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_bulk_sharing.htm" target="_blank">Understanding Apex Managed Sharing</a>, and StandardSetController Class.
@@ -432,7 +432,7 @@ global class Database {
 
     /**
      * Creates a QueryLocator object used in batch Apex or Visualforce.
-     * <p>Usage
+     * Usage
      * The access level is evaluated only when the QueryLocator is created. A QueryLocator can be long lived, such as when used in a batch. We don’t reevaluate the object and field-level security with each iteration of the QueryLocator. As a result, if you specify user mode, and then change the security settings after the QueryLocator is created, the new settings aren’t enforced.
      * You can't use getQueryLocator with any query that contains an <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/langCon_apex_SOQL_agg_fns.htm" target="_blank">aggregate function</a>.
      * Each executed getQueryLocator method counts against the governor limit of 10,000 total records retrieved and the total number of SOQL queries issued.
@@ -442,7 +442,7 @@ global class Database {
 
     /**
      * Creates a QueryLocator object used in batch Apex or Visualforce.
-     * <p>Usage
+     * Usage
      * The access level is evaluated only when the QueryLocator is created. A QueryLocator can be long lived, such as when used in a batch. We don’t reevaluate the object and field-level security with each iteration of the QueryLocator. As a result, if you specify user mode, and then change the security settings after the QueryLocator is created, the new settings aren’t enforced.
      * You can't use getQueryLocator with any query that contains an <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/langCon_apex_SOQL_agg_fns.htm" target="_blank">aggregate function</a>.
      * Each executed getQueryLocator method counts against the governor limit of 10,000 total records retrieved and the total number of SOQL queries issued.
@@ -452,12 +452,12 @@ global class Database {
 
     /**
      * Creates a QueryLocator object used in batch Apex or Visualforce. Bind variables in the query are resolved from the bindMap Map parameter directly with the key, rather than from Apex code variables.
-     * <p>Usage
+     * Usage
      * The access level is evaluated only when the QueryLocator is created. A QueryLocator can be long lived, such as when used in a batch. We don’t reevaluate the object and field-level security with each iteration of the QueryLocator. As a result, if you specify user mode, and then change the security settings after the QueryLocator is created, the new settings aren’t enforced.
      * You can't use getQueryLocatorWithBinds with any query that contains an <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/langCon_apex_SOQL_agg_fns.htm" target="_blank">aggregate function</a>.
      * Each executed getQueryLocatorWithBinds method counts against the governor limit for the total number of records retrieved by Database.getQueryLocator(10,000) and the total number of SOQL queries issued. See Per Transaction Apex Limits.
      * For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_bulk_sharing.htm" target="_blank">Understanding Apex Managed Sharing</a>, and StandardSetController Class.
-     * <p>Example
+     * Example
      * In this example, the SOQL query uses a bind variable for an Account name. Its value (Acme Corporation) is passed in using the acctBinds Map.
      * public class TestBatch implements Database.Batchable<sObject>{
      *
@@ -480,9 +480,9 @@ global class Database {
 
     /**
      * Returns the list of individual records that have been updated for an sObject type within the specified start and end dates and times.
-     * <p>Usage
+     * Usage
      * The date range for the returned results is no more than 30 days previous to the day the call is executed.
-     * <p>Example
+     * Example
      * Database.GetUpdatedResult r =
      *  Database.getUpdated(
      *   'Merchandise__c',
@@ -493,7 +493,7 @@ global class Database {
 
     /**
      * Adds one or more sObjects, such as individual accounts or contacts, to your organization’s data.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -505,7 +505,7 @@ global class Database {
 
     /**
      * Adds one or more sObjects, such as individual accounts or contacts, to your organization’s data.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -517,7 +517,7 @@ global class Database {
 
     /**
      * Adds one or more sObjects, such as individual accounts or contacts, to your organization's data.
-     * <p>Usage
+     * Usage
      * insert is analogous to the INSERT statement in SQL.
      * Apex classes and triggers saved (compiled) using API version 15.0 and higher produce a runtime error if you assign a String value that is too long for the field.
      * Each executed insert method counts against the governor limit for DML statements.
@@ -526,7 +526,7 @@ global class Database {
 
     /**
      * Adds one or more sObjects, such as individual accounts or contacts, to your organization’s data.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -538,7 +538,7 @@ global class Database {
 
     /**
      * Adds one or more sObjects, such as individual accounts or contacts, to your organization's data.
-     * <p>Usage
+     * Usage
      * insert is analogous to the INSERT statement in SQL.
      * Apex classes and triggers saved (compiled) using API version 15.0 and higher produce a runtime error if you assign a String value that is too long for the field.
      * Each executed insert method counts against the governor limit for DML statements.
@@ -547,7 +547,7 @@ global class Database {
 
     /**
      * Adds an sObject, such as an individual account or contact, to your organization's data.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -561,7 +561,7 @@ global class Database {
 
     /**
      * Adds an sObject, such as an individual account or contact, to your organization's data.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -573,7 +573,7 @@ global class Database {
 
     /**
      * Adds an sObject, such as an individual account or contact, to your organization's data.
-     * <p>Usage
+     * Usage
      * insert is analogous to the INSERT statement in SQL.
      * Apex classes and triggers saved (compiled) using API version 15.0 and higher produce a runtime error if you assign a String value that is too long for the field.
      * Each executed insert method counts against the governor limit for DML statements.
@@ -582,7 +582,7 @@ global class Database {
 
     /**
      * Adds an sObject, such as an individual account or contact, to your organization's data.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -594,7 +594,7 @@ global class Database {
 
     /**
      * Adds an sObject, such as an individual account or contact, to your organization's data.
-     * <p>Usage
+     * Usage
      * insert is analogous to the INSERT statement in SQL.
      * Apex classes and triggers saved (compiled) using API version 15.0 and higher produce a runtime error if you assign a String value that is too long for the field.
      * Each executed insert method counts against the governor limit for DML statements.
@@ -603,7 +603,7 @@ global class Database {
 
     /**
      * Initiates requests to add external object data to the relevant external systems. The requests are executed asynchronously, as background operations, and are sent to the external systems that are defined by the external objects' associated external data sources.
-     * <p>Usage
+     * Usage
      * Database.insertAsync() methods can’t be executed in the context of a portal user, even when the portal user is a community member. To add external object records via Apex, use Database.insertImmediate() methods.
      * @return Status results for the insert operation. Each result corresponds to a record processed by this asynchronous operation and is associated with a unique identifier (asyncLocator). The asyncLocator value is included in the errors array of the result. You can retrieve this identifier with Database.getAsyncLocator(). Retrieve the final result with Database.getAsyncSaveResult().
      */
@@ -611,7 +611,7 @@ global class Database {
 
     /**
      * Initiates requests to add external object data to the relevant external systems. The requests are executed asynchronously, as background operations, and are sent to the external systems that are defined by the external objects' associated external data sources.
-     * <p>Usage
+     * Usage
      * Database.insertAsync() methods can’t be executed in the context of a portal user, even when the portal user is a community member. To add external object records via Apex, use Database.insertImmediate() methods.
      * @return Status results for the insert operation. Each result corresponds to a record processed by this asynchronous operation and is associated with a unique identifier (asyncLocator). The asyncLocator value is included in the errors array of the result. You can retrieve this identifier with Database.getAsyncLocator(). Retrieve the final result with Database.getAsyncSaveResult().
      */
@@ -619,7 +619,7 @@ global class Database {
 
     /**
      * Initiates requests to add external object data to the relevant external systems. The requests are executed asynchronously, as background operations, and are sent to the external systems that are defined by the external objects' associated external data sources. Allows referencing a callback class whose processSave method is called for each record after the remote operations are completed.
-     * <p>Usage
+     * Usage
      * Database.insertAsync() methods can’t be executed in the context of a portal user, even when the portal user is a community member. To add external object records via Apex, use Database.insertImmediate() methods.
      * @return Status results for the insert operation. Each result corresponds to a record processed by this asynchronous operation and is associated with a unique identifier (asyncLocator). The asyncLocator value is included in the errors array of the result. You can retrieve this identifier with Database.getAsyncLocator(). Retrieve the final result with Database.getAsyncSaveResult().
      */
@@ -629,7 +629,7 @@ global class Database {
 
     /**
      * Initiates a request to add external object data to the relevant external system. The request is executed asynchronously, as a background operation, and is sent to the external system that's defined by the external object's associated external data source.
-     * <p>Usage
+     * Usage
      * Database.insertAsync() methods can’t be executed in the context of a portal user, even when the portal user is a community member. To add external object records via Apex, use Database.insertImmediate() methods.
      * @return Status result for the insert operation. The result corresponds to the record processed by this asynchronous operation and is associated with a unique identifier (asyncLocator). The asyncLocator value is included in the errors array of the result. You can retrieve this identifier with Database.getAsyncLocator(). Retrieve the final result with Database.getAsyncSaveResult().
      */
@@ -637,7 +637,7 @@ global class Database {
 
     /**
      * Initiates a request to add external object data to the relevant external system. The request is executed asynchronously, as a background operation, and is sent to the external system that's defined by the external object's associated external data source.
-     * <p>Usage
+     * Usage
      * Database.insertAsync() methods can’t be executed in the context of a portal user, even when the portal user is a community member. To add external object records via Apex, use Database.insertImmediate() methods.
      * @return Status result for the insert operation. The result corresponds to the record processed by this asynchronous operation and is associated with a unique identifier (asyncLocator). The asyncLocator value is included in the errors array of the result. You can retrieve this identifier with Database.getAsyncLocator(). Retrieve the final result with Database.getAsyncSaveResult().
      */
@@ -645,7 +645,7 @@ global class Database {
 
     /**
      * Initiates a request to add external object data to the relevant external system. The request is executed asynchronously, as a background operation, and is sent to the external system that's defined by the external object's associated external data source. Allows referencing a callback class whose processSave method is called after the remote operation is completed.
-     * <p>Usage
+     * Usage
      * Database.insertAsync() methods can’t be executed in the context of a portal user, even when the portal user is a community member. To add external object records via Apex, use Database.insertImmediate() methods.
      * @return Status result for the insert operation. The result corresponds to the record processed by this asynchronous operation and is associated with a unique identifier (asyncLocator). The asyncLocator value is included in the errors array of the result. You can retrieve this identifier with Database.getAsyncLocator(). Retrieve the final result with Database.getAsyncSaveResult().
      */
@@ -653,7 +653,7 @@ global class Database {
 
     /**
      * Initiates a request to add external object data to the relevant external system. The request is executed asynchronously, as a background operation, and is sent to the external system that's defined by the external object's associated external data source. Allows referencing a callback class whose processSave method is called after the remote operation is completed.
-     * <p>Usage
+     * Usage
      * Database.insertAsync() methods can’t be executed in the context of a portal user, even when the portal user is a community member. To add external object records via Apex, use Database.insertImmediate() methods.
      * @return Status result for the insert operation. The result corresponds to the record processed by this asynchronous operation and is associated with a unique identifier (asyncLocator). The asyncLocator value is included in the errors array of the result. You can retrieve this identifier with Database.getAsyncLocator(). Retrieve the final result with Database.getAsyncSaveResult().
      */
@@ -661,7 +661,7 @@ global class Database {
 
     /**
      * Initiates requests to add external object data to the relevant external systems. The requests are executed synchronously and are sent to the external systems that are defined by the external objects' associated external data sources. If the Apex transaction contains pending changes, the synchronous operations can't be completed and throw exceptions.
-     * <p>Usage
+     * Usage
      * The operation allows partial success. If one or more record inserts fail, the method doesn’t throw an exception and the remainder of the DML operation can still succeed. The returned SaveResult objects indicate whether the operation was successful. If it wasn’t successful, the objects also return the error code and description.
      * @return Status results for the insert operation.
      */
@@ -669,7 +669,7 @@ global class Database {
 
     /**
      * Initiates requests to add external object data to the relevant external systems. The requests are executed synchronously and are sent to the external systems that are defined by the external objects' associated external data sources. If the Apex transaction contains pending changes, the synchronous operations can't be completed and throw exceptions.
-     * <p>Usage
+     * Usage
      * The operation allows partial success. If one or more record inserts fail, the method doesn’t throw an exception and the remainder of the DML operation can still succeed. The returned SaveResult objects indicate whether the operation was successful. If it wasn’t successful, the objects also return the error code and description.
      * @return Status results for the insert operation.
      */
@@ -677,7 +677,7 @@ global class Database {
 
     /**
      * Initiates a request to add external object data to the relevant external system. The request is executed synchronously and is sent to the external system that's defined by the external object's associated external data source. If the Apex transaction contains pending changes, the synchronous operation can't be completed and throws an exception.
-     * <p>Usage
+     * Usage
      * If a record insert fails, the method doesn’t throw an exception. The returned SaveResult object indicates whether the operation was successful. If it wasn’t successful, the object returns the error code and description.
      * @return Status result for the insert operation.
      */
@@ -685,7 +685,7 @@ global class Database {
 
     /**
      * Initiates a request to add external object data to the relevant external system. The request is executed synchronously and is sent to the external system that's defined by the external object's associated external data source. If the Apex transaction contains pending changes, the synchronous operation can't be completed and throws an exception.
-     * <p>Usage
+     * Usage
      * If a record update fails, the method doesn’t throw an exception. The returned SaveResult object indicates whether the operation was successful. If it failed, the object returns the error code and description.
      * @return Status result for the insert operation.
      */
@@ -693,28 +693,28 @@ global class Database {
 
     /**
      * Merges up to two records of the same sObject type into the mergeToRecord sObject record, deleting the others, and reparenting any related records.
-     * <p>Usage
+     * Usage
      * Each executed merge method counts against the governor limit for DML statements.
      */
     global static List merge(SObject primary, List duplicates) { return null; }
 
     /**
      * Merges up to two records of the same object type into the mergeToRecord sObject record, deleting the others, and reparenting any related records.
-     * <p>Usage
+     * Usage
      * Each executed merge method counts against the governor limit for DML statements.
      */
     global static List merge(SObject primary, List duplicates) { return null; }
 
     /**
      * Merges up to two records of the same sObject type into the mergeToRecord sObject record, deleting the others, and reparenting any related records.
-     * <p>Usage
+     * Usage
      * Each executed merge method counts against the governor limit for DML statements.
      */
     global static List merge(SObject primary, List duplicates, System.AccessLevel accessLevel) { return null; }
 
     /**
      * Merges up to two records of the same sObject type into the mergeToRecord sObject record, optionally returning any errors, deleting the duplicates, and reparenting any related records.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -724,14 +724,14 @@ global class Database {
 
     /**
      * Merges up to two records of the same object type into the mergeToRecord sObject record, deleting the others, and reparenting any related records.
-     * <p>Usage
+     * Usage
      * Each executed merge method counts against the governor limit for DML statements.
      */
     global static List merge(SObject primary, List duplicates, System.AccessLevel accessLevel) { return null; }
 
     /**
      * Merges up to two records of the same object type into the mergeToRecord sObject record, optionally returning any errors, deleting the duplicates, and reparenting any related records.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -741,7 +741,7 @@ global class Database {
 
     /**
      * Merges up to two records of the same sObject type into the mergeToRecord sObject record, optionally returning any errors, deleting the duplicates, and reparenting any related records.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -751,7 +751,7 @@ global class Database {
 
     /**
      * Merges up to two records of the same object type into the mergeToRecord sObject record, optionally returning any errors, deleting the duplicates, and reparenting any related records.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -761,28 +761,28 @@ global class Database {
 
     /**
      * Merges the duplicate record into the mergeToRecord sObject record of the same type, deleting the duplicate, and reparenting any related records. Merges only accounts, contacts, or leads.
-     * <p>Usage
+     * Usage
      * Each executed merge method counts against the governor limit for DML statements.
      */
     global static Database.MergeResult merge(SObject primary, Id duplicate) { return null; }
 
     /**
      * Merges the specified duplicate sObject record into the mergeToRecord sObject of the same type, deleting the duplicate, and reparenting any related records.
-     * <p>Usage
+     * Usage
      * Each executed merge method counts against the governor limit for DML statements.
      */
     global static Database.MergeResult merge(SObject primary, SObject duplicate) { return null; }
 
     /**
      * Merges the duplicate record into the mergeToRecord sObject record of the same type, deleting the duplicate, and reparenting any related records. Merges only accounts, contacts, or leads.
-     * <p>Usage
+     * Usage
      * Each executed merge method counts against the governor limit for DML statements.
      */
     global static Database.MergeResult merge(SObject primary, Id duplicate, System.AccessLevel accessLevel) { return null; }
 
     /**
      * Merges the duplicate record into the mergeToRecord sObject record of the same type, optionally returning any errors, deleting the duplicate, and reparenting any related records. Merges only accounts, contacts, or leads.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -792,14 +792,14 @@ global class Database {
 
     /**
      * Merges the specified duplicate sObject record into the mergeToRecord sObject of the same type, deleting the duplicate, and reparenting any related records.
-     * <p>Usage
+     * Usage
      * Each executed merge method counts against the governor limit for DML statements.
      */
     global static Database.MergeResult merge(SObject primary, SObject duplicate, System.AccessLevel accessLevel) { return null; }
 
     /**
      * Merges the duplicate sObject record into the mergeToRecord sObject record of the same type, optionally returning any errors, deleting the duplicate, and reparenting any related records.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -809,7 +809,7 @@ global class Database {
 
     /**
      * Merges the duplicate record into the mergeToRecord sObject record of the same type, optionally returning any errors, deleting the duplicate, and reparenting any related records. Merges only accounts, contacts, or leads.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -819,7 +819,7 @@ global class Database {
 
     /**
      * Merges the duplicate sObject record into the mergeToRecord sObject record of the same type, optionally returning any errors, deleting the duplicate, and reparenting any related records.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -829,7 +829,7 @@ global class Database {
 
     /**
      * Creates a dynamic SOQL query at runtime.
-     * <p>Usage
+     * Usage
      * This method can be used wherever a static SOQL query can be used, such as in regular assignment statements and for loops. Unlike inline SOQL, fields in bind variables aren’t supported. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_dynamic_soql.htm" target="_blank">Dynamic SOQL</a>.
      * Database.query() calls containing an inner query for a related child object may not return the entire result set based on the size and complexity of the records requested. Instead, use Database.getQueryLocator() in conjunction with Apex Batch. Alternatively, you can use the same SOQL query with SOAP API to be able to access all the resulting records.
      * Each executed query method counts against the governor limit for SOQL queries.
@@ -838,7 +838,7 @@ global class Database {
 
     /**
      * Creates a dynamic SOQL query at runtime.
-     * <p>Usage
+     * Usage
      * This method can be used wherever a static SOQL query can be used, such as in regular assignment statements and for loops. Unlike inline SOQL, fields in bind variables aren’t supported. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_dynamic_soql.htm" target="_blank">Dynamic SOQL</a>.
      * Database.query() calls containing an inner query for a related child object may not return the entire result set based on the size and complexity of the records requested. Instead, use Database.getQueryLocator() in conjunction with Apex Batch. Alternatively, you can use the same SOQL query with SOAP API to be able to access all the resulting records.
      * Each executed query method counts against the governor limit for SOQL queries.
@@ -847,11 +847,11 @@ global class Database {
 
     /**
      * Creates a dynamic SOQL query at runtime. Bind variables in the query are resolved from the bindMap Map parameter directly with the key, rather than from Apex code variables.
-     * <p>Usage
+     * Usage
      * This method can be used wherever a static SOQL query can be used, such as in regular assignment statements and for loops.
      * For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_dynamic_soql.htm" target="_blank">Dynamic SOQL</a>.
      * Each executed queryWithBinds method counts against the governor limit for SOQL queries.
-     * <p>Example
+     * Example
      * In this example, the SOQL query uses a bind variable for an Account name. Its value (Acme Inc.) is passed in to the method using the nameBind Map. The accountName variable isn't (and doesn’t have to be) in scope when the query is executed within the method.
      * public static List<Account> simpleBindingSoqlQuery(Map<String, Object> bindParams) {
      *     String queryString =
@@ -874,7 +874,7 @@ global class Database {
 
     /**
      * Releases a given savepoint. All savepoints that are subsequent to the given one are also released.
-     * <p>Versioned Behavior Changes
+     * Versioned Behavior Changes
      * For Apex tests with API version 60.0 or later, all savepoints are released when Test.startTest() and Test.stopTest() are called. If any savepoints are reset, a SAVEPOINT_RESET event is logged.
      * Before API version 60.0, making a callout after creating savepoints throws a CalloutException regardless of whether there was uncommitted DML or the changes were rolled back to a savepoint. Also, before API version 60.0, both Database.rollback(databaseSavepoint) and Database.setSavepoint() calls incremented the DML row usage limit.
      */
@@ -882,13 +882,13 @@ global class Database {
 
     /**
      * Restores the database to the state specified by the savepoint variable. Any emails submitted since the last savepoint are also rolled back and not sent.
-     * <p>Usage
+     * Usage
      * Note the following:
      * Static variables aren’t reverted during a rollback. If you try to run the trigger again, the static variables retain the values from the first run.
      * Each rollback counts against the governor limit for DML statements. You receive a runtime error if you try to roll back the database additional times.
      * The ID on an sObject inserted after setting a savepoint isn’t cleared after a rollback. Create an sObject to insert after a rollback. Attempting to insert the sObject using the variable created before the rollback fails because the sObject variable has an ID. Updating or upserting the sObject using the same variable also fails because the sObject isn’t in the database and, thus, can’t be updated.
      * For an example, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/langCon_apex_transaction_control.htm" target="_blank">Transaction Control</a>.
-     * <p>Versioned Behavior Changes
+     * Versioned Behavior Changes
      * For Apex tests with API version 60.0 or later, all savepoints are released when Test.startTest() and Test.stopTest() are called. If any savepoints are reset, a SAVEPOINT_RESET event is logged.
      * Before API version 60.0, making a callout after creating savepoints throws a CalloutException regardless of whether there was uncommitted DML or the changes were rolled back to a savepoint. Also, before API version 60.0, both Database.rollback(Savepoint) and Database.setSavepoint() calls incremented the DML row usage limit.
      */
@@ -896,13 +896,13 @@ global class Database {
 
     /**
      * Returns a savepoint variable that can be stored as a local variable, then used with the rollback method to restore the database to that point.
-     * <p>Usage
+     * Usage
      * Note the following:
      * If you set more than one savepoint, then roll back to a savepoint that isn’t the last savepoint you generated, the later savepoint variables become invalid. For example, if you generated savepoint SP1 first, savepoint SP2 after that, and then you rolled back to SP1, the variable SP2 would no longer be valid. You receive a runtime error if you try to use it.
      * References to savepoints can’t cross trigger invocations because each trigger invocation is a new trigger context. If you declare a savepoint as a static variable then try to use it across trigger contexts, you receive a run-time error.
      * Each savepoint you set counts against the governor limit for DML statements.
      * For an example, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/langCon_apex_transaction_control.htm" target="_blank">Transaction Control</a>.
-     * <p>Versioned Behavior Changes
+     * Versioned Behavior Changes
      * For Apex tests with API version 60.0 or later, all savepoints are released when Test.startTest() and Test.stopTest() are called. If any savepoints are reset, a SAVEPOINT_RESET event is logged.
      * Before API version 60.0, making a callout after creating savepoints throws a CalloutException regardless of whether there was uncommitted DML or the changes were rolled back to a savepoint. Also, before API version 60.0, both Database.rollback(Savepoint) and Database.setSavepoint() calls incremented the DML row usage limit.
      */
@@ -914,7 +914,7 @@ global class Database {
 
     /**
      * Restores one or more existing sObject records, such as individual accounts or contacts, from your organization’s Recycle Bin.
-     * <p>Usage
+     * Usage
      * undelete is analogous to the UNDELETE statement in SQL.
      * Each executed undelete method counts against the governor limit for DML statements.
      */
@@ -922,7 +922,7 @@ global class Database {
 
     /**
      * Restores one or more existing sObject records, such as individual accounts or contacts, from your organization’s Recycle Bin.
-     * <p>Usage
+     * Usage
      * undelete is analogous to the UNDELETE statement in SQL.
      * Each executed undelete method counts against the governor limit for DML statements.
      */
@@ -932,7 +932,7 @@ global class Database {
 
     /**
      * Restores one or more existing sObject records, such as individual accounts or contacts, from your organization’s Recycle Bin.
-     * <p>Usage
+     * Usage
      * undelete is analogous to the UNDELETE statement in SQL.
      * Each executed undelete method counts against the governor limit for DML statements.
      */
@@ -942,7 +942,7 @@ global class Database {
 
     /**
      * Restores one or more existing sObject records, such as individual accounts or contacts, from your organization’s Recycle Bin.
-     * <p>Usage
+     * Usage
      * undelete is analogous to the UNDELETE statement in SQL.
      * Each executed undelete method counts against the governor limit for DML statements.
      */
@@ -950,7 +950,7 @@ global class Database {
 
     /**
      * Restores one or more existing sObject records, such as individual accounts or contacts, from your organization’s Recycle Bin.
-     * <p>Usage
+     * Usage
      * undelete is analogous to the UNDELETE statement in SQL.
      * Each executed undelete method counts against the governor limit for DML statements.
      */
@@ -958,7 +958,7 @@ global class Database {
 
     /**
      * Restores one or more existing sObject records, such as individual accounts or contacts, from your organization’s Recycle Bin.
-     * <p>Usage
+     * Usage
      * undelete is analogous to the UNDELETE statement in SQL.
      * Each executed undelete method counts against the governor limit for DML statements.
      */
@@ -966,7 +966,7 @@ global class Database {
 
     /**
      * Restores an existing sObject record, such as an individual account or contact, from your organization's Recycle Bin.
-     * <p>Usage
+     * Usage
      * undelete is analogous to the UNDELETE statement in SQL.
      * Each executed undelete method counts against the governor limit for DML statements.
      */
@@ -974,7 +974,7 @@ global class Database {
 
     /**
      * Restores an existing sObject record, such as an individual account or contact, from your organization's Recycle Bin.
-     * <p>Usage
+     * Usage
      * undelete is analogous to the UNDELETE statement in SQL.
      * Each executed undelete method counts against the governor limit for DML statements.
      */
@@ -984,7 +984,7 @@ global class Database {
 
     /**
      * Restores an existing sObject record, such as an individual account or contact, from your organization's Recycle Bin.
-     * <p>Usage
+     * Usage
      * undelete is analogous to the UNDELETE statement in SQL.
      * Each executed undelete method counts against the governor limit for DML statements.
      */
@@ -994,7 +994,7 @@ global class Database {
 
     /**
      * Restores an existing sObject record, such as an individual account or contact, from your organization's Recycle Bin.
-     * <p>Usage
+     * Usage
      * undelete is analogous to the UNDELETE statement in SQL.
      * Each executed undelete method counts against the governor limit for DML statements.
      */
@@ -1002,7 +1002,7 @@ global class Database {
 
     /**
      * Restores an existing sObject record, such as an individual account or contact, from your organization's Recycle Bin.
-     * <p>Usage
+     * Usage
      * undelete is analogous to the UNDELETE statement in SQL.
      * Each executed undelete method counts against the governor limit for DML statements.
      */
@@ -1010,7 +1010,7 @@ global class Database {
 
     /**
      * Restores an existing sObject record, such as an individual account or contact, from your organization's Recycle Bin.
-     * <p>Usage
+     * Usage
      * undelete is analogous to the UNDELETE statement in SQL.
      * Each executed undelete method counts against the governor limit for DML statements.
      */
@@ -1018,7 +1018,7 @@ global class Database {
 
     /**
      * Modifies one or more existing sObject records, such as individual accounts or contacts, in your organization’s data.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -1029,7 +1029,7 @@ global class Database {
 
     /**
      * Modifies one or more existing sObject records, such as individual accounts or contacts, in your organization’s data.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -1043,7 +1043,7 @@ global class Database {
 
     /**
      * Modifies one or more existing sObject records, such as individual accounts or contacts, in your organization’s data.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -1057,7 +1057,7 @@ global class Database {
 
     /**
      * Modifies an existing sObject record, such as an individual account or contact, in your organization's data.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -1068,7 +1068,7 @@ global class Database {
 
     /**
      * Modifies an existing sObject record, such as an individual account or contact, in your organization's data.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -1082,7 +1082,7 @@ global class Database {
 
     /**
      * Modifies an existing sObject record, such as an individual account or contact, in your organization's data.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -1144,7 +1144,7 @@ global class Database {
 
     /**
      * Initiates requests to update external object data on the relevant external systems. The requests are executed synchronously and are sent to the external systems that are defined by the external objects' associated external data sources. If the Apex transaction contains pending changes, the synchronous operations can't be completed and throw exceptions.
-     * <p>Usage
+     * Usage
      * The operation allows partial success. If one or more record updates fail, the method doesn’t throw an exception and the remainder of the DML operation can still succeed. The returned SaveResult objects indicate whether the operation was successful. If it wasn’t successful, the objects also return the error code and description.
      * @return Status results for the update operation.
      */
@@ -1152,7 +1152,7 @@ global class Database {
 
     /**
      * Initiates requests to update external object data on the relevant external systems. The requests are executed synchronously and are sent to the external systems that are defined by the external objects' associated external data sources. If the Apex transaction contains pending changes, the synchronous operations can't be completed and throw exceptions.
-     * <p>Usage
+     * Usage
      * The operation allows partial success. If one or more record updates fail, the method doesn’t throw an exception and the remainder of the DML operation can still succeed. The returned SaveResult objects indicate whether the operation was successful. If it wasn’t successful, the objects also return the error code and description.
      * @return Status results for the update operation.
      */
@@ -1160,7 +1160,7 @@ global class Database {
 
     /**
      * Initiates a request to update external object data on the relevant external system. The request is executed synchronously and is sent to the external system that's defined by the external object's associated external data source. If the Apex transaction contains pending changes, the synchronous operation can't be completed and throws an exception.
-     * <p>Usage
+     * Usage
      * If a record update fails, the method doesn’t throw an exception. The returned SaveResult object indicates whether the operation was successful. If it wasn’t successful, the object returns the error code and description.
      * @return Status result for the update operation.
      */
@@ -1168,7 +1168,7 @@ global class Database {
 
     /**
      * Initiates a request to update external object data on the relevant external system. The request is executed synchronously and is sent to the external system that's defined by the external object's associated external data source. If the Apex transaction contains pending changes, the synchronous operation can't be completed and throws an exception.
-     * <p>Usage
+     * Usage
      * If a record update fails, the method doesn’t throw an exception. The returned SaveResult object indicates whether the operation was successful. If it failed, the object returns the error code and description.
      * @return Status result for the update operation.
      */
@@ -1176,7 +1176,7 @@ global class Database {
 
     /**
      * Creates new sObject records or updates existing sObject records within a single statement, using a specified field to determine the presence of existing objects, or the ID field if no field is specified.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -1192,7 +1192,7 @@ global class Database {
 
     /**
      * Creates new sObject records or updates existing sObject records within a single statement, using a specified field to determine the presence of existing objects, or the ID field if no field is specified.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -1206,7 +1206,7 @@ global class Database {
 
     /**
      * Creates new sObject records or updates existing sObject records within a single statement, using a specified field to determine the presence of existing objects, or the ID field if no field is specified.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -1220,7 +1220,7 @@ global class Database {
 
     /**
      * Creates new sObject records or updates existing sObject records within a single statement, using a specified field to determine the presence of existing objects, or the ID field if no field is specified.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -1232,7 +1232,7 @@ global class Database {
 
     /**
      * Creates a new sObject record or updates an existing sObject record within a single statement, using a specified field to determine the presence of existing objects, or the ID field if no field is specified.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -1248,7 +1248,7 @@ global class Database {
 
     /**
      * Creates a new sObject record or updates an existing sObject record within a single statement, using a specified field to determine the presence of existing objects, or the ID field if no field is specified.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -1264,7 +1264,7 @@ global class Database {
 
     /**
      * Creates a new sObject record or updates an existing sObject record within a single statement, using a specified field to determine the presence of existing objects, or the ID field if no field is specified.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.
@@ -1276,7 +1276,7 @@ global class Database {
 
     /**
      * Creates a new sObject record or updates an existing sObject record within a single statement, using a specified field to determine the presence of existing objects, or the ID field if no field is specified.
-     * <p>Usage
+     * Usage
      * If you use the accessLevel parameter to specify that the method runs in user mode, we report all encountered inaccessible fields. The way to retrieve the names of these inaccessible fields depends on the value of this method's allOrNone parameter, or the equivalent <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_dmloptions.htm#apex_Database_DmlOptions_optAllOrNone" target="_blank">DmlOptions.optAllOrNone</a> property. If you specify that:
      * allOrNone=true or DmlOptions.optAllOrNone=true: Catch the DMLException and use the DMLException.getDMLFieldNames() method to retrieve the list of inaccessible fields. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_classes_exception_methods.htm" target="_blank">Exception Class and Built-In Exceptions</a> for more information.
      * allOrNone=false or DmlOptions.optAllOrNone=false: For each failing record, we update the Database.Error object that results from the DML operation. Use the Error.getFields() method to retrieve the list of inaccessible fields. See the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_database_error.htm#apex_Database_Error_methods" target="_blank">Error Class methods</a> for more information.

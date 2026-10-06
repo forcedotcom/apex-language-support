@@ -1,8 +1,8 @@
 /**
  * Specifies the compression level for creating a zip file.
- * <p>Usage
+ * Usage
  * Use Level enum with the getLevel() and setLevel(value) methods in the ZipWriter class.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the Compression.Level enum.
  */
 global enum Level {

@@ -1,8 +1,8 @@
 /**
  * Contains information about the available service resources (appointment candidates) based on work type group and service territories.
- * <p>Set up Salesforce Scheduler before making requests. This setup includes creating or configuring Service Resources, Service Territory Members, Work Type Groups, Work Types, Work Type Group Members, and Service Territory Work Types. See <a class="xref" href="https://help.salesforce.com/s/articleView?id=platform.ls_set_up.htm&amp;type=5&amp;language=en_US" target="_blank" title="HTML (New Window)">Set Up Salesforce Scheduler</a> for more information.
+ * Set up Salesforce Scheduler before making requests. This setup includes creating or configuring Service Resources, Service Territory Members, Work Type Groups, Work Types, Work Type Group Members, and Service Territory Work Types. See <a class="xref" href="https://help.salesforce.com/s/articleView?id=platform.ls_set_up.htm&amp;type=5&amp;language=en_US" target="_blank" title="HTML (New Window)">Set Up Salesforce Scheduler</a> for more information.
  * The appointment time slots are determined based on multiple factors, such as field values, scheduled appointments, absences, Scheduler Settings, and Scheduling Policies to determine available time slots. See <a class="xref" href="https://help.salesforce.com/s/articleView?id=platform.ls_how_are_time_slots_determined.htm&amp;type=5&amp;language=en_US" target="_blank" title="HTML (New Window)">How Salesforce Scheduler Determines Available Time Slots</a> for more information.
- * <p>The following factors are considered for returning start time and end time of resources.
+ * The following factors are considered for returning start time and end time of resources.
  * Resource Availability
  * Determined using service territory member, service territory, work type, and account operating hours fields.
  * Resource Unavailability
@@ -13,9 +13,9 @@
  * The end time is calculated as start time + duration of the work type.
  * Note
  * If asset scheduling is enabled, the response also includes asset-based candidates.
- * <p>Usage
+ * Usage
  * The constructor for this class can’t be called directly. Create an instance of this class using the GetAppointmentCandidatesInputBuilder.build() method.
- * <p>This example shows how to get a list of available appointment candidates based on workTypeGroupId:
+ * This example shows how to get a list of available appointment candidates based on workTypeGroupId:
  * //Build input for GetAppointmentCandidates API
  *    lxscheduler.GetAppointmentCandidatesInput input = new lxscheduler.GetAppointmentCandidatesInputBuilder()
  *      .setWorkTypeGroupId('0VSRM0000000ABc4AM')
@@ -74,7 +74,7 @@
  *      .build();
  *
  *    String response = lxscheduler.SchedulerResources.getAppointmentCandidates(input);
- * <p>This example shows a sample response of a list of available candidates:
+ * This example shows a sample response of a list of available candidates:
  * [
  *    {
  *       "startTime": "2021-02-16T16:15:00.000+0000",

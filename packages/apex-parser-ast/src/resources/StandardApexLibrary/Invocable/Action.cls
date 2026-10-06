@@ -1,9 +1,9 @@
 /**
  * Contains methods to create, update, and retrieve information about invocable actions.
- * <p>Usage
+ * Usage
  * The getDescribe() method returns detailed metadata about an invocable action, including its inputs, outputs, and configuration. Because this method retrieves comprehensive describe information, it can have performance implications. Use getDescribe() judiciously, especially in performance-sensitive contexts such as loops or frequently executed code paths.
  * When calling createStandardAction() or createCustomAction(), the version parameter is optional. If you don't specify a version, the base version of the action is used.
- * <p>Example
+ * Example
  * // Create an action and get its metadata
  * Invocable.Action action = Invocable.Action.createStandardAction('someActionName');
  * List<Invocable.Action.DescribeResult> describeResults = action.getDescribe();
@@ -122,10 +122,10 @@ global class Action {
 
     /**
      * Contains methods to get metadata about attributes associated with invocable action parameters.
-     * <p>Usage
+     * Usage
      * Additional attributes extend invocable action parameters with custom metadata beyond the standard parameter properties. Use the AdditionalAttribute class to access this extensibility metadata when working with invocable actions.
      * For type-safe access to collection values, use the typed getter methods such as getValueAsStringList(), getValueAsIntegerList(), getValueAsDoubleList(), or getValueAsBooleanList(). These methods return null when the requested data type doesn't match the attribute's actual data type. Check getDataType() and getIsCollection() before calling typed getters to ensure you use the appropriate method.
-     * <p>Example
+     * Example
      * Invocable.Action action = Invocable.Action.createStandardAction('otherActionName');
      * List<Invocable.Action.DescribeResult> results = action.getDescribe();
      *
@@ -231,7 +231,7 @@ global class Action {
 
     /**
      * Contains methods to get metadata about invocable actions.
-     * <p>Example
+     * Example
      * Invocable.Action action = Invocable.Action.createStandardAction('otherActionName');
      * List<Invocable.Action.DescribeResult> results = action.getDescribe();
      *
@@ -448,7 +448,7 @@ global class Action {
 
     /**
      * Contains methods to get metadata about input parameters for invocable actions.
-     * <p>Example
+     * Example
      * Invocable.Action action = Invocable.Action.createStandardAction('otherActionName');
      * List<Invocable.Action.DescribeResult> results = action.getDescribe();
      *
@@ -580,7 +580,7 @@ global class Action {
 
     /**
      * Contains methods about metadata returned by invocable actions.
-     * <p>Example
+     * Example
      * Invocable.Action action = Invocable.Action.createStandardAction('otherActionName');
      * List<Invocable.Action.DescribeResult> results = action.getDescribe();
      *
@@ -670,7 +670,7 @@ global class Action {
 
     /**
      * Contains methods to get metadata about a single value in a picklist used by invocable action parameters.
-     * <p>Example
+     * Example
      * Invocable.Action action = Invocable.Action.createStandardAction('anotherActionName');
      * List<Invocable.Action.DescribeResult> describeResults = action.getDescribe();
      *

@@ -1,9 +1,9 @@
 /**
  * Use the ProcessWorkitemRequest class for processing an approval request after it is submitted.
- * <p>Usage
+ * Usage
  * You must specify the Approval namespace when creating an instance of this class. The constructor for this class takes no arguments. For example:
  * Approval.ProcessWorkitemRequest pwr = new Approval.ProcessWorkitemRequest();
- * <p>Inherited Methods
+ * Inherited Methods
  * In addition to the methods listed, the ProcessWorkitemRequest class has access to all the methods in its parent class, ProcessRequest Class:
  * getComments()
  * getNextApproverIds()

@@ -1,6 +1,6 @@
 /**
  * Contains describe metadata information for a quick action that is available for a specified parent.
- * <p>Usage
+ * Usage
  * The QuickAction describeAvailableQuickActions method returns an array of available quick action describe result objects (QuickAction.DescribeAvailableQuickActionResult).
  */
 global class DescribeAvailableQuickActionResult {

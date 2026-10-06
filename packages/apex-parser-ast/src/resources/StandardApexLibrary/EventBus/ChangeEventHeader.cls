@@ -4,12 +4,12 @@
 global class ChangeEventHeader {
     /**
      * A list of the fields that were changed in an update operation, including the LastModifiedDate system field. This field is empty for other operations, including record creation. This property is available in Apex saved using API version 47.0 or later.
-     * <p>List<String>
+     * List<String>
      */
     global List changedfields { get; set; }
     /**
      * Only populated for changes done by API apps or from Lightning Experience; empty otherwise. The Salesforce API and the API client ID that initiated the change, if set by the client. Use this field to detect whether your app initiated the change to not process the change again and potentially avoid a deep cycle of changes.
-     * <p>String
+     * String
      * The format of the changeOrigin field value is:
      * com/salesforce/api/<API_Name>/<API_Version>;client=<Client_ID>
      * <API_Name> is the name of the Salesforce API used to make the data change. It can take one of these values: soap, rest, bulkapi, xmlrpc, oldsoap, toolingsoap, toolingrest, apex, apexdebuggerrest.
@@ -24,7 +24,7 @@ global class ChangeEventHeader {
     global String changeorigin { get; set; }
     /**
      * The operation that caused the change.
-     * <p>String
+     * String
      * Can be one of the following values:
      * CREATE
      * UPDATE
@@ -41,37 +41,37 @@ global class ChangeEventHeader {
     global String changetype { get; set; }
     /**
      * The system change number (SCN) of a committed transaction, which increases sequentially. This field is provided for diagnostic purposes. The field value is not guaranteed to be unique in Salesforce—it is unique only in a single database instance. If your Salesforce org migrates to another database instance, the commit number might not be unique or sequential.
-     * <p>Long
+     * Long
      */
     global Long commitnumber { get; set; }
     /**
      * The date and time when the change occurred, represented as the number of milliseconds since January 1, 1970 00:00:00 GMT.
-     * <p>Long
+     * Long
      */
     global Long committimestamp { get; set; }
     /**
      * The ID of the user that ran the change operation.
-     * <p>String
+     * String
      */
     global String commituser { get; set; }
     /**
      * Contains the names of fields whose values are sent as a unified diff because they contain large text values.
-     * <p>List<String>
+     * List<String>
      */
     global List difffields { get; set; }
     /**
      * The API name of the standard or custom object that the change pertains to. For example, Account or MyObject__c.
-     * <p>String
+     * String
      */
     global String entityname { get; set; }
     /**
      * Contains the names of fields whose values were changed to null in an update operation. Use this field in Apex change event messages to determine if a field was changed to null in an update and isn’t an unchanged field.
-     * <p>List<String>
+     * List<String>
      */
     global List nulledfields { get; set; }
     /**
      * One or more record IDs for the changed records. Typically, this field contains one record ID. If in one transaction the same change occurred in multiple records of the same object type during one second, Salesforce merges the change notifications. In this case, Salesforce sends one change event for all affected records and the recordIds field contains the IDs for all records that have the same change.
-     * <p>List<String>
+     * List<String>
      * Examples of operations with same changes are:
      * Update of fieldA to valueA in Account records.
      * Deletion of Account records.
@@ -81,7 +81,7 @@ global class ChangeEventHeader {
     global List recordids { get; set; }
     /**
      * The sequence of the change within a transaction. The sequence number starts from 1.
-     * <p>Integer
+     * Integer
      * A lead conversion is an example of a transaction that can have multiple changes. A lead conversion results in the following sequence of changes, all within the same transaction.
      * Create an account
      * Create a contact
@@ -91,7 +91,7 @@ global class ChangeEventHeader {
     global Integer sequencenumber { get; set; }
     /**
      * A string that uniquely identifies each Salesforce transaction. You can use this key to identify and group all changes that were made in the same transaction.
-     * <p>String
+     * String
      */
     global String transactionkey { get; set; }
 

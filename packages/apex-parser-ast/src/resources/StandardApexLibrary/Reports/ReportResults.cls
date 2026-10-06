@@ -6,7 +6,7 @@ global class ReportResults {
 
     /**
      * Returns all report data.
-     * <p>Usage
+     * Usage
      * When true, indicates that all report results are returned.
      * When false, indicates that results are returned for the same number of rows as in a report run in Salesforce.
      * Note
@@ -31,7 +31,7 @@ global class ReportResults {
 
     /**
      * Returns information about whether the fact map has detail rows.
-     * <p>Usage
+     * Usage
      * When true, indicates that the fact map returns values for summary-level and record-level data.
      * When false, indicates that the fact map returns summary values.
      */

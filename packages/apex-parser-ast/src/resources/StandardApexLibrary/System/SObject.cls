@@ -1,6 +1,6 @@
 /**
  * Contains methods for the sObject data type.
- * <p>Usage
+ * Usage
  * SObject methods are all instance methods: they are called by and operate on an sObject instance such as an account or contact. The following are the instance methods for sObjects.
  * For more information on sObjects, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/langCon_apex_SObjects.htm" target="_blank">Working with sObjects</a>.
  */
@@ -9,22 +9,22 @@ global class SObject {
 
     /**
      * Marks a trigger record with a custom error message and prevents any DML operation from occurring.
-     * <p>Usage
+     * Usage
      * When used on Trigger.new in insert and update triggers, and on Trigger.old in delete triggers, the error message is displayed in the application interface.
      * See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_triggers.htm" target="_blank">Triggers</a> and <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_triggers_exceptions.htm" target="_blank">Trigger Exceptions</a>.
      * Note
      * This method escapes any HTML markup in the specified error message. The escaped characters are: \n, <, >, &, ", \, \u2028, \u2029, and \u00a9. As a result, HTML markup is not rendered; instead, it is displayed as text in the Salesforce user interface.
      * When used in Visualforce controllers, the generated message is added to the collection of errors for the page. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.pages.meta/pages/pages_controller_std.htm" target="_blank" title="HTML (New Window)">Validation Rules and Standard Controllers</a> in the Visualforce Developer's Guide.
-     * <p>Example
+     * Example
      * Trigger.new[0].addError('bad');
      */
     global void addError(String msg) { }
 
     /**
      * Dynamically add errors to fields of an SObject associated with the specified field name.
-     * <p>Usage
+     * Usage
      * If the field name is an empty string or null, the error is associated with the SObject and not with a specific field.
-     * <p>Example
+     * Example
      * // Add an error to an SObject field using the addError() method.
      * Account acct = new Account(name = 'TestAccount');
      * acct.addError('name', 'error in name field');
@@ -41,24 +41,24 @@ global class SObject {
 
     /**
      * Marks a trigger record with a custom error message, specifies if the error message should be escaped, and prevents any DML operation from occurring.
-     * <p>Usage
+     * Usage
      * The escaped characters are: \n, <, >, &, ", \, \u2028, \u2029, and \u00a9. As a result, HTML markup is not rendered; instead, it is displayed as text in the Salesforce user interface.
      * Warning
      * Be cautious if you specify false for the escape argument. Unescaped strings displayed in the Salesforce user interface can represent a vulnerability in the system because these strings might contain harmful code. If you want to include HTML markup in the error message, call this method with a false escape argument. Make sure that you escape any dynamic content, such as input field values. Otherwise, specify true for the escape argument or call addError(String errorMsg) instead.
-     * <p>Example
+     * Example
      * Trigger.new[0].addError('Fix & resubmit', false);
      */
     global void addError(String msg, Boolean escape) { }
 
     /**
      * Dynamically add errors to fields of an SObject associated with the specified field name.
-     * <p>Usage
+     * Usage
      * If the field name is an empty string or null, the error is associated with the SObject and not with a specific field.
      * The escaped characters are: \n, <, >, &, ", \, \u2028, \u2029, and \u00a9. As a result, HTML markup is not rendered; instead, it is displayed as text in the Salesforce user interface.
      * Warning
      * The escape parameter cannot be disabled in Lightning Experience and in the Salesforce mobile app, and will be ignored.
      * Be cautious if you specify false for the escape argument. Unescaped strings displayed in the Salesforce user interface can represent a vulnerability in the system because these strings might contain harmful code. If you want to include HTML markup in the error message, call this method with a false escape argument. Make sure that you escape any dynamic content, such as input field values. Otherwise, specify true for the escape argument or call addError(String fieldName, String errorMsg) instead.
-     * <p>Example
+     * Example
      * // Add an error to an SObject field using the addError() method.
      * Account acct = new Account(name = 'TestAccount');
      * acct.addError('name', 'error in name field', false);
@@ -71,13 +71,13 @@ global class SObject {
 
     /**
      * Dynamically add errors to an SObject instance associated with the specified field.
-     * <p>Usage
+     * Usage
      * Use this method to add errors to the specified field token of a standard or custom object. If fieldTokenis null, the error is associated with the SObject and not with a specific field.
      * The escaped characters are: \n, <, >, &, ", \, \u2028, \u2029, and \u00a9. As a result, HTML markup is not rendered; instead, it is displayed as text in the Salesforce user interface.
      * Warning
      * The escape parameter cannot be disabled in Lightning Experience and in the Salesforce mobile app, and will be ignored.
      * Be cautious if you specify false for the escape argument. Unescaped strings displayed in the Salesforce user interface can represent a vulnerability in the system because these strings might contain harmful code. If you want to include HTML markup in the error message, call this method with a false escape argument. Make sure that you escape any dynamic content, such as input field values. Otherwise, specify true for the escape argument or call addError(Schema.SObjectField fieldToken, String errorMsg) instead.
-     * <p>Example
+     * Example
      * // Add an error to a field of an SObject instance using the addError() method.
      * Account acct = new Account(name = 'TestAccount');
      * Schema.DescribeFieldResult nameDesc = Account.name.getDescribe();
@@ -92,7 +92,7 @@ global class SObject {
 
     /**
      * Clears all field values
-     * <p>Example
+     * Example
      * Account acc = new account(Name = 'Acme');
      * acc.clear();
      * Account expected = new Account();
@@ -104,24 +104,24 @@ global class SObject {
 
     /**
      * Returns the value for the field specified by fieldName, such as AccountNumber.
-     * <p>Usage
+     * Usage
      * For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_dynamic_soql.htm" target="_blank">Dynamic SOQL</a>.
-     * <p>Example
+     * Example
      * Account acc = new account(Name = 'Acme', Description = 'Acme Account');
      * String description = (String)acc.get('Description');
      * System.assertEquals('Acme Account', description);
-     * <p>Versioned Behavior Changes
+     * Versioned Behavior Changes
      * In API version 34.0 and later, you must include the namespace name to retrieve a field from a field Map using this method. For example, to get the account__c field in the MyNamespace namespace from a fields field Map, use: fields.get(‘MyNamespace__account__c’).
      */
     global Object get(String field) { return null; }
 
     /**
      * Returns the value for the field specified by the field token Schema.sObjectField, such as, Schema.Account.AccountNumber.
-     * <p>Usage
+     * Usage
      * For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_dynamic_soql.htm" target="_blank">Dynamic SOQL</a>.
      * Note
      * Field tokens aren't available for person accounts. If you access Schema.Account.fieldname, you get an exception error. Instead, specify the field name as a string.
-     * <p>Example
+     * Example
      * Account acc = new account(Name = 'Acme', Description = 'Acme Account');
      * String description = (String)acc.get(Schema.Account.Description);
      * System.assertEquals('Acme Account', description);
@@ -132,9 +132,9 @@ global class SObject {
 
     /**
      * Returns the ID of the entity from which an object was cloned. You can use it for objects cloned through the Salesforce user interface. You can also use it for objects created using the System.SObject.clone(preserveId, isDeepClone, preserveReadonlyTimestamps, preserveAutonumber) method, provided that the preserveId parameter wasn’t used or was set to false. The getCloneSourceId() method can only be used within the transaction where the entity is cloned, as clone information doesn’t persist in subsequent transactions.
-     * <p>Usage
+     * Usage
      * If A is cloned to B, B is cloned to C, and C is cloned to D, then B, C, and D all point back to A as their clone source.
-     * <p>Example
+     * Example
      * Account acc0 = new Account(Name = 'Acme');
      * insert acc0;
      * Account acc1 = acc0.clone();
@@ -161,7 +161,7 @@ global class SObject {
 
     /**
      * Returns the database.DMLOptions object for the SObject.
-     * <p>Example
+     * Example
      * Database.DMLOptions dmo = new Database.dmlOptions();
      * dmo.assignmentRuleHeader.useDefaultRule = true;
      *
@@ -175,7 +175,7 @@ global class SObject {
 
     /**
      * Returns a map of populated field names and their corresponding values. The map contains only the fields that have been populated in memory for the SObject instance.
-     * <p>Usage
+     * Usage
      * The returned map contains only the fields that have been populated in memory for the SObject instance, which makes it easy to iterate over those fields. A field is populated in memory in these cases.
      * The field has been queried by a SOQL statement, and the field is not null.
      * The field has been explicitly set before the call to the getPopulatedFieldsAsMap() method.
@@ -240,7 +240,7 @@ global class SObject {
      * // Example debug statement output:
      * // DEBUG|field name is Id, value is 001R0000003EPPuIAO
      * // DEBUG|field name is Name, value is TestMapAccount3
-     * <p>Versioned Behavior Changes
+     * Versioned Behavior Changes
      * In API version 39.0 and later, getPopulatedFieldsAsMap returns all values set on the SObject, even if values were set after the record was queried. This behavior is dependent on the version of the apex class calling this method and not on the version of the class that generated the SObject. If you query an SObject at API version 20.0, and then call this method in a class with API version 40.0, you will get the full set of fields.
      * @return A map of field names and their corresponding values.
      */
@@ -248,7 +248,7 @@ global class SObject {
 
     /**
      * Retrieves the name of a quick action associated with this SObject. Typically used in triggers.
-     * <p>Example
+     * Example
      * trigger accTrig2 on Contact (before insert) {
      *     for (Contact c : Trigger.new) {
      *         if (c.getQuickActionName() == QuickAction.CreateContact) {
@@ -267,7 +267,7 @@ global class SObject {
 
     /**
      * Returns the value for the specified field. This method is primarily used with dynamic DML to access values for external IDs.
-     * <p>Example
+     * Example
      * Account acc = new account(Name = 'Acme', Description = 'Acme Account');
      * insert acc;
      * Contact con = new Contact(Lastname = 'AcmeCon', AccountId = acc.id);
@@ -282,9 +282,9 @@ global class SObject {
 
     /**
      * Returns the value for the field specified by the field token Schema.sObjectField, such as, Schema.MyObj.MyExternalId. This method is primarily used with dynamic DML to access values for external IDs.
-     * <p>Usage
+     * Usage
      * If the method references polymorphic fields, a <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.object_reference.meta/object_reference/sforce_api_objects_name.htm" target="_blank">Name object</a> is returned. Use the TYPEOF clause in the SOQL SELECT statement to directly get results that depend on the runtime object type referenced by the polymorphic field. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/langCon_apex_SOQL_polymorphic_relationships.htm" target="_blank">Working with Polymorphic Relationships in SOQL Queries</a>.
-     * <p>Example
+     * Example
      * Account acc = new account(name = 'Acme', description = 'Acme Account');
      * insert acc;
      * Contact con = new contact(lastname = 'AcmeCon', accountid = acc.id);
@@ -302,9 +302,9 @@ global class SObject {
 
     /**
      * Returns the token for this SObject. This method is primarily used with describe information.
-     * <p>Usage
+     * Usage
      * For more information, see apex_dynamic_describe_objects_understanding.
-     * <p>Example
+     * Example
      * Account acc = new Account(name = 'Acme', description = 'Acme Account');
      * Schema.SObjectType expected = Schema.Account.getSObjectType();
      * System.assertEquals(expected, acc.getSObjectType());
@@ -313,9 +313,9 @@ global class SObject {
 
     /**
      * Returns the values for the specified field. This method is primarily used with dynamic DML to access values for associated objects, such as child relationships.
-     * <p>Usage
+     * Usage
      * For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_dynamic_dml.htm" target="_blank">Dynamic DML</a>.
-     * <p>Example
+     * Example
      * Account acc = new account(name = 'Acme', description = 'Acme Account');
      * insert acc;
      * Contact con = new contact(lastname = 'AcmeCon', accountid = acc.id);
@@ -341,7 +341,7 @@ global class SObject {
 
     /**
      * Returns true if an entity is cloned from something, even if the entity hasn’t been saved. The method can only be used within the transaction where the entity is cloned, as clone information doesn’t persist in subsequent transactions.
-     * <p>Example
+     * Example
      * Account acc = new Account(Name = 'Acme');
      * insert acc;
      * Account acc2 = acc.clone();
@@ -355,9 +355,9 @@ global class SObject {
 
     /**
      * Returns information about the queried sObject field. Returns true if the sObject field is populated, either by direct assignment or by inclusion in a SOQL query. Returns false if the sObject field isn’t set. If an invalid field is specified, an SObjectException is thrown.
-     * <p>Usage
+     * Usage
      * The isSet method doesn’t check if a field is accessible to a specific user via org permissions or other specialized access permissions.
-     * <p>Example
+     * Example
      * Contact  newContact = new Contact(LastName = 'Joyce');
      * insert(newContact); //Insert a new contact with last name Joyce
      * Contact c = [SELECT FirstName FROM Contact WHERE Id = :newContact.Id];
@@ -368,9 +368,9 @@ global class SObject {
 
     /**
      * Returns information about the queried sObject field. Returns true if the sObject field is populated, either by direct assignment or by inclusion in a SOQL query. Returns false if the sObject field isn’t set. If an invalid field is specified, an SObjectException is thrown.
-     * <p>Usage
+     * Usage
      * The isSet method doesn’t check if a field is accessible to a specific user via org permissions or other specialized access permissions.
-     * <p>Example
+     * Example
      * Contact  c = new Contact(LastName = 'Joyce');
      * System.assertEquals(true, c.isSet('LastName'));
      * System.assertEquals(false, c.isSet('FirstName')); // FirstName field is not written to
@@ -381,7 +381,7 @@ global class SObject {
 
     /**
      * Sets the value for the specified field and returns the previous value for the field.
-     * <p>Example
+     * Example
      * Account acc = new Account(name = 'test', description = 'old desc');
      * String oldDesc = (String)acc.put('description', 'new desc');
      * System.assertEquals('old desc', oldDesc);
@@ -391,7 +391,7 @@ global class SObject {
 
     /**
      * Sets the value for the field specified by the field token Schema.sObjectField, such as, Schema.Account.AccountNumber and returns the previous value for the field.
-     * <p>Example
+     * Example
      * Account acc = new Account(name = 'test', description = 'old desc');
      * String oldDesc = (String)acc.put(Schema.Account.Description, 'new desc');
      * System.assertEquals('old desc', oldDesc);
@@ -403,7 +403,7 @@ global class SObject {
 
     /**
      * Sets the value for the specified field. This method is primarily used with dynamic DML for setting external IDs. The method returns the previous value of the field.
-     * <p>Example
+     * Example
      * Account acc = new Account(name = 'Acme', description = 'Acme Account');
      * insert acc;
      * Contact con = new contact(lastname = 'AcmeCon', accountid = acc.id);
@@ -422,7 +422,7 @@ global class SObject {
 
     /**
      * Deprecated as of API version 57.0. Use the recalculateFormulas() method in the System.Formula class instead.
-     * <p>Usage
+     * Usage
      * This method doesn’t recalculate cross-object formulas. If you call this method on objects that have both cross-object and non-cross-object formula fields, only the non-cross-object formula fields are recalculated.
      * Each recalculateFormulas call counts against the SOQL query limits. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_gov_limits.htm" target="_blank">Execution Governors and Limits</a>.
      */

@@ -1,9 +1,9 @@
 /**
  * Contains methods that POST the signed JWT bearer token to a token endpoint to request an access token, in the OAuth 2.0 JWT bearer token flow.
- * <p>Usage
+ * Usage
  * Use the methods in this class to post a signed JWT bearer token to the OAuth token endpoint, in exchange for an access token.
  * To test HTTP callouts to the token endpoint, use the Auth.HttpCalloutMockUtil class.
- * <p>Example
+ * Example
  * In the following example application, the Apex controller:
  * Creates the JSON Claims Set.
  * Specifies the scope of the request with additional claims.
@@ -60,7 +60,7 @@ global class JWTBearerTokenExchange {
 
     /**
      * Returns the access_token in the token response to the JWT bearer token request.
-     * <p>Usage
+     * Usage
      * This method extracts the access_token from the token response. If the token response issues the access token in a different parameter, the request fails.
      * If you want the full HTTP token response returned, use getHttpResponse instead.
      */
@@ -73,7 +73,7 @@ global class JWTBearerTokenExchange {
 
     /**
      * Returns the full System.HttpResponse token response to the JWT bearer token request.
-     * <p>Usage
+     * Usage
      * You can get the access token from the full System.HttpResponse. If you want only the access_token from the token response, you can use getAccessToken instead.
      */
     global System.HttpResponse getHttpResponse() { return null; }

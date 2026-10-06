@@ -4,12 +4,12 @@
 global with sharing class UnavailableTimeslot {
     /**
      * End time of an unavailable time slot.
-     * <p>Datetime
+     * Datetime
      */
     global Datetime timeMax { get; set; }
     /**
      * Start time of an unavailable time slot.
-     * <p>Datetime
+     * Datetime
      */
     global Datetime timeMin { get; set; }
 

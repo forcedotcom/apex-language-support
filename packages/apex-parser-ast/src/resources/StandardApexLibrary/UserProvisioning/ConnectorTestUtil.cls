@@ -1,8 +1,8 @@
 /**
  * Enables developers to write Apex test classes for connectors used by the connected app provisioning solution. This class simulates provisioning for the associated app.
- * <p>Usage
+ * Usage
  * Use this class for connector-based test accelerators. You can invoke it only from within an Apex test.
- * <p>Example
+ * Example
  * This example creates an instance of a connected app, gets a value, and checks whether the value is correct. The test is simply a row inserted in the database table.
  *         @isTest
  *         private class SCIMCreateUserPluginTest {

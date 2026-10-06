@@ -1,6 +1,6 @@
 /**
  * Represents a shipping method listed in payment requests sent in enhanced Messaging channels.
- * <p>Example
+ * Example
  * public with sharing class MessagingShippingMethods {
  *
  *     @InvocableMethod
@@ -21,56 +21,56 @@
 global with sharing class ShippingMethod {
     /**
      * The amount value of the shipping method.
-     * <p>Double
+     * Double
      */
     @InvocableVariable
     global Double amountValue;
     /**
      * The detail value of the shipping method.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String detailValue;
     /**
      * The identifier value of the shipping method.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String identifierValue;
     /**
      * The label value of the shipping method.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String labelValue;
 
     /**
      * The amount of the shipping method.
-     * <p>Double
+     * Double
      */
     @AuraEnabled
     global Double amount { get; set; }
     /**
      * Details about the shipping method.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String detail { get; set; }
     /**
      * The identifier of the shipping method.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String identifier { get; set; }
     /**
      * The label of the shipping method.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String label { get; set; }
     /**
      * The shipping method type. Read only.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String shippingMethodType { get; }

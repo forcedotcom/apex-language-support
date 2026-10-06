@@ -1,6 +1,6 @@
 /**
  * Stores Salesforce result code information from payment gateway adapters.
- * <p>Usage
+ * Usage
  * The constructor of this class takes no arguments. For example:
  * CommercePayments.SalesforceResultCodeInfo srci = new CommercePayments.SalesforceResultCodeInfo();
  * Gateways can return the transaction result as either CustomMetadata or SalesforceResultCode.

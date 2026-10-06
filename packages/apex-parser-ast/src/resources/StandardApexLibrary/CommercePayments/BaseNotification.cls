@@ -1,10 +1,10 @@
 /**
  * Abstract class for storing notification information sent from payment gateways.
- * <p>Usage
+ * Usage
  * An abstract class that contains the common fields from payment gateways. BaseNotification can’t be instantiated on its own.
  * The constructor of this class takes no arguments. For example:
  * CommercePayments.BaseNotification bnt = new CommercePayments.BaseNotification();
- * <p>Example
+ * Example
  * commercepayments.BaseNotification notification = null;
  *         if ('CAPTURE'.equals(eventCode)) {
  *             notification = new commercepayments.CaptureNotification();

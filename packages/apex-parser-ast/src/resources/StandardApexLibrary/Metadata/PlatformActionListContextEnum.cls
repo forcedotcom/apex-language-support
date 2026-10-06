@@ -1,6 +1,6 @@
 /**
  * Describes the different contexts of action lists.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the Metadata.PlatformActionListContextEnum enum.
  */
 global enum PlatformActionListContextEnum {

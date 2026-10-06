@@ -1,6 +1,6 @@
 /**
  * Contains methods for the ID primitive data type.
- * <p>Example: Getting an sObject Token From an ID
+ * Example: Getting an sObject Token From an ID
  * This sample shows how to use the getSObjectType method to obtain an sObject token from an ID. The updateOwner method in this sample accepts a list of IDs of the sObjects to update the ownerId field of. This list contains IDs of sObjects of the same type. The second parameter is the new owner ID. Note that since it is a future method, it doesn’t accept sObject types as parameters; this is why it accepts IDs of sObjects. This method gets the sObject token from the first ID in the list, then does a describe to obtain the object name and constructs a query dynamicallly. It then queries for all sObjects and updates their owner ID fields to the new owner ID.
  * public with sharing class MyDynamicSolution {
  *     @Future
@@ -53,9 +53,9 @@ global class Id {
 
     /**
      * Returns the token for the sObject corresponding to this ID. This method is primarily used with describe information.
-     * <p>Usage
+     * Usage
      * For more information about describes, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_dynamic_describe_objects_understanding.htm" target="_blank">Understanding Apex Describe Information</a>.
-     * <p>Example
+     * Example
      * account a = new account(name = 'account');
      * insert a;
      * Id myId = a.id;
@@ -67,7 +67,7 @@ global class Id {
 
     /**
      * Converts an 18-character Id value to a 15-character case-sensitive string.
-     * <p>Example
+     * Example
      * String Id_15_char = '0D5B000001DVM9t';
      * String Id_18_char = '0D5B000001DVM9tkAh';
      * ID testId = Id_18_char;
@@ -79,9 +79,9 @@ global class Id {
 
     /**
      * Converts the specified String into an ID and returns the ID.
-     * <p>Example
+     * Example
      * Id myId = Id.valueOf('001xa000003DIlo');
-     * <p>Versioned Behavior Changes
+     * Versioned Behavior Changes
      * In API version 54.0 and later, assignment of an invalid 15 or 18 character ID to a variable results in a System.StringException exception.
      */
     global static Id valueOf(String str) { return null; }

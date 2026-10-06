@@ -1,6 +1,6 @@
 /**
  * Use this interface to create a headless user discovery handler that you implement during headless login, passwordless login, and forgot password flows.
- * <p>Usage
+ * Usage
  * Develop headless authorization flows where users log in to an off-platform app with an identifier other than their username, such as an email address, phone number, or order number. When a user enters the identifier in your headless app, your app sends the identifying information to a Salesforce endpoint. Salesforce then passes the identifying information to your implementation of the Auth.HeadlessUserDiscoveryHandler interface. The handler finds the user's account and its associated email address or phone number.
  * Headless user discovery supports these use cases.
  * Headless login with any identifier and a password. For example, a user goes to your headless app and enters their order number and password to log in.

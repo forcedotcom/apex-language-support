@@ -1,6 +1,6 @@
 /**
  * Represents an individual item in a QuickAction.DescribeLayoutRow.
- * <p>Usage
+ * Usage
  * For most fields on a layout, there is only one component per layout item. However, in a display-only view, the QuickAction.DescribeLayoutItem might be a composite of the individual fields (for example, an address can consist of street, city, state, country, and postal code data). On the corresponding edit view, each component of the address field would be split up into separate QuickAction.DescribeLayoutItems.
  */
 global class DescribeLayoutItem {
@@ -45,7 +45,7 @@ global class DescribeLayoutItem {
 
     /**
      * Indicates whether this item is required (true) or not (false).
-     * <p>Usage
+     * Usage
      * This is useful if, for example, you want to render required fields in a contrasting color.
      */
     global Boolean isRequired() { return false; }

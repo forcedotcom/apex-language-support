@@ -4,14 +4,14 @@
 global class InboundEmailResult {
     /**
      * A message that Salesforce returns in the body of a reply email. This field can be populated with text irrespective of the value returned by the Success field.
-     * <p>String
+     * String
      */
     global webservice String message;
     /**
      * A value that indicates whether the email was successfully processed.
-     * <p>Usage
+     * Usage
      * If false, Salesforce rejects the inbound email and sends a reply email to the original sender containing the message specified in the Message field.
-     * <p>Boolean
+     * Boolean
      */
     global webservice Boolean success;
 

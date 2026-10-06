@@ -1,6 +1,6 @@
 /**
  * Indicates the type of feed layout component.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the Metadata.FeedLayoutComponentType enum.
  */
 global enum FeedLayoutComponentType {

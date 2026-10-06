@@ -4,19 +4,19 @@
 global with sharing class RecordApexRepresentation {
     /**
      * Stores the type of the object.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String objectType { get; set; }
     /**
      * Stores a list of objects, where each object holds a key-value pair.
-     * <p>List<embeddedai.ApexMap>
+     * List<embeddedai.ApexMap>
      */
     @AuraEnabled
     global List recordData { get; set; }
     /**
      * Stores a list that contains a child or related records associated with the record data.
-     * <p>List<embeddedai.RecordApexRepresentation>
+     * List<embeddedai.RecordApexRepresentation>
      */
     @AuraEnabled
     global List relatedRecordData { get; set; }

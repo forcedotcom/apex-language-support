@@ -1,8 +1,8 @@
 /**
  * Contains methods to create the notification message payload for an Apple device.
- * <p>Usage
+ * Usage
  * Apple has specific requirements for the notification payload. and this class has helper methods to create the payload. For more information on Apple’s payload parameters, search for “Apple Push Notification Service” at <a class="xref" href="https://developer.apple.com/library/mac/documentation/" target="_blank" title="HTML (New Window)">https://developer.apple.com/library/mac/documentation/</a>.
- * <p>Example
+ * Example
  * See the Push Notification Example.
  */
 global class PushNotificationPayload {
@@ -10,9 +10,9 @@ global class PushNotificationPayload {
 
     /**
      * Helper method that creates a valid Apple payload from the specified arguments.
-     * <p>Usage
+     * Usage
      * To generate a valid payload, you must provide a value for at least one of the following parameters: alert, sound, badgeCount.
-     * <p>Example
+     * Example
      * See the Push Notification Example.
      * @return Returns a formatted payload that includes all of the specified arguments.
      */
@@ -20,7 +20,7 @@ global class PushNotificationPayload {
 
     /**
      * Helper method that creates a valid Apple payload from the specified arguments.
-     * <p>Usage
+     * Usage
      * To generate a valid payload, you must provide a value for at least one of the following parameters: alert, sound, badgeCount.
      * @return Returns a formatted payload that includes all of the specified arguments.
      */

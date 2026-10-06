@@ -1,6 +1,6 @@
 /**
  * Contains the result of a merge Database method operation.
- * <p>Usage
+ * Usage
  * The Database.merge method returns a Database.MergeResult object for each merged record.
  */
 global class MergeResult {

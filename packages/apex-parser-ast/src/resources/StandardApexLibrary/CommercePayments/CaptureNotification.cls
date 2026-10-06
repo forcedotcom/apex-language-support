@@ -1,10 +1,10 @@
 /**
  * When a payment gateway sends a notification for a capture transaction, the payment gateway adapter creates the CaptureNotification object to store information about the notification.
- * <p>Usage
+ * Usage
  * CaptureNotification is used in asynchronous payment gateway adapters.
  * Specify the CommercePayments namespace when creating an instance of this class. The constructor of this class takes no arguments. For example:
  * CommercePayments.CaptureNotification crn = new CommercePayments.CaptureNotification();
- * <p>Example
+ * Example
  * commercepayments.BaseNotification notification = null;
  *         if ('CAPTURE'.equals(eventCode)) {
  *             notification = new commercepayments.CaptureNotification();

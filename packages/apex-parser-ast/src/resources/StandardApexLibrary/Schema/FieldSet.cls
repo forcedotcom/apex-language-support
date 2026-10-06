@@ -1,6 +1,6 @@
 /**
  * Contains methods for discovering and retrieving the details of field sets created on sObjects.
- * <p>Usage
+ * Usage
  * Use the methods in the Schema.FieldSet class to discover the fields contained within a field set, and get details about the field set itself, such as the name, namespace, label, and so on. The following example shows how to get a collection of field set describe result objects for an sObject. The key of the returned Map is the field set name, and the value is the corresponding field set describe result.
  * Map<String, Schema.FieldSet> FsMap =
  *     Schema.SObjectType.Account.fieldSets.getMap();
@@ -12,7 +12,7 @@
  * To work with an individual field set, you can access it via the map of field sets on an sObject or, when you know the name of the field set in advance, using an explicit reference to the field set. The following two lines of code retrieve the same field set:
  * Schema.FieldSet fs1 = Schema.SObjectType.Account.fieldSets.getMap().get('field_set_name');
  * Schema.FieldSet fs2 = Schema.SObjectType.Account.fieldSets.field_set_name;
- * <p>Example: Displaying a Field Set on a Visualforce Page
+ * Example: Displaying a Field Set on a Visualforce Page
  * This sample uses Schema.FieldSet and Schema.FieldSetMember methods to dynamically get all the fields in the Dimensions field set for the Merchandise custom object. The list of fields is then used to construct a SOQL query that ensures those fields are available for display. The Visualforce page uses the MerchandiseDetails class as its controller.
  * public with sharing class MerchandiseDetails {
  *
@@ -69,7 +69,7 @@ global class FieldSet {
 
     /**
      * Returns the field set’s description.
-     * <p>Usage
+     * Usage
      * Description is a required field for a field set, intended to describe the context and content of the field set. It’s often intended for administrators who might be configuring a field set defined in a managed package, rather than for end users.
      */
     global String getDescription() { return null; }
@@ -88,7 +88,7 @@ global class FieldSet {
 
     /**
      * Returns the field set’s namespace.
-     * <p>Usage
+     * Usage
      * The returned namespace is an empty string if your organization hasn’t set a namespace, and the field set is defined in your organization. Otherwise, it’s the namespace of your organization, or the namespace of the managed package containing the field set.
      */
     global String getNameSpace() { return null; }

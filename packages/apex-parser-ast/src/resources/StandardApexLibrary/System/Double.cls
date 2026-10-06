@@ -1,6 +1,6 @@
 /**
  * Contains methods for the Double primitive data type.
- * <p>Usage
+ * Usage
  * For more information on Double, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/langCon_apex_primitives.htm" target="_blank">Double Data Type</a>.
  */
 global class Double {
@@ -8,7 +8,7 @@ global class Double {
 
     /**
      * Returns the String value for this Double using the locale of the context user
-     * <p>Example
+     * Example
      * Double myDouble = 1261992;
      * system.assertEquals('1,261,992', myDouble.format());
      */
@@ -18,7 +18,7 @@ global class Double {
 
     /**
      * Returns the Integer value of this Double by casting it to an Integer.
-     * <p>Example
+     * Example
      * Double DD1 = double.valueOf('3.14159');
      * Integer value = DD1.intValue();
      * system.assertEquals(value, 3);
@@ -27,7 +27,7 @@ global class Double {
 
     /**
      * Returns the Long value of this Double.
-     * <p>Example
+     * Example
      * Double myDouble = 421994;
      * Long value = myDouble.longValue();
      * System.assertEquals(421994, value);
@@ -36,7 +36,7 @@ global class Double {
 
     /**
      * Returns the closest Long to this Double value.
-     * <p>Example
+     * Example
      * Double D1 = 4.5;
      * Long L1 = D1.round();
      * System.assertEquals(5, L1);
@@ -55,9 +55,9 @@ global class Double {
 
     /**
      * Converts the specified object to a Double value. Use this method to convert a history tracking field value or an object that represents a Double value.
-     * <p>Usage
+     * Usage
      * Use this method with the OldValue or NewValue fields of history sObjects, such as AccountHistory, when the field type corresponds to a Double type, like a number field.
-     * <p>Example
+     * Example
      * List<AccountHistory> ahlist =
      *   [SELECT Field,OldValue,NewValue
      *    FROM AccountHistory];
@@ -74,7 +74,7 @@ global class Double {
 
     /**
      * Returns a Double that contains the value of the specified String. As in Java, the String is interpreted as representing a signed decimal.
-     * <p>Example
+     * Example
      * Double DD1 = double.valueOf('3.14159');
      */
     global static Double valueOf(String str) { return 0.0; }

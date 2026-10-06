@@ -1,6 +1,6 @@
 /**
  * This enum describes the authentication result status.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the RichMessaging.AuthRequestResultStatus enum.
  */
 global enum AuthRequestResultStatus {

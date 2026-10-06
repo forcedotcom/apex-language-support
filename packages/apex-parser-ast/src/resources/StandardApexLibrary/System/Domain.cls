@@ -1,8 +1,8 @@
 /**
  * Represents an existing domain hosted by Salesforce that serves the org or its content. Contains methods to obtain information about these domains, such as the domain type, My Domain name, and sandbox name.
- * <p>Usage
+ * Usage
  * Use the Domain class to obtain information about the domains that Salesforce hosts for your org. This class only applies to domains hosted by Salesforce, and can’t be used to generate a new domain.
- * <p>Example
+ * Example
  * This code uses the System.DomainParser class to parse a hostname. It then gets the associated domain type.
  * System.Domain d = DomainParser.parse('mycompany.lightning.force.com');
  * String myDomainName = d.getMyDomainName();

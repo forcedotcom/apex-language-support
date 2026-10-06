@@ -1,6 +1,6 @@
 /**
  * Add aggregate functions to the query, or define an alias.
- * <p>Usage
+ * Usage
  * Refer to the QueryBuilder example.
  */
 global virtual class ProjectionNode {

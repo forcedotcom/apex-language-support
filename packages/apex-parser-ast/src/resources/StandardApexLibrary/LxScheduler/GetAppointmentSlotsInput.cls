@@ -1,9 +1,9 @@
 /**
  * Contains information about the available appointment time slots for a resource based on given work type group and territories.
- * <p>The appointment time slots are determined based on your Salesforce Scheduler data model configurations. Here are some prerequisites that you can consider while setting up data.
+ * The appointment time slots are determined based on your Salesforce Scheduler data model configurations. Here are some prerequisites that you can consider while setting up data.
  * Set up Salesforce Scheduler before making your requests. The setup includes creating or configuring Service Resources, Service Territory Members, Work Type Groups, Work Types, Work Type Group Members, and Service Territory Work Types. See <a class="xref" href="https://help.salesforce.com/s/articleView?id=platform.ls_set_up.htm&amp;language=en_US" target="_blank">Manage Business Information in Salesforce Scheduler</a> for more information.
  * Configure a work type mapped for each territory in the request body via Service Territory Work Type. Map the same work type to the work type group, via work type group member.
- * <p>The following factors affect how time slots are calculated and returned.
+ * The following factors affect how time slots are calculated and returned.
  * Timezones that differ across operating hours are handled and results are always returned in UTC.
  * The resource must be marked as a required resource on the assigned resource object.
  * The resource is considered unavailable If the status categories of the resource assigned to service appointments are other than Canceled, Cannot Complete, and Completed.
@@ -19,9 +19,9 @@
  * Salesforce Scheduler uses multiple factors, such as field values, scheduled appointments, absences, Scheduler Settings, and Scheduling Policies to determine available time slots, including the earliest and latest appointment slots. See <a class="xref" href="https://help.salesforce.com/s/articleView?id=platform.ls_how_are_time_slots_determined.htm&amp;type=5&amp;language=en_US" target="_blank" title="HTML (New Window)">How Does Salesforce Scheduler Determine Available Time Slots</a>.
  * Note
  * If asset scheduling is enabled, you can provide an asset-based service resource in requiredResourceIds to retrieve available timeslots for the asset resource.
- * <p>Usage
+ * Usage
  * The constructor for this class can’t be called directly. Create an instance of this class using the GetAppointmentSlotsInputBuilder.build() method.
- * <p>This example shows how to get a list of available time slots based on workTypeGroupId:
+ * This example shows how to get a list of available time slots based on workTypeGroupId:
  * //Build input for GetAppointmentSlots API
  *    lxscheduler.GetAppointmentSlotsInput input = new lxscheduler.GetAppointmentSlotsInputBuilder()
  *       .setWorkTypeGroupId('0VSxx0000004C92GAE')
@@ -67,7 +67,7 @@
  *       .build();
  *
  *    String response = lxscheduler.SchedulerResources.getAppointmentSlots(input);
- * <p>This example shows a sample response of a list of available time slots:
+ * This example shows a sample response of a list of available time slots:
  * [
  *    {
  *      "territoryId": "0Hhxx0000004C92CAE",

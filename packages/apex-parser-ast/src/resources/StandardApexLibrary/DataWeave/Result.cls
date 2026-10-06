@@ -1,6 +1,6 @@
 /**
  * Contains methods to retrieve data that was transformed using Script class methods.
- * <p>Example
+ * Example
  * See Script Class for an example to run a DataWeave script from Apex and retrieve the resulting script output.
  */
 @JsonAccess

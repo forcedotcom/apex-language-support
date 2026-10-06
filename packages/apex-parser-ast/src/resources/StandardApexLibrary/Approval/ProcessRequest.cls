@@ -1,6 +1,6 @@
 /**
  * The ProcessRequest class is the parent class for the ProcessSubmitRequest and ProcessWorkitemRequest classes. Use the ProcessRequest class to write generic Apex that can process objects from either class.
- * <p>Usage
+ * Usage
  * The request must be instantiated via the child classes, ProcessSubmitRequest and ProcessWorkItemRequest.
  */
 global class ProcessRequest {

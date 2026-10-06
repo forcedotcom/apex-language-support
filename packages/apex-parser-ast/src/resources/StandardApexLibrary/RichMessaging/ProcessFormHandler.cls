@@ -8,7 +8,7 @@ global interface ProcessFormHandler {
 
     /**
      * Processes the form request and returns the ID of the record created during form processing.
-     * <p>ProcessFormHandler Example Implementation
+     * ProcessFormHandler Example Implementation
      * The sample ContactApexFormHandler Apex class automatically captures the customer's submitted details, creates a Contact record in Salesforce, and returns the Contact record ID.
      * This is an example implementation of the RichMessaging.ProcessFormHandler interface.
      * global class ContactApexFormHandler implements Richmessaging.ProcessFormHandler{

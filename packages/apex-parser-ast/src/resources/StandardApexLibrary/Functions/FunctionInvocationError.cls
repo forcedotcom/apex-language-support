@@ -1,6 +1,6 @@
 /**
  * Use FunctionInvocationError to get detailed error information about a failed Function invocation.
- * <p>Usage
+ * Usage
  * FunctionInvocationError contains various error information such as the error message at the time of the error.
  */
 global interface FunctionInvocationError {

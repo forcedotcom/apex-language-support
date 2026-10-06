@@ -4,17 +4,17 @@
 global class AuthProviderCallbackState {
     /**
      * The HTTP body of the authentication request.
-     * <p>String
+     * String
      */
     global webservice String body;
     /**
      * The HTTP headers of the authentication request.
-     * <p>Map<String,String>
+     * Map<String,String>
      */
     global Map headers;
     /**
      * The HTTP query parameters of the authentication request.
-     * <p>Map<String,String>
+     * Map<String,String>
      */
     global Map queryParameters;
 

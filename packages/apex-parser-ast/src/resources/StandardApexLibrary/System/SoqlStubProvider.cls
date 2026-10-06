@@ -1,11 +1,11 @@
 /**
  * Contains a method to create a mock test class for handling SOQL query responses for Data 360 data model objects (DMOs).
- * <p>Usage
+ * Usage
  * To create mock test classes, extend the SoqlStubProvider class and override the handleSoqlQuery() class method.
  * Note
  * <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/langCon_apex_loops_for_SOQL.htm" target="_blank">SOQL For Loops</a> in Apex aren't supported for SOQL stubs in static or dynamic SOQL queries against DMOs.
  * See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/MockSOQLTestsForDMOs.htm" target="_blank" title="HTML (New Window)">Mock SOQL Tests for Data 360 Data Model Objects</a> in the Apex Developer Guide.
- * <p>Example
+ * Example
  * This example shows a mock test class for the SkyMilesForBusinessOptInController class.
  * @IsTest
  * public class SkyMilesForBusinessOptInController_Test {

@@ -1,6 +1,6 @@
 /**
  * The XmlStreamWriter class provides methods for writing XML data.
- * <p>Usage
+ * Usage
  * You can use the XmlStreamWriter class to programmatically construct an XML document, then use HTTP classes to send the document to an external server.
  * The XmlStreamWriter class is similar to the XMLStreamWriter utility class from StAX (Streaming API for XML). StAX is an API to read and write XML documents, originating from the Java programming language community.
  * Note

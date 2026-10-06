@@ -1,10 +1,10 @@
 /**
  * Contains the result of the payment platform’s attempt to record data from the gateway’s notification.
- * <p>Usage
+ * Usage
  * This class is used with asynchronous payments. It is the return type of the NotificiationClient.record operation and contains the result of the payment platform’s attempt to save notification details.
- * <p>The constructor of this class takes no arguments. For example:
+ * The constructor of this class takes no arguments. For example:
  * CommercePayments.NotificationSaveResult nsr = new CommercePayments.NotificationSaveResult();
- * <p>Example
+ * Example
  * commercepayments.NotificationSaveResult saveResult = commercepayments.NotificationClient.record(notification);
  */
 global with sharing class NotificationSaveResult {

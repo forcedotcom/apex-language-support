@@ -1,6 +1,6 @@
 /**
  * Use Apex to request and process actions on objects that allow custom fields, on objects that appear in a Chatter feed, or on objects that are available globally.
- * <p>Example
+ * Example
  * In this sample, the trigger determines if the new contacts to be inserted are created by a quick action. If so, it sets the WhereFrom__c custom field to a value that depends on whether the quick action is global or local to the contact. Otherwise, if the inserted contacts don’t originate from a quick action, the WhereFrom__c field is set to 'NoAction'.
  * trigger accTrig2 on Contact (before insert) {
  *     for (Contact c : Trigger.new) {
@@ -27,7 +27,7 @@
 global class QuickAction {
     /**
      * Returns metadata information for the available quick actions of the provided parent object.
-     * <p>Example
+     * Example
      * // Called for Account entity.
      * List<QuickAction.DescribeAvailableQuickActionResult> result1 =
      *     QuickAction.DescribeAvailableQuickActions('Account');
@@ -41,7 +41,7 @@ global class QuickAction {
 
     /**
      * Returns the metadata information for the provided quick actions.
-     * <p>Example
+     * Example
      * // First 3 parameter values are for actions at the entity level.
      * // Last parameter is for an action at the global level.
      * List<QuickAction.DescribeQuickActionResult> result =

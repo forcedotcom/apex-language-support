@@ -190,7 +190,12 @@ function formatAnnotations(annotations, indent = '') {
 function formatDocumentation(documentation, indent = '') {
     if (typeof documentation !== 'string' || !documentation.trim()) return '';
 
-    const lines = documentation.trim().replace(/\*\//g, '* /').split(/\r?\n/).map(line => line.trimEnd());
+    const lines = documentation
+        .trim()
+        .replace(/<\/?p\s*>/gi, '')
+        .replace(/\*\//g, '* /')
+        .split(/\r?\n/)
+        .map(line => line.trimEnd());
     return `${indent}/**\n${lines.map(line => `${indent} *${line ? ` ${line}` : ''}`).join('\n')}\n${indent} */\n`;
 }
 

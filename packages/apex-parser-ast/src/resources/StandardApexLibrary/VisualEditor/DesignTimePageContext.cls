@@ -1,8 +1,8 @@
 /**
  * A class that provides context information about a Lightning page. It can be used to help define the values of a picklist in a Lightning component on a Lightning page based on the page’s type and the object with which it’s associated.
- * <p>Usage
+ * Usage
  * To use this class, create a parameterized constructor in the custom Apex class that extends VisualEditor.DynamicPickList.
- * <p>Example
+ * Example
  * Here’s an example of a custom Apex class extending the VisualEditor.DynamicPickList class. It includes VisualEditor.DesignTimePageContext to define a picklist value that is available only if the page type is HomePage.
  * global class MyCustomPickList extends VisualEditor.DynamicPickList{
  *     VisualEditor.DesignTimePageContext context;
@@ -34,12 +34,12 @@
 global class DesignTimePageContext {
     /**
      * The API name of the sObject that a Lightning page is associated with, such as Account, Contact, or Custom_object__c. entityName is available only for object pages, and not all Lightning pages are associated with objects.
-     * <p>String
+     * String
      */
     global String entityName { get; set; }
     /**
      * The type of Lightning page, such as HomePage, AppPage, or RecordPage.
-     * <p>String
+     * String
      */
     global String pageType { get; set; }
 

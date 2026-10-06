@@ -1,11 +1,11 @@
 /**
  * Contains methods for accessing record type information for an sObject with associated record types.
- * <p>Usage
+ * Usage
  * A RecordTypeInfo object is returned from the sObject describe result using the getRecordTypeInfos method. For example:
  * Schema.DescribeSObjectResult R = Account.SObjectType.getDescribe();
  * List<Schema.RecordTypeInfo> RT = R.getRecordTypeInfos();
  * In addition to the getRecordTypeInfos method, you can use the getRecordTypeInfosById and the getRecordTypeInfosByName methods. These methods return maps that associate RecordTypeInfo with record IDs and record labels, respectively.
- * <p>Example
+ * Example
  * The following example assumes at least one record type has been created for the Account object:
  * RecordType rt = [SELECT Id,Name FROM RecordType WHERE SobjectType='Account' WITH USER_MODE LIMIT 1];
  * Schema.DescribeSObjectResult d = Schema.SObjectType.Account;

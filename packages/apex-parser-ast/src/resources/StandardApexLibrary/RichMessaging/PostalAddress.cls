@@ -4,49 +4,49 @@
 global class PostalAddress {
     /**
      * The street address.
-     * <p>List<String>
+     * List<String>
      */
     @InvocableVariable
     global List addressLines;
     /**
      * The administrative area.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String administrativeArea;
     /**
      * The country.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String country;
     /**
      * The country code.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String countryCode;
     /**
      * The locality of the address.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String locality;
     /**
      * The postal code.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String postalCode;
     /**
      * The sub-administrative area.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String subAdministrativeArea;
     /**
      * The sub-locality of the address.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String subLocality;

@@ -1,6 +1,6 @@
 /**
  * Use the methods in the KbManagement.PublishingService class to manage the lifecycle of an article and its translations.
- * <p>Usage
+ * Usage
  * Use the methods in the KbManagement.PublishingService class to manage the following parts of the lifecycle of an article and its translations:
  * Publishing
  * Updating
@@ -19,7 +19,7 @@ global class PublishingService {
 
     /**
      * Archives an online version of an article. If the specified scheduledDate is null, the article is archived immediately. Otherwise, it archives the article on the scheduled date.
-     * <p>Example
+     * Example
      * String articleId = 'Insert article ID';
      * Datetime scheduledDate = Datetime.newInstanceGmt(2012, 12,1,13,30,0);
      * KbManagement.PublishingService.archiveOnlineArticle(articleId, scheduledDate);
@@ -28,7 +28,7 @@ global class PublishingService {
 
     /**
      * Assigns a review task related to a draft article.
-     * <p>Example
+     * Example
      * String articleId = 'Insert article ID';
      * String assigneeId = '';
      * String instructions = 'Please review this draft.';
@@ -39,7 +39,7 @@ global class PublishingService {
 
     /**
      * Assigns a review task related to a draft translation.
-     * <p>Example
+     * Example
      * String articleId = 'Insert article ID';
      * String assigneeId = 'Insert assignee ID';
      * String instructions = 'Please review this draft.';
@@ -50,7 +50,7 @@ global class PublishingService {
 
     /**
      * Cancels the scheduled archiving of an online article.
-     * <p>Example
+     * Example
      * String articleId = 'Insert article ID';
      * KbManagement.PublishingService.cancelScheduledArchivingOfArticle (articleId);
      */
@@ -58,7 +58,7 @@ global class PublishingService {
 
     /**
      * Cancels the scheduled publication of a draft article.
-     * <p>Example
+     * Example
      * String articleId = 'Insert article ID';
      * KbManagement.PublishingService.cancelScheduledPublicationOfArticle (articleId);
      */
@@ -66,7 +66,7 @@ global class PublishingService {
 
     /**
      * Puts a translation in a completed state that is ready to publish.
-     * <p>Example
+     * Example
      * String articleVersionId = 'Insert article ID';
      * KbManagement.PublishingService.completeTranslation(articleVersionId);
      */
@@ -74,7 +74,7 @@ global class PublishingService {
 
     /**
      * Deletes an archived article.
-     * <p>Example
+     * Example
      * String articleId = 'Insert article ID';
      * KbManagement.PublishingService.deleteArchivedArticle(articleId);
      */
@@ -82,7 +82,7 @@ global class PublishingService {
 
     /**
      * Deletes a specific archived version of a published article.
-     * <p>Example
+     * Example
      * String articleId = 'Insert article ID';
      * Integer versionNumber = 1;
      * KbManagement.PublishingService.deleteArchivedArticleVersion(articleId, versionNumber);
@@ -91,7 +91,7 @@ global class PublishingService {
 
     /**
      * Deletes a draft article.
-     * <p>Example
+     * Example
      * String articleId = 'Insert article ID';
      * KbManagement.PublishingService.deleteDraftArticle(articleId);
      */
@@ -99,7 +99,7 @@ global class PublishingService {
 
     /**
      * Deletes a draft translation.
-     * <p>Example
+     * Example
      * String articleVersionId = 'Insert article ID';
      * KbManagement.PublishingService.deleteDraftTranslation (articleVersionId);
      */
@@ -107,7 +107,7 @@ global class PublishingService {
 
     /**
      * Creates a draft article from the archived primary version and returns the new draft primary version ID of the article.
-     * <p>Example
+     * Example
      * String articleId = 'Insert article ID';
      * String id = KbManagement.PublishingService.editArchivedArticle(articleId);
      */
@@ -115,7 +115,7 @@ global class PublishingService {
 
     /**
      * Creates a draft article from the online version and returns the new draft primary version ID of the article. Also, unpublishes the online article, if unpublish is set to true.
-     * <p>Example
+     * Example
      * String articleId = 'Insert article ID';
      * String id = KbManagement.PublishingService.editOnlineArticle (articleId, true);
      */
@@ -123,7 +123,7 @@ global class PublishingService {
 
     /**
      * Creates a draft version of the online translation for a specific language and returns the new draft primary version ID of the article. Also, unpublishes the article, if set to true.
-     * <p>Example
+     * Example
      * String articleId = 'Insert article ID';
      * String language = 'fr';
      * String id = KbManagement.PublishingService.editPublishedTranslation(articleId, language, true);
@@ -136,7 +136,7 @@ global class PublishingService {
 
     /**
      * Publishes an article. If flagAsNew is set to true, the article is published as a major version.
-     * <p>Example
+     * Example
      * String articleId = 'Insert article ID';
      * KbManagement.PublishingService.publishArticle(articleId, true);
      */
@@ -144,7 +144,7 @@ global class PublishingService {
 
     /**
      * Creates a draft article from an existing online article based on the specified archived version of the article and returns the article version ID.
-     * <p>Example
+     * Example
      * String articleId = 'Insert article ID';
      * String id = KbManagement.PublishingService.restoreOldVersion (articleId, 1);
      */
@@ -152,7 +152,7 @@ global class PublishingService {
 
     /**
      * Schedules the article for publication as a major version. If the specified date is null, the article is published immediately.
-     * <p>Example
+     * Example
      * String articleId = 'Insert article ID';
      * Datetime scheduledDate = Datetime.newInstanceGmt(2012, 12,1,13,30,0);
      * KbManagement.PublishingService.scheduleForPublication(articleId, scheduledDate);
@@ -161,7 +161,7 @@ global class PublishingService {
 
     /**
      * Sets a draft translation that is ready for publication back to “in progress” status.
-     * <p>Example
+     * Example
      * String articleVersionId = 'Insert article ID';
      * KbManagement.PublishingService.setTranslationToIncomplete(articleVersionId);
      */
@@ -171,7 +171,7 @@ global class PublishingService {
 
     /**
      * Submits an article for translation to the specified language. Also assigns the specified user and due date to the submittal and returns new ID of the draft translation.
-     * <p>Example
+     * Example
      * String articleId = 'Insert article ID';
      * String language = 'fr';
      * String assigneeId = 'Insert assignee ID';

@@ -1,6 +1,6 @@
 /**
  * Contains the fact map for the report, which represents the report’s data values, and includes summarized fields.
- * <p>Usage
+ * Usage
  * The ReportFactWithSummaries class extends the ReportFact class. A ReportFactWithSummaries object is returned if includeDetails is set to false when the report is run.
  */
 global class ReportFactWithSummaries extends reports.ReportFact {

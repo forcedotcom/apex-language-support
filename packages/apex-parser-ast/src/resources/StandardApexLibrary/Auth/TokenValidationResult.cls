@@ -1,8 +1,8 @@
 /**
  * Contains methods that describe the result of the token validation performed by a token exchange handler using the validateIncomingToken method in the Auth.Oauth2TokenExchangeHandler class during the OAuth 2.0 token exchange flow.
- * <p>Usage
+ * Usage
  * For a full example implementation that shows how to get information from the TokenValidationResult class, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/token_exchange_handler.htm" target="_blank">OAuth 2.0 Token Exchange Handler Examples</a>.
- * <p>Example
+ * Example
  * Here’s is an example of the Auth.TokenValidationResult class.
  * global class TokenValidationResult {
  *     global TokenValidationResult(Boolean valid) { this.isValid = valid; }
@@ -49,32 +49,32 @@
 global class TokenValidationResult {
     /**
      * A custom error message that’s returned if token validation fails.
-     * <p>String
+     * String
      */
     global String customErrorMsg;
     /**
      * Contains information about the user that isn’t stored in the Auth.UserData class, such as information obtained via callouts to the external identity provider.
-     * <p>Object
+     * Object
      */
     global Object data;
     /**
      * Indicates whether the token is valid or not, based on the custom validation logic in your token exchange handler.
-     * <p>Boolean
+     * Boolean
      */
     global Boolean isValid;
     /**
      * The token from the external identity provider.
-     * <p>String
+     * String
      */
     global String token;
     /**
      * The type of token from the external identity provider. It can be an access token, refresh token, ID token, SAML 2.0 assertion, or a JSON Web Token (JWT).
-     * <p><a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_enum_Auth_OAuth2TokenExchangeType.htm" target="_blank">Auth.OAuth2TokenExchangeType</a>
+     * <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_enum_Auth_OAuth2TokenExchangeType.htm" target="_blank">Auth.OAuth2TokenExchangeType</a>
      */
     global Auth.OAuth2TokenExchangeType tokenType;
     /**
      * Information about the user that’s obtained from the identity provider’s token.
-     * <p><a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_class_Auth_UserData.htm" target="_blank">Auth.UserData</a>
+     * <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_class_Auth_UserData.htm" target="_blank">Auth.UserData</a>
      */
     global Auth.UserData userData;
 

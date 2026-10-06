@@ -1,6 +1,6 @@
 /**
  * Contains the result for the Database.getUpdated method call.
- * <p>Usage
+ * Usage
  * Use the methods in this class to obtain detailed information about the updated records returned by Database.getUpdated for a specific time window.
  */
 global class GetUpdatedResult {

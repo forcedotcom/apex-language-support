@@ -1,10 +1,10 @@
 /**
  * Use the QuickAction.QuickActionRequest class for providing action information for quick actions to be performed by QuickAction class methods. Action information includes the action name, context record ID, and record.
- * <p>Usage
+ * Usage
  * For Apex saved using Salesforce API version 28.0, a parent ID is associated with the QuickActionRequest instead of the context ID.
  * The constructor of this class takes no arguments:
  * QuickAction.QuickActionRequest qar = new QuickAction.QuickActionRequest();
- * <p>Example
+ * Example
  * In this sample, a new quick action is created to create a contact and assign a record to it.
  * QuickAction.QuickActionRequest req = new QuickAction.QuickActionRequest();
  * // Some quick action name
@@ -51,7 +51,7 @@ global class QuickActionRequest {
 
     /**
      * Sets this QuickAction’s context ID. Returned by getContextId.
-     * <p>Usage
+     * Usage
      * For Apex saved using Salesforce API version 28.0, sets this QuickAction’s parent ID and is returned by getParentId.
      */
     global void setContextId(Id param1) { }

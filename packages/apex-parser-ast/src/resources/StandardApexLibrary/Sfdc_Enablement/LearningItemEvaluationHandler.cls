@@ -1,8 +1,8 @@
 /**
  * Contains methods to customize the evaluation process of a learning item.
- * <p>Usage
+ * Usage
  * Extend this class and implement your custom progress evaluation method. Then link this class to a <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.api_meta.meta/api_meta/meta_learningitemtype.htm" target="_blank">LearningItemType metadata</a> record by passing the Apex class name to the ApexEvaluationHandler field.
- * <p>Example
+ * Example
  * This code updates a user’s progress when they take a custom screen flow exercise in an Enablement program. The code updates the progress by checking the number of screens the user has navigated, calculating the progress percentage, and returning the progress status. See <a class="xref" href="https://developer.salesforce.com/docs/sales/enablement/guide/custom-exercise-track-progress.html" target="_blank">Track a User's Progress in a Custom Exercise</a> from Salesforce Developer Guide: Sales Programs and Partner Tracks with Enablement.
  * global class ScreenFlowEvaluationHandler extends sfdc_enablement.LearningItemEvaluationHandler {
  *     global override sfdc_enablement.LearningEvaluationResult evaluate(sfdc_enablement.LearningEvaluation learningEvaluation) {

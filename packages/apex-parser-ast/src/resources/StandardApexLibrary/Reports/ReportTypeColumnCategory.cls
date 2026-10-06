@@ -1,6 +1,6 @@
 /**
  * Information about categories of fields in a report type.
- * <p>Usage
+ * Usage
  * A report type column category is a set of fields that the report type grants access to. For example, an opportunity report has categories like Opportunity Information and Primary Contact. The Opportunity Information category has fields like Amount, Probability, and Close Date.
  * Get category information about a report by first getting the report metadata:
  * // Get the report ID

@@ -1,6 +1,6 @@
 /**
  * Access information about the referenced refund requests. Extends the RefundRequest class.
- * <p>Example
+ * Example
  * global commercepayments.GatewayResponse processRequest(commercepayments.PaymentGatewayContext gatewayContext) {
  *     commercepayments.RequestType requestType = gatewayContext.getPaymentRequestType();
  *     if (requestType == commercepayments.RequestType.ReferencedRefund) {
@@ -11,19 +11,19 @@
 global with sharing class ReferencedRefundRequest extends commercepayments.RefundRequest {
     /**
      * References a payment object.
-     * <p>String
+     * String
      */
     global String PaymentId { get; set; }
     /**
      * References an account.
-     * <p>String
+     * String
      */
     global String accountId { get; set; }
     @AuraEnabled
     global Map additionalData { get; set; }
     /**
      * References an amount.
-     * <p>Double
+     * Double
      */
     global Double amount { get; set; }
     global Boolean duplicate { get; set; }

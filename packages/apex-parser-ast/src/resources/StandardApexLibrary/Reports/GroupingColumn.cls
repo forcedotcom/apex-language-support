@@ -1,6 +1,6 @@
 /**
  * Contains methods for describing fields that are used for column grouping.
- * <p>The GroupingColumn class provides basic information about column grouping fields. The GroupingInfo class includes additional methods for describing and updating grouping fields.
+ * The GroupingColumn class provides basic information about column grouping fields. The GroupingInfo class includes additional methods for describing and updating grouping fields.
  */
 global class GroupingColumn {
     global virtual Boolean equals(Object o) { return false; }
@@ -12,7 +12,7 @@ global class GroupingColumn {
 
     /**
      * Returns the level of grouping for the column.
-     * <p>Usage
+     * Usage
      * In a summary report, 0, 1, or 2 indicates grouping at the first, second, or third row level.
      * In a matrix report, 0 or 1 indicates grouping at the first or second row or column level.
      */

@@ -1,6 +1,6 @@
 /**
  * The type of action for a PlatformActionListItem.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the Metadata.PlatformActionTypeEnum enum.
  */
 global enum PlatformActionTypeEnum {

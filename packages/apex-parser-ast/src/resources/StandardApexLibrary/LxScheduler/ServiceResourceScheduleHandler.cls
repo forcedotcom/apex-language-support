@@ -1,6 +1,6 @@
 /**
  * Allows an implementing class to check external calendar events to find already booked time slots for the requested service resources. This interface is part of Salesforce Scheduler.
- * <p>Usage
+ * Usage
  * The lxscheduler.ServiceResourceScheduleHandler interface is called by Salesforce Scheduler APIs.
  * To implement this interface, you must first declare a class with the implements keyword as follows:
  * public class ServiceResourceScheduleHandlerImpl implements LxScheduler.ServiceResourceScheduleHandler{}

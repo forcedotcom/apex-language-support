@@ -4,27 +4,27 @@
 global with sharing class HeaderTaxAddressesRequest {
     /**
      * Specifies the billTo address for a line item on which tax was calculated.
-     * <p>TaxAddressRequest
+     * TaxAddressRequest
      */
     global commercetax.TaxAddressRequest billTo { get; set; }
     /**
      * Specifies the shipFrom address for a line item on which tax was calculated.
-     * <p>TaxAddressRequest
+     * TaxAddressRequest
      */
     global commercetax.TaxAddressRequest shipFrom { get; set; }
     /**
      * Specifies the shipTo address for a line item on which tax was calculated.
-     * <p>TaxAddressRequest
+     * TaxAddressRequest
      */
     global commercetax.TaxAddressRequest shipTo { get; set; }
     /**
      * Specifies the soldTo address for a line item on which tax was calculated.
-     * <p>TaxAddressRequest
+     * TaxAddressRequest
      */
     global commercetax.TaxAddressRequest soldTo { get; set; }
     /**
      * Address used by the tax engine when calculating tax for a line item.
-     * <p>TaxAddressRequest
+     * TaxAddressRequest
      */
     global commercetax.TaxAddressRequest taxEngineAddress { get; set; }
 

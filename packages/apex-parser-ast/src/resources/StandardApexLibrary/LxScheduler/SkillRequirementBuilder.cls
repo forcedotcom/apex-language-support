@@ -1,6 +1,6 @@
 /**
  * Contains methods to build an instance of the lxscheduler.SkillRequirement class.
- * <p>A Builder object is obtained by invoking one of the SkillRequirementBuilder methods defined by the SkillRequirement class.
+ * A Builder object is obtained by invoking one of the SkillRequirementBuilder methods defined by the SkillRequirement class.
  */
 global without sharing class SkillRequirementBuilder {
     global SkillRequirementBuilder() { }

@@ -1,6 +1,6 @@
 /**
  * Wrapper class that stores details about the type of a tax calculation request.
- * <p>Example
+ * Example
  * At the beginning of a tax adapter, use TaxEngineContext class to pass the value of a request type to an instance of RequestType.
  * global virtual class MockAdapter implements commercetax.TaxEngineAdapter {
  *

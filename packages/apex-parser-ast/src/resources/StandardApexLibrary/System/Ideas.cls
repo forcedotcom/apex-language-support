@@ -1,12 +1,12 @@
 /**
  * Represents zone ideas.
- * <p>Usage
+ * Usage
  * Ideas is a zone of users who post, vote for, and comment on ideas. An Ideas zone provides an online, transparent way for you to attract, manage, and showcase innovation.
  * A set of recent replies (returned by methods, see below) includes ideas that a user posted or commented on that already have comments posted by another user. The returned ideas are listed based on the time of the last comment made by another user, with the most recent ideas appearing first.
  * The userID argument is a required argument that filters the results so only the ideas that the specified user has posted or commented on are returned.
  * The communityID argument filters the results so only the ideas within the specified zone are returned. If this argument is the empty string, then all recent replies for the specified user are returned regardless of the zone.
  * For more information on ideas, see “Using Ideas” in the Salesforce online help.
- * <p>Example
+ * Example
  * The following example finds ideas in a specific zone that have similar titles as a new idea:
  * public class FindSimilarIdeasController {
  *
@@ -110,21 +110,21 @@ global class Ideas {
 
     /**
      * Returns ideas that have recent replies for the specified user or zone. This includes all read and unread replies.
-     * <p>Usage
+     * Usage
      * Each getAllRecentReplies call counts against the SOQL query limits. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_gov_limits.htm" target="_blank">Execution Governors and Limits</a>.
      */
     global static List getAllRecentReplies(String userId, String communityId) { return null; }
 
     /**
      * Returns ideas that have recent replies marked as read.
-     * <p>Usage
+     * Usage
      * Each getReadRecentReplies call counts against the SOQL query limits. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_gov_limits.htm" target="_blank">Execution Governors and Limits</a>.
      */
     global static List getReadRecentReplies(String userId, String communityId) { return null; }
 
     /**
      * Returns ideas that have recent replies marked as unread.
-     * <p>Usage
+     * Usage
      * Each getUnreadRecentReplies call counts against the SOQL query limits. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_gov_limits.htm" target="_blank">Execution Governors and Limits</a>.
      */
     global static List getUnreadRecentReplies(String userId, String communityId) { return null; }

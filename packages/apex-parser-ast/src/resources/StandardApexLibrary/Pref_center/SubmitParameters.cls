@@ -1,6 +1,6 @@
 /**
  * Retrieve record ID information to use with your submit-form handler.
- * <p>Example
+ * Example
  * String userId = submitParams.getRecordId();
  *
  * User user = [select id, AboutMe from User where id=:userId];

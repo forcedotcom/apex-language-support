@@ -1,6 +1,6 @@
 /**
  * Stores details of tax impositions from the external tax engine.
- * <p>Example
+ * Example
  * In this mock adapter example, the adapter sets the TaxDetailsResponse.setImposition() method parameter to null if the request's document code indicates that the tax calculation didn't require any exceptions. Otherwise, it creates an instance of ImpositionResponse and sets its SubType and Type values, and then assigns it to TaxDetailsResponse.
  * if(request.DocumentCode == 'SetsNullForResponseWithoutException'){
  *   taxDetailsResponse.setImposition(null);

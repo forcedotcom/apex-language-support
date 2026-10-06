@@ -8,7 +8,7 @@ global class FindDuplicatesByIds {
 
     /**
      * Identifies duplicates of record IDs provided and returns a list of FindDuplicatesResult objects.
-     * <p>Usage
+     * Usage
      * FindDuplicatesByIds uses the duplicate rules for the object that has the same type as the input record IDs. For example, if the record ID represents an Account, FindDuplicatesByIds uses the duplicate rules associated with the Account object.
      * FindDuplicatesByIds identifies duplicate records according to activated standard and custom matching rules. <a class="xref" href="https://help.salesforce.com/s/articleView?id=sales.matching_rules_standard_rules.htm&amp;language=en_US&amp;type=5" target="_blank" title="HTML (New Window)">Standard matching rules</a> don’t include custom fields in their matching criteria. You can configure custom matching rules that do include custom fields for matching criteria, and then assign the custom matching rule to a <a class="xref" href="https://help.salesforce.com/s/articleView?id=sales.duplicate_rules_map_of_reference.htm&amp;type=5&amp;language=en_US" target="_blank">duplicate rule</a>. However, configuring these rules isn’t a part of the Datacloud API.
      * Input:
@@ -18,7 +18,7 @@ global class FindDuplicatesByIds {
      * The output of FindDuplicatesByIds is an array of objects with the same number of elements as the input array, and in the same order. The output objects encapsulate record IDs for duplicate records. The output objects also contain values from the duplicate records.
      * Each element contains an array of DuplicateResult objects, which each represent a duplicate rule that FindDuplicatesByIds applied. Within each DuplicateResult object is an array of MatchResult objects, which each represent a matching rule that the duplicate rule applied. If FindDuplicatesByIds doesn’t find any duplicates for that matching rule, then the MatchResult.getMatchRecords() array is empty. Otherwise, the MatchResult.getMatchRecords() array contains MatchRecord objects, which each represent a duplicate record.
      * If no duplicate rule is active for the object type of the record IDs in the input array, a System.HandledException exception is thrown with this message: No active duplicate rules are defined for the {ObjectName} object type.
-     * <p>Example
+     * Example
      * // Create list of existing record IDs to check for duplicates
      * List<Id> idList = new List<Id>();
      * idList.add('EXISTING_ID'); // Replace placeholder with an existing 18-digit record ID

@@ -1,10 +1,10 @@
 /**
  * Contains methods to obtain the request ID and Quiddity value of the current Salesforce request.
- * <p>Usage
+ * Usage
  * Use the Request class to detect the current Apex context at runtime. The methods in the Request class obtain a unique request ID and the Quiddity value that represent the current Apex execution type. These values can also be used to correlate with debug and event logs.
  * The request ID represents an individual transaction, but may not be universally unique. The request ID is present in the debug logs that are triggered by the request.
  * The request ID and Quiddity values are the same as in the event log files of the Apex Execution event type used in Event Monitoring.
- * <p>Example
+ * Example
  * This example code shows how to obtain current Apex code context by retrieving the request ID and Quiddity value of the current request.
  * //Get info about the current request
  * Request reqInfo = Request.getCurrent();

@@ -1,6 +1,6 @@
 /**
  * A Schema.sObjectField object is returned from the field describe result using the getController and getSObjectField methods.
- * <p>Example
+ * Example
  * Schema.DescribeFieldResult F = Account.Industry.getDescribe();
  * Schema.sObjectField T = F.getSObjectField();
  */

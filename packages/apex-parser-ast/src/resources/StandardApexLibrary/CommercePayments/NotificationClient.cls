@@ -1,10 +1,10 @@
 /**
  * Communicates with the payment platform regarding the gateway’s notification.
- * <p>Usage
+ * Usage
  * Specify the CommercePayments namespace when creating an instance of this class. The constructor of this class takes no arguments. For example:
  * CommercePayments.NotificationClient ntc = new CommercePayments.NotificationClient();
  * This class is used in asynchronous payment gateway adapters. The notification client contains API for communicating with the payments platform regarding the gateway’s notification. When the gateway sends a notification, the gateway adapter invokes the record method in NotificationClient to request that the platform updates notification details.
- * <p>Example
+ * Example
  * The NotificationSaveResult class creates a saveResult object to store the result of the save request made to the payment gateway.
  * commercepayments.NotificationSaveResult saveResult = commercepayments.NotificationClient.record(notification);
  */

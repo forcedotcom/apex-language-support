@@ -1,6 +1,6 @@
 /**
  * Retrieve records related to the tokenized record id, and populate the values of a preference form.
- * <p>Example
+ * Example
  * Use methods in the LoadFormData class to set available and selected values in different form components:
  * List<System.SelectOption> picklistOptions = new List<System.SelectOption>();
  * picklistOptions.add(new System.SelectOption('optIn', 'Opt In'));
@@ -43,7 +43,7 @@ global class LoadFormData {
 
     /**
      * Creates an instance of the LoadFormData class for running tests on any custom Apex classes you create for Preference Manager.
-     * <p>Usage
+     * Usage
      * This constructor is available in API version 56.0 and later.
      */
     global LoadFormData(Map data) { }

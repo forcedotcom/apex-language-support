@@ -1,9 +1,9 @@
 /**
  * Contains methods that reorder batch jobs in the Apex flex queue.
- * <p>Usage
+ * Usage
  * You can place up to 100 batch jobs in a holding status for future execution. When system resources become available, the jobs are taken from the top of the Apex flex queue and moved to the batch job queue. Up to five queued or active jobs can be processed simultaneously for each org. When a job is moved out of the flex queue for processing, its status changes from Holding to Queued. Queued jobs are executed when the system is ready to process new jobs.
  * Use this class’s methods to reorder your Holding jobs in the flex queue. As best practice and for safe usage, a FlexQueue reorder method must be the final statement in a transaction.
- * <p>Example
+ * Example
  * This example moves a job to the front of the flex queue so that it’s executed immediately. The job is moved by calling the System.FlexQueue.moveJobToFront() method with the high priority job ID as the parameter.
  * ID highPriorityJobId = Database.executeBatch(new HighPriorityBatchClass(), 200);
  * boolean jobMovedToFrontOfQueue = FlexQueue.moveJobToFront(highPriorityJobId);

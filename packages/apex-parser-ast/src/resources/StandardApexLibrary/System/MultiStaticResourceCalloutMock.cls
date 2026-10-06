@@ -1,6 +1,6 @@
 /**
  * Utility class used to specify a fake response using multiple resources for testing HTTP callouts.
- * <p>Usage
+ * Usage
  * Use the methods in this class to set the response properties for testing HTTP callouts. You can specify a resource for each endpoint.
  */
 global class MultiStaticResourceCalloutMock implements System.HttpCalloutMock {

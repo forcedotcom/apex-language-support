@@ -1,6 +1,6 @@
 /**
  * The Flow.Interview class provides advanced controller access to flows and the ability to start a flow.
- * <p>Usage
+ * Usage
  * SOQL and DML limits apply during flow execution. See <a class="xref" href="https://help.salesforce.com/articleView?id=flow_considerations_limit_transaction.htm&amp;language=en_US" target="_blank">Per-Transaction Flow Limits</a> in Salesforce Help.
  * To create an Interview object, you have two options.
  * Note
@@ -12,7 +12,7 @@
  * Namespace: Flow.Interview.namespace.flowName
  * Create the object dynamically by using createInterview()
  * To enforce sharing rules, run the flow or Apex on API version 62.0 or later. The Apex class must be declared using the with sharing keyword. The flow runs more securely in the default context when an Apex class that’s declared using the with sharing keyword launches an autolaunched flow. The flow enforces the sharing rules of the user that executes the Apex class. Data access is restricted to the sharing rules of the user that executed the Apex class. For example, a query can return fewer rows than it did in system context without sharing. An operation can fail because the user doesn’t have the correct permissions.
- * <p>Examples: Starting Flow Interviews
+ * Examples: Starting Flow Interviews
  * These examples are all sample controllers that start an interview for the flow from the <a class="xref" href="https://trailhead.salesforce.com/projects/flow_calculate" target="_blank">Build a Discount Calculator</a> project on Trailhead. Each shows a different permutation, based on:
  * Whether the interview is created statically, with Flow.Interview.myFlow, or dynamically, with createInterview().
  * Whether the flow is managed or local.
@@ -46,7 +46,7 @@
  *   Flow.Interview myFlow = Flow.Interview.createInterview(namespace, flowName, inputs);
  *   myFlow.start();
  * }
- * <p>Example: Getting Variable Values
+ * Example: Getting Variable Values
  * This sample uses the getVariableValue method to obtain breadcrumb (navigation) information from a flow. If that flow contains subflow elements, and each of the referenced flows also contains a vaBreadCrumb variable, you can provide users with breadcrumbs regardless of which flow the interview is running.
  * public with sharing class SampleController {
  *
@@ -66,7 +66,7 @@
 global abstract class Interview {
     /**
      * Creates an interview for a flow.
-     * <p>Usage
+     * Usage
      * Use this method to dynamically create a Flow.Interview object for the start() method.
      * How you get output variable values from an interview depends on the type of the Apex variable where you're storing the interview.
      * If the variable is cast to a specific flow, you can use myFlow.myVar to access a variable, where myVar is the name of the variable.
@@ -83,7 +83,7 @@ global abstract class Interview {
 
     /**
      * Returns the value of the specified flow variable. The flow variable can be in the flow embedded in the Visualforce page, or in a separate flow that is called by a subflow element.
-     * <p>Usage
+     * Usage
      * The returned variable value comes from whichever flow the interview is running. If the specified variable can't be found in that flow, the method returns null.
      * This method checks for the existence of the variable at run time only, not at compile time.
      */
@@ -93,7 +93,7 @@ global abstract class Interview {
 
     /**
      * Starts an instance (interview) for an autolaunched or user provisioning flow.
-     * <p>Usage
+     * Usage
      * This method can be used only with flows that have one of these types.
      * Autolaunched Flow
      * User Provisioning Flow

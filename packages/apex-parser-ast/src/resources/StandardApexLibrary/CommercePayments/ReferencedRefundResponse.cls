@@ -1,6 +1,6 @@
 /**
  * The payment gateway adapter sends this response for the ReferencedRefund request type.
- * <p>Usage
+ * Usage
  * The constructor of this class takes no arguments. For example:
  * CommercePayments.ReferencedRefundResponse refr = new CommercePayments.ReferencedRefundResponse();
  */

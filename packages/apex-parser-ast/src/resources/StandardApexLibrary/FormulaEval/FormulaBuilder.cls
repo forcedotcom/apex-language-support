@@ -1,6 +1,6 @@
 /**
  * Contains methods to build and validate user-defined formulas.
- * <p>Usage
+ * Usage
  * The context type that corresponds to the Apex class used in the builder withType() method must be a global, user-defined Apex class. Any fields or properties that the formula references must also be global.
  */
 global class FormulaBuilder {
@@ -16,10 +16,10 @@ global class FormulaBuilder {
 
     /**
      * Optional. Indicates whether a formula expression created with the build() method is evaluated in template mode. In template mode, values are interpolated into a string by using merge field syntax rather than by concatenating strings with the & operator. Merge fields use the syntax {!Object_Name.Field_Name}, where names are preceded by an exclamation mark and enclosed in curly braces.
-     * <p>Usage
+     * Usage
      * In template mode, the FormulaEval.FormulaReturnType value that’s set with withReturnType() must be STRING.
      * Template mode supports the same global variables, formula expressions, and context types as non-template mode, as long as they are correctly set using the FormulaBuilder methods.
-     * <p>Example
+     * Example
      * In this example, true is passed to parseAsTemplate(). The formula expression is evaluated in template mode, so the values of the name and website fields on the Account record are interpolated into the string using merge field syntax. The output is equal to the expression 'name & " (" & website & ")"'.
      * FormulaEval.FormulaInstance ff = Formula.builder()
      *     .withType(Schema.Account.class)
@@ -54,7 +54,7 @@ global class FormulaBuilder {
 
     /**
      * Sets the Apex type that corresponds to the Apex class used with the build() method to SObject type.
-     * <p>Example
+     * Example
      * This example uses an SObject type as an input in the withType() method to build and evaluate a formula.
      * FormulaEval.FormulaInstance ff = Formula.builder()
      *     .withReturnType(FormulaEval.FormulaReturnType.Boolean)

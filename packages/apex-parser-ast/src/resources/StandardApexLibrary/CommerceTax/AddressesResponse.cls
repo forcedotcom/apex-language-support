@@ -1,8 +1,8 @@
 /**
  * Sets the tax address fields based on a response from the external tax engine. Contains setter methods for the Ship From, Ship To, and Sold To addresses.
- * <p>Usage
+ * Usage
  * Because AddressesResponse contains multiple addresses, we recommend using multiple instances of AddressResponse to set unique values for each address.
- * <p>Example
+ * Example
  * This code sample represents a portion of the code used in a mock tax adapter. In this example, you create three AddressResponse classes, set their location codes, and pass them to the Ship To, Ship From, and Sold To setter methods in AddressesResponse. In an actual implementation, your AddressResponse classes already have a location code based on the response from the external tax engine.
  * commercetax.AddressesResponse addressesRes = new commercetax.AddressesResponse();
  *

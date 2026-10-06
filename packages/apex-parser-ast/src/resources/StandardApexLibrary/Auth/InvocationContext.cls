@@ -1,6 +1,6 @@
 /**
  * The context in which the connected app is invoked, such as the protocol flow used and the token type issued, if any. Developers can use the context information to write code that is unique to the type of invocation.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the Auth.InvocationContext enum.
  */
 global enum InvocationContext {

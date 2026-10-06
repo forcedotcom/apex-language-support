@@ -1,6 +1,6 @@
 /**
  * Contains methods that return limit information for specific resources.
- * <p>Usage
+ * Usage
  * The Limits methods return the specific limit for the particular governor, such as the number of calls of a method or the amount of heap size remaining.
  * Because Apex runs in a multitenant environment, the Apex runtime engine strictly enforces a number of limits to ensure that runaway Apex doesn’t monopolize shared resources.
  * None of the Limits methods require an argument. The format of the limits methods is as follows:
@@ -41,7 +41,7 @@ global class Limits {
 
     /**
      * Deprecated. Returns the number of child relationship objects that have been returned.
-     * <p>Usage
+     * Usage
      * Note
      * Because describe limits are no longer enforced in any API version, this method is no longer available. In API version 30.0 and earlier, this method is available but is deprecated.
      */
@@ -219,21 +219,21 @@ global class Limits {
 
     /**
      * Deprecated. Returns the same value as getLimitDMLStatements.
-     * <p>Usage
+     * Usage
      * The number of RunAs methods is no longer a separate limit, but is tracked as the number of DML statements issued.
      */
     global static Integer getLimitRunAs() { return 0; }
 
     /**
      * Deprecated. Returns the same value as getLimitDMLStatements.
-     * <p>Usage
+     * Usage
      * The number of Rollback methods is no longer a separate limit, but is tracked as the number of DML statements issued.
      */
     global static Integer getLimitSavepointRollbacks() { return 0; }
 
     /**
      * Deprecated. Returns the same value as getLimitDMLStatements.
-     * <p>Usage
+     * Usage
      * The number of setSavepoint methods is no longer a separate limit, but is tracked as the number of DML statements issued.
      */
     global static Integer getLimitSavepoints() { return 0; }
@@ -281,21 +281,21 @@ global class Limits {
 
     /**
      * Deprecated. Returns the same value as getDMLStatements.
-     * <p>Usage
+     * Usage
      * The number of RunAs methods is no longer a separate limit, but is tracked as the number of DML statements issued.
      */
     global static Integer getRunAs() { return 0; }
 
     /**
      * Deprecated. Returns the same value as getDMLStatements.
-     * <p>Usage
+     * Usage
      * The number of Rollback methods is no longer a separate limit, but is tracked as the number of DML statements issued.
      */
     global static Integer getSavepointRollbacks() { return 0; }
 
     /**
      * Deprecated. Returns the same value as getDMLStatements.
-     * <p>Usage
+     * Usage
      * The number of setSavepoint methods is no longer a separate limit, but is tracked as the number of DML statements issued.
      */
     global static Integer getSavepoints() { return 0; }

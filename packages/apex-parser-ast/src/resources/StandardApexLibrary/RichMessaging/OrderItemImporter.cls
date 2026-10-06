@@ -4,38 +4,38 @@
 global with sharing class OrderItemImporter {
     /**
      * The address variable of the importer.
-     * <p>RichMessaging.Address
+     * RichMessaging.Address
      */
     @InvocableVariable
     global RichMessaging.Address addressValue;
     /**
      * The country of origin variable for the imported order item.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String countryOfOriginValue;
     /**
      * The name variable of the importer.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String nameValue;
 
     /**
      * The address of the importer.
-     * <p>RichMessaging.Address
+     * RichMessaging.Address
      */
     @AuraEnabled
     global RichMessaging.Address address { get; set; }
     /**
      * The country of origin for the imported order item.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String countryOfOrigin { get; set; }
     /**
      * The name of the importer.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String name { get; set; }

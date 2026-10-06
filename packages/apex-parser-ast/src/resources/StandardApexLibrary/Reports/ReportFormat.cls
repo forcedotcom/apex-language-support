@@ -1,6 +1,6 @@
 /**
  * Contains the possible report format types.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the Reports.ReportFormat enum.
  */
 global enum ReportFormat {

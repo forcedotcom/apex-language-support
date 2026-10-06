@@ -1,6 +1,6 @@
 /**
  * Base class of Cache.OrgPartition and Cache.SessionPartition. Use the subclasses to manage the cache partition for org caches and session caches.
- * <p>Cache Key Format for Partition Methods
+ * Cache Key Format for Partition Methods
  * After you obtain the partition object (an instance of Cache.OrgPartition or Cache.SessionPartition), the methods to add, retrieve, and manage the cache values in a partition take the key name. The key name that you supply to these methods (get(), put(), remove(), and contains()) doesn’t include the namespace.partition prefix.
  */
 global abstract class Partition {
@@ -14,9 +14,9 @@ global abstract class Partition {
 
     /**
      * Returns true if the cache partition contains values for a specified set of keys.
-     * <p>Usage
+     * Usage
      * The number of input keys cannot exceed the maximum limit of 10.
-     * <p>Example
+     * Example
      * In this example, the code checks for the presence of multiple keys on a partition. It fetches the cache key and the corresponding Boolean value for the key entry from the org cache of the partition.
      * // Assuming there is a partition p1 in the default 'local' namespace
      *
@@ -55,9 +55,9 @@ global abstract class Partition {
 
     /**
      * Returns the cached values corresponding to the specified set of keys from the cache partition.
-     * <p>Usage
+     * Usage
      * The number of input keys cannot exceed the maximum limit of 10.
-     * <p>Examples
+     * Examples
      * Fetch multiple keys from the org cache of a partition.
      * // Assuming there is a partition p1 in the default 'local' namespace
      *

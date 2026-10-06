@@ -1,6 +1,6 @@
 /**
  * Contains information about an actionable custom notification.
- * <p>Example
+ * Example
  * This example shows how to create an ActionableNotification object by using the ActionableNotification.Builder class.
  * Messaging.ActionableNotification notification =
  * new Messaging.ActionableNotification.Builder()
@@ -17,7 +17,7 @@ global class ActionableNotification {
 
     /**
      * Return the unique action identifier (API name) for the custom notification action.
-     * <p>This actionIdentifier must belong to the action group associated with the custom notification.
+     * This actionIdentifier must belong to the action group associated with the custom notification.
      */
     global String getActionIdentifier() { return null; }
 
@@ -52,7 +52,7 @@ global class ActionableNotification {
 
     /**
      * Contains methods to build an instance of the Messaging.ActionableNotification class, which is used to configure actionable notifications for mobile devices.
-     * <p>Example
+     * Example
      * See the example for the Messaging.ActionableNotification class.
      */
     global class Builder {

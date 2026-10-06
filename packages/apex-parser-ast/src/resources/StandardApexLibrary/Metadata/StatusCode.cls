@@ -1,6 +1,6 @@
 /**
  * Describes the status code for an unsuccessful component deploy.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the Metadata.StatusCode enum.
  */
 global enum StatusCode {

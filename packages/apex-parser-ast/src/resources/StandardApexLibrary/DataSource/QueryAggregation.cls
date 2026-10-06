@@ -1,8 +1,8 @@
 /**
  * Specifies how to aggregate a column in a query.
- * <p>Usage
+ * Usage
  * Used by the aggregation property on the DataSource.ColumnSelection class.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the DataSource.QueryAggregation enum.
  */
 global enum QueryAggregation {

@@ -1,6 +1,6 @@
 /**
  * The Cookie class lets you access cookies for your Salesforce site using Apex.
- * <p>Usage
+ * Usage
  * Use the setCookies method of the PageReference Class to attach cookies to a page.
  * Important
  * Cookie names and values set in Apex are URL encoded, that is, characters such as @ are replaced with a percent sign and their hexadecimal representation.
@@ -13,7 +13,7 @@
  * The maximum number of cookies that can be set per Salesforce Sites domain depends on your browser. Newer browsers have higher limits than older ones.
  * Cookies must be less than 4K, including name and attributes.
  * The maximum header size of a Visualforce page, including cookies, is 8,192 bytes.
- * <p>Example
+ * Example
  * The following example creates a class, CookieController, which is used with a Visualforce page (see markup below) to update a counter each time a user displays a page. The number of times a user goes to the page is stored in a cookie.
  * // A Visualforce controller class that creates a cookie
  * // used to keep track of how often a user displays a page
@@ -76,7 +76,7 @@ global class Cookie {
 
     /**
      * Creates a new instance of the Cookie class using the specified name, value, path, and age, and settings for security and cross-domain behavior.
-     * <p>Note
+     * Note
      * Google Chrome 80 introduces a new default cookie attribute setting of SameSite, which is set to Lax. Previously, the SameSite cookie attribute defaulted to the value of None. When SameSite is set to None, cookies must be tagged with the isSecure attribute indicating that they require an encrypted HTTPS connection.
      */
     global Cookie(String name, String value, String path, Integer maxAge, Boolean isSecure, String sameSite) { }

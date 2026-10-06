@@ -1,6 +1,6 @@
 /**
  * Abstract class for storing information about payment methods.
- * <p>Usage
+ * Usage
  * The BasePaymentMethodRequest class contains fields common to CardPaymentMethodRequest
  * .
  */

@@ -1,6 +1,6 @@
 /**
  * Contains tab metadata information for a tab in a standard or custom app available in the Salesforce user interface.
- * <p>Usage
+ * Usage
  * The getTabs method of the Schema.DescribeTabSetResult returns a list of Schema.DescribeTabResult objects that describe the tabs of one app.
  * The methods in the Schema.DescribeTabResult class can be called using their property counterparts. For each method starting with get, you can omit the get prefix and the ending parentheses () to call the property counterpart. For example, tabResultObj.label is equivalent to tabResultObj.getLabel(). Similarly, for each method starting with is, omit the is prefix and the ending parentheses (). For example, tabResultObj.isCustom is equivalent to tabResultObj.custom.
  */

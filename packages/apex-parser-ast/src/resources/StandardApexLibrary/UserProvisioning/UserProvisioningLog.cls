@@ -1,6 +1,6 @@
 /**
  * Provides methods for writing messages to monitor outbound user provisioning requests.
- * <p>Example
+ * Example
  * This example writes the user account information sent to a third-party system for a provisioning request to the UserProvisioningLog object.
  * String inputParamsStr = 'Input parameters: uprId=' + uprId + ',
  * endpointURL=' + endpointURL + ', adminUsername=' + adminUsername + ',

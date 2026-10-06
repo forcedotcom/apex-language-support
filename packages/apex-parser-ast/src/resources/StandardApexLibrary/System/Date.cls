@@ -1,12 +1,12 @@
 /**
  * Contains methods for the Date primitive data type.
- * <p>Usage
+ * Usage
  * For more information on Dates, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/langCon_apex_primitives.htm" target="_blank">Date Data Type</a>.
  */
 global class Date {
     /**
      * Adds the specified number of additional days to a Date.
-     * <p>Example
+     * Example
      * Date myDate = Date.newInstance(1960, 2, 17);
      * Date newDate = mydate.addDays(2);
      */
@@ -14,7 +14,7 @@ global class Date {
 
     /**
      * Adds the specified number of additional months to a Date
-     * <p>Example
+     * Example
      * date myDate = date.newInstance(1990, 11, 21);
      * date newDate = myDate.addMonths(3);
      * date expectedDate = date.newInstance(1991, 2, 21);
@@ -24,7 +24,7 @@ global class Date {
 
     /**
      * Adds the specified number of additional years to a Date
-     * <p>Example
+     * Example
      * date myDate = date.newInstance(1983, 7, 15);
      * date newDate = myDate.addYears(2);
      * date expectedDate = date.newInstance(1985, 7, 15);
@@ -34,7 +34,7 @@ global class Date {
 
     /**
      * Returns the day-of-month component of a Date.
-     * <p>Example
+     * Example
      * date myDate = date.newInstance(1989, 4, 21);
      * Integer day = myDate.day();
      * system.assertEquals(21, day);
@@ -43,7 +43,7 @@ global class Date {
 
     /**
      * Returns the day-of-year component of a Date.
-     * <p>Example
+     * Example
      * date myDate = date.newInstance(1998, 10, 21);
      * Integer day = myDate.dayOfYear();
      * system.assertEquals(294, day);
@@ -52,9 +52,9 @@ global class Date {
 
     /**
      * Returns the number of days between the Date that called the method and the specified date.
-     * <p>Usage
+     * Usage
      * If the Date that calls the method occurs after the secondDate, the return value is negative.
-     * <p>Example
+     * Example
      * Date startDate = Date.newInstance(2008, 1, 1);
      * Date dueDate = Date.newInstance(2008, 1, 30);
      * Integer numberDaysDue = startDate.daysBetween(dueDate);
@@ -63,7 +63,7 @@ global class Date {
 
     /**
      * Returns the number of days in the month for the specified year and month (1=Jan).
-     * <p>Example
+     * Example
      * The following example finds the number of days in the month of February in the year 1960.
      * Integer numberDays = date.daysInMonth(1960, 2);
      */
@@ -73,7 +73,7 @@ global class Date {
 
     /**
      * Returns the Date as a string using the locale of the context user
-     * <p>Example
+     * Example
      * // In American-English locale
      * date myDate = date.newInstance(2001, 3, 21);
      * String dayString = myDate.format();
@@ -85,14 +85,14 @@ global class Date {
 
     /**
      * Returns true if the specified year is a leap year.
-     * <p>Example
+     * Example
      * system.assert(Date.isLeapYear(2004));
      */
     global static Boolean isLeapYear(Integer year) { return false; }
 
     /**
      * Returns true if the Date that called the method is the same as the specified date.
-     * <p>Example
+     * Example
      * date myDate = date.today();
      * date dueDate = date.newInstance(2008, 1, 30);
      * boolean dueNow = myDate.isSameDay(dueDate);
@@ -101,7 +101,7 @@ global class Date {
 
     /**
      * Returns the month component of a Date (1=Jan).
-     * <p>Example
+     * Example
      * date myDate = date.newInstance(2004, 11, 21);
      * Integer month = myDate.month();
      * system.assertEquals(11, month);
@@ -110,7 +110,7 @@ global class Date {
 
     /**
      * Returns the number of months between the Date that called the method and the specified date, ignoring the difference in days.
-     * <p>Example
+     * Example
      * Date firstDate = Date.newInstance(2006, 12, 2);
      * Date secondDate = Date.newInstance(2012, 12, 8);
      * Integer monthsBetween = firstDate.monthsBetween(secondDate);
@@ -120,7 +120,7 @@ global class Date {
 
     /**
      * Constructs a Date from Integer representations of the year, month (1=Jan), and day.
-     * <p>Example
+     * Example
      * The following example creates the date February 17th, 1960:
      * Date myDate = date.newinstance(1960, 2, 17);
      */
@@ -128,7 +128,7 @@ global class Date {
 
     /**
      * Constructs a Date from a String. The format of the String depends on the local date format.
-     * <p>Example
+     * Example
      * The following example works in some locales.
      * date mydate = date.parse('12/27/2009');
      */
@@ -136,7 +136,7 @@ global class Date {
 
     /**
      * Returns the first of the month for the Date that called the method.
-     * <p>Example
+     * Example
      * date myDate = date.newInstance(1987, 12, 17);
      * date firstDate = myDate.toStartOfMonth();
      * date expectedDate = date.newInstance(1987, 12, 1);
@@ -146,7 +146,7 @@ global class Date {
 
     /**
      * Returns the start of the week for the Date that called the method, depending on the context user's locale.
-     * <p>Example
+     * Example
      * For example, the start of a week is Sunday in the United States locale, and Monday in European locales. For example:
      * Date myDate = Date.today();
      * Date weekStart = myDate.toStartofWeek();
@@ -162,9 +162,9 @@ global class Date {
 
     /**
      * Converts the specified object to a Date. Use this method to convert a history tracking field value or an object that represents a Date value.
-     * <p>Usage
+     * Usage
      * Use this method with the OldValue or NewValue fields of history sObjects, such as AccountHistory, when the field is a Date field.
-     * <p>Example
+     * Example
      * This example converts history tracking fields to Date values.
      * List<AccountHistory> ahlist = [SELECT Field,OldValue,NewValue FROM AccountHistory];
      * for(AccountHistory ah : ahlist) {
@@ -174,7 +174,7 @@ global class Date {
      *     Date newValue = Date.valueOf(ah.NewValue);
      *   }
      * }
-     * <p>Versioned Behavior Changes
+     * Versioned Behavior Changes
      * Date.valueOf has been versioned in these releases.
      * API version 33.0 or earlier: If you call Date.valueOf with a Datetime object, the method returns a Date value that contains the hours, minutes, seconds, and milliseconds set.
      * API version 34.0 to API version 53.0: If you call Date.valueOf with a Datetime object, the method converts Datetime to a valid Date without the time information, but the result depends on the manner in which the Datetime object was initialized. For example, if the Datetime object was initialized using Datetime.valueOf(stringDate), the returned Date value contains time (hours) information. If the Datetime object is initialized using Datetime.newInstance(year, month, day, hour, minute, second) the returned Date value doesn’t contain time information.
@@ -184,9 +184,9 @@ global class Date {
 
     /**
      * Returns a Date that contains the value of the specified String.
-     * <p>Usage
+     * Usage
      * The specified string should use the standard date format “yyyy-MM-dd HH:mm:ss” in the local time zone.
-     * <p>Example
+     * Example
      * string year = '2008';
      * string month = '10';
      * string day = '5';
@@ -203,7 +203,7 @@ global class Date {
 
     /**
      * Returns the year component of a Date
-     * <p>Example
+     * Example
      * date myDate = date.newInstance(1988, 12, 17);
      * system.assertEquals(1988, myDate.year());
      */

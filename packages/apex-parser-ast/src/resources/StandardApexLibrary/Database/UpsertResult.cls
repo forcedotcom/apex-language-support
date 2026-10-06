@@ -1,6 +1,6 @@
 /**
  * The result of an upsert DML operation returned by the Database.upsert method.
- * <p>Usage
+ * Usage
  * An array of Database.UpsertResult objects is returned with the upsert database method. Each element in the UpsertResult array corresponds to the sObject array passed as the sObject[] parameter in the upsert Database method; that is, the first element in the UpsertResult array matches the first element passed in the sObject array, the second element corresponds with the second element, and so on. If only one sObject is passed in, the UpsertResults array contains a single element.
  */
 global class UpsertResult {
@@ -18,7 +18,7 @@ global class UpsertResult {
 
     /**
      * Returns the ID of the sObject you were trying to update or insert.
-     * <p>Versioned Behavior Changes
+     * Versioned Behavior Changes
      * In API version 53.0 and later, the method returns the sObject ID. However, if record locking fails during the update operation, the method returns a null value.
      * In API version 52.0 and earlier, the method returned a null value if the record wasn’t updated successfully.
      */

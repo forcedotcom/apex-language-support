@@ -1,13 +1,13 @@
 /**
  * Contains methods to manage cache values in the org cache of a specific partition. Unlike the session cache, the org cache is not tied to any session. It’s available to the org across requests and to all users.
- * <p>Usage
+ * Usage
  * This class extends Cache.Partition and inherits all its non-static methods. Utility methods for creating and validating keys aren’t supported and can be called only from the Cache.Partition parent class. For a list of Cache.Partition methods, see Partition Methods.
  * To get an org partition, call Cache.Org.getPartition and pass in a fully qualified partition name, as follows.
  * Cache.OrgPartition orgPartition = Cache.Org.getPartition('namespace.myPartition');
  * See Cache Key Format for Partition Methods.
  * The org cache supports concurrent reads and writes across multiple simultaneous Apex transactions, but the results can be indeterminate. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_platform_cache_limitations.htm" target="_blank">Platform Cache Considerations</a> in the Apex Developer Guide.
  * Org cache operations are atomic transactions. If the Apex request that the cache operations run in fails, then all cache operations in that request are rolled back. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_platform_cache_internals.htm" target="_blank">Platform Cache Internals</a> in the Apex Developer Guide.
- * <p>Example
+ * Example
  * This class is the controller for a sample Visualforce page (shown in the subsequent code sample). The controller shows how to use the methods of Cache.OrgPartition to manage a cache value on a particular partition. The controller takes inputs from the Visualforce page for the partition name, key name for a counter, and initial counter value. The controller contains default values for these inputs. When you click Rerender on the Visualforce page, the go() method is invoked and increases the counter by one. When you click Remove Key, the counter key is removed from the cache. The counter value gets reset to its initial value when it’s re-added to the cache.
  * Note
  * If another user logs in and runs this sample, the user gets the cache values that were last added or updated by the previous user. For example, if the counter value was five, the next user sees the counter value as increased to six.

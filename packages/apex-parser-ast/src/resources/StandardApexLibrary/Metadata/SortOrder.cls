@@ -1,6 +1,6 @@
 /**
  * Describes the sort order of a related list.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the Metadata.SortOrder enum.
  */
 global enum SortOrder {

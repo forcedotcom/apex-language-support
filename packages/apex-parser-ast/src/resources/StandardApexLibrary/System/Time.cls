@@ -1,12 +1,12 @@
 /**
  * Contains methods for the Time primitive data type.
- * <p>Usage
+ * Usage
  * For more information on time, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/langCon_apex_primitives.htm" target="_blank">Time Data Type</a>.
  */
 global class Time {
     /**
      * Adds the specified number of hours to a Time.
-     * <p>Example
+     * Example
      * Time myTime = Time.newInstance(1, 2, 3, 4);
      * Time expected = Time.newInstance(4, 2, 3, 4);
      * System.assertEquals(expected, myTime.addHours(3));
@@ -15,7 +15,7 @@ global class Time {
 
     /**
      * Adds the specified number of milliseconds to a Time.
-     * <p>Example
+     * Example
      * Time myTime = Time.newInstance(1, 2, 3, 0);
      * Time expected = Time.newInstance(1, 2, 4, 400);
      * System.assertEquals(expected, myTime.addMilliseconds(1400));
@@ -24,7 +24,7 @@ global class Time {
 
     /**
      * Adds the specified number of minutes to a Time.
-     * <p>Example
+     * Example
      * Time myTime = Time.newInstance(18, 30, 2, 20);
      * Integer myMinutes = myTime.minute();
      * myMinutes = myMinutes + 5;
@@ -34,7 +34,7 @@ global class Time {
 
     /**
      * Adds the specified number of seconds to a Time.
-     * <p>Example
+     * Example
      * Time myTime = Time.newInstance(1, 2, 55, 0);
      * Time expected = Time.newInstance(1, 3, 5, 0);
      * System.assertEquals(expected, myTime.addSeconds(10));
@@ -47,7 +47,7 @@ global class Time {
 
     /**
      * Returns the hour component of a Time.
-     * <p>Example
+     * Example
      * Time myTime = Time.newInstance(18, 30, 2, 20);
      * myTime = myTime.addHours(2);
      * Integer myHour = myTime.hour();
@@ -57,7 +57,7 @@ global class Time {
 
     /**
      * Returns the millisecond component of a Time.
-     * <p>Example
+     * Example
      * Time myTime = Time.newInstance(3, 14, 15, 926);
      * System.assertEquals(926, myTime.millisecond());
      */
@@ -65,7 +65,7 @@ global class Time {
 
     /**
      * Returns the minute component of a Time.
-     * <p>Example
+     * Example
      * Time myTime = Time.newInstance(3, 14, 15, 926);
      * System.assertEquals(14, myTime.minute());
      */
@@ -73,7 +73,7 @@ global class Time {
 
     /**
      * Constructs a Time from Integer representations of the specified hour, minutes, seconds, and milliseconds. (UTC is assumed.)
-     * <p>Example
+     * Example
      * The following example creates a time of 18:30:2:20 (UTC).
      * Time myTime =
      * Time.newInstance(18, 30, 2, 20);
@@ -82,7 +82,7 @@ global class Time {
 
     /**
      * Returns the second component of a Time.
-     * <p>Example
+     * Example
      * Time myTime = Time.newInstance(3, 14, 15, 926);
      * System.assertEquals(15, myTime.second());
      */

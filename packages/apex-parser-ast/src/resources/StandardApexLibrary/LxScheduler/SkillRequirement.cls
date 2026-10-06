@@ -1,6 +1,6 @@
 /**
  * Contains information about the set of skills that are required to complete a particular task for a work type.
- * <p>Usage
+ * Usage
  * The constructor for this class can’t be called directly. Create an instance of this class using the SkillRequirementBuilder.build() method.
  */
 global without sharing class SkillRequirement {

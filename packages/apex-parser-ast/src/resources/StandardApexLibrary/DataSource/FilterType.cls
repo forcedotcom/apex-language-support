@@ -1,8 +1,8 @@
 /**
  * Referenced by the type property on a DataSource.Filter.
- * <p>Usage
+ * Usage
  * Determines how to limit the returned data.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the DataSource.FilterType enum.
  */
 global enum FilterType {

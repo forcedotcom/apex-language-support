@@ -10,9 +10,9 @@ global class Boolean {
 
     /**
      * Converts the specified object to a Boolean value. Use this method to convert a history tracking field value or an object that represents a Boolean value.
-     * <p>Usage
+     * Usage
      * Use this method with the OldValue or NewValue fields of history sObjects, such as AccountHistory, when the field type corresponds to a Boolean type, like a checkbox field.
-     * <p>Example
+     * Example
      * List<AccountHistory> ahlist =
      *      [SELECT Field,OldValue,NewValue FROM AccountHistory];
      * for(AccountHistory ah : ahlist) {

@@ -1,123 +1,123 @@
 /**
  * Represents the metadata associated with a page layout.
- * <p>Usage
+ * Usage
  * Use this class to access layout metadata components. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.api_meta.meta/api_meta/meta_layouts.htm" target="_blank">Layout</a> in the Metadata API Developer Guide.
  */
 global class Layout extends Metadata.Metadata {
     /**
      * The custom buttons for this layout.
-     * <p>List<String>
+     * List<String>
      */
     global List customButtons { get; set; }
     /**
      * Represents custom console components (Visualforce pages, lookup fields, or related lists) on a page layout.
-     * <p>CustomConsoleComponents Class
+     * CustomConsoleComponents Class
      */
     global Metadata.CustomConsoleComponents customConsoleComponents { get; set; }
     /**
      * Default value for the email checkbox. Only relevant if the showEmailCheckbox property is set.
-     * <p>Boolean
+     * Boolean
      */
     global Boolean emailDefault { get; set; }
     /**
      * List of standard buttons to exclude from this layout.
-     * <p>List<String>
+     * List<String>
      */
     global List excludeButtons { get; set; }
     /**
      * Represents the values that define the feed view of a feed-based page layout.
-     * <p>Metadata.FeedLayout
+     * Metadata.FeedLayout
      */
     global Metadata.FeedLayout feedLayout { get; set; }
     global String fullName { get; set; }
     /**
      * Represents the layout headers used for tagging.
-     * <p>List<Metadata.LayoutHeader>
+     * List<Metadata.LayoutHeader>
      */
     global List headers { get; set; }
     /**
      * The main sections of the layout containing fields, s-controls, and custom links. The order here determines the layout order.
-     * <p>List<Metadata.LayoutSection>
+     * List<Metadata.LayoutSection>
      */
     global List layoutSections { get; set; }
     /**
      * Represents a minilayout, which is used in the mini view of a record in the Console tab, hover details, and event overlays.
-     * <p>Metadata.MiniLayout
+     * Metadata.MiniLayout
      */
     global Metadata.MiniLayout miniLayout { get; set; }
     /**
      * Fields for special multiline layout fields which appear in OpportunityProduct layouts.
-     * <p>List<String>
+     * List<String>
      */
     global List multilineLayoutFields { get; set; }
     /**
      * The list of actions, and their order, that display in the Salesforce mobile action bar for the layout.
-     * <p>Metadata.PlatformActionList
+     * Metadata.PlatformActionList
      */
     global Metadata.PlatformActionList platformActionList { get; set; }
     /**
      * The list of quick actions that display in the full Salesforce site for the page layout.
-     * <p>Meatadata.QuickActionL.
+     * Meatadata.QuickActionL.
      */
     global Metadata.QuickActionList quickActionList { get; set; }
     /**
      * The Related Content section of the page layout.
-     * <p>Metadata.RelatedContent
+     * Metadata.RelatedContent
      */
     global Metadata.RelatedContent relatedContent { get; set; }
     /**
      * The related lists for the layout, listed in the order they appear in the user interface.
-     * <p>List<Metadata.RelatedListItem>
+     * List<Metadata.RelatedListItem>
      */
     global List relatedLists { get; set; }
     /**
      * The list of related objects that appears in the mini view of the console.
-     * <p>List<String>
+     * List<String>
      */
     global List relatedObjects { get; set; }
     /**
      * Default value for the “run assignment rules” checkbox. Only relevant if the showRunAssignmentRulesCheckbox property is set.
-     * <p>Boolean
+     * Boolean
      */
     global Boolean runAssignmentRulesDefault { get; set; }
     /**
      * Controls whether to show the email checkbox. Only allowed on Case, CaseClose, and Task layouts. The default state of checkbox is controlled by the emailDefault property.
-     * <p>Boolean
+     * Boolean
      */
     global Boolean showEmailCheckbox { get; set; }
     /**
      * If set, the highlights panel displays on pages in the Salesforce console.
-     * <p>Boolean
+     * Boolean
      */
     global Boolean showHighlightsPanel { get; set; }
     /**
      * If set, the interaction log displays on pages in the Salesforce console.
-     * <p>Boolean
+     * Boolean
      */
     global Boolean showInteractionLogPanel { get; set; }
     /**
      * Only allowed on Case layouts. If set, the Knowledge sidebar displays on cases in the Salesforce console.
-     * <p>Boolean
+     * Boolean
      */
     global Boolean showKnowledgeComponent { get; set; }
     /**
      * Controls whether to show the Run Assignment Rules checkbox. Only allowed on Lead and Case layouts. The default state of checkbox is controlled by the runAssignmentRulesDefault property.
-     * <p>Boolean
+     * Boolean
      */
     global Boolean showRunAssignmentRulesCheckbox { get; set; }
     /**
      * Only allowed on CaseClose layout. If set, the built-in solution information section shows up on the page.
-     * <p>Boolean
+     * Boolean
      */
     global Boolean showSolutionSection { get; set; }
     /**
      * For Cast layouts only. If set, the Submit & Add Attachment button displays on case edit pages to portal users in the Customer Portal.
-     * <p>Boolean
+     * Boolean
      */
     global Boolean showSubmitAndAttachButton { get; set; }
     /**
      * The summary layout for this layout.
-     * <p>Metadata.SummaryLayout
+     * Metadata.SummaryLayout
      */
     global Metadata.SummaryLayout summaryLayout { get; set; }
 

@@ -1,6 +1,6 @@
 /**
  * The QueryBuilder class provides methods for constructing well-formed SAQL queries to pass to CRM Analytics.
- * <p>Usage
+ * Usage
  * Use QueryBuilder and its associated classes, Wave.ProjectionNode and Wave.QueryNode, to incrementally build your SAQL statement. For example:
  * public static void executeApexQuery(String name){
  *   Wave.ProjectionNode[] projs = new Wave.ProjectionNode[]{
@@ -16,7 +16,7 @@
  *     .execute('q');
  *   String response = result.json;
  * }
- * <p>Examples
+ * Examples
  * QueryBuilder is the core of this first phase of the CRM Analytics Apex SDK, so let’s take a closer look. Here’s a simple count query.
  * Wave.ProjectionNode[] projs = new Wave.ProjectionNode[]{Wave.QueryBuilder.count().alias('c')};
  * String query = Wave.QueryBuilder.load('datasetId', 'datasetVersionId').group().foreach(projs).build('q');

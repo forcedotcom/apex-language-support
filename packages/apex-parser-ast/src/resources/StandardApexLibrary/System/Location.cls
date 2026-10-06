@@ -1,13 +1,13 @@
 /**
  * Contains methods for accessing the component fields of geolocation compound fields.
- * <p>Usage
+ * Usage
  * Each of these methods is also equivalent to a read-only property. For each getter method you can access the property using dot notation. For example, myLocation.getLatitude() is equivalent to myLocation.latitude.
  * You can’t use dot notation to access compound fields’ subfields directly on the parent field. Instead, assign the parent field to a variable of type Location, and then access its components.
  * Location loc = myAccount.MyLocation__c;
  * Double lat = loc.latitude;
  * Important
  * “Location” in Salesforce can also refer to the Location standard object. When referencing the Location object in your Apex code, always use Schema.Location instead of Location to prevent confusion with the standard Location compound field. If referencing both the location object and the Location field in the same snippet, you can differentiate between the two by using System.Location for the field and Schema.Location for the object.
- * <p>Example
+ * Example
  * // Select and access the Location field. MyLocation__c is the name of a geolocation field on Account.
  * Account[] records = [SELECT id, MyLocation__c FROM Account WITH USER_MODE LIMIT 10];
  * for(Account acct : records) {

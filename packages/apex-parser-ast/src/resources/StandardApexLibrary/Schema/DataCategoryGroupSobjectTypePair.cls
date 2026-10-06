@@ -1,6 +1,6 @@
 /**
  * Specifies a category group and an associated object.
- * <p>Usage
+ * Usage
  * Schema.DataCategoryGroupSobjectTypePair is used by the describeDataCategory GroupStructures method to return the categories available to this object.
  */
 global class DataCategoryGroupSobjectTypePair {

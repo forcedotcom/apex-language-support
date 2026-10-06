@@ -1,10 +1,10 @@
 /**
  * Declares which functional operations the external system supports. Also specifies required endpoint settings for the external data source definition.
- * <p>Usage
+ * Usage
  * The DataSource.Provider class returns DataSource.Capability enum values, which:
  * Specify the functional capabilities of the external system.
  * Determine which endpoint settings are available on the external data source definition in Salesforce.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the DataSource.Capability enum.
  */
 global enum Capability {

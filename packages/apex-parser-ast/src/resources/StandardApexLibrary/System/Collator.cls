@@ -1,8 +1,8 @@
 /**
  * Contains methods to get locale-specific instances that can be used for comparisons and sorting. Use the getInstance() method to obtain the Collator instance for a given locale and pass the Collator as the Comparator parameter to the list.sort() method.
- * <p>Usage
+ * Usage
  * Because locale-sensitive sorting can produce different results depending on the user running the code, avoid using it in triggers or in code that expects a particular sort order.
- * <p>Example
+ * Example
  * This example performs a default list sort and then uses Collator to sort based on the user locale.
  * @IsTest
  *     static void userLocaleSort() {

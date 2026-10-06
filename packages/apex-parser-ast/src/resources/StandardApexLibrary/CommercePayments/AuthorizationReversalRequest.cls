@@ -1,6 +1,6 @@
 /**
  * Sends information about an authorization reversal request to a gateway adapter during a service call.
- * <p>Example
+ * Example
  * Add your reversal classes to your payment gateway adapter. We recommend adding AuthorizationReversal as a possible requestType value when calling processRequest on the gateway’s response.
  * global commercepayments.GatewayResponse processRequest(commercepayments.paymentGatewayContext gatewayContext) {
  *         commercepayments.RequestType requestType = gatewayContext.getPaymentRequestType();
@@ -39,14 +39,14 @@
 global with sharing class AuthorizationReversalRequest extends commercepayments.BaseRequest {
     /**
      * References the customer account for the transaction where the authorization reversal was performed.
-     * <p>String
+     * String
      */
     global String accountId { get; set; }
     @AuraEnabled
     global Map additionalData { get; set; }
     /**
      * The total amount of the authorization reversal request. Can be positive or negative.
-     * <p>Double
+     * Double
      */
     global Double amount { get; set; }
     global Boolean duplicate { get; set; }
@@ -56,7 +56,7 @@ global with sharing class AuthorizationReversalRequest extends commercepayments.
     global String macAddress { get; set; }
     /**
      * References the payment authorization to be reversed.
-     * <p>String
+     * String
      */
     global String paymentAuthorizationId { get; set; }
     global String phone { get; set; }

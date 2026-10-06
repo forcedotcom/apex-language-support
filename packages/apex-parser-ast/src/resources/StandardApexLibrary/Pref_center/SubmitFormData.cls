@@ -1,6 +1,6 @@
 /**
  * Contains methods to retrieve information on buttons and options selected in a preference form.
- * <p>Example
+ * Example
  * Use methods in the SubmitFormData class to retrieve the selected values in different form components:
  * String buttonClickedId = formData.getButtonClicked();
  * if (buttonClickedId == 'submitButton') {

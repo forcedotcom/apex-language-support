@@ -1,6 +1,6 @@
 /**
  * Represents the type of an order.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the RichMessaging.OrderType enum.
  */
 global enum OrderType {

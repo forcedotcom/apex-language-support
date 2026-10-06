@@ -1,8 +1,8 @@
 /**
  * Contains methods to fetch records and to get the number of cursor rows returned from a SOQL query.
- * <p>Usage
+ * Usage
  * A cursor is created when a SOQL query is executed on a Database.getCursor() or a Database.getCursorWithBinds() call. When the SOQL query is invoked, the corresponding rows are returned from the cursor. The maximum number of rows per cursor is 50 million, regardless of the operation being synchronous or asynchronous.
- * <p>Example
+ * Example
  * public with sharing class QueryChunkingQueueable implements Queueable {
  *     private Database.Cursor locator;
  *     private Integer position;

@@ -1,8 +1,8 @@
 /**
  * Implement the interface to allow customers to process payments asynchronously.
- * <p>Usage
+ * Usage
  * Implementing an asynchronous adapter also requires the processNotification method from the GatewayNotificationResponse class.
- * <p>Example
+ * Example
  * global with sharing class SampleAsyncAdapter
  *         implements commercepayments.PaymentGatewayAsyncAdapter,
  *         commercepayments.PaymentGatewayAdapter {

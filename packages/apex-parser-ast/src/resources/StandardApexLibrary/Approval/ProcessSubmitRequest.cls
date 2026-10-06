@@ -1,15 +1,15 @@
 /**
  * Use the ProcessSubmitRequest class to submit a record for approval.
- * <p>Usage
+ * Usage
  * You must specify the Approval namespace when creating an instance of this class. The constructor for this class takes no arguments. For example:
  * Approval.ProcessSubmitRequest psr = new Approval.ProcessSubmitRequest();
- * <p>Inherited Methods
+ * Inherited Methods
  * In addition to the methods listed, the ProcessSubmitRequest class has access to all the methods in its parent class, ProcessRequest Class.
  * getComments()
  * getNextApproverIds()
  * setComments(comments)
  * setNextApproverIds(nextApproverIds)
- * <p>Example
+ * Example
  * To view sample code, refer to <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_process_example.htm" target="_blank">Approval Processing Example</a>.
  */
 global class ProcessSubmitRequest extends Approval.ProcessRequest {
@@ -33,7 +33,7 @@ global class ProcessSubmitRequest extends Approval.ProcessRequest {
 
     /**
      * Returns the developer name or ID of the process definition.
-     * <p>Usage
+     * Usage
      * The default is null. If the return value is null, when a user submits a record for approval Salesforce evaluates the entry criteria for all processes applicable to the user.
      */
     global String getProcessDefinitionNameOrId() { return null; }
@@ -61,7 +61,7 @@ global class ProcessSubmitRequest extends Approval.ProcessRequest {
 
     /**
      * Sets the developer name or ID of the process definition to be evaluated.
-     * <p>Usage
+     * Usage
      * If the process definition name or ID is not set via this method, then by default it is null. If it is null, the submission of a record for approval evaluates entry criteria for all processes applicable to the submitter. The order of evaluation is based on the process order of the setup.
      */
     global void setProcessDefinitionNameOrId(String param1) { }

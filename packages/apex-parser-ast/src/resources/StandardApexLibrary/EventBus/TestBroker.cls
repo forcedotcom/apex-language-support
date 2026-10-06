@@ -6,7 +6,7 @@ global class TestBroker {
 
     /**
      * Delivers platform event messages to the test event bus. Use this method to deliver test event messages multiple times and verify that event subscribers have processed the test events each step of the way.
-     * <p>Usage
+     * Usage
      * Enclose Test.getEventBus().deliver() within the Test.startTest() and Test.stopTest() statement block.
      * Test.startTest();
      * // Create test events
@@ -25,7 +25,7 @@ global class TestBroker {
 
     /**
      * Causes the publishing of platform event messages to fail in the test event bus. Use this method to test Apex publish callbacks.
-     * <p>Usage
+     * Usage
      * // Create test events
      * // ...
      * // Publish test events with EventBus.publish()

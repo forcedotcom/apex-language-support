@@ -1,9 +1,9 @@
 /**
  * Sends data related to a refund to the payment gateway adapter.
- * <p>Usage
+ * Usage
  * The constructor of this class takes no arguments. For example:
  * CommercePayments.RefundRequest rrq = new CommercePayments.RefundRequest();
- * <p>Example
+ * Example
  * commercepayments.ReferencedRefundRequest refundRequest = new commercepayments.ReferencedRefundRequest(80, pmt.id);
  */
 global abstract with sharing class RefundRequest extends commercepayments.BaseRequest {

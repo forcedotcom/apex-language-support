@@ -12,9 +12,9 @@ global class Pattern {
 
     /**
      * Compiles the regular expression regExp and tries to match it against the specified string. This method returns true if the specified string matches the regular expression, false otherwise.
-     * <p>Usage
+     * Usage
      * If a pattern is to be used multiple times, compiling it once and reusing it is more efficient than invoking this method each time.
-     * <p>Example
+     * Example
      * Note that the following code example:
      * Pattern.matches(regExp, input);
      * produces the same result as this code example:
@@ -30,14 +30,14 @@ global class Pattern {
 
     /**
      * Returns a string that can be used to create a pattern that matches the string yourString as if it were a literal pattern.
-     * <p>Usage
+     * Usage
      * Metacharacters (such as $ or ^) and escape sequences in the input string are treated as literal characters with no special meaning.
      */
     global static String quote(String s) { return null; }
 
     /**
      * Returns a list that contains each substring of the String that matches this pattern.
-     * <p>Usage
+     * Usage
      * The substrings are placed in the list in the order in which they occur in the String. If regExp does not match the pattern, the resulting list has just one element containing the original String.
      * @return Note
      * In API version 34.0 and earlier, a zero-width regExp value produces an empty list item at the beginning of the method’s output.

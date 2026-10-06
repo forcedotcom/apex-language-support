@@ -1,11 +1,11 @@
 /**
  * Contains methods to manage cache values in the session cache of a specific partition.
- * <p>Usage
+ * Usage
  * This class extends Cache.Partition and inherits all of its non-static methods. Utility methods for creating and validating keys are not supported and can be called only from the Cache.Partition parent class. For a list of Cache.Partition methods, see Partition Methods.
  * To get a session partition, call Cache.Session.getPartition and pass in a fully qualified partition name, as follows.
  * Cache.SessionPartition sessionPartition = Cache.Session.getPartition('namespace.myPartition');
  * See Cache Key Format for Partition Methods.
- * <p>Example
+ * Example
  * This class is the controller for a sample Visualforce page (shown in the subsequent code sample). The controller shows how to use the methods of Cache.SessionPartition to manage a cache value on a particular partition. The controller takes inputs from the Visualforce page for the partition name, key name for a counter, and initial counter value. The controller contains default values for these inputs. When you click Rerender on the Visualforce page, the go() method is invoked and increases the counter by one. When you click Remove Key, the counter key is removed from the cache. The counter value gets reset to its initial value when it’s re-added to the cache.
  * public class SessionPartitionController {
  *

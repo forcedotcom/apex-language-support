@@ -1,6 +1,6 @@
 /**
  * Implement this interface to trigger a custom Apex class when the conditions for a report notification are met.
- * <p>Usage
+ * Usage
  * Report notifications for reports that users have subscribed to can trigger a custom Apex class, which must implement the Reports.NotificationAction interface. The execute method in this interface receives a NotificationActionContext object as a parameter, which contains information about the report instance and the conditions that must be met for a notification to be triggered.
  */
 global interface NotificationAction {

@@ -1,9 +1,9 @@
 /**
  * Contains the list of the category groups associated with KnowledgeArticleVersion and Question.
- * <p>Usage
+ * Usage
  * The describeDataCategoryGroups method returns a Schema.DescribeDataCategoryGroupResult object containing the list of the category groups associated with the specified object.
  * For additional information and code examples using describeDataCategoryGroups, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_dynamic_data_categories.htm" target="_blank">Accessing All Data Categories Associated with an sObject</a>.
- * <p>Example
+ * Example
  * The following is an example of how to instantiate a data category group describe result object:
  * List <String> objType = new List<String>();
  * objType.add('KnowledgeArticleVersion');

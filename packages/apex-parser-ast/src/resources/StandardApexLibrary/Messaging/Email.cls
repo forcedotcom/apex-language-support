@@ -1,6 +1,6 @@
 /**
  * Contains base email methods common to both single and mass email.
- * <p>Usage
+ * Usage
  * Important
  * Sending an email by using Apex requires domain-level and user-level email verification. System-generated emails also require verification of the From email address. Email delivery fails if any of these verifications is incomplete. See <a class="xref" href="https://help.salesforce.com/s/articleView?id=xcloud.security_email_verification_requirements.htm&amp;language=en_US&amp;type=5" target="_blank">Requirements to Send Email from Salesforce</a>.
  * If templates are not being used, all email content must be in plain text, HTML, or both.Visualforce email templates cannot be used for mass email.
@@ -34,7 +34,7 @@ global class Email {
 
     /**
      * Indicates whether the email sender receives a copy of the email that is sent. For a mass mail, the sender is only copied on the first email sent.
-     * <p>Usage
+     * Usage
      * Note
      * If the BCC compliance option is set at the organization level, the user cannot add BCC addresses on standard messages. The following error code is returned: BCC_NOT_ALLOWED_IF_BCC_ COMPLIANCE_ENABLED. Contact your Salesforce representative for information on BCC compliance.
      */

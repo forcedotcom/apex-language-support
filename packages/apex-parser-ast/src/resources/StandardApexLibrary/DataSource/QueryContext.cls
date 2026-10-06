@@ -7,13 +7,13 @@ global class QueryContext extends DataSource.ReadContext {
     global Integer offset { get; set; }
     /**
      * Query token that’s used for server-driven paging to determine and fetch the subsequent batch of results.
-     * <p>String
+     * String
      */
     global String queryMoreToken { get; set; }
     global Integer startRowNumZeroOffset { get; set; }
     /**
      * Query details that represent the FROM, ORDER BY, SELECT, and WHERE clauses in a SOQL or SOSL query.
-     * <p>DataSource.TableSelection
+     * DataSource.TableSelection
      */
     global DataSource.TableSelection tableSelection { get; set; }
 

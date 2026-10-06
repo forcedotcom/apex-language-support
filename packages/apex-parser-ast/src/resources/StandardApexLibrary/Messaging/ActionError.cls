@@ -1,6 +1,6 @@
 /**
  * Specifies the error that occurred during the execution of an actionable notification.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the Messaging.ActionError enum.
  */
 global enum ActionError {

@@ -1,9 +1,9 @@
 /**
  * Extend this class to enable your Salesforce org to sync the external system’s schema and to handle queries, searches, and write operations (upsert and delete) of the external data. This class extends the DataSourceUtil class and inherits its methods.
- * <p>Usage
+ * Usage
  * Your DataSource.Connection and DataSource.Provider classes compose a custom adapter for Salesforce Connect.
  * Changing the sync method on the DataSource.Connection class doesn’t automatically resync any external objects.
- * <p>Example
+ * Example
  * global class SampleDataSourceConnection extends DataSource.Connection {
  *     global SampleDataSourceConnection(DataSource.ConnectionParams connectionParams) {
  *     }

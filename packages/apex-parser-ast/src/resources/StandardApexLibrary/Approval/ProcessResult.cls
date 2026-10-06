@@ -1,6 +1,6 @@
 /**
  * After you submit a record for approval, use the ProcessResult class to process the results of an approval process.
- * <p>Usage
+ * Usage
  * A ProcessResult object is returned by the process method. You must specify the Approval namespace when creating an instance of this class. For example:
  * Approval.ProcessResult result = Approval.process(req1);
  */

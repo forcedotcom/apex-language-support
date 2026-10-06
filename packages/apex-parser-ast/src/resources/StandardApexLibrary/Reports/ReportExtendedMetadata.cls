@@ -1,6 +1,6 @@
 /**
  * Contains report extended metadata for a tabular, summary, or matrix report.
- * <p>Report extended metadata provides additional, detailed metadata about summary and grouping fields, including data type and label information.
+ * Report extended metadata provides additional, detailed metadata about summary and grouping fields, including data type and label information.
  */
 global class ReportExtendedMetadata {
     global virtual Boolean equals(Object o) { return false; }

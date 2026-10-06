@@ -6,7 +6,7 @@ global class EventBus {
 
     /**
      * Publishes the given list of platform events.
-     * <p>Usage
+     * Usage
      * The platform event message is published either immediately or after a transaction is committed, depending on the publish behavior you set in the platform event definition. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_define_ui.htm" target="_blank">Platform Event Fields</a> in the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_intro.htm" target="_blank">Platform Events Developer Guide</a>.
      * Apex governor limits apply. For events configured with the Publish After Commit behavior, each method execution is counted as one DML statement against the Apex DML statement limit. You can check limit usage using the Limits.getDMLStatements() method. For events configured with the Publish Immediately behavior, each method execution is counted against a separate event publishing limit of 150 EventBus.publish() calls. You can check limit usage using the Limits.getPublishImmediateDML() method.
      * Prior to API version 67.0, this method ran with AccessLevel.SYSTEM_MODE access. Starting with API version 67.0, it runs with AccessLevel.USER_MODE access. The user will be the automated process user unless you set a user using the PlatformEventSubscriberConfig.
@@ -19,7 +19,7 @@ global class EventBus {
 
     /**
      * Publishes the given list of platform events using the specified callback. To track asynchronous publish failures, you can implement an Apex publish callback.
-     * <p>Usage
+     * Usage
      * Use this method with Apex publish callbacks. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_publish_callbacks.htm" target="_blank">Get the Result of Asynchronous Platform Event Publishing with Apex Publish Callbacks</a> in the Platform Events Developer Guide.
      * The platform event message is published either immediately or after a transaction is committed, depending on the publish behavior you set in the platform event definition. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_define_ui.htm" target="_blank">Platform Event Fields</a> in the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_intro.htm" target="_blank">Platform Events Developer Guide</a>.
      * Apex governor limits apply. For events configured with the Publish After Commit behavior, each method execution is counted as one DML statement against the Apex DML statement limit. You can check limit usage using the Limits.getDMLStatements() method. For events configured with the Publish Immediately behavior, each method execution is counted against a separate event publishing limit of 150 EventBus.publish() calls. You can check limit usage using the Limits.getPublishImmediateDML() method.
@@ -32,7 +32,7 @@ global class EventBus {
 
     /**
      * Publishes the given platform event.
-     * <p>Usage
+     * Usage
      * The platform event message is published either immediately or after a transaction is committed, depending on the publish behavior you set in the platform event definition. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_define_ui.htm" target="_blank">Platform Event Fields</a> in the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_intro.htm" target="_blank">Platform Events Developer Guide</a>.
      * Apex governor limits apply. For events configured with the Publish After Commit behavior, each method execution is counted as one DML statement against the Apex DML statement limit. You can check limit usage using the Limits.getDMLStatements() method. For events configured with the Publish Immediately behavior, each method execution is counted against a separate event publishing limit of 150 EventBus.publish() calls. You can check limit usage using the Limits.getPublishImmediateDML() method.
      * Prior to API version 67.0, this method ran with AccessLevel.SYSTEM_MODE access. Starting with API version 67.0, it runs with AccessLevel.USER_MODE access. The user will be the automated process user unless you set a user using the PlatformEventSubscriberConfig.
@@ -44,7 +44,7 @@ global class EventBus {
 
     /**
      * Publishes the given platform event using the specified callback. To track asynchronous publish failures, you can implement an Apex publish callback.
-     * <p>Usage
+     * Usage
      * Use this method with Apex publish callbacks. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_publish_callbacks.htm" target="_blank">Get the Result of Asynchronous Platform Event Publishing with Apex Publish Callbacks</a> in the Platform Events Developer Guide.
      * The platform event message is published either immediately or after a transaction is committed, depending on the publish behavior you set in the platform event definition. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_define_ui.htm" target="_blank">Platform Event Fields</a> in the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_intro.htm" target="_blank">Platform Events Developer Guide</a>.
      * Apex governor limits apply. For events configured with the Publish After Commit behavior, each method execution is counted as one DML statement against the Apex DML statement limit. You can check limit usage using the Limits.getDMLStatements() method. For events configured with the Publish Immediately behavior, each method execution is counted against a separate event publishing limit of 150 EventBus.publish() calls. You can check limit usage using the Limits.getPublishImmediateDML() method.

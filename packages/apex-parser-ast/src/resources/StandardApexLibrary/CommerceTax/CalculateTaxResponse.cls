@@ -1,6 +1,6 @@
 /**
  * Sets the values of the tax transaction following a response from the external tax engine. Extends the AbstractTransactionResponse class and is the top-level response class.
- * <p>Example
+ * Example
  * if(requestType == commercetax.RequestType.CalculateTax){
  *              commercetax.calculatetaxtype type = request.taxtype;
  *              String docCode='';

@@ -1,6 +1,6 @@
 /**
  * Contains methods for validating a JSON Web Token (JWT) from an external identity provider as part of the OAuth 2.0 token exchange flow. Use these methods as part of the validateIncomingToken method in the Auth.Oauth2TokenExchangeHandler class.
- * <p>Usage
+ * Usage
  * See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/token_exchange_handler.htm" target="_blank">Token Exchange Handler Validation and Subject Mapping</a>.
  * If the methods in this class fail, Salesforce returns an Auth.JWTValidationException exception.
  */

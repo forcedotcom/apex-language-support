@@ -1,6 +1,6 @@
 /**
  * Enables custom code to run after a managed package installation or upgrade.
- * <p>Usage
+ * Usage
  * App developers can implement this interface to specify Apex code that runs automatically after a subscriber installs or upgrades a managed package. The package install or upgrade can be customized based on details of the subscriber’s organization. For instance, you can use the script to populate custom settings, create sample data, send an email to the installer, notify an external system, or kick off a batch operation to populate a new field across a large set of data.
  * The post install script is invoked after tests have been run, and is subject to default governor limits. It runs as a special system user that represents your package, so all operations performed by the script appear to be done by your package. You can access this user by using UserInfo. You only see this user at runtime, not while running tests.
  * If the script fails, the install or upgrade is aborted. Any errors in the script are emailed to the user specified in the Notify on Apex Error field of the package. If no user is specified, the install or upgrade details are unavailable.

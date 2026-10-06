@@ -1,10 +1,10 @@
 /**
  * When the payment gateway sends a notification to the payments platform, the platform responds with a GatewayNotificationResponse indicating whether the platform succeeded or failed at receiving the notification.
- * <p>Usage
+ * Usage
  * You must specify the CommercePayments namespace when creating an instance of this class. The constructor of this class takes no arguments. For example:
  * CommercePayments.GatewayNotificationResponse gnr = new CommercePayments.GatewayNotificationResponse();
  * When an asynchronous payment gateway sends a notification, the gateway requires the platform to acknowledge that it has either succeeded or failed in receiving the notification. Payment gateway adapters use this class to construct the acknowledgment response, which gateways expect for a notification. GatewayNotificationResponse is the return type of the processNotification method.
- * <p>Example
+ * Example
  * commercepayments.GatewayNotificationResponse gnr = new commercepayments.GatewayNotificationResponse();
  * if (saveResult.isSuccess()) {
  *     system.debug('Notification accepted by platform');

@@ -4,12 +4,12 @@
 global with sharing class ServiceResourceSchedule {
     /**
      * Record ID of the service resource.
-     * <p>String
+     * String
      */
     global String serviceResourceId { get; set; }
     /**
      * An instance of lxscheduler.UnavailableTimeslot class.
-     * <p>Set<lxscheduler.UnavailableTimeslot>
+     * Set<lxscheduler.UnavailableTimeslot>
      */
     global Set unavailableTimeslots { get; set; }
 

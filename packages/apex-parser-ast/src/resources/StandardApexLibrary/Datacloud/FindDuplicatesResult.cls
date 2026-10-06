@@ -4,17 +4,17 @@
 global class FindDuplicatesResult {
     /**
      * A list of DuplicateResult objects representing the results of calling FindDuplicates.findDuplicates(sObjects) or FindDuplicatesByIds.findDuplicatesByIds(ids). Elements in the list correspond to sObjects or IDs in the input list.
-     * <p>List<DuplicateResult>
+     * List<DuplicateResult>
      */
     global List duplicateresults { get; }
     /**
      * A list of Database.Error objects holding errors resulting from calling FindDuplicates.findDuplicates(sObjects) or FindDuplicatesByIds.findDuplicatesByIds(ids).
-     * <p>List<Database.Error>
+     * List<Database.Error>
      */
     global List errors { get; }
     /**
      * Boolean signifying whether the call to FindDuplicates.findDuplicates(sObjects) or FindDuplicatesByIds.findDuplicatesByIds(ids) was successful.
-     * <p>Boolean
+     * Boolean
      */
     global Boolean success { get; }
 
@@ -22,7 +22,7 @@ global class FindDuplicatesResult {
 
     /**
      * Returns a list of DuplicateResult objects representing the results of calling FindDuplicates.findDuplicates(sObjects) or FindDuplicatesByIds.findDuplicatesByIds(ids). Elements in the list correspond to sObjects or IDs in the input list.
-     * <p>Example
+     * Example
      * Account acct = new Account(name='Salesforce');
      * List<Account> acctList = new List<Account>();
      * acctList.add(acct);

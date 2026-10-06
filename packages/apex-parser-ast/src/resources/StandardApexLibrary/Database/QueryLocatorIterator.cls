@@ -1,6 +1,6 @@
 /**
  * Represents an iterator over a query locator record set.
- * <p>Example
+ * Example
  * This sample shows how to obtain an iterator for a query locator, which contains five accounts. This sample calls hasNext and next to get each record in the collection.
  * // Get a query locator
  * Database.QueryLocator q = Database.getQueryLocator(
@@ -27,10 +27,10 @@ global class QueryLocatorIterator implements System.Iterator {
 
     /**
      * Advances the iterator to the next sObject record and returns the sObject.
-     * <p>Usage
+     * Usage
      * Because the return value is the generic sObject type, you must cast it if using a more specific type. For example:
      * Account a = (Account)myIterator.next();
-     * <p>Example
+     * Example
      * Account a = (Account)myIterator.next();
      */
     global SObject next() { return null; }

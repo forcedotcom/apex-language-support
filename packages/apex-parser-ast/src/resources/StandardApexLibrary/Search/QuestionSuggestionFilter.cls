@@ -6,21 +6,21 @@ global class QuestionSuggestionFilter {
 
     /**
      * Adds a filter to display questions associated with the single specified group whose ID is passed in as an argument. This filter is optional.
-     * <p>Usage
+     * Usage
      * To add more than one group, call the method multiple times.
      */
     global void addGroupId(String groupId) { }
 
     /**
      * Adds a filter to display questions associated with the single specified network whose ID is passed in as an argument. This filter is optional.
-     * <p>Usage
+     * Usage
      * To add more than one network, call the method multiple times.
      */
     global void addNetworkId(String networkId) { }
 
     /**
      * Adds a filter to display questions belonging to the single specified user whose ID is passed in as an argument. This filter is optional.
-     * <p>Usage
+     * Usage
      * To add more than one user, call the method multiple times.
      */
     global void addUserId(String userId) { }

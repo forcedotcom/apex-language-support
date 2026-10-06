@@ -1,8 +1,8 @@
 /**
  * Use to respond with an error indication following errors from the PaymentGateway adapter, such as request-forbidden responses, custom validation errors, or expired API tokens.
- * <p>Usage
+ * Usage
  * Use GatewayErrorResponse to create an object that stores information about error responses sent by the payment gateway adapter.
- * <p>Example
+ * Example
  * If GatewayResponse receives an exception rather than a valid request, it calls GatewayErrorResponse to create an error object with information about the exception.
  * global commercepayments.GatewayResponse processRequest(commercepayments.paymentGatewayContext gatewayContext) {
  *         commercepayments.RequestType requestType = gatewayContext.getPaymentRequestType();

@@ -1,6 +1,6 @@
 /**
  * Use the Cache.Org class to add, retrieve, and manage values in the org cache. Unlike the session cache, the org cache is not tied to any session and is available to the organization across requests and to all users.
- * <p>Usage
+ * Usage
  * Cache Key Format
  * This table lists the format of the key parameter that some methods in this class take, such as put, get, and contains.
  * Key Format Description
@@ -10,7 +10,7 @@
  * Note
  * If no default partition is specified in the org, calling a cache method without fully qualifying the key name causes a Cache.Org.OrgCacheException to be thrown.
  * The local prefix in an installed managed package refers to the namespace of the subscriber org and not the package’s namespace. The cache put calls aren’t allowed in a partition that the invoking class doesn’t own.
- * <p>Example
+ * Example
  * This class is the controller for a sample Visualforce page (shown in the subsequent code sample). The cached values are initially added to the cache by the init() method, which the Visualforce page invokes when it loads through the action attribute. The cache keys don’t contain the namespace.partition prefix. They all refer to the default partition in your org. To run this sample, create a partition and mark it as default.
  * The Visualforce page contains four output components. These components call get methods on the controller that returns the following values from the cache: a date, data based on the MyData inner class, a counter, a text value, and a list. The size of the list is also returned.
  * The Visualforce page also contains two buttons. The Rerender button invokes the go() method on the controller. This method increases the values of the counter and the custom data in the cache. When you click Rerender, the two counters increase by one each time. The go() method retrieves the values of these counters from the cache, increments their values by one, and stores them again in the cache.
@@ -191,9 +191,9 @@ global class Org {
 
     /**
      * Returns true if the org cache contains values for a specified set of keys.
-     * <p>Usage
+     * Usage
      * The number of input keys cannot exceed the maximum limit of 10.
-     * <p>Example
+     * Example
      * In this example, the code checks for the presence of multiple keys on the default partition. It fetches the cache key and the corresponding Boolean value for the key entry from the org cache of the default partition.
      * Set<String> keys = new Set<String>{'key1','key2','key3','key4','key5'};
      * Map<String,Boolean> result = Cache.Org.contains(keys);
@@ -220,9 +220,9 @@ global class Org {
 
     /**
      * Returns the cached values corresponding to the specified set of keys from the org cache.
-     * <p>Usage
+     * Usage
      * The number of input keys cannot exceed the maximum limit of 10.
-     * <p>Examples
+     * Examples
      * Fetch multiple keys from the org cache of the default partition.
      * Set<String> keys = new Set<String>{'key1','key2','key3','key4','key5'};
      * Map<String,Object> result = Cache.Org.get(keys);
@@ -245,7 +245,7 @@ global class Org {
 
     /**
      * Returns the cached value corresponding to the specified key from the org cache.
-     * <p>Usage
+     * Usage
      * Because Cache.Org.get() returns an object, cast the returned value to a specific type to facilitate use of the returned value.
      * // Get a cached value
      * Object obj = Cache.Org.get('ns1.partition1.orderDate');
@@ -260,7 +260,7 @@ global class Org {
 
     /**
      * Returns the cached value corresponding to the specified key from the org cache. Use this method if your cached value is a class that implements the CacheBuilder interface.
-     * <p>Usage
+     * Usage
      * Because Cache.Org.get(cacheBuilder, key) returns an object, cast the returned value to a specific type to facilitate use of the returned value.
      * return ((DateTime)Cache.Org.get(DateCache.class, 'datetime')).format();
      * @return Object The cached value as a generic object type. Cast the returned value to the appropriate type.
@@ -269,7 +269,7 @@ global class Org {
 
     /**
      * Returns the average item size of all the keys fetched from the org cache, in bytes.
-     * <p>Example
+     * Example
      * In this example the following keys and their corresponding value sizes are inserted. The code then fetches the keys: key 1, key 2, key 3 and key 4 and returns the average item size of the fetched keys.
      * Key Key Value Size
      * key 1 42
@@ -322,7 +322,7 @@ global class Org {
 
     /**
      * Returns the maximum item size of all the keys fetched from the org cache, in bytes.
-     * <p>Example
+     * Example
      * In this example the following keys and their corresponding value sizes are inserted. The code fetches the keys: key 1, key 2 and key 4 and returns the maximum key value size from the fetched keys.
      * Key Key Value Size
      * key 1 42
@@ -378,7 +378,7 @@ global class Org {
 
     /**
      * Returns a partition from the org cache that corresponds to the specified partition name.
-     * <p>Example
+     * Example
      * After you get the org partition, you can add and retrieve the partition’s cache values.
      * // Get partition
      * Cache.OrgPartition orgPart = Cache.Org.getPartition('myNs.myPartition');

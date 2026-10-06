@@ -1,6 +1,6 @@
 /**
  * Describes the highlights panel style for a SummaryLayout.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the Metadata.SummaryLayoutStyleEnum enum.
  */
 global enum SummaryLayoutStyleEnum {

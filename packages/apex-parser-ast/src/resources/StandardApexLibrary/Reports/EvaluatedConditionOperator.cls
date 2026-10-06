@@ -1,6 +1,6 @@
 /**
  * The Reports.EvaluatedConditionOperator enum describes the type of operator used to compare an aggregate to a value. It is returned by the getOperator method.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the Reports.EvaluatedConditionOperator enum.
  */
 global enum EvaluatedConditionOperator {

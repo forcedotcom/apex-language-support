@@ -1,6 +1,6 @@
 /**
  * Use this interface to handle authorization request responses.
- * <p>Usage
+ * Usage
  * When using this interface, the following limits are overridden. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_gov_limits.htm" target="_blank">Execution Governors and Limits</a> in the Apex Developer Guide.
  * Table 1. Overridden Limits
  * Limit Name Overridden Value

@@ -1,6 +1,6 @@
 /**
  * The UserProvisioningPlugin base class implements Process.Plugin for programmatic customization of the user provisioning process for connected apps.
- * <p>Usage
+ * Usage
  * Extending this class gives you a plug-in that can be used Flow Builder as a legacy Apex action, with the following input and output parameters.
  * Input Parameter Name Description
  * userProvisioningRequestId The unique ID of the request for the plug-in to process.
@@ -22,7 +22,7 @@
  * reconState The state of the collecting and analyzing process on the third-party system. When the value is complete, the process is finished and a subsequent call to the plug-in is no longer needed, nor made.
  * nextReconOffset When collecting and analyzing users on a third-party system, the process may encounter a transaction limit and have to stop before finishing. The value specified here initiates a call to the plug-in with a new quota limit.
  * If you want to add more custom parameters, use the buildDescribeCall() method.
- * <p>Example
+ * Example
  * The following example uses the buildDescribeCall() method to add a new input parameter and a new output parameter. The example also demonstrates how to bypass the limit of the 10,000 records processed in DML statements in an Apex transaction.
  * global class SampleConnector extends UserProvisioning.UserProvisioningPlugin {
  *

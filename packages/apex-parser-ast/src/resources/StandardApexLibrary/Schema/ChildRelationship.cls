@@ -1,6 +1,6 @@
 /**
  * Contains methods for accessing the child relationship as well as the child sObject for a parent sObject.
- * <p>Example
+ * Example
  * A ChildRelationship object is returned from the sObject describe result using the getChildRelationship method. For example:
  * Schema.DescribeSObjectResult R = Account.SObjectType.getDescribe();
  * List<Schema.ChildRelationship> C = R.getChildRelationships();

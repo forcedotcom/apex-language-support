@@ -1,8 +1,8 @@
 /**
  * Specifies the domain type for a System.Domain.
- * <p>Usage
+ * Usage
  * Use the DomainType enum to obtain the type of a domain parsed through the System.DomainParser class.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the System.DomainType enum. These values only apply to Salesforce-hosted domains.
  */
 global enum DomainType {

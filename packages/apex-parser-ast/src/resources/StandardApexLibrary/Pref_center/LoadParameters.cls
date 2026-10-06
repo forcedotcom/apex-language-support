@@ -1,6 +1,6 @@
 /**
  * Contains methods to retrieve record Id information for parameters passed into the load-form handler.
- * <p>Example
+ * Example
  * String userId = loadParams.getRecordId();
  *
  * User user = [select id, AboutMe from User where id=:userId];

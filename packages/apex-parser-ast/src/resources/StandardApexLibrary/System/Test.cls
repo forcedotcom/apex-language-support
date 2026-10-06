@@ -16,7 +16,7 @@ global class Test {
 
     /**
      * Clear the messages on a Visualforce page while executing Apex test methods.
-     * <p>Usage
+     * Usage
      * This method may only be used in tests.
      */
     global static void clearApexPageMessages() { }
@@ -28,7 +28,7 @@ global class Test {
 
     /**
      * Creates a stubbed version of an Apex class that you can use for testing. This method is part of the Apex stub API. You can use it with the System.StubProvider interface to create a mocking framework.
-     * <p>Usage
+     * Usage
      * The createStub() method works together with the System.StubProvider interface. You define the behavior of the stubbed object by implementing the StubProvider interface. Then you create a stubbed object using the createStub() method. When you invoke methods on the stubbed object, the handleMethodCall() method of the StubProvider interface is called to perform the behavior of the stubbed method.
      * @return Returns the stubbed object to use in testing.
      */
@@ -36,7 +36,7 @@ global class Test {
 
     /**
      * Creates an instance of a stubbed SObject type that you can use to provide testing results in the extended System.SoqlStubProvider class.
-     * <p>Example
+     * Example
      * ssot__EmailEngagement__dlm engagement = (ssot__EmailEngagement__dlm)Test.createStubQueryRow(ssot__EmailEngagement__dlm.SObjectType,
      *     new Map<string, object> {
      *         'ssot__Name__c' => 'My Email Engagement',
@@ -49,7 +49,7 @@ global class Test {
 
     /**
      * Creates instances of stubbed SObject types that you can use to provide testing results in the extended System.SoqlStubProvider class.
-     * <p>Example
+     * Example
      * List<Map<String, Object>> engagementMaps = new List<Map<String, Object>>();
      * Map<String, Object> engagement = new Map<String, Object> {
      *         'ssot__Name__c' => 'My Email Engagement',
@@ -71,14 +71,14 @@ global class Test {
 
     /**
      * Use this method in an Apex test so that change event notifications are generated for all supported Change Data Capture entities. Call this method at the beginning of your test before performing DML operations and calling Test.getEventBus().deliver();.
-     * <p>Usage
+     * Usage
      * The enableChangeDataCapture() method ensures that Apex tests can fire change event triggers regardless of the entities selected in Setup in the Change Data Capture page. The enableChangeDataCapture() method doesn’t affect the entities selected in Setup.
      */
     global static void enableChangeDataCapture() { }
 
     /**
      * Adds the specified number of jobs with no-operation contents to the test-context queue. It first fills the test batch queue, up to the maximum 5 jobs, and then places jobs in the test flex queue. It throws a limit exception when the number of jobs in the test flex queue exceeds the allowed limit of 100 jobs.
-     * <p>Usage
+     * Usage
      * Use this method to reduce testing time. Instead of using your org's real batch jobs for testing, you can use this method to simulate batch-job enqueueing. Using enqueueBatchJobs(numberOfJobs) is faster than enqueuing real batch jobs.
      * @return A list of IDs of enqueued test jobs.
      */
@@ -88,7 +88,7 @@ global class Test {
 
     /**
      * Returns an instance of the test event bus broker, which lets you operate on platform event or change event messages in an Apex test. For example, you can call Test.getEventBus().deliver() to deliver event messages.
-     * <p>Usage
+     * Usage
      * Enclose Test.getEventBus().deliver() within the Test.startTest() and Test.stopTest() statement block.
      * Test.startTest();
      * // Create test events
@@ -114,10 +114,10 @@ global class Test {
 
     /**
      * Returns the ID of the standard price book in the organization.
-     * <p>Usage
+     * Usage
      * This method returns the ID of the standard price book in your organization regardless of whether the test can query organization data. By default, tests can’t query organization data unless they’re annotated with @isTest(SeeAllData=true).
      * Creating price book entries with a standard price requires the ID of the standard price book. Use this method to get the standard price book ID so that you can create price book entries in your tests.
-     * <p>Example
+     * Example
      * This example creates some test data for price book entries. The test method in this example gets the standard price book ID and uses this ID to create a price book entry for a product with a standard price. Next, the test creates a custom price book and uses the ID of this custom price book to add a price book entry with a custom price.
      * @isTest
      * public class PriceBookTest {
@@ -175,7 +175,7 @@ global class Test {
 
     /**
      * Inserts test records from the specified static resource .csv file and for the specified sObject type, and returns a list of the inserted sObjects.
-     * <p>Usage
+     * Usage
      * You must create the static resource prior to calling this method. The static resource is a comma-delimited file ending with a .csv extension. The file contains field names and values for the test records. The first line of the file must contain the field names and subsequent lines are the field values. To learn more about static resources, see “Defining Static Resources” in the Salesforce online help.
      * Once you create a static resource for your .csv file, the static resource will be assigned a MIME type. Supported MIME types are:
      * text/csv
@@ -193,7 +193,7 @@ global class Test {
 
     /**
      * Sets a mock response for a continuation HTTP request in a test method.
-     * <p>Usage
+     * Usage
      * Use the Test.setContinuationResponse and Test.invokeContinuationMethod methods to test continuations. In test context, callouts of continuations aren’t sent to the external service. By using these methods, you can set a mock response and cause the runtime to call the continuation callback method to process the mock response.
      * Call Test.setContinuationResponse before you call Test.invokeContinuationMethod. When you call Test.invokeContinuationMethod, the runtime executes the callback method that is associated with the continuation. The callback method processes the mock response that is set by Test.setContinuationResponse.
      */
@@ -201,7 +201,7 @@ global class Test {
 
     /**
      * Sets CreatedDate for a test-context sObject.
-     * <p>Usage
+     * Usage
      * All database changes are rolled back at the end of a test. You can’t use this method on records that existed before your test executed. You also can’t use setCreatedDate in methods annotated with @isTest(SeeAllData=true), because those methods have access to all data in your org. If you set CreatedDate to a future value, it can cause unexpected results. This method takes two parameters—an sObject ID and a Datetime value—neither of which can be null.
      * Insert your test record before you set its CreatedDate, as shown in this example.
      * @isTest
@@ -230,10 +230,10 @@ global class Test {
 
     /**
      * Sets the application mode for an organization to read-only in an Apex test to simulate read-only mode during Salesforce upgrades and downtimes. The application mode is reset to the default mode at the end of each Apex test run.
-     * <p>Usage
+     * Usage
      * Also see the getApplicationReadWriteMode() System method.
      * Do not use setReadOnlyApplicationMode for purposes unrelated to Read-Only Mode testing, such as simulating DML exceptions.
-     * <p>Example
+     * Example
      * The following example sets the application mode to read-only and attempts to insert a new account record, which results in the exception. It then resets the application mode and performs a successful insert.
      * @isTest
      * private class ApplicationReadOnlyModeTestClass {
@@ -280,14 +280,14 @@ global class Test {
 
     /**
      * Marks the point in your test code when your test actually begins. Use this method when you are testing governor limits.
-     * <p>Usage
+     * Usage
      * You can also use this method with stopTest to ensure that all asynchronous calls that come after the startTest method are run before doing any assertions or testing. Each test method is allowed to call this method only once. All of the code before this method should be used to initialize variables, populate data structures, and so on, allowing you to set up everything you need to run your test. Any code that executes after the call to startTest and before stopTest is assigned a new set of governor limits.
      */
     global static void startTest() { }
 
     /**
      * Marks the point in your test code when your test ends. Use this method in conjunction with the startTest method.
-     * <p>Usage
+     * Usage
      * Each test method is allowed to call this method only once. Any code that executes after the stopTest method is assigned the original limits that were in effect before startTest was called. All asynchronous calls made after the startTest method are collected by the system. When stopTest is executed, all asynchronous processes are run synchronously.
      * Note
      * Asynchronous calls, such as @future or executeBatch, called in a startTest, stopTest block, do not count against your limits for the number of queued jobs.
@@ -304,20 +304,20 @@ global class Test {
 
     /**
      * Tests the implementation of the SandboxPostCopy Interface, which is used for specifying a script to run at the completion of a Sandbox copy. Tests run as the test initiator in the development environment.
-     * <p>Usage
+     * Usage
      * This method throws a run-time exception if the test install fails.
      * Note
      * Salesforce recommends that you use the testSandboxPostCopyScript(script, organizationId, sandboxId, sandboxName, isRunAsAutoProcUser) overload instead of this method. When isRunAsAutoProcUser is true, the SandboxPostCopy script is tested with the same user access permissions as used by post-copy tasks during sandbox creation. Using the same permissions enables the test to better simulate the actual usage of the class, and to uncover potential issues.
-     * <p>Example
+     * Example
      * See SandboxPostCopy Example Implementation
      */
     global static void testSandboxPostCopyScript(System.SandboxPostCopy script, Id organizationId, Id sandboxId, String sandboxName) { }
 
     /**
      * Tests the implementation of the SandboxPostCopy Interface, which is used for specifying a script to run at the completion of a Sandbox copy. When RunAsAutoProcUser is true, tests run as Automated Process user in the development environment.
-     * <p>Usage
+     * Usage
      * This method throws a run-time exception if the test install fails.
-     * <p>Example
+     * Example
      * See SandboxPostCopy Example Implementation
      */
     global static void testSandboxPostCopyScript(System.SandboxPostCopy script, Id organizationId, Id sandboxId, String sandboxName, Boolean isRunAsAutoProcUser) { }

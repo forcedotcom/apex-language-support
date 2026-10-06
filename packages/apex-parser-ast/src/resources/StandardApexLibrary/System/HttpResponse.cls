@@ -1,8 +1,8 @@
 /**
  * Use the HttpResponse class to handle the HTTP response returned by the Http class.
- * <p>Usage
+ * Usage
  * Use the XML classes or JSON Classes to parse XML or JSON content in the body of a response accessed by HttpResponse.
- * <p>Example
+ * Example
  * In the following getXmlStreamReader example, content is retrieved via an HTTP callout, then the XML is parsed using the XmlStreamReader class.
  * public with sharing class ReaderFromCalloutSample {
  *     public void getAndParse() {
@@ -40,21 +40,21 @@ global class HttpResponse {
 
     /**
      * Retrieves the body returned in the response.
-     * <p>Usage
+     * Usage
      * Limit 6 MB for synchronous Apex or 12 MB for asynchronous Apex. The HTTP request and response sizes count towards the total heap size.
      */
     global String getBody() { return null; }
 
     /**
      * Retrieves the body returned in the response as a Blob.
-     * <p>Usage
+     * Usage
      * Limit 6 MB for synchronous Apex or 12 MB for asynchronous Apex. The HTTP request and response sizes count towards the total heap size.
      */
     global Blob getBodyAsBlob() { return null; }
 
     /**
      * Retrieves the body returned in the response as a DOM document.
-     * <p>Example
+     * Example
      * Use it as a shortcut for:
      * String xml = httpResponse.getBody();
      * Dom.Document domDoc = new Dom.Document(xml);
@@ -112,7 +112,7 @@ global class HttpResponse {
 
     /**
      * Returns the status message and status code returned in the response, for example:
-     * <p>Example
+     * Example
      * Status=OK, StatusCode=200
      */
     global String toString() { return null; }

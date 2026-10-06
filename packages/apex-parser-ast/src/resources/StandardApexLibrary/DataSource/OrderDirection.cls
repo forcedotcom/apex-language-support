@@ -1,8 +1,8 @@
 /**
  * Specifies the direction for sorting rows based on column values.
- * <p>Usage
+ * Usage
  * Used by the direction property on the DataSource.Order class.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the DataSource.OrderDirection enum.
  */
 global enum OrderDirection {

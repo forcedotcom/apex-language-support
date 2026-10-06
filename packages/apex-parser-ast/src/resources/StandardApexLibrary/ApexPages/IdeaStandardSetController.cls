@@ -1,14 +1,14 @@
 /**
  * IdeaStandardSetController objects offer Ideas-specific functionality in addition to what is provided by the StandardSetController.
- * <p>Usage
+ * Usage
  * Note
  * The IdeaStandardSetController and IdeaStandardController classes are currently available through a limited release program. For information on enabling these classes for your organization, contact your Salesforce representative.
  * In addition to the method listed above, the IdeaStandardSetController class inherits the methods associated with the StandardSetController.
  * Note
  * The methods inherited from the StandardSetController cannot be used to affect the list of ideas returned by the getIdeaList method.
- * <p>Instantiation
+ * Instantiation
  * An IdeaStandardSetController object cannot be instantiated. An instance can be obtained through a constructor of a custom extension controller when using the standard list controller for ideas.
- * <p>Example: Displaying a Profile Page
+ * Example: Displaying a Profile Page
  * The following example shows how an IdeaStandardSetController object can be used in the constructor for a custom list controller:
  * public class MyIdeaProfileExtension {
  *     private final ApexPages.IdeaStandardSetController ideaSetController;
@@ -56,7 +56,7 @@
  *         <apex:outputText>{!idea.body}</apex:outputText>
  *     </apex:pageBlock>
  * </apex:page>
- * <p>Example: Displaying a List of Top, Recent, and Most Popular Ideas and Comments
+ * Example: Displaying a List of Top, Recent, and Most Popular Ideas and Comments
  * The following example shows how an IdeaStandardSetController object can be used in the constructor for a custom list controller:
  * Note
  * You must have created at least one idea for this example to return any ideas.
@@ -128,7 +128,7 @@ global class IdeaStandardSetController extends ApexPages.StandardSetController {
 
     /**
      * Returns the list of read-only ideas in the current page set.
-     * <p>Usage
+     * Usage
      * You can use the <ideas:listOutputLink>, <ideas:profileListOutputLink>, and <ideas:detailOutputLink> components to display profile pages as well as idea list and detail pages (see the examples below). The following is a list of properties returned by this method:
      * Body
      * Categories

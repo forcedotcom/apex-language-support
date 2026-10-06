@@ -1,10 +1,10 @@
 /**
  * Response sent by the payment gateway following a payment authorization reversal service.
- * <p>Usage
+ * Usage
  * The constructor of this class takes no arguments. For example:
  * CommercePayments.AuthorizationReversalResponse authRevRes = new CommercePayments.AuthorizationResponse();
  * Contains information about the payment gateway’s response following an authorization reversal transaction. The gateway adapter uses the payment gateway’s response to populate the AuthorizationReversalResponse fields. The payments platform uses the information from this class to construct the authorization gateway response shown to the user.
- * <p>Example
+ * Example
  * This class builds an authorization reversal response that contains the amount of the original reversal request, gateway information, and the Salesforce result code.
  * global commercepayments.GatewayResponse createAuthReversalResponse(commercepayments.AuthorizationReversalRequest authReversalRequest) {
  *         commercepayments.AuthorizationReversalResponse authReversalResponse = new commercepayments.AuthorizationReversalResponse();

@@ -1,16 +1,16 @@
 /**
  * Contains validation errors that occur when the user saves the page that uses a standard controller.
- * <p>Usage
+ * Usage
  * When using a standard controller, all validation errors, both custom and standard, that occur when the user saves the page are automatically added to the page error collections. If an inputField component is bound to the field with an error, the message is added to the component’s error collection. All messages are added to the page’s error collection. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.pages.meta/pages/pages_controller_std.htm#validation_rules_and_standard_controllers" target="_blank" title="HTML (New Window)">Validation Rules and Standard Controllers</a> in the Visualforce Developer's Guide.
  * If your application uses a custom controller or extension, you must use the message class for collecting errors.
- * <p>Instantiation
+ * Instantiation
  * In a custom controller or controller extension, you can instantiate a Message in one of these ways:
  * ApexPages.Message myMsg = new ApexPages.Message(ApexPages.severity, summary);
  * where ApexPages.severity is the enum that determines how severe a message is, and summary is the String used to summarize the message. For example:
  * ApexPages.Message myMsg = new ApexPages.Message(ApexPages.Severity.FATAL, 'my error msg');
  * ApexPages.Message myMsg = new ApexPages.Message(ApexPages.severity, summary, detail);
  * where ApexPages. severity is the enum that determines how severe a message is, summary is the String used to summarize the message, and detail is the String used to provide more detailed information about the error.
- * <p>ApexPages.Severity Enum
+ * ApexPages.Severity Enum
  */
 global class Message {
     /**

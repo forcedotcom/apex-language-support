@@ -1,6 +1,6 @@
 /**
  * Abstract class for storing normalized information sent from payment gateways about a payment transaction. Holds the common response fields sent from payment gateways for authorization, sale, capture, and refund transactions.
- * <p>Usage
+ * Usage
  * Specify the CommercePayments namespace when creating an instance of this class. The constructor of this class takes no arguments. For example:
  * CommercePayments.AbstractTransactionResponse atr = new CommercePayments.AbstractTransactionResponse();
  */

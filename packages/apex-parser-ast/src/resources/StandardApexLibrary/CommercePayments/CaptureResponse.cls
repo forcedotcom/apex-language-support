@@ -1,6 +1,6 @@
 /**
  * The payment gateway adapter sends this response for the capture request type. This class extends AbstractResponse and inherits its methods.
- * <p>Usage
+ * Usage
  * You must specify the CommercePayments namespace when creating an instance of this class. The constructor of this class takes no arguments. For example:
  * CommercePayments.Capture Response ctr = new CommercePayments.CaptureResponse();
  */

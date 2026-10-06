@@ -1,6 +1,6 @@
 /**
  * Use to respond with an error after receiving errors from the PaymentGatewayAdapter methods of the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_namespace_commercepayments.htm" target="_blank" title="HTML (New Window)">CommercePayments</a> namespace, such as request-forbidden responses, custom validation errors, or expired API tokens.
- * <p>Example
+ * Example
  * This example snippet of a mock tax adapter shows a hypothetical scenario to demo an error response. The adapter receives request information from TaxEngineContext and stores it in an instance of CalculateTaxRequest. If the request's documentCode property is null or indicates an error, the adapter returns an error response with information about the error.
  * global virtual class MockAdapter implements commercetax.TaxEngineAdapter {
  *

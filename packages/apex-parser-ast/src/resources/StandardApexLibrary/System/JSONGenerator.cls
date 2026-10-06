@@ -1,12 +1,12 @@
 /**
  * Contains methods used to serialize objects into JSON content using the standard JSON encoding.
- * <p>Usage
+ * Usage
  * The System.JSONGenerator class is provided to enable the generation of standard JSON-encoded content and gives you more control on the structure of the JSON output.
  */
 global class JSONGenerator {
     /**
      * Closes the JSON generator.
-     * <p>Usage
+     * Usage
      * No more content can be written after the JSON generator is closed.
      */
     global void close() { }
@@ -15,7 +15,7 @@ global class JSONGenerator {
 
     /**
      * Returns the generated JSON content.
-     * <p>Usage
+     * Usage
      * This method closes the JSON generator if it isn't closed already.
      */
     global String getAsString() { return null; }

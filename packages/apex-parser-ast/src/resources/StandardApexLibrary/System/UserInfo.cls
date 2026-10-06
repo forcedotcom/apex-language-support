@@ -14,7 +14,7 @@ global class UserInfo {
 
     /**
      * Returns the context user's default currency code for multiple currency organizations or the organization's currency code for single currency organizations.
-     * <p>Usage
+     * Usage
      * Note
      * For Apex saved using Salesforce API version 22.0 or earlier, getDefaultCurrency returns null for single currency organizations.
      */
@@ -37,7 +37,7 @@ global class UserInfo {
 
     /**
      * Returns the context user's locale.
-     * <p>Example
+     * Example
      * String result = UserInfo.getLocale();
      * System.assertEquals('en_US', result);
      */
@@ -45,7 +45,7 @@ global class UserInfo {
 
     /**
      * Returns the context user's full name. The format of the name depends on the language preferences specified for the organization.
-     * <p>Usage
+     * Usage
      * The format is one of the following:
      * FirstName LastName
      * LastName, FirstName
@@ -69,7 +69,7 @@ global class UserInfo {
 
     /**
      * Returns the session ID for the current session.
-     * <p>Usage
+     * Usage
      * You can use getSessionId() both synchronously and asynchronously. In asynchronous Apex (Batch, Future, Queueable, or Scheduled Apex), this method returns the session ID only when the code is run by an active, valid user. When the code is run by an internal user, such as the automated process user or a proxy user, the method returns null.
      * As a best practice, ensure that your code handles both cases: when a session ID is or is not available.
      * Note
@@ -79,7 +79,7 @@ global class UserInfo {
 
     /**
      * Returns the current user’s local time zone.
-     * <p>Example
+     * Example
      * TimeZone tz =
      *   UserInfo.getTimeZone();
      * System.debug(
@@ -123,7 +123,7 @@ global class UserInfo {
 
     /**
      * Returns the current user’s email address.
-     * <p>Example
+     * Example
      * String emailAddress =
      *   UserInfo.getUserEmail();
      * System.debug(
@@ -161,14 +161,14 @@ global class UserInfo {
 
     /**
      * Returns true if the context user has a license to any managed package denoted by the namespace. Otherwise, returns false.
-     * <p>Usage
+     * Usage
      * A TypeException is thrown if namespace is an invalid type.
      */
     global static Boolean isCurrentUserLicensed(String namespacePrefix) { return false; }
 
     /**
      * Returns true if the context user has a license to the managed package denoted by the package ID. Otherwise, returns false. If the context user has access, it’s determined either via the package license or a namespace permission set license for the package namespace.
-     * <p>Usage
+     * Usage
      * Retrieve packageID at runtime, with the getCurrentPackageId() method. Then, use packageId to confirm that the contextual user is licensed to use that managed package.
      * A TypeException is thrown if packageID is an invalid type or is the ID of an unlocked or unmanaged package.
      */

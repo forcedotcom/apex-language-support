@@ -4,12 +4,12 @@
 global class InboundEnvelope {
     /**
      * The name that appears in the From field of the envelope, if any.
-     * <p>String
+     * String
      */
     global webservice String fromAddress;
     /**
      * The name that appears in the To field of the envelope, if any.
-     * <p>String
+     * String
      */
     global webservice String toAddress;
 

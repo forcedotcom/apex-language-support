@@ -1,6 +1,6 @@
 /**
  * Contains information about the type of work to be performed.
- * <p>Usage
+ * Usage
  * The constructor for this class can’t be called directly. Create an instance of this class using the WorkTypeBuilder.build() method.
  */
 global without sharing class WorkType {

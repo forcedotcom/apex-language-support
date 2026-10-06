@@ -1,9 +1,9 @@
 /**
  * Contains color metadata information for a tab.
- * <p>Usage
+ * Usage
  * The getColors method of the Schema.DescribeTabResult class returns a list of Schema.DescribeColorResult objects that describe colors used in a tab.
  * The methods in the Schema.DescribeColorResult class can be called using their property counterparts. For each method starting with get, you can omit the get prefix and the ending parentheses () to call the property counterpart. For example, colorResultObj.color is equivalent to colorResultObj.getColor().
- * <p>Example
+ * Example
  * This sample shows how to get the color information in the Sales app for the first tab’s first color.
  * // Get tab set describes for each app
  * List<Schema.DescribeTabSetResult> tabSetDesc = Schema.DescribeTabs();

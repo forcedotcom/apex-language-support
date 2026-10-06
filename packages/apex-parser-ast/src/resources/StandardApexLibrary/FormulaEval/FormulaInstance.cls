@@ -1,6 +1,6 @@
 /**
  * Contains a method to evaluate the formula instance.
- * <p>Example
+ * Example
  * global class MotorYacht {
  *    global Integer lengthInYards;
  *    global Integer numOfGuestCabins;
@@ -25,7 +25,7 @@
  *                             .withFormula('owner.Name & " (" & owner.Site & ")"')
  *                             .build();
  * ownerDetails.evaluate(aBoat); //=> "Acme Watercraft (New York)"
- * <p>Usage
+ * Usage
  * The context type in the withType method must be a global, user-defined Apex class. Any fields or properties that the formula references must also be global.
  */
 global class FormulaInstance {
@@ -39,9 +39,9 @@ global class FormulaInstance {
 
     /**
      * Returns a set of strings that denote the field names referenced in a formula.
-     * <p>Usage
+     * Usage
      * A formula is built and evaluated in the context of the current namespace of the subscriber org. If you package a formula that references fields, the fields must be fully qualified with the namespace name.
-     * <p>Example
+     * Example
      * FormulaEval.FormulaInstance ff = Formula.builder()
      *                                  .withType(Schema.Account.class)
      *                                  .withReturnType(FormulaEval.FormulaReturnType.STRING)

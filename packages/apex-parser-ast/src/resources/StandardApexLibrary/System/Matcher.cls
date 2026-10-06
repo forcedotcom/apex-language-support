@@ -9,7 +9,7 @@ global class Matcher {
 
     /**
      * Returns the position after the last character of the subsequence captured by the group index during the previous match operation. If the match was successful but the group itself did not match anything, this method returns -1.
-     * <p>Usage
+     * Usage
      * Captured groups are indexed from left to right, starting at one. Group zero denotes the entire pattern, so the expressionm.end(0) is equivalent to m.end().
      * See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_classes_pattern_and_matcher_capturing_groups.htm" target="_blank">Understanding Capturing Groups</a>.
      */
@@ -19,7 +19,7 @@ global class Matcher {
 
     /**
      * Attempts to find the next subsequence of the input sequence that matches the pattern. This method returns true if a subsequence of the input sequence matches this Matcher object's pattern.
-     * <p>Usage
+     * Usage
      * This method starts at the beginning of this Matcher object's region, or, if a previous invocation of the method was successful and the Matcher object has not since been reset, at the first character not matched by the previous match.
      * If the match succeeds, more information can be obtained using the start, end, and group methods.
      * For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_classes_pattern_and_matcher_regions.htm" target="_blank">Using Regions</a>.
@@ -28,21 +28,21 @@ global class Matcher {
 
     /**
      * Resets the Matcher object and then tries to find the next subsequence of the input sequence that matches the pattern. This method returns true if a subsequence of the input sequence matches this Matcher object's pattern.
-     * <p>Usage
+     * Usage
      * If the match succeeds, more information can be obtained using the start, end, and group methods.
      */
     global Boolean find(Integer start) { return false; }
 
     /**
      * Returns the input subsequence returned by the previous match.
-     * <p>Usage
+     * Usage
      * Note that some groups, such as (a*), match the empty string. This method returns the empty string when such a group successfully matches the empty string in the input.
      */
     global String group() { return null; }
 
     /**
      * Returns the input subsequence captured by the specified group index during the previous match operation. If the match was successful but the specified group failed to match any part of the input sequence, null is returned.
-     * <p>Usage
+     * Usage
      * Captured groups are indexed from left to right, starting at one. Group zero denotes the entire pattern, so the expression m.group(0) is equivalent to m.group().
      * Note that some groups, such as (a*), match the empty string. This method returns the empty string when such a group successfully matches the empty string in the input.
      * See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_classes_pattern_and_matcher_capturing_groups.htm" target="_blank">Understanding Capturing Groups</a>.
@@ -51,14 +51,14 @@ global class Matcher {
 
     /**
      * Returns the number of capturing groups in this Matching object's pattern. Group zero denotes the entire pattern and is not included in this count.
-     * <p>Usage
+     * Usage
      * See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_classes_pattern_and_matcher_capturing_groups.htm" target="_blank">Understanding Capturing Groups</a>.
      */
     global Integer groupCount() { return 0; }
 
     /**
      * Returns true if the Matcher object has anchoring bounds, false otherwise. By default, a Matcher object uses anchoring bounds regions.
-     * <p>Usage
+     * Usage
      * If a Matcher object uses anchoring bounds, the boundaries of this Matcher object's region match start and end of line anchors such as ^ and $.
      * For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_classes_pattern_and_matcher_bounds.htm" target="_blank">Using Bounds</a>.
      */
@@ -66,7 +66,7 @@ global class Matcher {
 
     /**
      * Returns true if the Matcher object has transparent bounds, false if it uses opaque bounds. By default, a Matcher object uses opaque region boundaries.
-     * <p>Usage
+     * Usage
      * For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_classes_pattern_and_matcher_bounds.htm" target="_blank">Using Bounds</a>.
      */
     global Boolean hasTransparentBounds() { return false; }
@@ -80,7 +80,7 @@ global class Matcher {
 
     /**
      * Attempts to match the input sequence, starting at the beginning of the region, against the pattern.
-     * <p>Usage
+     * Usage
      * Like the matches method, this method always starts at the beginning of the region; unlike that method, it does not require the entire region be matched.
      * If the match succeeds, more information can be obtained using the start, end, and group methods.
      * See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_classes_pattern_and_matcher_regions.htm" target="_blank">Using Regions</a>.
@@ -89,7 +89,7 @@ global class Matcher {
 
     /**
      * Attempts to match the entire region against the pattern.
-     * <p>Usage
+     * Usage
      * If the match succeeds, more information can be obtained using the start, end, and group methods.
      * See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_classes_pattern_and_matcher_regions.htm" target="_blank">Using Regions</a>.
      */
@@ -99,7 +99,7 @@ global class Matcher {
 
     /**
      * Returns a literal replacement string for the specified string inputString. The characters in the returned string match the sequence of characters in inputString.
-     * <p>Usage
+     * Usage
      * Metacharacters (such as $ or ^) and escape sequences in the input string are treated as literal characters with no special meaning.
      */
     global static String quoteReplacement(String s) { return null; }
@@ -108,21 +108,21 @@ global class Matcher {
 
     /**
      * Returns the end index (exclusive) of this Matcher object's region.
-     * <p>Usage
+     * Usage
      * See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_classes_pattern_and_matcher_regions.htm" target="_blank">Using Regions</a>.
      */
     global Integer regionEnd() { return 0; }
 
     /**
      * Returns the start index (inclusive) of this Matcher object's region.
-     * <p>Usage
+     * Usage
      * See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_classes_pattern_and_matcher_regions.htm" target="_blank">Using Regions</a>.
      */
     global Integer regionStart() { return 0; }
 
     /**
      * Replaces every subsequence of the input sequence that matches the pattern with the replacement string.
-     * <p>Usage
+     * Usage
      * This method first resets the Matcher object, then scans the input sequence looking for matches of the pattern. Characters that are not part of any match are appended directly to the result string; each match is replaced in the result by the replacement string. The replacement string may contain references to captured subsequences.
      * Note that backslashes (\) and dollar signs ($) in the replacement string may cause the results to be different than if the string was treated as a literal replacement string. Dollar signs may be treated as references to captured subsequences, and backslashes are used to escape literal characters in the replacement string.
      * Invoking this method changes this Matcher object's state. If the Matcher object is to be used in further matching operations it should first be reset.
@@ -132,7 +132,7 @@ global class Matcher {
 
     /**
      * Replaces the first subsequence of the input sequence that matches the pattern with the replacement string.
-     * <p>Usage
+     * Usage
      * Note that backslashes (\) and dollar signs ($) in the replacement string may cause the results to be different than if the string was treated as a literal replacement string. Dollar signs may be treated as references to captured subsequences, and backslashes are used to escape literal characters in the replacement string.
      * Invoking this method changes this Matcher object's state. If the Matcher object is to be used in further matching operations it should first be reset.
      * Given the regular expression dog, the input "zzzdogzzzdogzzz", and the replacement string "cat", an invocation of this method on a Matcher object for that expression would return the string "zzzcatzzzdogzzz".
@@ -141,7 +141,7 @@ global class Matcher {
 
     /**
      * Returns true if more input could change a positive match into a negative one.
-     * <p>Usage
+     * Usage
      * If this method returns true, and a match was found, then more input could cause the match to be lost.
      * If this method returns false and a match was found, then more input might change the match but the match won't be lost.
      * If a match was not found, then requireEnd has no meaning.
@@ -159,7 +159,7 @@ global class Matcher {
 
     /**
      * Returns the start index of the subsequence captured by the group specified by the group index during the previous match operation. Captured groups are indexed from left to right, starting at one. Group zero denotes the entire pattern, so the expression m.start(0) is equivalent to m.start().
-     * <p>Usage
+     * Usage
      * See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_classes_pattern_and_matcher_capturing_groups.htm" target="_blank">Understanding Capturing Groups</a>.
      */
     global Integer start(Integer grp) { return 0; }

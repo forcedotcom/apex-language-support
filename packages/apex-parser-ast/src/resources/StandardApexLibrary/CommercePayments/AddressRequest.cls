@@ -1,6 +1,6 @@
 /**
  * Contains address request data that is sent to a gateway adapter during a service call.
- * <p>Usage
+ * Usage
  * Contains information about the payment method’s address. Use this information in authorization, sale, and tokenization requests. The payment gateway adapter uses information in an AddressRequest object to construct a JSON request to send to the payment gateway.
  * The constructor of this class takes no arguments. For example:
  * CommercePayments.AddressRequest adr = new CommercePayments.AddressRequest();
@@ -8,32 +8,32 @@
 global with sharing class AddressRequest {
     /**
      * City of the payment method address.
-     * <p>String
+     * String
      */
     global String city { get; set; }
     /**
      * Company name of the payment method address.
-     * <p>String
+     * String
      */
     global String companyName { get; set; }
     /**
      * Country for the payment method address.
-     * <p>String
+     * String
      */
     global String country { get; set; }
     /**
      * Postal code for the payment method address.
-     * <p>String
+     * String
      */
     global String postalCode { get; set; }
     /**
      * State for the payment method address.
-     * <p>String
+     * String
      */
     global String state { get; set; }
     /**
      * Street for the payment method address.
-     * <p>String
+     * String
      */
     global String street { get; set; }
 

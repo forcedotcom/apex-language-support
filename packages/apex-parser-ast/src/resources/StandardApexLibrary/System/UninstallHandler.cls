@@ -1,6 +1,6 @@
 /**
  * Enables custom code to run after a managed package is uninstalled.
- * <p>Usage
+ * Usage
  * App developers can implement this interface to specify Apex code that runs automatically after a subscriber uninstalls a managed package. This makes it possible to perform cleanup and notification tasks based on details of the subscriber’s organization.
  * The uninstall script is subject to default governor limits. It runs as a special system user that represents your package, so all operations performed by the script will appear to be done by your package. You can access this user by using UserInfo. You will only see this user at runtime, not while running tests.
  * If the script fails, the uninstall continues but none of the changes performed by the script are committed. Any errors in the script are emailed to the user specified in the Notify on Apex Error field of the package. If no user is specified, the uninstall details will be unavailable.

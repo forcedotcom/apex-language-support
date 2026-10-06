@@ -7,13 +7,13 @@ global class SearchContext extends DataSource.ReadContext {
     global Integer offset { get; set; }
     /**
      * The user-entered search string as a case-sensitive single phrase, with all non-alphanumeric characters removed.
-     * <p>String
+     * String
      */
     global String searchPhrase { get; set; }
     global Integer startRowNumZeroOffset { get; set; }
     /**
      * List of queries and their details. The details represent the FROM, ORDER BY, SELECT, and WHERE clauses in each SOQL or SOSL query.
-     * <p>List<DataSource.TableSelection>
+     * List<DataSource.TableSelection>
      */
     global List tableSelections { get; set; }
 

@@ -1,12 +1,12 @@
 /**
  * Use the Version methods to get the version of a first-generation managed package (1GP) or a migrated second-generation managed package (2GP), and to compare package versions.
- * <p>Usage
+ * Usage
  * A package version is a number that identifies the set of components uploaded in a package. The version number has the format majorNumber.minorNumber.patchNumber (for example, 2.1.3). The major and minor numbers increase to a chosen value during every major release. The patchNumber is generated and updated only for a patch release.
  * A called component can check the version against which the caller was compiled using the System.requestVersion method and behave differently depending on the caller’s expectations. This allows you to continue to support existing behavior in classes and triggers in previous package versions while continuing to evolve the code.
  * The value returned by the System.requestVersion method is an instance of this class with a two-part version number containing a major and a minor number. Since the System.requestVersion method doesn’t return a patch number, the patch number in the returned Version object is null.
  * The System.Version class can also hold also a three-part version number that includes a patch number.
  * See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_manpkgs_behavior.htm" target="_blank" title="HTML (New Window)">Version Apex Code Behavior</a> in the Apex Developer Guide.
- * <p>Example
+ * Example
  * This example shows how to use the methods in this class, along with the requestVersion method, to determine the managed package version of the code that is calling your package.
  * if (System.requestVersion() == new Version(1,0))
  * {
@@ -36,7 +36,7 @@ global class Version {
 
     /**
      * Compares the current version with the specified version.
-     * <p>Usage
+     * Usage
      * If a two-part version is being compared to a three-part version, the patch number is ignored and the comparison is based only on the major and minor numbers.
      * @return Returns one of the following values:
      * zero if the current package version is equal to the specified package version

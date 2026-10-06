@@ -1,27 +1,27 @@
 /**
  * Abstract class used to send information about a payment method to a gateway adapter during a service call.
- * <p>Usage
+ * Usage
  * BaseApiPaymentMethodRequest is the base class for SaleApiPaymentMethodRequest and AuthApiPaymentMethodRequest.
  */
 global abstract with sharing class BaseApiPaymentMethodRequest {
     /**
      * The payment method’s address.
-     * <p>AddressRequest
+     * AddressRequest
      */
     global commercepayments.AddressRequest address { get; set; }
     /**
      * ID of the payment method request.
-     * <p>String
+     * String
      */
     global String id { get; set; }
     /**
      * ID of the payment method type.
-     * <p>commercepayments.PaymentMethodIdType
+     * commercepayments.PaymentMethodIdType
      */
     global commercepayments.PaymentMethodIdType idType { get; set; }
     /**
      * Indicates whether the payment method is saved as a record in Salesforce for future use.
-     * <p>Boolean
+     * Boolean
      */
     global Boolean saveForFuture { get; set; }
 

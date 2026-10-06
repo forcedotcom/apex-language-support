@@ -1,9 +1,9 @@
 /**
  * Represents zone answers.
- * <p>Usage
+ * Usage
  * Answers is a feature that enables users to ask questions and have zone members post replies. Members can then vote on the helpfulness of each reply, and the person who asked the question can mark one reply as the best answer.
  * For more information on answers, see “Answers Overview” in the Salesforce online help.
- * <p>Example
+ * Example
  * The following example finds questions in an internal zone that have similar titles as a new question:
  * public class FindSimilarQuestionController {
  *

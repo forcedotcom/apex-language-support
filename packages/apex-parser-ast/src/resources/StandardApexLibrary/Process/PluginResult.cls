@@ -4,7 +4,7 @@
 global class PluginResult {
     /**
      * Output parameters returned from the class that implements the interface to the flow.
-     * <p>Map<String, Object>
+     * Map<String, Object>
      */
     global Map outputParameters { get; set; }
 

@@ -6,21 +6,21 @@ global class KnowledgeSuggestionFilter {
 
     /**
      * Adds a filter that narrows suggestion results to display the specified article type. This filter is optional.
-     * <p>Usage
+     * Usage
      * To add more than 1 article type, call the method multiple times.
      */
     global void addArticleType(String articleType) { }
 
     /**
      * Adds a filter that narrows suggestion results to display articles in the specified data category. This filter is optional.
-     * <p>Usage
+     * Usage
      * To set multiple data categories, call the method multiple times. The name of the data category group and name of the data category for desired articles, expressed as a mapping, for example, Search.KnowledgeSuggestionFilter.addDataCategory('Regions', 'Asia').
      */
     global void addDataCategory(String dataCategoryGroupName, String dataCategoryName) { }
 
     /**
      * Specifies the article topic to return. This filter is optional.
-     * <p>Usage
+     * Usage
      * To add more than 1 article topic, call the method multiple times.
      */
     global void addTopic(String topic) { }

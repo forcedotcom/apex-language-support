@@ -1,6 +1,6 @@
 /**
  * System.TriggerOperation enum values are associated with trigger events.
- * <p>Enum Values
+ * Enum Values
  * Here are the values of the System.TriggerOperation enum listed by their ordinal value.
  * 0: BEFORE_INSERT
  * 1: AFTER_INSERT

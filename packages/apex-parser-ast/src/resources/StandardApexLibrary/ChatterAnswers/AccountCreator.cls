@@ -1,6 +1,6 @@
 /**
  * Creates Account records that will be associated with Chatter Answers users.
- * <p>Usage
+ * Usage
  * The ChatterAnswers.AccountCreator is specified in the registrationClassName attribute of a chatteranswers:registration Visualforce component. This interface is called by Chatter Answers and allows for custom creation of Account records used for portal users.
  * To implement the ChatterAnswers.AccountCreator interface, you must first declare a class with the implements keyword as follows:
  * public class ChatterAnswersRegistration implements ChatterAnswers.AccountCreator {

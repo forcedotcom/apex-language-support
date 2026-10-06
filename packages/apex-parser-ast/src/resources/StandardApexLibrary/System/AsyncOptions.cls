@@ -4,17 +4,17 @@
 global class AsyncOptions {
     /**
      * A unique signature for a Queueable job.
-     * <p>QueueableDuplicateSignature Class
+     * QueueableDuplicateSignature Class
      */
     global System.QueueableDuplicateSignature DuplicateSignature { get; set; }
     /**
      * Maximum stack depth for queueable transactions.
-     * <p>Integer
+     * Integer
      */
     global Integer MaximumQueueableStackDepth { get; set; }
     /**
      * Minimum queueable delay for queueable transactions.
-     * <p>Integer
+     * Integer
      */
     global Integer MinimumQueueableDelayInMinutes { get; set; }
 

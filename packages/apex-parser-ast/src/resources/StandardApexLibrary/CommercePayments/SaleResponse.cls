@@ -1,10 +1,10 @@
 /**
  * Response sent by payment gateway adapters for a sales service.
- * <p>Usage
+ * Usage
  * The constructor of this class takes no arguments. For example:
  * CommercePayments.SaleResponse slr CommercePayments.SaleResponse();
  * This class contains details about a customer card that was used as a payment method for Authorization, Sale, or Tokenization request. The gateway adapter reads the fields of this class while constructing a transaction JSON request, which it then sends to the payment gateway. The object of this class is made available by the cardPaymentMethod field in SaleApiPaymentMethodRequest and AuthApiPaymentMethodRequest.
- * <p>Example
+ * Example
  * This code sample builds a SaleResponse object.
  * commercepayments.SaleResponse saleResponse = new commercepayments.SaleResponse();
  * saleResponse.setGatewayReferenceDetails("refDetailString");

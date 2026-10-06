@@ -17,79 +17,79 @@ global with sharing class MessageDefinitionInputParameter {
 
     /**
      * A boolean input parameter.
-     * <p>Boolean
+     * Boolean
      */
     @AuraEnabled
     global Boolean booleanValue { get; set; }
     /**
      * A list of boolean parameters.
-     * <p>List<Boolean>
+     * List<Boolean>
      */
     @AuraEnabled
     global List booleanValues { get; set; }
     /**
      * A datetime input parameter.
-     * <p>Datetime
+     * Datetime
      */
     @AuraEnabled
     global Datetime dateTimeValue { get; set; }
     /**
      * A list of datetime input parameters.
-     * <p>List<Datetime>
+     * List<Datetime>
      */
     @AuraEnabled
     global List dateTimeValues { get; set; }
     /**
      * A date input parameter.
-     * <p>Date
+     * Date
      */
     @AuraEnabled
     global Date dateValue { get; set; }
     /**
      * A list of date input parameters.
-     * <p>List<Date>
+     * List<Date>
      */
     @AuraEnabled
     global List dateValues { get; set; }
     /**
      * A name input parameter.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String name { get; set; }
     /**
      * A number input parameter.
-     * <p>Double
+     * Double
      */
     @AuraEnabled
     global Double numberValue { get; set; }
     /**
      * A list of number input parameters.
-     * <p>List<Double>
+     * List<Double>
      */
     @AuraEnabled
     global List numberValues { get; set; }
     /**
      * A record ID input parameter.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String recordIdValue { get; set; }
     /**
      * A list of record ID input parameters.
-     * <p>List<String>
+     * List<String>
      */
     @AuraEnabled
     global List recordIdValues { get; set; }
     /**
      * A text input parameter.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String textValue { get; set; }
     /**
      * A list of text input parameters.
-     * <p>List<String>
+     * List<String>
      */
     @AuraEnabled
     global List textValues { get; set; }

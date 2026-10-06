@@ -1,6 +1,6 @@
 /**
  * Makes an HTTP request to start the interaction with the payment gateway.
- * <p>Usage
+ * Usage
  * You must specify the CommercePayments namespace when creating an instance of this class. The constructor of this class takes no arguments. For example:
  * CommercePayments.PaymentsHttp payhttp = new CommercePayments.PaymentsHttp();
  */

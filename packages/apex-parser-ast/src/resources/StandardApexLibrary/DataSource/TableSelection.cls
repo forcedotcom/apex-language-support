@@ -4,22 +4,22 @@
 global class TableSelection {
     /**
      * List of columns to query. Corresponds to the SELECT clause in a SOQL or SOSL query.
-     * <p>List<DataSource.ColumnSelection>
+     * List<DataSource.ColumnSelection>
      */
     global List columnsSelected { get; set; }
     /**
      * Identifies the query filter, which can be a compound filter that has a list of subfilters. The filter corresponds to the WHERE clause in a SOQL or SOSL query.
-     * <p>DataSource.Filter
+     * DataSource.Filter
      */
     global DataSource.Filter filter { get; set; }
     /**
      * Identifies the order for sorting the query results. Corresponds to the ORDER BY clause in a SOQL or SOSL query.
-     * <p>List<DataSource.Order>
+     * List<DataSource.Order>
      */
     global List order { get; set; }
     /**
      * Name of the table to query. Corresponds to the FROM clause in a SOQL or SOSL query.
-     * <p>String
+     * String
      */
     global String tableSelected { get; set; }
 

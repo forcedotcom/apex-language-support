@@ -1,6 +1,6 @@
 /**
  * Generate authentication tokens to access preference forms.
- * <p>Example
+ * Example
  * Call the generateToken() method to generate a single token for a specified Salesforce record ID:
  * Individual individual = [SELECT Id FROM Individual LIMIT 1];
  * String token = pref_center.TokenUtility.generateToken(individual.Id);

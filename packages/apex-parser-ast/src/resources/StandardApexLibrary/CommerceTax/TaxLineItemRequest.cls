@@ -4,58 +4,58 @@
 global with sharing class TaxLineItemRequest {
     /**
      * Contains the list of addresses of a line item.
-     * <p>commercetax.LineTaxAddressesRequest
+     * commercetax.LineTaxAddressesRequest
      */
     global commercetax.LineTaxAddressesRequest addresses { get; set; }
     /**
      * Total amount (in a given currency) represented by a line item sent for tax calculation.
-     * <p>Double
+     * Double
      */
     global Double amount { get; set; }
     /**
      * Customised tax contract to include additional attributes at the line item level.
-     * <p>Map<String, Object>
+     * Map<String, Object>
      */
     global Map customTaxAttributes { get; set; }
     /**
      * User-defined description for a tax line item.
-     * <p>String
+     * String
      */
     global String description { get; set; }
     /**
      * The date that a tax transaction takes effect on a line item. This is a user-defined date used for reporting only.
-     * <p>Datetime
+     * Datetime
      */
     global Datetime effectiveDate { get; set; }
     /**
      * Unique number used to identify a tax line item.
-     * <p>String
+     * String
      */
     global String lineNumber { get; set; }
     /**
      * Catalog code for the product represented by the tax line item.
-     * <p>String
+     * String
      */
     global String productCode { get; set; }
     /**
      * Unique identifier of a product that can be used to identify products that are exempted from tax.
-     * <p>String
+     * String
      */
     global String productSKU { get; set; }
     /**
      * Number of units of a given product that the tax line item represents.
-     * <p>Double
+     * Double
      */
     global Double quantity { get; set; }
     /**
      * Identifier that combines the original invoice ID, previous tax transaction type, and tax engine ID, used in tax calculations for negative invoice lines.
-     * <p>For example, a referenceDocumentCode parameter value 3ttxx00000004Bh_Debit-4wAxx0000000001EAA indicates 3ttxx00000004Bh is the original invoice ID and 4wAxx0000000001EAA is the tax engine ID. The previous tax transaction type is always Debit for negative invoice lines.
-     * <p>String
+     * For example, a referenceDocumentCode parameter value 3ttxx00000004Bh_Debit-4wAxx0000000001EAA indicates 3ttxx00000004Bh is the original invoice ID and 4wAxx0000000001EAA is the tax engine ID. The previous tax transaction type is always Debit for negative invoice lines.
+     * String
      */
     global String referenceDocumentCode { get; set; }
     /**
      * Code used to identify how tax is calculated for a tax line item.
-     * <p>String
+     * String
      */
     global String taxCode { get; set; }
 

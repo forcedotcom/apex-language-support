@@ -1,9 +1,9 @@
 /**
  * Contains icon metadata information for a tab.
- * <p>Usage
+ * Usage
  * The getIcons method of the Schema.DescribeTabResult class returns a list of Schema.DescribeIconResult objects that describe colors used in a tab.
  * The methods in the Schema.DescribeIconResult class can be called using their property counterparts. For each method starting with get, you can omit the get prefix and the ending parentheses () to call the property counterpart. For example, iconResultObj.url is equivalent to iconResultObj.getUrl().
- * <p>Example
+ * Example
  * This sample shows how to get the icon information in the Sales app for the first tab’s first icon.
  * // Get tab set describes for each app
  * List<Schema.DescribeTabSetResult> tabSetDesc = Schema.describeTabs();
@@ -40,7 +40,7 @@ global class DescribeIconResult {
 
     /**
      * Returns the tab icon’s height in pixels.
-     * <p>Usage
+     * Usage
      * Note
      * If the icon content type is SVG, the icon won’t have a size and its height is zero.
      */
@@ -62,7 +62,7 @@ global class DescribeIconResult {
 
     /**
      * Returns the tab’s icon width in pixels.
-     * <p>Usage
+     * Usage
      * Note
      * If the icon content type is SVG, the icon won’t have a size and its width is zero.
      */

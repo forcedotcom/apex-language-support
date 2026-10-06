@@ -4,19 +4,19 @@
 global class PaymentMethod {
     /**
      * The display name of the payment method.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String displayName;
     /**
      * The network associated with the payment method.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String network;
     /**
      * The payment type of the payment method.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String paymentType;

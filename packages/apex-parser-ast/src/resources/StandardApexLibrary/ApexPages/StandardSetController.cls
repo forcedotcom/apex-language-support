@@ -1,10 +1,10 @@
 /**
  * StandardSetController objects allow you to create list controllers similar to, or as extensions of, the pre-built Visualforce list controllers provided by Salesforce.
- * <p>Usage
+ * Usage
  * The StandardSetController class also contains a prototype object. This is a single sObject contained within the Visualforce StandardSetController class. If the prototype object's fields are set, those values are used during the save action, meaning that the values are applied to every record in the set controller's collection. This is useful for writing pages that perform mass updates (applying identical changes to fields within a collection of objects).
  * Note
  * Fields that are required in other Salesforce objects will keep the same requiredness when used by the prototype object.
- * <p>Instantiation
+ * Instantiation
  * You can instantiate a StandardSetController in either of the following ways:
  * From a list of sObjects:
  * List<account> accountList = [SELECT Name FROM Account LIMIT 20];
@@ -14,7 +14,7 @@
  * new ApexPages.StandardSetController(Database.getQueryLocator([SELECT Name,CloseDate FROM Opportunity]));
  * Note
  * The maximum record limit for StandardSetController is 10,000 records. Instantiating StandardSetController using a query locator returning more than 10,000 records causes a LimitException to be thrown. However, instantiating StandardSetController with a list of more than 10,000 records doesn’t throw an exception, and instead truncates the records to the limit.
- * <p>Example
+ * Example
  * The following example shows how a StandardSetController object can be used in the constructor for a custom list controller:
  * public class opportunityList2Con {
  *     // ApexPages.StandardSetController must be instantiated
@@ -53,7 +53,7 @@ global class StandardSetController {
 
     /**
      * Creates an instance of the ApexPages.StandardSetController class for the specified list of standard or custom objects.
-     * <p>Example
+     * Example
      * List<account> accountList = [SELECT Name FROM Account LIMIT 20];
      * ApexPages.StandardSetController ssc = new ApexPages.StandardSetController(accountList);
      */
@@ -80,7 +80,7 @@ global class StandardSetController {
 
     /**
      * Returns the ID of the filter that is currently in context.
-     * <p>Note
+     * Note
      * The getFilterID() method doesn’t support list views without filter IDs, such as the Recently Viewed list view. In these cases, the method returns the first filter ID of the object’s available list views. If called within an <apex:enhancedList> component, the method returns the filter ID of the last used list view.
      */
     global String getFilterId() { return null; }
@@ -166,9 +166,9 @@ global class StandardSetController {
 
     /**
      * Set the selected records to the records specified in the selectedRecords argument.
-     * <p>Usage
+     * Usage
      * Use the setSelected() method in your Apex controller or controller extension to manually set the records displayed on a Visualforce page. The setSelected() method overwrites any previously selected records with the records specified in the selectedRecords argument.
-     * <p>Example
+     * Example
      * AccountNamePage shows a table of account names. MyControllerExtension’s constructor contains a SOQL query that returns a list of accounts. This list is passed into setSelected() so that the account records in the list are selected and displayed in the table.
      * <!-- AccountNamePage.page -->
      * <apex:page standardController="Account" recordSetVar="accounts" extensions="MyControllerExtension">

@@ -8,7 +8,7 @@ global class Site {
 
     /**
      * Changes the password of the current user.
-     * <p>Usage
+     * Usage
      * Calls to this method in API version 30.0 and later can’t commit the transaction automatically. Calls to this method before API version 30.0 commit the transaction, making it impossible to roll back to a save point before the call.
      * The password reset process doesn't verify the external user's email address.
      */
@@ -16,7 +16,7 @@ global class Site {
 
     /**
      * Creates a Salesforce Site or Experience Cloud site user for the given account and associates it with the site.
-     * <p>Usage
+     * Usage
      * This method throws Site.ExternalUserCreateException when user creation fails.
      * The nickname field is required for the User sObject when using the createExternalUser method.
      * Note
@@ -28,7 +28,7 @@ global class Site {
 
     /**
      * Creates a Salesforce Site or Experience Cloud site user for the given account and associates it with the site. This method sends an email with the specified password to the user.
-     * <p>Usage
+     * Usage
      * This method throws Site.ExternalUserCreateException when user creation fails.
      * The nickname field is required for the User sObject when using the createExternalUser method.
      * Note
@@ -40,7 +40,7 @@ global class Site {
 
     /**
      * Creates a Salesforce Site or Experience Cloud site user and associates it with the given account. This method sends the user an email with the specified password and a new user confirmation email.
-     * <p>Usage
+     * Usage
      * This method throws Site.ExternalUserCreateException when user creation fails.
      * The nickname field is required for the User sObject when using the createExternalUser method.
      * Note
@@ -52,7 +52,7 @@ global class Site {
 
     /**
      * Creates a person account using the default record type defined on the guest user's profile, then enables it for the site's portal.
-     * <p>Usage
+     * Usage
      * Calls to this method in API version 30.0 and later can’t commit the transaction automatically. Calls to this method before API version 30.0 commit the transaction, making it impossible to roll back to a save point before the call.
      * Note
      * This method is only valid when a site is associated with a Customer Portal, and when the user license for the default new user profile is a high-volume portal user.
@@ -61,7 +61,7 @@ global class Site {
 
     /**
      * Creates a person account using the specified recordTypeID, then enables it for the site's portal.
-     * <p>Usage
+     * Usage
      * Calls to this method in API version 30.0 and later can’t commit the transaction automatically. Calls to this method before API version 30.0 commit the transaction, making it impossible to roll back to a save point before the call.
      * Note
      * This method is only valid when a site is associated with a Customer Portal, and when the user license for the default new user profile is a high-volume portal user.
@@ -70,7 +70,7 @@ global class Site {
 
     /**
      * Creates a portal user for the given account and associates it with the site's portal.
-     * <p>Usage
+     * Usage
      * If you’re using API version 34.0 or later, we recommend using the createExternalUser() methods because they offer better error handling than this method.
      * The nickname field is required for the user sObject when using the createPortalUser method.
      * Note
@@ -81,7 +81,7 @@ global class Site {
 
     /**
      * Creates a portal user for the given account and associates it with the site's portal.
-     * <p>Usage
+     * Usage
      * If you’re using API version 34.0 or later, we recommend using the createExternalUser() methods because they offer better error handling than this method.
      * The nickname field is required for the user sObject when using the createPortalUser method.
      * Note
@@ -92,7 +92,7 @@ global class Site {
 
     /**
      * Creates a portal user for the given account and associates it with the site's portal.
-     * <p>Usage
+     * Usage
      * If you’re using API version 34.0 or later, we recommend using the createExternalUser() methods because they offer better error handling than this method.
      * The nickname field is required for the user sObject when using the createPortalUser method.
      * Note
@@ -105,7 +105,7 @@ global class Site {
 
     /**
      * Resets the user's password and sends an email to the user with the user’s new password. Returns a value indicating whether the password reset was successful.
-     * <p>Usage
+     * Usage
      * Calls to this method in API version 30.0 and later can’t commit the transaction automatically. Calls to this method before API version 30.0 commit the transaction, making it impossible to roll back to a save point before the call.
      * Calls to this method are subject to rate-limiting. If your rate of calls exceeds the limit, Salesforce doesn't send the password reset email. If you experience this issue, try waiting for an hour before you send another call.
      * The password reset process doesn't verify the external user's email address.
@@ -135,7 +135,7 @@ global class Site {
 
     /**
      * Returns a base URL for the current site that doesn’t use a force.com subdomain. The returned URL uses the same protocol (HTTP or HTTPS) as the current request if at least one non-Force.com custom URL that supports HTTPS exists on the site. The returned value never ends with a / character. If all the custom URLs in this site end in Force.com or this site has no custom URLs, then this returns an empty string. If the current request is not a site request, then this method returns an empty string. This method replaced getCustomWebAddress and includes the custom URL's path prefix..
-     * <p>Usage
+     * Usage
      * This method replaces getCustomWebAddress() and includes the custom URL's path prefix.
      */
     global static String getBaseCustomUrl() { return null; }
@@ -157,21 +157,21 @@ global class Site {
 
     /**
      * Returns the base URL of the current site that references and links should use. Note that this field may return the referring page's URL instead of the current request's URL. The returned value includes the path prefix and never ends with a / character. If the current request is not a site request, then this field returns an empty string. This field replaces getCurrentSiteUrl.
-     * <p>Usage
+     * Usage
      * This method replaces getCurrentSiteUrl().
      */
     global static String getBaseUrl() { return null; }
 
     /**
      * Deprecated. This method was replaced by getBaseUrl() in API version 30.0. Returns the base URL of the current site that references and links should use.
-     * <p>Usage
+     * Usage
      * Use getBaseUrl() instead.
      */
     global static String getCurrentSiteUrl() { return null; }
 
     /**
      * Deprecated. This method was replaced by getBaseCustomUrl() in API version 30.0.
-     * <p>Usage
+     * Usage
      * Use getBaseCustomUrl() instead.
      */
     global static String getCustomWebAddress() { return null; }
@@ -193,7 +193,7 @@ global class Site {
 
     /**
      * Returns the value of the experience ID (expid). This expid value comes from a cookie in the user’s web browser.
-     * <p>Usage
+     * Usage
      * Use the getExperienceId and setExperienceId methods to implement dynamic login experiences. You can set the experience ID with setExperienceId or by extending the following endpoints with expid_value.
      * community-url/services/oauth2/authorize/expid_value
      * community-url/idp/endpoint/HttpPost/expid_value
@@ -276,7 +276,7 @@ global class Site {
 
     /**
      * Allows users to log in to the current site with the given username and password, then takes them to the startUrl. If startUrl is not a relative path, it defaults to the site's designated index page.
-     * <p>Usage
+     * Usage
      * All DML statements before the call to Site.login get committed. It’s not possible to roll back to a save point that was created before a call to Site.login.
      * Note
      * Do not include http:// or https:// in the startURL.
@@ -285,9 +285,9 @@ global class Site {
 
     /**
      * Logs in a user to a Salesforce Site or Experience Cloud site using an identity verification method, such as email or text, instead of a password. Passwordless login is a convenient, mobile-centric way to welcome users into your site. Let your users log in with something other than their password, like their email address or phone number.
-     * <p>Usage
+     * Usage
      * Include this method in the Apex controller of a custom login page implementation.
-     * <p>PasswordlessLogin Example
+     * PasswordlessLogin Example
      * This simple code example of an Apex controller contains the passwordlessLogin method. The PageReference returned by passwordlessLogin redirects the user to the Salesforce Verify page. When the user enters the correct code, the user is redirected to the site page specified by the start URL.
      * global with sharing class MFILoginController
      * {
@@ -334,9 +334,9 @@ global class Site {
 
     /**
      * Sets the experience ID for the current user. Use this method to populate the value of the experience ID (expid) cookie in the user’s web browser.
-     * <p>Usage
+     * Usage
      * Use setExperienceId when you’re implementing dynamic login experiences. A login experience refers to a login page plus any secondary pages associated with the login page (such as multi-factor authentication (MFA) or a login flow). You define different login experiences depending on who users are or where they’re logging in from. For example, you can require a different registration process based on the user’s location. In this case, expIdValue includes a state or country code. When the user logs in, the URL contains the experience ID parameter, {expid}. The {expid} parameter is replaced by the value stored in expIdValue, such as .jp. Then the user is redirected to the Japanese login experience.
-     * <p>Example
+     * Example
      * String expid = ApexPages.currentPage().getParameters().get('expid');
      *   if (expId != null) {
      *   Site.setExperienceId(expId);
@@ -346,7 +346,7 @@ global class Site {
 
     /**
      * Sets the specified user information within the site’s portal via an authentication provider.
-     * <p>Usage
+     * Usage
      * This method is only valid when a site is associated with a Customer Portal.
      * Calls to this method in API version 30.0 and later can’t commit the transaction automatically. Calls to this method before API version 30.0 commit the transaction, making it impossible to roll back to a save point before the call.
      * For more information on an authentication provider, see RegistrationHandler.
@@ -357,7 +357,7 @@ global class Site {
 
     /**
      * Indicates whether a given password meets the requirements specified by org-wide or profile-based password policies in the current user’s org.
-     * <p>Usage
+     * Usage
      * If validation fails when the method is run in a Lightning controller, this method throws an Apex exception describing the failed validation. If validation fails when the method is run in a Visualforce controller, the method provides Visualforce error messages.
      */
     global static void validatePassword(SObject user, String password, String confirmPassword) { }

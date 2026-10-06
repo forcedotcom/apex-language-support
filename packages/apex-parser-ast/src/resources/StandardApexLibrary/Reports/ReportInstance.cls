@@ -36,7 +36,7 @@ global class ReportInstance extends reports.ReportInstanceAttributes {
 
     /**
      * Returns the status of a report.
-     * <p>Usage
+     * Usage
      * New if the report run was recently triggered through a request.
      * Success if the report ran.
      * Running if the report is being run.

@@ -4,43 +4,43 @@
 global class ProcessPaymentRequest {
     /**
      * The billing contact information for the payment request.
-     * <p>RichMessaging.AddressableContact
+     * RichMessaging.AddressableContact
      */
     @InvocableVariable
     global RichMessaging.AddressableContact billingContact;
     /**
      * The context record ID associated with the payment request.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String contextRecordId;
     /**
      * The encrypted payment data for the payment request.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global RichMessaging.EncryptedPaymentData paymentData;
     /**
      * The payment method for the payment request.
-     * <p>RichMessaging.PaymentMethod
+     * RichMessaging.PaymentMethod
      */
     @InvocableVariable
     global RichMessaging.PaymentMethod paymentMethod;
     /**
      * The shipping contact information for the payment request.
-     * <p>RichMessaging.AddressableContact
+     * RichMessaging.AddressableContact
      */
     @InvocableVariable
     global RichMessaging.AddressableContact shippingContact;
     /**
      * The shipping method for the payment request.
-     * <p>RichMessaging.ShippingMethod
+     * RichMessaging.ShippingMethod
      */
     @InvocableVariable
     global RichMessaging.ShippingMethod shippingMethod;
     /**
      * The transaction identifier associated with the payment request.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String transactionIdentifier;

@@ -1,13 +1,13 @@
 /**
  * Contains methods for accessing the component fields of address compound fields.
- * <p>Usage
+ * Usage
  * Each of these methods is also equivalent to a read-only property. For each getter method, you can access the property using dot notation. For example, myAddress.getCity() is equivalent to myAddress.city.
  * You can’t use dot notation to access compound fields’ subfields directly on the parent field. Instead, assign the parent field to a variable of type Address, and then access its components. For example, to access the City field in myAccount.BillingAddress, do the following:
  * Address addr = myAccount.BillingAddress;
  * String acctCity = addr.City;
  * Important
  * “Address” in Salesforce can also refer to the Address standard object. When referencing the Address object in your Apex code, always use Schema.Address instead of Address to prevent confusion with the standard Address compound field. If referencing both the Address object and the Address standard field in the same snippet, you can differentiate between the two by using System.Address for the field and Schema.Address for the object.
- * <p>Example
+ * Example
  * // Select and access Address fields.
  * // Call the getDistance() method in different ways.
  * Account[] records = [SELECT Id, BillingAddress FROM Account WITH USER_MODE LIMIT 10];

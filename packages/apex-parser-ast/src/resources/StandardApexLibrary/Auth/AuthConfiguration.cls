@@ -1,6 +1,6 @@
 /**
  * Contains methods for configuring settings for users to log in to a Salesforce org using their authentication provider credentials instead of their Salesforce credentials. The authentication provider can be any authentication provider that supports the OpenID Connect protocol, such as Google, Facebook, or Twitter. Users log in to either an Experience Cloud site (https://MyDomainName.my.site.com) or your My Domain login URL (https://MyDomainName.my.salesforce.com).
- * <p>Example
+ * Example
  * This example shows how to call some methods on the Auth.AuthConfiguration class. Before you can run this sample, you must provide valid values for the URLs and developer name.
  * String communityUrl = 'MyDomainName.my.site.com';
  * String startUrl = '<Add URL>';
@@ -24,7 +24,7 @@ global class AuthConfiguration {
 
     /**
      * Indicates whether the Experience Cloud site allows internal users to log in using the Experience Cloud site login page. To enable, admins configure the setting Allow internal users to log in directly to the experience on the Login & Registration page in Experience Workspaces. It’s disabled by default.
-     * <p>Usage
+     * Usage
      * If true, internal users log in to an Experience Cloud site from the site’s login page with their internal credentials. If they navigate to their internal org from the Experience Cloud site, they don't have to log in again.
      */
     global Boolean getAllowInternalUserLoginEnabled() { return false; }
@@ -43,7 +43,7 @@ global class AuthConfiguration {
 
     /**
      * Returns the single sign-on URL for an Experience Cloud site subdomain.
-     * <p>Note
+     * Note
      * For better performance, we recommend using this method instead of getAuthProviderSsoUrl. If the authentication provider has User Subdomain for Callback enabled, changing the single sign-on URL also changes the callback URL to use the Experience Cloud site subdomain. Before switching to this method, update the callback URL in your third-party applications to avoid getting an invalid callback URL error during single sign-on.
      * @return The Single Sign-On Initialization URL for the Experience Cloud site subdomain.
      */
@@ -118,7 +118,7 @@ global class AuthConfiguration {
 
     /**
      * Returns the URL for the right-frame content to display on the right side of the Experience Cloud site login page. The admin supplies the URL.
-     * <p>URL for the right-frame content of the Experience Cloud site login page. Salesforce creates an inline (iframe) on the right side of the login page to display the contents specified by the URL.
+     * URL for the right-frame content of the Experience Cloud site login page. Salesforce creates an inline (iframe) on the right side of the login page to display the contents specified by the URL.
      */
     global String getLoginRightFrameUrl() { return null; }
 

@@ -1,6 +1,6 @@
 /**
  * Use the Cache.Session class to add, retrieve, and manage values in the session cache. The session cache is active as long as the user’s Salesforce session is valid (the user is logged in, and the session is not expired).
- * <p>Usage
+ * Usage
  * Cache Key Format
  * This table lists the format of the key parameter that some methods in this class take, such as put, get, and contains.
  * Key Format Description
@@ -10,7 +10,7 @@
  * Note
  * If no default partition is specified in the org, calling a cache method without fully qualifying the key name causes a Cache.Session.SessionCacheException to be thrown.
  * The local prefix in an installed managed package refers to the namespace of the subscriber org and not the package’s namespace. The cache put calls are not allowed in a partition that the invoking class doesn’t own.
- * <p>Example
+ * Example
  * This class is the controller for a sample Visualforce page (shown in the subsequent code sample). The cached values are initially added to the cache by the init() method, which the Visualforce page invokes when it loads through the action attribute. The cache keys don’t contain the namespace.partition prefix. They all refer to a default partition in your org. The Visualforce page expects a partition named myPartition. To run this sample, create a default partition in your org with the name myPartition.
  * The Visualforce page contains four output components. The first three components call get methods on the controller that return the following values from the cache: a date, data based on the MyData inner class, and a counter. The next output component uses the $Cache.Session global variable to get the cached string value for the key named output. Next, the $Cache.Session global variable is used again in the Visualforce page to iterate over the elements of a cached value of type List. The size of the list is also returned.
  * The Visualforce page also contains two buttons. The Rerender button invokes the go() method on the controller. This method increases the values of the counter and the custom data in the cache. If you click Rerender, the two counters increase by one each time. The go() method retrieves the values of these counters from the cache, increments their values by one, and stores them again in the cache.
@@ -173,9 +173,9 @@ global class Session {
 
     /**
      * Returns true if the cache contains values for a specified set of keys.
-     * <p>Usage
+     * Usage
      * The number of input keys cannot exceed the maximum limit of 10.
-     * <p>Example
+     * Example
      * In this example, the code checks for the presence of multiple keys on the default partition. It fetches the cache key and the corresponding Boolean value for the key entry from the session cache of the default partition.
      * Set<String> keys = new Set<String>{'key1','key2','key3','key4','key5'};
      * Map<String,Boolean> result = Cache.Session.contains(keys);
@@ -200,9 +200,9 @@ global class Session {
 
     /**
      * Returns the cached values corresponding to the specified set of keys from the session cache.
-     * <p>Usage
+     * Usage
      * The number of input keys cannot exceed the maximum limit of 10.
-     * <p>Example
+     * Example
      * Fetch multiple keys from the session cache of the default partition.
      * Set<String> keys = new Set<String>{'key1','key2','key3','key4','key5'};
      * Map<String,Object> result = Cache.Session.get(keys);
@@ -225,7 +225,7 @@ global class Session {
 
     /**
      * Returns the cached value corresponding to the specified key from the session cache.
-     * <p>Usage
+     * Usage
      * Because Cache.Session.get() returns an object, we recommend that you cast the returned value to a specific type to facilitate use of the returned value.
      * // Get a cached value
      * Object obj = Cache.Session.get('ns1.partition1.orderDate');
@@ -238,7 +238,7 @@ global class Session {
 
     /**
      * Returns the cached value corresponding to the specified key from the session cache. Use this method if your cached value is a class that implements the CacheBuilder interface.
-     * <p>Usage
+     * Usage
      * Because Cache.Session.get(cacheBuilder, key) returns an object, cast the returned value to a specific type to facilitate use of the returned value.
      * return ((DateTime)Cache.Session.get(DateCache.class, 'datetime')).format();
      * @return Object The cached value as a generic object type. Cast the returned value to the appropriate type.
@@ -305,7 +305,7 @@ global class Session {
 
     /**
      * Returns a partition from the session cache that corresponds to the specified partition name.
-     * <p>Example
+     * Example
      * After you get the session partition, you can add and retrieve the partition’s cache values.
      * // Get partition
      * Cache.SessionPartition sessionPart = Cache.Session.getPartition('myNs.myPartition');

@@ -1,8 +1,8 @@
 /**
  * Represents context information for a deployment job.
- * <p>Usage
+ * Usage
  * After an asynchronous metadata deployment finishes, Salesforce provides an instance ofMetadata.DeployCallbackContext in an asynchronous call to your implementation of handleResult() in your Metadata.DeployCallback class.
- * <p>Example
+ * Example
  * public void handleResult(Metadata.DeployResult result,
  *                          Metadata.DeployCallbackContext context) {
  *   // Check the callback job ID for the deployment

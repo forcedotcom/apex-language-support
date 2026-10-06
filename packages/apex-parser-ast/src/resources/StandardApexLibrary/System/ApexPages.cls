@@ -1,6 +1,6 @@
 /**
  * Use ApexPages to add and check for messages associated with the current page, as well as to reference the current page.
- * <p>Usage
+ * Usage
  * In addition, ApexPages is used as a namespace for the PageReference Class and the Message Class.
  */
 global class ApexPages {
@@ -16,7 +16,7 @@ global class ApexPages {
 
     /**
      * Returns the current page's PageReference.
-     * <p>Example
+     * Example
      * This code segment returns the id parameter of the current page.
      * public MyController() {
      *     account = [

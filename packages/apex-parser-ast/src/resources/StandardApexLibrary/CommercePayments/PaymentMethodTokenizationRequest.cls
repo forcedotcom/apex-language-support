@@ -1,10 +1,10 @@
 /**
  * Stores data about a request to tokenize a card payment method. The tokenization process occurs in the payment gateway. This process replaces sensitive customer data, such as a card number or CVV, with unique identification symbols. The symbols are used while the data is handled by Salesforce, the payment gateway, and the customer bank, allowing Salesforce to store the token without storing sensitive customer data.
- * <p>Usage
+ * Usage
  * The constructor of this class takes no arguments. For example:
  * CommercePayments.PaymentMethodTokenizationRequest pmtr = new CommercePayments.PaymentMethodTokenizationRequest();
  * This class holds all the required details about the tokenize request. Gateway adapters read the information in this class while constructing a tokenization JSON request, which is sent to the payment gateway.
- * <p>Example
+ * Example
  * The following code is used within your payment gateway adapter Apex class.
  * Use the GatewayResponse class's processRequest method to build responses based on the request type that it receives from an instance of PaymentGatewayContext. If the request type is Tokenize, GatewayResponse calls the createTokenizeResponse method and passes an instance of the PaymentMethodTokenizationRequest class. The passed PaymentMethodTokenizationRequest object contains the address and cardPaymentMethod information that the payment gateway needs to manage the tokenization process. For example:
  * global commercepayments.GatewayResponse processRequest(commercepayments.paymentGatewayContext gatewayContext) {
@@ -45,17 +45,17 @@ global class PaymentMethodTokenizationRequest extends commercepayments.BaseReque
     global Map additionalData { get; set; }
     /**
      * The card payment method address to be tokenized.
-     * <p>AddressRequest
+     * AddressRequest
      */
     global commercepayments.AddressRequest address { get; set; }
     /**
      * The bank payment method containing data to be tokenized.
-     * <p>commercepayments.BankPaymentMethodRequest
+     * commercepayments.BankPaymentMethodRequest
      */
     global commercepayments.BankPaymentMethodRequest bankPaymentMethod { get; set; }
     /**
      * The card payment method containing data to be tokenized.
-     * <p>CardPaymentMethodRequest
+     * CardPaymentMethodRequest
      */
     global commercepayments.CardPaymentMethodRequest cardPaymentMethod { get; set; }
     global Boolean duplicate { get; set; }
@@ -66,7 +66,7 @@ global class PaymentMethodTokenizationRequest extends commercepayments.BaseReque
     global String phone { get; set; }
     /**
      * Indicates whether the payment method to be tokenized is saved by the marchant (true) or not (false).
-     * <p>Boolean
+     * Boolean
      */
     global Boolean savedByMerchant { get; set; }
 

@@ -1,8 +1,8 @@
 /**
  * Represents a class to execute metadata operations, such as retrieving or deploying custom metadata.
- * <p>Usage
+ * Usage
  * Use the Metadata.Operations class to execute metadata operations. For more information on use cases and restrictions of metadata operations in Apex, see Metadata.
- * <p>Example: Retrieve Metadata
+ * Example: Retrieve Metadata
  * The following example retrieves the “MyTestCustomMDType” custom metadata record from the subscriber org, and inspects the custom fields.
  * public class ReadMetadata {
  *   public void retrieveMetadata () {
@@ -26,7 +26,7 @@
  *     }
  *   }
  * }
- * <p>Example: Deploy Metadata
+ * Example: Deploy Metadata
  * The following example uses the Metadata API in Apex to update the customField custom field value of the MetadataRecordName custom metadata record and deploy this change into the subscriber org. Because the deployment is asynchronous, you must provide a callback class that implements the Metadata.DeployCallback interface, which is then used when the queued deployment completes.
  * public class CreateMetadata{
  *   public void updateAndDeployMetadata() {
@@ -52,7 +52,7 @@
  *     Id jobId = Metadata.Operations.enqueueDeployment(mdContainer, callback);
  *   }
  * }
- * <p>Example: Create Two Metadata Records Synchronously
+ * Example: Create Two Metadata Records Synchronously
  * Create a metadata record along with another one that references it in the same transaction. If the parent record was installed with a namespace, prefix the developer name with recordNs__.
  * Note
  * No custom metadata relationship can relate records of the same type to each other.

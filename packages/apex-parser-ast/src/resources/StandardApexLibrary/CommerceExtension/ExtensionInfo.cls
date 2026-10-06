@@ -1,6 +1,6 @@
 /**
  * Contains static methods to expose extension-related context information.
- * <p>Example
+ * Example
  *         // The Sample Extension Provider registered with developer name as
  *         // 'tax_extension_provider_for_us' will be selected for execution for en_US locale
  *         if(CommerceExtension.ExtensionInfo.getLocaleString() == 'en_US') {

@@ -1,6 +1,6 @@
 /**
  * Represents information about an error that occurred during a DML operation when using a Database method.
- * <p>Usage
+ * Usage
  * Error class is part of SaveResult, which is generated when a user attempts to save a Salesforce record.
  */
 global class Error {

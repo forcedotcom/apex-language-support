@@ -1,6 +1,6 @@
 /**
  * Use RemoteObjectController to access the standard Visualforce Remote Objects operations in your Remote Objects override methods.
- * <p>Usage
+ * Usage
  * RemoteObjectController is supported only for use within Remote Objects methods. See Overriding Default Remote Objects Operations in the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.pages.meta/pages/pages_intro.htm" target="_blank" title="HTML (New Window)">Visualforce Developer’s Guide</a> for examples of how to use RemoteObjectController with your Visualforce pages.
  */
 global class RemoteObjectController {

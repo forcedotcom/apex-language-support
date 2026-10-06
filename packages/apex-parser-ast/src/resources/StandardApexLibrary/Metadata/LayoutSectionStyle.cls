@@ -1,6 +1,6 @@
 /**
  * Describes the possible styles for a layout section.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the Metadata.LayoutSectionStyle enum.
  */
 global enum LayoutSectionStyle {

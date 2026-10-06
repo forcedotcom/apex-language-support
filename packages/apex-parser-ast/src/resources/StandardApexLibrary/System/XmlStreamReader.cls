@@ -1,6 +1,6 @@
 /**
  * The XmlStreamReader class provides methods for forward, read-only access to XML data. You can pull data from XML or skip unwanted events. You can parse nested XML content that’s up to 50 nodes deep.
- * <p>Usage
+ * Usage
  * The XmlStreamReader class is similar to the XMLStreamReader utility class from StAX (Streaming API for XML). StAX is an API to read and write XML documents, originating from the Java programming language community.
  * Note
  * The XmlStreamReader class in Apex is based on its counterpart in Java. See <a class="xref" href="http://download.oracle.com/javase/6/docs/api/javax/xml/stream/XMLStreamReader.html" target="_blank" title="html (New Window)">Java XMLStreamReader class</a>.
@@ -15,56 +15,56 @@ global class XmlStreamReader {
 
     /**
      * Returns the number of attributes on the start element, excluding namespace definitions.
-     * <p>Usage
+     * Usage
      * This method is only valid on a start element or attribute XML events. The count for the number of attributes for an attribute XML event starts with zero.
      */
     global Integer getAttributeCount() { return 0; }
 
     /**
      * Returns the local name of the attribute at the specified index.
-     * <p>Usage
+     * Usage
      * If there is no name, an empty string is returned. This method is only valid with start element or attribute XML events.
      */
     global String getAttributeLocalName(Integer index) { return null; }
 
     /**
      * Returns the namespace URI of the attribute at the specified index.
-     * <p>Usage
+     * Usage
      * If no namespace is specified, null is returned. This method is only valid with start element or attribute XML events.
      */
     global String getAttributeNamespace(Integer index) { return null; }
 
     /**
      * Returns the prefix of this attribute at the specified index.
-     * <p>Usage
+     * Usage
      * If no prefix is specified, null is returned. This method is only valid with start element or attribute XML events.
      */
     global String getAttributePrefix(Integer index) { return null; }
 
     /**
      * Returns the XML type of the attribute at the specified index.
-     * <p>Usage
+     * Usage
      * For example, id is an attribute type. This method is only valid with start element or attribute XML events.
      */
     global String getAttributeType(Integer index) { return null; }
 
     /**
      * Returns the value of the attribute in the specified localName at the specified URI.
-     * <p>Usage
+     * Usage
      * Returns null if the value is not found. You must specify a value for localName. This method is only valid with start element or attribute XML events.
      */
     global String getAttributeValue(String namespaceURI, String localName) { return null; }
 
     /**
      * Returns the value of the attribute at the specified index.
-     * <p>Usage
+     * Usage
      * This method is only valid with start element or attribute XML events.
      */
     global String getAttributeValueAt(Integer index) { return null; }
 
     /**
      * Returns the type of XML event the cursor is pointing to.
-     * <p>XmlTag Enum
+     * XmlTag Enum
      * The values for XmlTag are:
      * ATTRIBUTE
      * CDATA
@@ -86,49 +86,49 @@ global class XmlStreamReader {
 
     /**
      * Returns the local name of the current event.
-     * <p>Usage
+     * Usage
      * For start element or end element XML events, it returns the local name of the current element. For the entity reference XML event, it returns the entity name. The current XML event must be start element, end element, or entity reference.
      */
     global String getLocalName() { return null; }
 
     /**
      * Return the current location of the cursor.
-     * <p>Usage
+     * Usage
      * If the location is unknown, returns -1. The location information is only valid until the next method is called.
      */
     global String getLocation() { return null; }
 
     /**
      * If the current event is a start element or end element, this method returns the URI of the prefix or the default namespace.
-     * <p>Usage
+     * Usage
      * Returns null if the XML event does not have a prefix.
      */
     global String getNamespace() { return null; }
 
     /**
      * Returns the number of namespaces declared on a start element or end element.
-     * <p>Usage
+     * Usage
      * This method is only valid on a start element, end element, or namespace XML event.
      */
     global Integer getNamespaceCount() { return 0; }
 
     /**
      * Returns the prefix for the namespace declared at the index.
-     * <p>Usage
+     * Usage
      * Returns null if this is the default namespace declaration. This method is only valid on a start element, end element, or namespace XML event.
      */
     global String getNamespacePrefix(Integer index) { return null; }
 
     /**
      * Return the URI for the given prefix.
-     * <p>Usage
+     * Usage
      * The returned URI depends on the current state of the processor.
      */
     global String getNamespaceURI(String prefix) { return null; }
 
     /**
      * Returns the URI for the namespace declared at the index.
-     * <p>Usage
+     * Usage
      * This method is only valid on a start element, end element, or namespace XML event.
      */
     global String getNamespaceURIAt(Integer index) { return null; }
@@ -150,7 +150,7 @@ global class XmlStreamReader {
 
     /**
      * Returns the current value of the XML event as a string.
-     * <p>Usage
+     * Usage
      * The valid values for the different events are:
      * The string value of a character XML event
      * The string value of a comment
@@ -173,21 +173,21 @@ global class XmlStreamReader {
 
     /**
      * Returns true if the current XML event has a name. Returns false otherwise.
-     * <p>Usage
+     * Usage
      * This method is only valid for start element and stop element XML events.
      */
     global Boolean hasName() { return false; }
 
     /**
      * Returns true if there are more XML events and false if there are no more XML events.
-     * <p>Usage
+     * Usage
      * This method returns false if the current XML event is end document.
      */
     global Boolean hasNext() { return false; }
 
     /**
      * Returns true if the current event has text, false otherwise.
-     * <p>Usage
+     * Usage
      * The following XML events have text: characters, entity reference, comment and space.
      */
     global Boolean hasText() { return false; }
@@ -221,7 +221,7 @@ global class XmlStreamReader {
 
     /**
      * Skips any white space (the isWhiteSpace method returns true), comment, or processing instruction XML events, until a start element or end element is reached. Returns the index for that XML event.
-     * <p>Usage
+     * Usage
      * This method throws an error if elements other than white space, comments, processing instruction, start elements or stop elements are encountered.
      */
     global Integer nextTag() { return 0; }

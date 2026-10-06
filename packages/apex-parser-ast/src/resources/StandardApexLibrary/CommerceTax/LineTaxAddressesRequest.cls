@@ -4,22 +4,22 @@
 global with sharing class LineTaxAddressesRequest {
     /**
      * The Bill To address for a line item.
-     * <p>TaxAddressRequest
+     * TaxAddressRequest
      */
     global commercetax.TaxAddressRequest billTo { get; set; }
     /**
      * The Ship From address for a line item.
-     * <p>TaxAddressRequest
+     * TaxAddressRequest
      */
     global commercetax.TaxAddressRequest shipFrom { get; set; }
     /**
      * The Ship To address for a line item.
-     * <p>TaxAddressRequest
+     * TaxAddressRequest
      */
     global commercetax.TaxAddressRequest shipTo { get; set; }
     /**
      * The Sold To address for a line item.
-     * <p>TaxAddressRequest
+     * TaxAddressRequest
      */
     global commercetax.TaxAddressRequest soldTo { get; set; }
 

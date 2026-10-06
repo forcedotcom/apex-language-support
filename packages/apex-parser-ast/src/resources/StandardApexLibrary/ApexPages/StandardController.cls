@@ -1,11 +1,11 @@
 /**
  * Use a StandardController when defining an extension for a standard controller.
- * <p>Usage
+ * Usage
  * StandardController objects reference the pre-built Visualforce controllers provided by Salesforce. The only time it is necessary to refer to a StandardController object is when defining an extension for a standard controller. StandardController is the data type of the single argument in the extension class constructor.
- * <p>Instantiation
+ * Instantiation
  * You can instantiate a StandardController in the following way:
  * ApexPages.StandardController sc = new ApexPages.StandardController(sObject);
- * <p>Example
+ * Example
  * The following example shows how a StandardController object can be used in the constructor for a standard controller extension:
  * public class myControllerExtension {
  *
@@ -39,7 +39,7 @@ global class StandardController {
 
     /**
      * When a Visualforce page is loaded, the fields accessible to the page are based on the fields referenced in the Visualforce markup. This method adds a reference to each field specified in fieldNames so that the controller can explicitly access those fields as well.
-     * <p>Usage
+     * Usage
      * This method should be called before a record has been loaded—typically, it's called by the controller's constructor. If this method is called outside of the constructor, you must use the reset() method before calling addFields().
      * The strings in fieldNames can either be the API name of a field, such as AccountId, or they can be explicit relationships to fields, such as something__r.myField__c.
      * This method is only for controllers used by dynamicVisualforce bindings.
@@ -70,11 +70,11 @@ global class StandardController {
 
     /**
      * Returns the record that is currently in context, based on the value of the id query string parameter in the Visualforce page URL.
-     * <p>Usage
+     * Usage
      * Note that only the fields that are referenced in the associated Visualforce markup are available for querying on this SObject. All other fields, including fields from any related objects, must be queried using a SOQL expression.
      * Tip
      * You can work around this restriction by including a hidden component that references any additional fields that you want to query. Hide the component from display by setting the component's rendered attribute to false.
-     * <p>Example
+     * Example
      * <apex:outputText
      * value="{!account.billingcity}
      * {!account.contacts}"

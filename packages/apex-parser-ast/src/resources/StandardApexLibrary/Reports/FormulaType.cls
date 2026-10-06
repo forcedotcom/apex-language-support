@@ -1,6 +1,6 @@
 /**
  * The format of the numbers in a custom summary formula.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the Reports.FormulaType enum.
  */
 global enum FormulaType {

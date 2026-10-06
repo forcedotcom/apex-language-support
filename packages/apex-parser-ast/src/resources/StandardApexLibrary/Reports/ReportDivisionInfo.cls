@@ -1,6 +1,6 @@
 /**
  * Contains information about the divisions that can be used to filter a report.
- * <p>Usage
+ * Usage
  * Use to filter records in the report based on a division, like West Coast and East Coast.
  */
 global class ReportDivisionInfo {

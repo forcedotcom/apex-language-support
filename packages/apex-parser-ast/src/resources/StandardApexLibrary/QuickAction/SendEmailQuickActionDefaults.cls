@@ -1,6 +1,6 @@
 /**
  * Represents an Apex class that provides: the From address list; the original email’s email message ID, provided that the reply action was invoked on the email message feed item; and methods to specify related settings on templates. You can override these fields before the standard Email Action is rendered.
- * <p>Usage
+ * Usage
  * Note
  * You cannot instantiate this class. One can use the getters/setters when using it in the context of QuickAction.QuickActionDefaultsHandler.
  */

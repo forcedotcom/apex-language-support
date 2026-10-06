@@ -1,6 +1,6 @@
 /**
  * Contains methods to add zip entries, generate a zipped archive, and return the result as an Apex blob.
- * <p>Example
+ * Example
  * This sample code compresses email attachments into a single file.
  * Compression.ZipWriter writer = new Compression.ZipWriter();
  *

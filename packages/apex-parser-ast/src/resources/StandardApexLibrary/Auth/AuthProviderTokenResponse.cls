@@ -4,27 +4,27 @@
 global class AuthProviderTokenResponse {
     /**
      * The ID token from the third party in encoded JWT format.
-     * <p>String
+     * String
      */
     global webservice String idToken;
     /**
      * The OAuth secret or refresh token for the currently logged-in user.
-     * <p>String
+     * String
      */
     global webservice String oauthSecretOrRefreshToken;
     /**
      * The OAuth access token.
-     * <p>String
+     * String
      */
     global webservice String oauthToken;
     /**
      * The authentication provider.
-     * <p>String
+     * String
      */
     global webservice String provider;
     /**
      * The state passed in to initiate the authentication request for the user.
-     * <p>String
+     * String
      */
     global webservice String state;
 

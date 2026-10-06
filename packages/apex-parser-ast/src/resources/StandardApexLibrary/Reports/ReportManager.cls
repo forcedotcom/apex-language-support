@@ -1,6 +1,6 @@
 /**
  * Runs a report synchronously or asynchronously and with or without details.
- * <p>Usage
+ * Usage
  * Gets instances of reports and describes the metadata of Reports.
  */
 global class ReportManager {

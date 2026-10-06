@@ -1,6 +1,6 @@
 /**
  * The class contains the response details of the alternative payment method.
- * <p>Example
+ * Example
  * commercepayments.AlternativePaymentMethodResponse response = new commercepayments.AlternativePaymentMethodResponse();
  * response.setEmail('alternativePaymentMethod');
  * response.setEmail('foo@foo.com');

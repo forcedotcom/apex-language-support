@@ -1,6 +1,6 @@
 /**
  * Contains methods to build an instance of the lxscheduler.WorkType class.
- * <p>A Builder object is obtained by invoking one of the WorkTypeBuilder methods defined by the WorkType class.
+ * A Builder object is obtained by invoking one of the WorkTypeBuilder methods defined by the WorkType class.
  */
 global without sharing class WorkTypeBuilder {
     global WorkTypeBuilder() { }

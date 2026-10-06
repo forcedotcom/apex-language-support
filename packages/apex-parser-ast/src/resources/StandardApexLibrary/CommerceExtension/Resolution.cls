@@ -1,6 +1,6 @@
 /**
  * Resolution of a resolution strategy, which conditionally invokes default domain logic, logic provided by an extension provider, or no logic.
- * <p>Example
+ * Example
  * public class TaxServiceExtensionResolverSample extends commercestoretax.TaxService implements CommerceExtension.ResolutionStrategy {
  *     public CommerceExtension.Resolution resolve() {
  *         // The Sample Extension Provider registered with developer name as 'tax_extension_provider_for_us' will be selected for execution for en_US locale

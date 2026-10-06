@@ -1,6 +1,6 @@
 /**
  * Contains methods for getting information about an Experience Cloud user.
- * <p>Example
+ * Example
  * The following example directs a guest (unauthenticated) user to one page, and authenticated users of the Experience Cloud site’s parent organization to another page.
  * if (Auth.CommunitiesUtil.isGuestUser())
  *     // Redirect to the login page if user is an unauthenticated user

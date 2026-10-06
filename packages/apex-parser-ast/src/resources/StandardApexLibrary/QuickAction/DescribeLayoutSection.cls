@@ -4,7 +4,7 @@
 global class DescribeLayoutSection {
     /**
      * The current view of the record details section: collapsed (true) or expanded (false).
-     * <p>Boolean
+     * Boolean
      */
     global Boolean collapsed { get; }
     global Integer columns { get; }
@@ -12,7 +12,7 @@ global class DescribeLayoutSection {
     global List layoutrows { get; }
     /**
      * The unique ID of the record details section in the layout.
-     * <p>Id
+     * Id
      */
     global Id layoutsectionid { get; }
     global Id parentlayoutid { get; }

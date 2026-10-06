@@ -1,6 +1,6 @@
 /**
  * Contains a method to send fake HTTP callouts for classes in the Auth namespace.
- * <p>Usage
+ * Usage
  * Use the setHttpMock method in this class to test HTTP callouts when implementing the Auth.JWTBearerTokenExchange and Auth.JWTUtil classes.
  * For the Auth.JWTBearerTokenExchange class, mock callouts to the OAuth token endpoint when using the JWTBearerTokenExchange method.
  * For the Auth.JWTUtil class, mock callouts to the identity provider’s JSON Web Key Set (JWKS) endpoint when using the validateJWTWithKeysEndpoint method.

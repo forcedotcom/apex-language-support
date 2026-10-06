@@ -1,8 +1,8 @@
 /**
  * The Templates class provides methods for retrieving CRM Analytics template collections, individual templates, and template configurations.
- * <p>Usage
+ * Usage
  * Use Templates and its associated class Wave.TemplatesSearchOptions to get CRM Analytics template information.
- * <p>Examples
+ * Examples
  * This code sample declares a method that returns a list of the template names.
  * @AuraEnabled(cacheable=true)
  * public static void List<String> getTemplateNames() {
@@ -48,7 +48,7 @@ global with sharing class Templates {
 
     /**
      * Gets a CRM Analytics template by the specified ID or API name. The returned template is a map of the template JSON attributes as name/value pairs.
-     * <p>Example
+     * Example
      * String templateName = (String) Wave.Templates.getTemplate(templateId).get('name');
      * @return A map of the template JSON attribute name/value pairs, where the name is a string with an object value. For attributes details, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.bi_dev_guide_rest.meta/bi_dev_guide_rest/bi_resources_templates_id.htm" target="_blank">TemplateRepresentation</a>.
      */
@@ -59,7 +59,7 @@ global with sharing class Templates {
 
     /**
      * Gets the CRM Analytics template configuration by the specified ID or API name. The returned template configuration is a map of the JSON attributes as name/value pairs.
-     * <p>Example
+     * Example
      * Map<String, Object> templateVariables = (Map<String, Object>) Wave.Templates.getTemplateConfig(templateId).get('variables');
      * @return A map of template configuration JSON attribute names and the object values. For attribute details, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.bi_dev_guide_rest.meta/bi_dev_guide_rest/bi_resources_templates_configuration.htm" target="_blank">TemplateConfigurationRepresentation</a>.
      */
@@ -70,7 +70,7 @@ global with sharing class Templates {
 
     /**
      * Gets all CRM Analytics templates.
-     * <p>Example
+     * Example
      * Map<String,Object> templatesMap = Wave.Templates.getTemplates();
      * @return A map of template names and the template object values. For template collection details, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.bi_dev_guide_rest.meta/bi_dev_guide_rest/bi_resources_templates.htm" target="_blank">TemplateCollectionRepresentation</a>.
      */
@@ -78,7 +78,7 @@ global with sharing class Templates {
 
     /**
      * Get a filtered collection of CRM Analytics templates using search options.
-     * <p>Example
+     * Example
      * Map<String,Object> templatesMap = Wave.Templates.getTemplates(new Wave.TemplatesSearchOptions());
      * @return A map of template names and the template object values. For template collection details, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.bi_dev_guide_rest.meta/bi_dev_guide_rest/bi_resources_templates.htm" target="_blank">TemplateCollectionRepresentation</a>.
      */

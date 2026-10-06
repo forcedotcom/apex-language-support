@@ -1,6 +1,6 @@
 /**
  * Sets tax amount fields based on a response from the external tax engine.
- * <p>Example
+ * Example
  * In this example, an instance of AmountDetailsResponse class in a mock adapter calculates several tax amount fields. The totalTax and totalAmount parameters were defined in an instance of LineItemResponse class. The adapter then assigns the instance to lineItemResponse.
  * commercetax.AmountDetailsResponse amountResponse = new commercetax.AmountDetailsResponse();
  * amountResponse.setTotalAmountWithTax(totalTax+totalAmount);

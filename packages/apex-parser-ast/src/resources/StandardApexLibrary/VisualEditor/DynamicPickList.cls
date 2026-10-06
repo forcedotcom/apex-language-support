@@ -1,8 +1,8 @@
 /**
  * An abstract class, used to display the values of a picklist in a Lightning component on a Lightning page.
- * <p>Usage
+ * Usage
  * To use this class as the datasource of a picklist in a Lightning component, it must be extended by a custom Apex class and then that class must be called in the component’s design file.
- * <p>Example
+ * Example
  * Here’s an example of a custom Apex class extending the VisualEditor.DynamicPickList class.
  * global class MyCustomPickList extends VisualEditor.DynamicPickList{
  *

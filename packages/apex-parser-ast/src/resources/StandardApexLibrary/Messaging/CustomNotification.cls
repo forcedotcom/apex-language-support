@@ -1,6 +1,6 @@
 /**
  * CustomNotification is used to create, configure, and send custom notifications from Apex code.
- * <p>Usage
+ * Usage
  * CustomNotification allows two approaches to creating and configuring a custom notification.
  * Create an instance with the default constructor, and then set notification attributes using the various setter methods.
  * Create an instance and configure notification parameters at the same time using the parameterized constructor.
@@ -13,7 +13,7 @@
  * Before Winter ’21 you could set only a target record (targetID) for a notification. Most client applications expect to find a targetID in the notification payload. If you can’t update a client app to handle notifications that include only a targetPageRef, set the targetID to a dummy value.
  * Execution Context and Notification Permissions
  * By default, Apex code executes in user mode, which means that user permissions on objects and field-level security are respected. A user cannot run code that tries to access fields or objects that are hidden from the user. Therefore, to send notifications with CustomNotification, you must have the Send Custom Notifications user permission. If you don’t have the required permission, the send() method fails.
- * <p>Example
+ * Example
  * This example Apex class provides a static method for sending a custom notification to a recipient list. Call this method from a trigger, flow, or wherever you want to send a custom notification from Apex.
  * public without sharing class CustomNotificationFromApex {
  *     public static void notifyUsers(Set<String> recipientsIds, String targetId, String actionGroupId) {
@@ -62,7 +62,7 @@ global class CustomNotification {
 
     /**
      * Creates an instance of the Messaging.CustomNotification class using the specified parameters. When you use this constructor, you don’t need to call the various setter methods to define the custom notification attributes.
-     * <p>Usage
+     * Usage
      * A client may see a truncated notification title or body depending on the delivery channel or app, and how the Connect API notification parameters are configured. For more information on the trimMessages query parameter, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.chatterapi.meta/chatterapi/connect_resources_notifications_list.htm" target="_blank" title="HTML (New Window)">Notification </a>.
      */
     global CustomNotification(String typeId, String sender, String title, String body, String targetId, String targetPageRef) { }
@@ -75,7 +75,7 @@ global class CustomNotification {
 
     /**
      * Sends a custom notification to the specified users.
-     * <p>Example
+     * Example
      * See the Custom Notification Example.
      */
     global void send(Set users) { }
@@ -84,42 +84,42 @@ global class CustomNotification {
 
     /**
      * Sets the body of the custom notification.
-     * <p>Example
+     * Example
      * See the Custom Notification Example.
      */
     global void setBody(String body) { }
 
     /**
      * Sets the type of the custom notification.
-     * <p>Example
+     * Example
      * See the Custom Notification Example.
      */
     global void setNotificationTypeId(String id) { }
 
     /**
      * Sets the sender of the custom notification.
-     * <p>Example
+     * Example
      * See the Custom Notification Example.
      */
     global void setSenderId(String id) { }
 
     /**
      * Sets the target record of the custom notification.
-     * <p>Example
+     * Example
      * See the Custom Notification Example.
      */
     global void setTargetId(String targetId) { }
 
     /**
      * Sets the target page of the custom notification.
-     * <p>Example
+     * Example
      * See the Custom Notification Example.
      */
     global void setTargetPageRef(String pageRef) { }
 
     /**
      * Sets the title of the custom notification.
-     * <p>Example
+     * Example
      * See the Custom Notification Example.
      */
     global void setTitle(String title) { }

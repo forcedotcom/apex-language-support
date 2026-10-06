@@ -1,6 +1,6 @@
 /**
  * Interface for a resolution strategy.
- * <p>Usage
+ * Usage
  * When you implement this interface, you can register your apex class just like an extension provider class. Your class can then conditionally decide how to handle each extension invocation. You can delegate to a specific extension provider, you can execute default domain logic, or you can execute no logic at all.
  */
 global interface ResolutionStrategy {

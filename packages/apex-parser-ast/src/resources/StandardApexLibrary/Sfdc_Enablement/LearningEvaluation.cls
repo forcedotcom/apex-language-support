@@ -1,8 +1,8 @@
 /**
  * Contains methods to retrieve and update details that are required to evaluate a learning item.
- * <p>Usage
+ * Usage
  * Pass this class as input to the sfdc_enablement.LearningEvaluationResult class.
- * <p>Example
+ * Example
  * See example code in sfdc_enablement.LearningItemEvaluationHandler.
  */
 global class LearningEvaluation {

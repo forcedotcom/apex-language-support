@@ -1,6 +1,6 @@
 /**
  * Use the DomainCreator class to return a hostname specific to the org. For example, get the org’s Visualforce hostname. Values are returned as a hostname, such as MyDomainName.lightning.force.com.
- * <p>Examples
+ * Examples
  * This example code fetches the org’s My Domain login hostname and the Visualforce hostname for the uat package.
  * //Get the My Domain login hostname
  * String myDomainHostname = DomainCreator.getOrgMyDomainHostname();

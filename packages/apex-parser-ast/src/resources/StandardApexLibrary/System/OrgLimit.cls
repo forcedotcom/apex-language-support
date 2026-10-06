@@ -1,6 +1,6 @@
 /**
  * Contains methods that provide the name, maximum value, and current value of an org limit.
- * <p>Usage
+ * Usage
  * Use the System.OrgLimits getAll and getMap methods to obtain either a list or a map of all your org limits. To get details on each limit, use instance methods from System.OrgLimit.
  * For comparison, the Limits Class returns Apex governor limits and not Salesforce API limits.
  * Note
@@ -11,7 +11,7 @@ global class OrgLimit {
 
     /**
      * Returns the maximum allowed limit value.
-     * <p>Example
+     * Example
      * List<System.OrgLimit> limits = OrgLimits.getAll();
      * for (System.OrgLimit aLimit: limits) {
      *     System.debug('Limit: ' + aLimit.getName());
@@ -22,7 +22,7 @@ global class OrgLimit {
 
     /**
      * Returns the limit’s name.
-     * <p>Example
+     * Example
      * List<System.OrgLimit> limits = OrgLimits.getAll();
      * for (System.OrgLimit aLimit: limits) {
      *     System.debug('Limit: ' + aLimit.getName());
@@ -33,7 +33,7 @@ global class OrgLimit {
 
     /**
      * Returns the limit usage value.
-     * <p>Example
+     * Example
      * List<System.OrgLimit> limits = OrgLimits.getAll();
      * for (System.OrgLimit aLimit: limits) {
      *     System.debug('Limit: ' + aLimit.getName());

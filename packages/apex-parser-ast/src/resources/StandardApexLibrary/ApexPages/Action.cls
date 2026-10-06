@@ -1,8 +1,8 @@
 /**
  * You can use ApexPages.Action to create an action method that you can use in a Visualforce custom controller or controller extension.
- * <p>Usage
+ * Usage
  * For example, you could create a saveOver method on a controller extension that performs a custom save.
- * <p>Instantiation
+ * Instantiation
  * The following code snippet illustrates how to instantiate a new ApexPages.Action object that uses the save action:
  * ApexPages.Action saveAction = new ApexPages.Action('{!save}');
  */

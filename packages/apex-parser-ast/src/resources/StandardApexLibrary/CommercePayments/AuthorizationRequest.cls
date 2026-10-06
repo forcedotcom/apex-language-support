@@ -1,8 +1,8 @@
 /**
  * Sends information about an authorization request to a gateway adapter during a service call. This class extends the BaseRequest class and inherits all its methods.
- * <p>Usage
+ * Usage
  * This class contains information about a transaction authorization request. The gateway adapter reads fields from this class while constructing an authorization JSON request to send to the payment gateway. An object of this class is available by calling getPaymentRequest() in the PaymentGatewayContext Class.
- * <p>Example
+ * Example
  * Creating a buildAuthRequest class to store information about the authorization request.
  * private String buildAuthRequest(commercepayments.AuthorizationRequest authRequest) {
  *         // Multiply amount by 100.0 to convert to cents
@@ -68,24 +68,24 @@
 global with sharing class AuthorizationRequest extends commercepayments.BaseRequest {
     /**
      * The customer account where the authorization is performed.
-     * <p>String
+     * String
      */
     global String accountId { get; set; }
     @AuraEnabled
     global Map additionalData { get; set; }
     /**
      * The total amount of the authorization. Can be positive or negative.
-     * <p>Double
+     * Double
      */
     global Double amount { get; set; }
     /**
      * Comments about the authorization. Users can enter comments to provide additional information.
-     * <p>String
+     * String
      */
     global String comments { get; set; }
     /**
      * The ISO currency code for the authorization request.
-     * <p>String
+     * String
      */
     global String currencyIsoCode { get; set; }
     global Boolean duplicate { get; set; }
@@ -95,13 +95,13 @@ global with sharing class AuthorizationRequest extends commercepayments.BaseRequ
     global String macAddress { get; set; }
     /**
      * The payment method used to process the authorization in the authorization request.
-     * <p>AuthApiPaymentMethodRequest
+     * AuthApiPaymentMethodRequest
      */
     global commercepayments.AuthApiPaymentMethodRequest paymentMethod { get; set; }
     /**
      * Payment method data used in the authorize payment request.
-     * <p>This field is populated when AuthorizationInput specifies a saved payment method. Accessible using paymentMethodData on AuthorizationRequest. The map contains these fields from SavedPaymentMethod: GatewayToken, Type, GatewayReference, and StandardEntryCode for direct gateway interaction without querying the database. This field is supported only for saved payment methods of type card.
-     * <p>Map<String,String>
+     * This field is populated when AuthorizationInput specifies a saved payment method. Accessible using paymentMethodData on AuthorizationRequest. The map contains these fields from SavedPaymentMethod: GatewayToken, Type, GatewayReference, and StandardEntryCode for direct gateway interaction without querying the database. This field is supported only for saved payment methods of type card.
+     * Map<String,String>
      */
     @AuraEnabled
     global Map paymentMethodData { get; set; }

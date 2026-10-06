@@ -4,7 +4,7 @@
 global with sharing class NlpSummarizationResult {
     /**
      * Represents the field that captures the summary obtained as result of NLP Operation.
-     * <p>List<String>
+     * List<String>
      */
     @AuraEnabled
     global String summary { get; set; }

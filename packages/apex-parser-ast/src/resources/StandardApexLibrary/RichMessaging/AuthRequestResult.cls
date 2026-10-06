@@ -4,17 +4,17 @@
 global class AuthRequestResult {
     /**
      * The expiration date and time.
-     * <p>Datetime
+     * Datetime
      */
     global Datetime expirationDateTime;
     /**
      * The reference to the redirect page.
-     * <p>System.PageReference
+     * System.PageReference
      */
     global System.PageReference redirectPageReference;
     /**
      * The result status value.
-     * <p>RichMessaging.AuthRequestResultStatus
+     * RichMessaging.AuthRequestResultStatus
      */
     global RichMessaging.AuthRequestResultStatus resultStatus;
 

@@ -1,9 +1,9 @@
 /**
  * Contains a Lightning Login eligibility value used by the Auth.SessionManagement.getLightningLoginEligibility method.
- * <p>Usage
+ * Usage
  * If you use the Discovery page type, users can verify themselves with Lightning Login. Lightning Login lets internal users log in with Salesforce Authenticator instead of a password. Certain conditions must be met for Lightning Login to succeed.
  * Call Auth.SessionManagement.getLightningLoginEligibility before or after a login attempt to get the eligibility status. You can call after a login attempt to determine why the login attempt failed.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the Auth.LightningLoginEligibility enum.
  */
 global enum LightningLoginEligibility {

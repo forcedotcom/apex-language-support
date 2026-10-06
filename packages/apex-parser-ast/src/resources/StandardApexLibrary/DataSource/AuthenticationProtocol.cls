@@ -1,6 +1,6 @@
 /**
  * Determines what type of credentials are used to authenticate to the external system.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the DataSource.AuthenticationProtocol enum.
  */
 global enum AuthenticationProtocol {

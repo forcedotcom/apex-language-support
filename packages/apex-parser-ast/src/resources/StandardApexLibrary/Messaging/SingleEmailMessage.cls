@@ -1,6 +1,6 @@
 /**
  * Contains methods for sending single email messages.
- * <p>Usage
+ * Usage
  * Important
  * Sending an email by using Apex requires domain-level and user-level email verification. System-generated emails also require verification of the From email address. Email delivery fails if any of these verifications is incomplete. See <a class="xref" href="https://help.salesforce.com/s/articleView?id=xcloud.security_email_verification_requirements.htm&amp;language=en_US&amp;type=5" target="_blank">Requirements to Send Email from Salesforce</a>.
  * SingleEmailMessage extends Email and inherits all of its methods. All base email (Email class) methods are also available to the SingleEmailMessage objects. Emails sent via SingleEmailMessage count against the sending organization's daily single email limit.
@@ -48,9 +48,9 @@ global class SingleEmailMessage extends Messaging.Email {
 
     /**
      * Returns the map of custom headers previously set for the email. Returns null if no custom headers were set.
-     * <p>Usage
+     * Usage
      * Use this method to retrieve or verify the custom headers assigned to a Messaging.SingleEmailMessage object before sending.
-     * <p>Example
+     * Example
      * Map<String, String> headers = mail.getCustomHeaders();
      * if (headers != null && headers.containsKey('X-SFDC-X-SENDER-USER-ADDRESS')) {
      *     System.debug('Sender address header is set.');
@@ -70,7 +70,7 @@ global class SingleEmailMessage extends Messaging.Email {
 
     /**
      * Optional. Returns a boolean value based on the value set by the setOneClickPost method. Default is false.
-     * <p>Usage
+     * Usage
      * Invoke the setOneClickPostmethod before using getOneClickPost. The value of getOneClickPost will be false if the setOneClickPostmethod is set to true only after invoking the setUnsubscribeUrls method.
      */
     global Boolean getOneClickPost() { return false; }
@@ -97,7 +97,7 @@ global class SingleEmailMessage extends Messaging.Email {
 
     /**
      * The name of the template used to create the email.
-     * <p>Usage
+     * Usage
      * There is no equivalent setter method for getTemplateName(). If the email didn’t use a template, getTemplateName() returns nothing. If you use setTemplateId(), and then call getTemplateName(), the template name associated to the template ID is returned.
      */
     global String getTemplateName() { return null; }
@@ -122,7 +122,7 @@ global class SingleEmailMessage extends Messaging.Email {
 
     /**
      * Optional. A list of blind carbon copy (BCC) addresses or object IDs of the contacts, leads, and users you’re sending the email to. The maximum size for this field is 4,000 bytes. The maximum total of toAddresses, ccAddresses, and bccAddresses per email is 150. All recipients in these three fields count against the limit for email sent using Apex or the API.
-     * <p>Usage
+     * Usage
      * All emails must have a recipient value in at least one of the following fields:
      * toAddresses
      * ccAddresses
@@ -136,7 +136,7 @@ global class SingleEmailMessage extends Messaging.Email {
 
     /**
      * Optional. A list of carbon copy (CC) addresses or object IDs of the contacts, leads, and users you’re sending the email to. The maximum size for this field is 4,000 bytes. The maximum total of toAddresses, ccAddresses, and bccAddresses per email is 150. All recipients in these three fields count against the limit for email sent using Apex or the API.
-     * <p>Usage
+     * Usage
      * All emails must have a recipient value in at least one of the following fields:
      * toAddresses
      * ccAddresses
@@ -152,9 +152,9 @@ global class SingleEmailMessage extends Messaging.Email {
 
     /**
      * Optional. Sets custom headers to include in the outgoing email. Each header name must be prefixed with X-SFDC-X-. If a header name doesn’t have this prefix, Salesforce automatically adds it. Salesforce enforces this prefix to ensure security and compliance with internal protocols. All header names and values must comply with RFC 822 and RFC 5322 specifications. Avoid duplicate headers.
-     * <p>Usage
+     * Usage
      * Use this method to add metadata required for systems such as eSurveillance or eDiscovery. For example, to include the sending user's address in a custom header, use the current user's email and add it to the map. To meet RFC standards, ensure that your header values don’t contain invalid characters, such as newlines or control characters.
-     * <p>Example
+     * Example
      * Messaging.SingleEmailMessage mail = new Messaging.SingleEmailMessage();
      *
      * Map<String, String> customHeaders = new Map<String, String>();
@@ -193,9 +193,9 @@ global class SingleEmailMessage extends Messaging.Email {
 
     /**
      * Optional. If set to true, a List-Unsubscribe-Post header is added to an email with List-Unsubscribe=One-Click. Use this method to support unsubscribe functionality in email sent via Salesforce. You can provide additional instructions on how to send unsubscribe requests by using the header. This includes specifying the HTTP method and content type to use and provides a secure way to add more info to unsubscribe requests. Default is false.
-     * <p>Usage
+     * Usage
      * You can set the oneClickPost method to true only after invoking the setUnsubscribeUrls method. If set to true, pass at least one HTTPS unsubscribe URL to unsubscribe.
-     * <p>Example
+     * Example
      * This example demonstrates how to send an email using Salesforce's Messaging.SingleEmailMessage class with enhanced unsubscribe functionality. It creates an email message with a recipient, subject, and body, and includes an unsubscribe URL. It also enables the oneClickPost feature, allowing for a simplified unsubscribe process. The email message is added to a list and sent using the Messaging.sendEmail method.
      * Messaging.SingleEmailMessage message = new Messaging.SingleEmailMessage();
      * // Set the recipient's email address
@@ -233,7 +233,7 @@ global class SingleEmailMessage extends Messaging.Email {
 
     /**
      * Optional. If you added recipients by ID instead of email address and the Email Opt Out option is set, this method determines the behavior of the sendEmail() call. If you add recipients by their email addresses, the opt-out settings for those recipients aren’t checked and those recipients always receive the email.
-     * <p>Example
+     * Example
      * This example shows how to send an email with the opt-out setting enforced. Recipients are specified by their IDs. The FILTER option causes the email to be sent only to recipients that haven’t opted out from email. This example uses dot notation of the email properties, which is equivalent to using the set methods.
      * Messaging.SingleEmailMessage message = new Messaging.SingleEmailMessage();
      * // Set recipients to two contact IDs.
@@ -256,7 +256,7 @@ global class SingleEmailMessage extends Messaging.Email {
 
     /**
      * Optional. The ID of the organization-wide email address associated with the outgoing email. If you’re using Apex to send emails from the guest user, set the sender to the verified org-wide email address or the emails are blocked. The object's DisplayName field cannot be set if the setSenderDisplayName field is already set.
-     * <p>Usage
+     * Usage
      * After you create an org-wide email address, you’re sent a confirmation email to verify it. Copy the Id from the URL and use the setOrgWideEmailAddressId(Id) method on your instance of Messaging.SingleEmailMessage.
      * To avoid hard-coding an ID, after creating your org-wide email address, you can query them.
      * OrgWideEmailAddress[] owea = [select Id from OrgWideEmailAddress where Address = 'doNotReply@<somedomain>.com'];
@@ -290,7 +290,7 @@ global class SingleEmailMessage extends Messaging.Email {
 
     /**
      * Required if using a template, optional otherwise. The ID of the contact, lead, or user to which the email will be sent. The ID you specify sets the context and ensures that merge fields in the template contain the correct data.
-     * <p>Usage
+     * Usage
      * Do not specify the IDs of records that have the Email Opt Out option selected.
      * All emails must have a recipient value in at least one of the following fields:
      * toAddresses
@@ -307,7 +307,7 @@ global class SingleEmailMessage extends Messaging.Email {
 
     /**
      * Optional. A list of email addresses or object IDs of the contacts, leads, and users you’re sending the email to. The maximum size for this field is 4,000 bytes. The maximum total of toAddresses, ccAddresses, and bccAddresses per email is 150. All recipients in these three fields count against the limit for email sent using Apex or the API.
-     * <p>Usage
+     * Usage
      * All emails must have a recipient value in at least one of the following fields:
      * toAddresses
      * ccAddresses
@@ -323,7 +323,7 @@ global class SingleEmailMessage extends Messaging.Email {
 
     /**
      * Optional. If set to true, the targetObjectId (a contact, lead, or user) is the recipient of the email. If set to false, the targetObjectId is supplied as the WhoId field for template rendering but isn’t a recipient of the email. The default is true.
-     * <p>Usage
+     * Usage
      * Note
      * You can set TO, CC, and BCC addresses using the email messaging methods regardless of whether a template is used for the email or the target object is a recipient.
      */
@@ -331,9 +331,9 @@ global class SingleEmailMessage extends Messaging.Email {
 
     /**
      * Optional. Sets a comment in the List-Unsubscribe email header. This comment is ignored by email clients and systems that parse the header. The comments contain human-readable notes or context for developers, administrators, or other stakeholders managing the email system.
-     * <p>Usage
+     * Usage
      * Invoke the setUnsubscribeUrls method before using setUnsubscribeComment.
-     * <p>Example
+     * Example
      * This example demonstrates how to send an email using Salesforce's Messaging.SingleEmailMessage class with an option to include an unsubscribe link. It creates an email message with a recipient, subject, and body, and includes an unsubscribe URL that directs the recipient to send an unsubscribe request via email. Additionally, it sets an unsubscribeComment to provide context for the unsubscribe action.
      * Messaging.SingleEmailMessage message = new Messaging.SingleEmailMessage();
      * // Set the recipient's email address
@@ -371,7 +371,7 @@ global class SingleEmailMessage extends Messaging.Email {
 
     /**
      * Optional. Sets a mailto URI and HTTP URL of a mechanism for unsubscribing a recipient from an email list. A list of all unsubscribe URLs passed through setUnsubscribeUrls is added to the List-Unsubscribe header. A minimum of one URL is required to use this method.
-     * <p>Usage
+     * Usage
      * Provide a list of URLs that support unsubscribe functionality by offering recipients multiple ways to opt-out of future communications. Each provided URL can use different protocols to allow for technical capacities of the recipient.
      * All setUnsubscribeUrls must have a value of one of these types:
      * Mailto: Allows recipients to send an unsubscribe request via email.
@@ -380,7 +380,7 @@ global class SingleEmailMessage extends Messaging.Email {
      * Example: http://example.com/unsubscribe.html?opaque=123456789
      * HTTPS: Directs recipients to a secure web page to unsubscribe.
      * Example: https://example.com/unsubscribe.html?opaque=123456789
-     * <p>Example
+     * Example
      * This example demonstrates how to send an email using Salesforce's Messaging.SingleEmailMessage class that includes an option to include an unsubscribe link for a user to click. It creates an email message, sets the recipient's email address, subject, and body, and includes an unsubscribe URL. The email message is added to a list and sent using the Messaging.sendEmail method.
      * Messaging.SingleEmailMessage message = new Messaging.SingleEmailMessage();
      * // Set the recipient's email address
@@ -416,7 +416,7 @@ global class SingleEmailMessage extends Messaging.Email {
 
     /**
      * If you specify a contact for the targetObjectId field, you can specify an optional whatId as well. This helps to further ensure that merge fields in the template contain the correct data.
-     * <p>Usage
+     * Usage
      * The value must be one of the following types:
      * Account
      * Asset

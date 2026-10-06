@@ -4,7 +4,7 @@
 global class XmlNode {
     /**
      * Creates a child element node for this node.
-     * <p>Usage
+     * Usage
      * If the namespace argument has a non-null value and the prefix argument is null, the namespace is set as the default namespace.
      * If the prefix argument is null, Salesforce automatically assigns a prefix for the element. The format of the automatic prefix is nsi, where i is a number.If the prefix argument is '', the namespace is set as the default namespace.
      */
@@ -24,7 +24,7 @@ global class XmlNode {
 
     /**
      * Returns namespacePrefix:attributeValue for the given key and key namespace.
-     * <p>Example
+     * Example
      * For example, for the <xyz a:b="c:d" /> element:
      * getAttribute returns c:d
      * getAttributeValue returns d
@@ -48,7 +48,7 @@ global class XmlNode {
 
     /**
      * Returns the attribute value for the given key and key namespace.
-     * <p>Example
+     * Example
      * For example, for the <xyz a:b="c:d" /> element:
      * getAttribute returns c:d
      * getAttributeValue returns d

@@ -4,13 +4,13 @@
 global class ProcessPaymentResult {
     /**
      * The error message associated with the payment processing result, if any.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String errorMessage;
     /**
      * The status of the payment processing result.
-     * <p>RichMessaging.ProcessPaymentResultStatus
+     * RichMessaging.ProcessPaymentResultStatus
      */
     @InvocableVariable
     global RichMessaging.ProcessPaymentResultStatus resultStatus;

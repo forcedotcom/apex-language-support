@@ -1,18 +1,18 @@
 /**
  * Sends information about a payment method to a gateway adapter during a postauthorization service call.
- * <p>Usage
+ * Usage
  * Contains information about the payment method that is used for a postauthorization request. It contains all available payment methods as fields, but populates only one field for each request. The gateway adapter uses this class when constructing a postauthorization request. An object of this class is available through the paymentMethod field on the PostAuthorizationRequest Class object.
  */
 global with sharing class PostAuthApiPaymentMethodRequest extends commercepayments.BaseApiPaymentMethodRequest {
     global commercepayments.AddressRequest address { get; set; }
     /**
      * The alternative payment method object used in a postauthorizaiton payment method request.
-     * <p>commercepayments.alternativePaymentMethodRequest
+     * commercepayments.alternativePaymentMethodRequest
      */
     global commercepayments.AlternativePaymentMethodRequest alternativePaymentMethod { get; set; }
     /**
      * The card payment method object used in a postauthorizaiton payment method request.
-     * <p>commercepayments.CardPaymentMethodRequest
+     * commercepayments.CardPaymentMethodRequest
      */
     global commercepayments.CardPaymentMethodRequest cardPaymentMethod { get; set; }
     global String id { get; set; }

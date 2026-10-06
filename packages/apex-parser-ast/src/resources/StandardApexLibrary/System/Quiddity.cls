@@ -1,6 +1,6 @@
 /**
  * Specifies a Quiddity value used by the methods in the System.Request class
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the System.Quiddity enum.
  */
 global enum Quiddity {

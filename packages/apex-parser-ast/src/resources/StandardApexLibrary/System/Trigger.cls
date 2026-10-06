@@ -1,6 +1,6 @@
 /**
  * Use the Trigger class to access run-time context information in a trigger, such as the type of trigger or the list of sObject records that the trigger operates on.
- * <p>Trigger Context Variables
+ * Trigger Context Variables
  * The Trigger class provides the following context variables.
  * Note
  * The record firing a trigger can include an invalid field value, such as a formula that divides by zero. In this case, the field value is set to null in these variables:
@@ -8,7 +8,7 @@
  * newMap
  * old
  * oldMap
- * <p>Example
+ * Example
  * For example, in this simple trigger, Trigger.new is a list of sObjects and can be iterated over in a for loop. It can also be used as a bind variable in the IN clause of a SOQL query.
  * trigger SimpleTrigger on Account(after insert) {
  *   for (Account a : Trigger.new) {

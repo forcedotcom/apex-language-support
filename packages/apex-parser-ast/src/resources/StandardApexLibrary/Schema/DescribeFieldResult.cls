@@ -1,8 +1,8 @@
 /**
  * Contains methods for describing sObject fields.
- * <p>Usage
+ * Usage
  * Instances of field describe results on the same DescribeFieldResult aren’t guaranteed to be equal because the state and behavior of a describe object is determined by various factors including the API version used. To compare describe results, call the getSObjectField() method on the field describe results and use the equality operator (==) to compare the SObjectField values.
- * <p>Example
+ * Example
  * The following is an example of how to instantiate a field describe result object:
  * Schema.DescribeFieldResult dfr = Account.Description.getDescribe();
  */
@@ -108,14 +108,14 @@ global class DescribeFieldResult {
 
     /**
      * Returns the content of the field-level help.
-     * <p>Usage
+     * Usage
      * For more information, see “Define Field-Level Help” in the Salesforce online help.
      */
     global String getInlineHelpText() { return null; }
 
     /**
      * Returns the text label that is displayed next to the field in the Salesforce user interface. This label can be localized.
-     * <p>Usage
+     * Usage
      * Note
      * For the Type field on standard objects, getLabel returns a label different from the default label. It returns a label of the form Object Type, where Object is the standard object label. For example, for the Type field on Account, getLabel returns Account Type instead of the default label Type. If the Type label is renamed, getLabel returns the new label. You can check or change the labels of all standard object fields from Setup by entering Rename Tabs and Labels in the Quick Find box, then selecting Rename Tabs and Labels.
      */
@@ -152,35 +152,35 @@ global class DescribeFieldResult {
 
     /**
      * Returns the name of the custom field on the parent standard or custom object whose values are matched against the values of the child external object's indirect lookup relationship field. The match is done to determine which records are related to each other.
-     * <p>Usage
+     * Usage
      * For information about indirect lookup relationships, see “Indirect Lookup Relationship Fields on External Objects” in the Salesforce Help.
      */
     global String getReferenceTargetField() { return null; }
 
     /**
      * Returns a list of Schema.sObjectType objects for the parent objects of this field. If the isNamePointing method returns true, there is more than one entry in the list, otherwise there is only one.
-     * <p>Versioned Behavior Changes
+     * Versioned Behavior Changes
      * In API version 51.0 and later, the getReferenceTo() method returns referenced objects that aren’t accessible to the context user. If the context user has access to an object’s field that references another object, irrespective of the context user’s access to the cross-referenced object, the method returns references. In API version 50.0 and earlier, if the context user doesn’t have access to the cross-referenced object, the method returns an empty list.
      */
     global List getReferenceTo() { return null; }
 
     /**
      * Returns the name of the child-to-parent relationship.
-     * <p>Usage
+     * Usage
      * For more information about relationships and relationship names, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.soql_sosl.meta/soql_sosl/sforce_api_calls_soql_relationships_understanding.htm" target="_blank" title="HTML (New Window)">Understanding Relationship Names</a> in the SOQL and SOSL Reference.
      */
     global String getRelationshipName() { return null; }
 
     /**
      * Returns 0 if the field is the primary relationship field or 1 if the field is the secondary relationship field.
-     * <p>Usage
+     * Usage
      * For more information about primary and secondary relationships, see <a class="xref" href="https://help.salesforce.com/s/articleView?id=sf.relationships_considerations.htm&amp;language=en_US" target="_blank" title="HTML (New Window)">Considerations for Object Relationships</a>. For more information about relationships and relationship names, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.soql_sosl.meta/soql_sosl/sforce_api_calls_soql_relationships_understanding.htm" target="_blank" title="HTML (New Window)">Understanding Relationship Names</a> in the SOQL and SOSL Reference.
      */
     global Integer getRelationshipOrder() { return 0; }
 
     /**
      * Returns the Salesforce object type from which this field originates.
-     * <p>Example
+     * Example
      * Schema.DescribeFieldResult f = Account.Industry.getDescribe();
      * Schema.sObjectType sourceType = f.getSObjectType();
      * Assert.areEqual(Account.sObjectType, sourceType);
@@ -218,14 +218,14 @@ global class DescribeFieldResult {
 
     /**
      * Returns true if the current field is enabled to display Einstein prediction data, false otherwise.
-     * <p>Usage
-     * <p>Custom number fields can be set to display Einstein prediction values. If you are participating in the Einstein Prediction Builder Beta program, use Einstein Prediction Builder to set up the value to display. Use this method to find out if a field is enabled to display an Einstein prediction value.
+     * Usage
+     * Custom number fields can be set to display Einstein prediction values. If you are participating in the Einstein Prediction Builder Beta program, use Einstein Prediction Builder to set up the value to display. Use this method to find out if a field is enabled to display an Einstein prediction value.
      */
     global Boolean isAiPredictionField() { return false; }
 
     /**
      * Returns true if the field is an Auto Number field, false otherwise.
-     * <p>Usage
+     * Usage
      * Analogous to a SQL IDENTITY type, Auto Number fields are read-only, non-createable text fields with a maximum length of 30 characters. Auto Number fields are used to provide a unique ID that is independent of the internal object ID (such as a purchase order number or invoice number). Auto Number fields are configured entirely in the Salesforce user interface.
      */
     global Boolean isAutoNumber() { return false; }
@@ -257,7 +257,7 @@ global class DescribeFieldResult {
 
     /**
      * Returns true if the field receives a default value when created, false otherwise.
-     * <p>Usage
+     * Usage
      * If this method returns true, Salesforce implicitly assigns a value for this field when the object is created, even if a value for this field is not passed in on the create call. For example, in the Opportunity object, the Probability field has this attribute because its value is derived from the Stage field. Similarly, the Owner has this attribute on most objects because its value is derived from the current user (if the Owner field is not specified).
      */
     global Boolean isDefaultedOnCreate() { return false; }
@@ -313,7 +313,7 @@ global class DescribeFieldResult {
 
     /**
      * Returns true if the field is a name field, false otherwise.
-     * <p>Usage
+     * Usage
      * This method is used to identify the name field for standard objects (such as AccountName for an Account object) and custom objects. Objects can only have one name field, except where the FirstName and LastName fields are used instead (such as on the Contact object).
      * If a compound name is present, for example, the Name field on a person account, isNameField is set to true for that record.
      */
@@ -348,7 +348,7 @@ global class DescribeFieldResult {
 
     /**
      * Returns true if a foreign key can be included in prefiltering when used in a SOSL WHERE clause, false otherwise.
-     * <p>Usage
+     * Usage
      * Prefiltering means to filter by a specific field value before executing the full search query. Prefiltering is supported only in WHERE clauses with the equals (=) operator.
      */
     global Boolean isSearchPrefilterable() { return false; }
@@ -365,7 +365,7 @@ global class DescribeFieldResult {
 
     /**
      * Returns true if the field can be edited by the current user, or child records in a master-detail relationship field on a custom object can be reparented to different parent records; false otherwise.
-     * <p>Important
+     * Important
      * Where possible, we changed noninclusive terms to align with our company value of Equality. We maintained certain terms to avoid any effect on customer implementations.
      */
     global Boolean isUpdateable() { return false; }

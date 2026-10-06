@@ -1,9 +1,9 @@
 /**
  * Represents the details of a duplicate rule that detected duplicate records and information about those duplicate records.
- * <p>Usage
+ * Usage
  * The DuplicateResult class and its methods are available to organizations that use duplicate rules.
  * DuplicateResult is contained within DuplicateError, which is part of SaveResult. SaveResult is generated when a user attempts to save a record in Salesforce.
- * <p>Example
+ * Example
  * This example shows a custom application that lets users add a contact. When a contact is saved, an alert displays if there are duplicate records.
  * The sample application consists of a Visualforce page and an Apex controller. The Visualforce page is listed first so that you can see how the page makes use of the Apex controller. Save the Apex class first before saving the Visualforce page.
  * <apex:page controller="ContactDedupeController">
@@ -159,7 +159,7 @@ global class DuplicateResult {
 
     /**
      * Returns the error message configured by the administrator to warn users they may be creating duplicate records. This message is associated with a duplicate rule.
-     * <p>Example
+     * Example
      * This example shows the code used to display the error message when duplicates are found while saving a new contact. This code is part of a custom application that lets users add a contact. When a contact is saved, an alert displays if there are duplicate records. Review DuplicateResult Class to check out the entire sample applicaton.
      * ApexPages.Message errorMessage = new ApexPages.Message(
      *                             ApexPages.Severity.ERROR, 'Duplicate Error: ' +
@@ -170,7 +170,7 @@ global class DuplicateResult {
 
     /**
      * Returns the duplicate records and match information.
-     * <p>Example
+     * Example
      * This example shows the code used to return duplicate record and match information and assign it to the matchResults variable. This code is part of a custom application that implements duplicate management when users add a contact. See DuplicateResult Class to check out the entire sample applicaton.
      * Datacloud.MatchResult[] matchResults =
      *                             duplicateResult.getMatchResults();

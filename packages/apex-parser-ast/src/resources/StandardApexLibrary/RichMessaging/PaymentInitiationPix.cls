@@ -6,13 +6,13 @@ global with sharing class PaymentInitiationPix {
     global String codeValue;
     /**
      * The PIX key type variable.
-     * <p>RichMessaging.PaymentInitiationPixKeyType
+     * RichMessaging.PaymentInitiationPixKeyType
      */
     @InvocableVariable
     global RichMessaging.PaymentPixKeyType keyTypeValue;
     /**
      * The PIX key variable.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String keyValue;
@@ -21,13 +21,13 @@ global with sharing class PaymentInitiationPix {
     global String code { get; set; }
     /**
      * The PIX key value.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String key { get; set; }
     /**
      * The PIX key type.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String keyType { get; set; }

@@ -1,13 +1,13 @@
 /**
  * IdeaStandardController objects offer Ideas-specific functionality in addition to what is provided by the StandardController.
- * <p>Usage
+ * Usage
  * A method in the IdeaStandardController object is called by and operated on a particular instance of an IdeaStandardController.
  * Note
  * The IdeaStandardSetController and IdeaStandardController classes are currently available through a limited release program. For information on enabling these classes for your organization, contact your Salesforce representative.
  * In addition to the methods listed in this class, the IdeaStandardController class inherits all the methods associated with the StandardController class.
- * <p>Instantiation
+ * Instantiation
  * An IdeaStandardController object cannot be instantiated. An instance can be obtained through a constructor of a custom extension controller when using the standard ideas controller.
- * <p>Example
+ * Example
  * The following example shows how an IdeaStandardController object can be used in the constructor for a custom list controller. This example provides the framework for manipulating the comment list data before displaying it on a Visualforce page.
  * public class MyIdeaExtension {
  *

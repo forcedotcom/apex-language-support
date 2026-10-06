@@ -1,8 +1,8 @@
 /**
  * Contains methods to help with AppExchange App Analytics use cases, such as minimizing subscriber attrition and obtaining product insights.
- * <p>Usage
+ * Usage
  * Use AppAnalytics and its methods to log App Analytics custom interactions.
- * <p>Example
+ * Example
  * public void submitClicked() {
  *         Id jobId = System.enqueueJob(new MyQueueable(colorValue));
  *         IsvPartners.AppAnalytics.logCustomInteraction(

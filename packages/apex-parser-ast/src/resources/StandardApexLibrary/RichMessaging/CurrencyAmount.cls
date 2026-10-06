@@ -4,7 +4,7 @@
 global with sharing class CurrencyAmount {
     /**
      * The numeric amount value.
-     * <p>Decimal
+     * Decimal
      */
     @InvocableVariable
     global Decimal amount;

@@ -4,52 +4,52 @@
 global with sharing class TaxAddressRequest {
     /**
      * City used in an address, which is required for tax calculation.
-     * <p>String
+     * String
      */
     global String city { get; set; }
     /**
      * Country used in an address, which is required for tax calculation.
-     * <p>String
+     * String
      */
     global String country { get; set; }
     /**
      * Country code used in an address, which is required for tax calculation.
-     * <p>String
+     * String
      */
     global String countryCode { get; set; }
     /**
      * Latitude used in an address, which is required for tax calculation.
-     * <p>Double
+     * Double
      */
     global Double latitude { get; set; }
     /**
      * Location code used in an address, which is required for tax calculation.
-     * <p>String
+     * String
      */
     global String locationCode { get; set; }
     /**
      * Longitude used in an address, which is required for tax calculation.
-     * <p>Double
+     * Double
      */
     global Double longitude { get; set; }
     /**
      * Postal code used in an address, which is required for tax calculation.
-     * <p>String
+     * String
      */
     global String postalCode { get; set; }
     /**
      * State used in an address, which is required for tax calculation.
-     * <p>String
+     * String
      */
     global String state { get; set; }
     /**
      * State code used in an address, which is required for tax calculation.
-     * <p>String
+     * String
      */
     global String stateCode { get; set; }
     /**
      * Street used in an address, which is required for tax calculation.
-     * <p>String
+     * String
      */
     global String street { get; set; }
 

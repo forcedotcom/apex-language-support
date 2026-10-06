@@ -4,32 +4,32 @@
 global class TableResult {
     /**
      * errorMessage
-     * <p>String
+     * String
      */
     global String errorMessage;
     /**
      * Query token that’s used for server-driven paging to determine and fetch the subsequent batch of results. This token is passed back to the Apex data source on subsequent queries in the queryMoreToken property on the QueryContext.
-     * <p>String
+     * String
      */
     global String queryMoreToken;
     /**
      * Rows of data.
-     * <p>List<Map<String, Object>>
+     * List<Map<String, Object>>
      */
     global List rows;
     /**
      * Whether the search or query was successful.
-     * <p>Boolean
+     * Boolean
      */
     global Boolean success;
     /**
      * Name of the table that was queried.
-     * <p>String
+     * String
      */
     global String tableName;
     /**
      * The total number of rows that meet the query criteria, even when the external system is requested to return a smaller batch size.
-     * <p>Integer
+     * Integer
      */
     global Integer totalSize;
 

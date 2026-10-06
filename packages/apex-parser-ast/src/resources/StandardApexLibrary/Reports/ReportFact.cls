@@ -1,6 +1,6 @@
 /**
  * Contains the fact map for the report, which represents the report’s data values.
- * <p>Usage
+ * Usage
  * ReportFact is the parent class of ReportFactWithDetails and ReportFactWithSummaries. If includeDetails is true when the report is run, the fact map is a ReportFactWithDetails object. If includeDetails is false when the report is run, the fact map is a ReportFactWithSummaries object.
  */
 global virtual class ReportFact {

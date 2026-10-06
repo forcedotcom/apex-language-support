@@ -1,38 +1,38 @@
 /**
  * Describes a table on an external system that the Salesforce Connect custom adapter connects to. This class extends the DataSourceUtil class and inherits its methods.
- * <p>Usage
+ * Usage
  * A list of table metadata is provided by the DataSource.Connection class when the sync() method is invoked. Each table can become an external object in Salesforce.
  * The metadata is stored in Salesforce. Updating the Apex code to return new or updated values for the table metadata doesn’t automatically update the stored metadata in Salesforce.
  */
 global class Table extends DataSource.DataSourceUtil {
     /**
      * List of table columns.
-     * <p>List<DataSource.Column>
+     * List<DataSource.Column>
      */
     global List columns { get; set; }
     /**
      * Description of what the table represents.
-     * <p>String
+     * String
      */
     global String description { get; set; }
     /**
      * Plural form of the user-friendly name for the table. The labelPlural becomes the object’s plural label in the Salesforce user interface.
-     * <p>String
+     * String
      */
     global String labelPlural { get; set; }
     /**
      * Singular form of the user-friendly name for the table. The labelSingular becomes the object label in the Salesforce user interface. We recommend that you make object labels unique across all standard, custom, and external objects in the org.
-     * <p>String
+     * String
      */
     global String labelSingular { get; set; }
     /**
      * Name of the table on the external system.
-     * <p>String
+     * String
      */
     global String name { get; set; }
     /**
      * Name of the table column that becomes the name field of the external object when the administrator syncs the table.
-     * <p>String
+     * String
      */
     global String nameColumn { get; set; }
 

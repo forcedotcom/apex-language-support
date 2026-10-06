@@ -1,9 +1,9 @@
 /**
  * Contains the category groups and categories associated with KnowledgeArticleVersion and Question.
- * <p>Usage
+ * Usage
  * The describeDataCategoryGroupStructures method returns a list of Schema.DescribeDataCategoryGroupStructureResult objects containing the category groups and categories associated with the specified object.
  * For additional information and code examples, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_dynamic_data_categories.htm" target="_blank">Accessing All Data Categories Associated with an sObject</a>.
- * <p>Example
+ * Example
  * The following is an example of how to instantiate a data category group structure describe result object:
  * List <DataCategoryGroupSobjectTypePair> pairs =
  *       new List<DataCategoryGroupSobjectTypePair>();
@@ -55,7 +55,7 @@ global class DescribeDataCategoryGroupStructureResult {
 
     /**
      * Returns a Schema.DataCategory object, that contains the top categories visible depending on the user's data category group visibility settings.
-     * <p>Usage
+     * Usage
      * For more information on data category group visibility, see “Data Category Visibility” in the Salesforce online help.
      */
     global List getTopCategories() { return null; }

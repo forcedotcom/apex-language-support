@@ -1,6 +1,6 @@
 /**
  * Contains a location code sent from the external tax engine.
- * <p>Usage
+ * Usage
  * Use the AddressResponse class to set unique values for each address.
  * commercetax.AddressesResponse addressesRes = new commercetax.AddressesResponse();
  *

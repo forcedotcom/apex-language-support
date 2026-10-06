@@ -1,10 +1,10 @@
 /**
  * Contains methods for getting the Apex type that corresponds to an Apex class and for instantiating new types.
- * <p>Usage
+ * Usage
  * Use the forName methods to retrieve the type of an Apex class, which can be a built-in or a user-defined class. You can use these methods to retrieve the type of public and global classes, and not private classes even if the context user has access. Also, use the newInstance method if you want to instantiate a Type that implements an interface and call its methods while letting someone else, such as a subscriber of your package, provide the methods’ implementations.
  * Note
  * A call to Type.forName() can cause the class to be compiled.
- * <p>Example: Instantiating a Type Based on Its Name
+ * Example: Instantiating a Type Based on Its Name
  * The following sample shows how to use the Type methods to instantiate a Type based on its name. A typical application of this scenario is when a package subscriber provides a custom implementation of an interface that is part of an installed package. The package can get the name of the class that implements the interface through a custom setting in the subscriber’s org. The package can then instantiate the type that corresponds to this class name and invoke the methods that the subscriber implemented.
  * In this sample, Vehicle represents the interface that the VehicleImpl class implements. The last class contains the code sample that invokes the methods implemented in VehicleImpl.
  * This is the Vehicle interface.
@@ -38,7 +38,7 @@
  *         System.debug('Vehicle type: ' + v.getType());
  *     }
  * }
- * <p>Class Property
+ * Class Property
  * The class property returns the System.Type of the type it is called on. It’s exposed on all Apex built-in types including primitive data types and collections, sObject types, and user-defined classes. This property can be used instead of forName methods.
  * Call this property on the type name. For example:
  * System.Type t = Integer.class;
@@ -48,7 +48,7 @@
 global class Type {
     /**
      * Returns true if the specified type is equal to the current type; otherwise, returns false.
-     * <p>Example
+     * Example
      * Type t1 = Account.class;
      * Type t2 = Type.forName('Account');
      * System.assert(t1.equals(t2));
@@ -57,7 +57,7 @@ global class Type {
 
     /**
      * Returns the type that corresponds to the specified fully qualified class name.
-     * <p>Usage
+     * Usage
      * Note
      * This method returns null if called outside a managed package to get the type of a non-global class in a managed package. This is because the non-global class isn’t visible outside the managed package. For Apex saved using Salesforce API version 27.0 and earlier, this method does return the corresponding class type for the non-global managed package class.
      * When called from an installed managed package to get the name of a local type in an organization with no defined namespace, the forName(fullyQualifiedName) method returns null. Instead, use the forName(namespace, name) method and specify an empty string or null for the namespace argument.
@@ -67,23 +67,23 @@ global class Type {
 
     /**
      * Returns the type that corresponds to the specified namespace and class name.
-     * <p>Usage
+     * Usage
      * Note
      * This method returns null if called outside a managed package to get the type of a non-global class in a managed package. This is because the non-global class isn’t visible outside the managed package. For Apex saved using Salesforce API version 27.0 and earlier, this method does return the corresponding class type for the non-global managed package class.
      * Use this method instead of forName(fullyQualifiedName) if it’s called from a managed package installed in an organization with no defined namespace. To get the name of a local type, set the namespace argument to an empty string or null. For example, Type t = Type.forName('', 'ClassName');.
      * A call to Type.forName() can cause the class to be compiled.
-     * <p>Example
+     * Example
      * This example shows how to get the type that corresponds to the ClassName class and the MyNamespace namespace.
      * Type myType =
      *    Type.forName('MyNamespace', 'ClassName');
-     * <p>Versioned Behavior Changes
+     * Versioned Behavior Changes
      * In API version 60.0 and later, using an invalid namespace while calling this method returns null. Previously, Apex allowed you to specify an invalid namespace such as Type.forName('InvalidNamespace', 'OuterClass.InnerClass') or use an outer class as a namespace such as Type.forName('OuterClass', 'InnerClass') with indeterminate results.
      */
     global static System.Type forName(String namespace, String clsName) { return null; }
 
     /**
      * Returns the name of the current type.
-     * <p>Example
+     * Example
      * This example shows how to get a Type’s name. It first obtains a Type by calling forName, then calls getName on the Type object.
      * Type t =
      *    Type.forName('MyClassName');
@@ -97,7 +97,7 @@ global class Type {
 
     /**
      * Returns a hash code value for the current type.
-     * <p>Usage
+     * Usage
      * The returned hash code value corresponds to the type name hash code that String.hashCode returns.
      */
     global Integer hashcode() { return 0; }
@@ -106,10 +106,10 @@ global class Type {
 
     /**
      * Creates an instance of the current type and returns this new instance.
-     * <p>Usage
+     * Usage
      * Because newInstance returns the generic object type, you should cast the return value to the type of the variable that will hold this value.
      * This method enables you to instantiate a Type that implements an interface and call its methods while letting someone else provide the methods’ implementation. For example, a package developer can provide an interface that a subscriber who installs the package can implement. The code in the package calls the subscriber's implementation of the interface methods by instantiating the subscriber’s Type.
-     * <p>Example
+     * Example
      * This example shows how to create an instance of a Type. It first gets a Type by calling forName with the name of a class (ShapeImpl), then calls newInstance on this Type object. The newObj instance is declared with the interface type (Shape) that the ShapeImpl class implements. The return value of the newInstance method is cast to the Shape type.
      * Type t =
      *    Type.forName('ShapeImpl');
@@ -121,9 +121,9 @@ global class Type {
 
     /**
      * Returns a string representation of the current type, which is the type name.
-     * <p>Usage
+     * Usage
      * This method returns the same value as getName. String.valueOf and System.debug use this method to convert their Type argument into a String.
-     * <p>Example
+     * Example
      * This example calls toString on the Type corresponding to a list of Integers.
      * Type t = List<Integer>.class;
      * String s = t.toString();

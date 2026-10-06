@@ -1,8 +1,8 @@
 /**
  * Stores information about a sales request.
- * <p>Usage
+ * Usage
  * This class holds all the required details about a sale request. Gateway adapters read the fields of this class object while constructing a sale JSON request thatis sent to the payment gateway. The object of this class is made available through commercepayments.paymentGatewayContext by calling getPaymentRequest().
- * <p>Example
+ * Example
  *      /**
  *      * Responsibilities:
  *      * - Set merchant and reference details
@@ -249,7 +249,7 @@
 global class SaleRequest extends commercepayments.BaseRequest {
     /**
      * Customer account ID for the sale request.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String accountId { get; set; }
@@ -257,19 +257,19 @@ global class SaleRequest extends commercepayments.BaseRequest {
     global Map additionalData { get; set; }
     /**
      * Amount of the sale request. Can be positive only.
-     * <p>Double
+     * Double
      */
     @AuraEnabled
     global Double amount { get; set; }
     /**
      * Additional information about the sale request.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String comments { get; set; }
     /**
      * Currency code for the sale request.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String currencyIsoCode { get; set; }
@@ -277,8 +277,8 @@ global class SaleRequest extends commercepayments.BaseRequest {
     global String email { get; set; }
     /**
      * Represents enhanced payment data, including Level 2 and Level 3 fields.
-     * <p>Supported only for third-party payment gateways; not supported for native payments.
-     * <p>commercepayments.EnhancedPaymentDataInput
+     * Supported only for third-party payment gateways; not supported for native payments.
+     * commercepayments.EnhancedPaymentDataInput
      */
     @AuraEnabled
     global commercepayments.EnhancedPaymentDataInput enhancedPaymentData { get; set; }
@@ -287,28 +287,28 @@ global class SaleRequest extends commercepayments.BaseRequest {
     global String macAddress { get; set; }
     /**
      * ID of the source that initiated the payment.
-     * <p>Supported only for third-party payment gateways; not supported for native payments. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.object_reference.meta/object_reference/sforce_api_objects_paymentinitiationsource.htm" target="_blank" title="HTML (New Window)">PaymentInitiationSource</a> object documentation for more information.
-     * <p>String
+     * Supported only for third-party payment gateways; not supported for native payments. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.object_reference.meta/object_reference/sforce_api_objects_paymentinitiationsource.htm" target="_blank" title="HTML (New Window)">PaymentInitiationSource</a> object documentation for more information.
+     * String
      */
     @AuraEnabled
     global String paymentInitiationSourceId { get; set; }
     /**
      * Payment method used in the sale request.
-     * <p>SaleApiPaymentMethodRequest
+     * SaleApiPaymentMethodRequest
      */
     @AuraEnabled
     global commercepayments.SaleApiPaymentMethodRequest paymentMethod { get; set; }
     /**
      * Payment method data used in the sale request.
-     * <p>This field is populated when SaleInput specifies a saved payment method. Accessible using paymentMethodData on SaleRequest. The map contains these fields from SavedPaymentMethod: GatewayToken, Type, GatewayReference, and StandardEntryCode for direct gateway interaction without querying the database.
-     * <p>Map<String,String>
+     * This field is populated when SaleInput specifies a saved payment method. Accessible using paymentMethodData on SaleRequest. The map contains these fields from SavedPaymentMethod: GatewayToken, Type, GatewayReference, and StandardEntryCode for direct gateway interaction without querying the database.
+     * Map<String,String>
      */
     @AuraEnabled
     global Map paymentMethodData { get; set; }
     global String phone { get; set; }
     /**
      * Indicates whether the sale request is submitted by the marchant (true) or not (false).
-     * <p>Boolean
+     * Boolean
      */
     @AuraEnabled
     global Boolean submittedByMerchant { get; set; }

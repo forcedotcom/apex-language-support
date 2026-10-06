@@ -4,26 +4,26 @@
 global with sharing class TaxCustomerDetailsRequest {
     /**
      * Customer account that contains the line items sent for tax calculation.
-     * <p>String
+     * String
      */
     global String accountId { get; set; }
     global String additionalTaxIdentificationDetails { get; set; }
     global String billingProfileId { get; set; }
     /**
      * Tax code used during tax calculation.
-     * <p>String
+     * String
      */
     global String code { get; set; }
     global String deliveryTerms { get; set; }
     global Datetime exemptionExpirationDate { get; set; }
     /**
      * Number used to qualify a line item for tax exemption.
-     * <p>String
+     * String
      */
     global String exemptionNo { get; set; }
     /**
      * Reason why a line item qualifies for tax exemption.
-     * <p>String
+     * String
      */
     global String exemptionReason { get; set; }
     global String exemptionStatus { get; set; }

@@ -1,6 +1,6 @@
 /**
  * Specifies the retry category.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the commercepayments.RetryCategory enum.
  */
 global enum RetryCategory {

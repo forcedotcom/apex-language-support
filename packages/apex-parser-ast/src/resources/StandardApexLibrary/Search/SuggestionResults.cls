@@ -11,7 +11,7 @@ global class SuggestionResults {
 
     /**
      * Indicates whether a call to System.Search.suggest(String, String, Search.SuggestionOption) has more results available than were returned.
-     * <p>Usage
+     * Usage
      * If a limit isn’t specified, 5 records are returned in calls to System.Search.suggest(String, String, Search.SuggestionOption). If there are more suggested records than the limit specified, a call to hasMoreResults() returns true.
      */
     global Boolean hasMoreResults() { return false; }

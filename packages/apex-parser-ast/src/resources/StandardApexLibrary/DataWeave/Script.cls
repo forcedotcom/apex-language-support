@@ -1,6 +1,6 @@
 /**
  * Contains the createScript() method to load DataWeave scripts and the execute() method to obtain script output in a DataWeave.Result object.
- * <p>This example runs a DataWeave script from Apex and retrieves the resulting script output. First deploy the script to the org as ContactsToJson.dwl.
+ * This example runs a DataWeave script from Apex and retrieves the resulting script output. First deploy the script to the org as ContactsToJson.dwl.
  * %dw 2.0
  * input records application/java
  * output application/json

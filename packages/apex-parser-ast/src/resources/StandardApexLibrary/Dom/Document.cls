@@ -1,6 +1,6 @@
 /**
  * Use the Document class to process XML content. You can parse nested XML content that’s up to 50 nodes deep.
- * <p>Usage
+ * Usage
  * One common application is to use it to create the body of a request for HttpRequest or to parse a response accessed by HttpResponse.
  */
 global class Document {
@@ -11,7 +11,7 @@ global class Document {
 
     /**
      * Creates the top-level root element for a document.
-     * <p>Usage
+     * Usage
      * For more information about namespaces, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_xml_dom.htm" target="_blank">Reading and Writing XML Using the DOM</a>.
      * Calling this method more than once on a document generates an error as a document can have only one root element.
      */
@@ -28,7 +28,7 @@ global class Document {
 
     /**
      * Parse the XML representation of the document specified in the xml argument and load it into a document.
-     * <p>Example
+     * Example
      * Dom.Document doc = new Dom.Document();
      * doc.load(xml);
      */

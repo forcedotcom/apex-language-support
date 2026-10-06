@@ -1,6 +1,6 @@
 /**
  * A wrapper interface that is used to retrieve application and environment context information.
- * <p>Usage
+ * Usage
  * Use this interface to retrieve application and environment context information for your canvas app. For this interface, you don’t need to create an implementation. Use the default implementation that Salesforce provides.
  */
 global interface RenderContext {
@@ -8,9 +8,9 @@ global interface RenderContext {
 
     /**
      * Retrieves the application context information.
-     * <p>Usage
+     * Usage
      * Use this method to get the application context information for your canvas app.
-     * <p>Example
+     * Example
      * The following example implementation of the CanvasLifecycleHandler onRender() method uses the provided RenderContext to retrieve the application context information and then checks the namespace, version, and app URL.
      * public void onRender(Canvas.RenderContext renderContext){
      *     Canvas.ApplicationContext app = renderContext.getApplicationContext();
@@ -34,9 +34,9 @@ global interface RenderContext {
 
     /**
      * Retrieves the environment context information.
-     * <p>Usage
+     * Usage
      * Use this method to get the environment context information for your canvas app.
-     * <p>Example
+     * Example
      * The following example implementation of the CanvasLifecycleHandler onRender() method uses the provided RenderContext to retrieve the environment context information and then modifies the custom parameters.
      * public void onRender(Canvas.RenderContext renderContext) {
      *    Canvas.EnvironmentContext env =

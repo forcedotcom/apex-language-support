@@ -1,6 +1,6 @@
 /**
  * Enables the asynchronous execution of Apex jobs that can be monitored.
- * <p>Usage
+ * Usage
  * To execute Apex as an asynchronous job, implement the Queueable interface and add the processing logic in your implementation of the execute method.
  * To implement the Queueable interface, you must first declare a class with the implements keyword as follows:
  * public class MyQueueableClass implements Queueable {

@@ -4,17 +4,17 @@
 global class DescribeQuickActionParameter {
     /**
      * Describes the name of the parameter that can be associated with a specific quick action type. For example, User Utterance is a parameter that is associated with agent quick actions.
-     * <p>String
+     * String
      */
     global String parametername { get; }
     /**
      * Describes the type of quick action. The type can either be Input or Output.
-     * <p>String
+     * String
      */
     global String parametertype { get; }
     /**
      * Describes the value of the parameter associated with the quick action.
-     * <p>String
+     * String
      */
     global String parametervalue { get; }
 

@@ -4,7 +4,7 @@
 global class PluginRequest {
     /**
      * Input parameters that are passed from the class that implements the Process.Plugin interface to the flow.
-     * <p>Map<String, Object>
+     * Map<String, Object>
      */
     global final Map inputParameters { get; }
 

@@ -1,6 +1,6 @@
 /**
  * Represents a hint for the payment method to be used.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the RichMessaging.PaymentMethodHint enum.
  */
 global enum PaymentMethodHint {

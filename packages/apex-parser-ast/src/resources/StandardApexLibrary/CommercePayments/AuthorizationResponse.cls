@@ -1,10 +1,10 @@
 /**
  * Response sent by the payment gateway adapter for an authorization service.
- * <p>Usage
+ * Usage
  * The constructor of this class takes no arguments. For example:
  * CommercePayments.AuthorizationResponse authr = new CommercePayments.AuthorizationResponse();
  * Contains information about the payment gateway’s response following an authorization transaction. The gateway adapter uses the payment gateway’s response to populate the AuthorizationResponse fields. The payments platform uses the information from this class to construct the authorization gateway response shown to the user.
- * <p>Example
+ * Example
  * private commercepayments.GatewayResponse createAuthResponse(HttpResponse response, Double amount) {
  *         Map<String, Object> mapOfResponseValues = (Map
  *                             <String, Object>) JSON.deserializeUntyped(response.getBody());

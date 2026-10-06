@@ -29,7 +29,7 @@ global class Network {
 
     /**
      * Returns the absolute URL of the login page used by the Experience Cloud site.
-     * <p>Usage
+     * Usage
      * Returns the full URL for the Lightning Platform or Experience Builder page used as the login page in the Experience Cloud site.
      */
     @AuraEnabled
@@ -37,14 +37,14 @@ global class Network {
 
     /**
      * Returns the absolute URL of the logout page used by the Experience Cloud site.
-     * <p>Usage
+     * Usage
      * Returns the full URL for the Lightning Platform page, Experience Builder page, or Web page used as the logout page in the Experience Cloud site.
      */
     global static String getLogoutUrl(String networkId) { return null; }
 
     /**
      * Returns the user’s current Experience Cloud site.
-     * <p>Usage
+     * Usage
      * If digital experiences isn’t enabled for the user’s org or the user is currently in the internal org, returns null.
      */
     @AuraEnabled
@@ -52,7 +52,7 @@ global class Network {
 
     /**
      * Returns the absolute URL of the self-registration page used by the Experience Cloud site.
-     * <p>Usage
+     * Usage
      * Returns the full URL for the Lightning Platform or Experience Builder page used as the self-registration page in the Experience Cloud site.
      */
     global static String getSelfRegUrl(String networkId) { return null; }
@@ -61,7 +61,7 @@ global class Network {
 
     /**
      * Maps the dashboards from the Salesforce Communities Management package onto each Experience Cloud site’s unconfigured dashboard settings. Returns the number of settings it configures.
-     * <p>Usage
+     * Usage
      * If digital experiences is enabled, and the Salesforce Communities Management package is installed, maps the dashboards provided in the package onto each Experience Cloud site’s unconfigured dashboard settings. Returns the number of settings it configures. This method is invoked automatically during site creation and package installation, but isn’t typically invoked manually.
      * If digital experiences isn’t enabled for the user’s org or the user is in the internal org, returns 0.
      */
@@ -69,7 +69,7 @@ global class Network {
 
     /**
      * Maps the Insights reports from the Salesforce Communities Management package onto each Experience Cloud site’s unconfigured Insights settings. Returns the number of settings it configures.
-     * <p>Usage
+     * Usage
      * If digital experiences is enabled, and the Salesforce Communities Management package is installed, maps the Insights reports provided in the package onto each Experience Cloud site’s unconfigured Insights settings. Returns the number of settings it configures. This method is invoked automatically during site creation and package installation, but isn’t typically invoked manually.
      * If digital experiences isn’t enabled for the user’s org or the user is in the internal org, returns 0.
      */

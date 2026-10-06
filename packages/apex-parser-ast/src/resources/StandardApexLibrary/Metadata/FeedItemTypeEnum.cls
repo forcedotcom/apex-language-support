@@ -1,6 +1,6 @@
 /**
  * The type of feed item in a feed-based page layout.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the Metadata.FeedItemTypeEnum enum.
  */
 global enum FeedItemTypeEnum {

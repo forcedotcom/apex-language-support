@@ -1,6 +1,6 @@
 /**
  * Allows an implementing class to specify whether to take action when certain events occur based on a transaction security policy. This interface is only used for Apex policies created in Real-Time Event Monitoring.
- * <p>Usage
+ * Usage
  * The evaluate method is called upon the occurrence of a real-time event monitored by a transaction security policy. A typical implementation first selects the fields of interest from the event. Then the fields are tested to see if they meet the conditions being monitored. If the conditions are met, the method returns true.
  * For example, imagine a transaction security policy that triggers when a user queries more than 1,000 lead records. For each API event, the evaluate method checks whether the RowsProcessed value is greater than 1,000 and the QueriedEntities value contains “Lead”. If so, true is returned.
  * We recommend having test classes for the policy condition interface to ensure it works correctly. Testing is required regardless of whether the policy is moved from a sandbox to production, with a change set, or some other way. For example, test your policies in your development environment before moving the policies to production.

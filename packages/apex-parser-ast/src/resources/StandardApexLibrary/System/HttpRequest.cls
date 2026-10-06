@@ -1,8 +1,8 @@
 /**
  * Use the HttpRequest class to programmatically create HTTP requests like GET, POST, PATCH, PUT, and DELETE.
- * <p>Usage
+ * Usage
  * Use the XML classes or JSON classes to parse XML or JSON content in the body of a request created by HttpRequest.
- * <p>Example
+ * Example
  * The following example illustrates how you can use an authorization header with a request and handle the response.
  * public with sharing class AuthCallout {
  *
@@ -32,7 +32,7 @@
  * }
  * Note
  * You can set the endpoint as a named credential URL. A named credential URL contains the scheme callout:, the name of the named credential, and an optional path. For example: callout:My_Named_Credential/some_path. A named credential specifies the URL of a callout endpoint and its required authentication parameters in one definition. Salesforce manages all authentication for Apex callouts that specify a named credential as the callout endpoint so that your code doesn’t have to. See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_callouts_named_credentials.htm" target="_blank">Named Credentials as Callout Endpoints</a>.
- * <p>Compression
+ * Compression
  * To compress the data you send, use setCompressed.
  * HttpRequest req = new HttpRequest();
  * req.setEndPoint('my_endpoint');
@@ -62,7 +62,7 @@ global class HttpRequest {
 
     /**
      * Retrieves the body of this request as a DOM document.
-     * <p>Example
+     * Example
      * Use this method as a shortcut for:
      * String xml = httpRequest.getBody();
      * Dom.Document domDoc = new Dom.Document(xml);
@@ -86,7 +86,7 @@ global class HttpRequest {
 
     /**
      * Returns the type of method used by HttpRequest.
-     * <p>Usage
+     * Usage
      * Examples of return values:
      * DELETE
      * GET
@@ -102,7 +102,7 @@ global class HttpRequest {
 
     /**
      * Sets the contents of the body for this request.
-     * <p>Usage
+     * Usage
      * Limit: 6 MB for synchronous Apex or 12 MB for asynchronous Apex.
      * The HTTP request and response sizes count towards the total heap size.
      */
@@ -110,7 +110,7 @@ global class HttpRequest {
 
     /**
      * Sets the contents of the body for this request using a Blob.
-     * <p>Usage
+     * Usage
      * Limit: 6 MB for synchronous Apex or 12 MB for asynchronous Apex.
      * The HTTP request and response sizes count towards the total heap size.
      */
@@ -120,14 +120,14 @@ global class HttpRequest {
 
     /**
      * This method is deprecated. Use setClientCertificateName instead.
-     * <p>Usage
+     * Usage
      * If the server requires a client certificate for authentication, set the client certificate PKCS12 key store and password.
      */
     global void setClientCertificate(String clientCert, String password) { }
 
     /**
      * If the external service requires a client certificate for authentication, set the certificate name.
-     * <p>Usage
+     * Usage
      * See <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_callouts_client_certs_http.htm" target="_blank">Using Certificates with HTTP Requests</a>.
      */
     global void setClientCertificateName(String certDevName) { }
@@ -144,14 +144,14 @@ global class HttpRequest {
 
     /**
      * Sets the contents of the request header.
-     * <p>Usage
+     * Usage
      * Limit 100 KB.
      */
     global void setHeader(String key, String value) { }
 
     /**
      * Sets the type of method to be used for the HTTP request.
-     * <p>Usage
+     * Usage
      * You can also use this method to set any required options.
      */
     global void setMethod(String method) { }

@@ -1,8 +1,8 @@
 /**
  * Specifies the data types that are supported by the Apex Connector Framework.
- * <p>Usage
+ * Usage
  * The DataSource.DataType enum is referenced by the type property on the DataSource.Column class.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the DataSource.DataType enum.
  */
 global enum DataType {

@@ -1,6 +1,6 @@
 /**
  * Contains methods to manage end users, for example, to register their verification methods, verify their identity, or remove their personal information.
- * <p>Usage
+ * Usage
  * Let users register and deregister identity verification methods. Create custom Login and Verify pages for passwordless login and self-registration. Convert mobile phone numbers to the proper format before registering users. Scramble user data when users request that Salesforce remove their personal information.
  * This class is available in API version 43.0 and later.
  */
@@ -9,7 +9,7 @@ global class UserManagement {
 
     /**
      * Deregisters an identity verification method. Use this method to let users delete an existing verification method.
-     * <p>Usage
+     * Usage
      * Use this method to deregister an existing identity verification method. For example, your users can deregister a phone number when their phone number changes. While only end users can register an identity verification method, you and your users can deregister one. Keep this behavior in mind when you implement a custom registration page.
      * This method is available in API version 43.0 and later.
      * Note
@@ -21,7 +21,7 @@ global class UserManagement {
 
     /**
      * Formats a mobile phone number for a user. Call this method to ensure that the phone number is formatted properly before updating a user’s mobile phone number.
-     * <p>Usage
+     * Usage
      * Use this method to ensure a user’s mobile phone number is formatted as required by Salesforce. Then use the method’s return value to update the mobile field of the user’s record. This mobile number is used for SMS-based device activation. For example, mobile phone numbers are stored along with other identity verification methods in Auth.VerificationMethod enum. This method is introduced in API version 43.0. It isn't available in earlier versions.
      * Here are some acceptable ways that users can enter their mobile number:
      * +1, (415) 555-1234 (with plus signs, parentheses, and dashes)
@@ -36,7 +36,7 @@ global class UserManagement {
      * formatPhoneNumber(null, '+1 415-555-1234');
      * Example that doesn’t generate an error, but likely won’t work as intended:
      * formatPhoneNumber('+1', '+1 (415) 555-1234');
-     * <p>Format Phone Number Code Example
+     * Format Phone Number Code Example
      * Here's a code example that uses the formatPhoneNumber method. It gets the mobile number from the user and converts it to the format required by Salesforce. Then it updates the user’s record with the formatted mobile number.
      * global with sharing class PhoneRegistrationController {
      *     //Input variables
@@ -66,7 +66,7 @@ global class UserManagement {
 
     /**
      * Invokes a verification challenge for passwordless login when creating custom (Visualforce) Login and Verify pages for customers and partners.
-     * <p>Usage
+     * Usage
      * Use this method along with its paired verifyPasswordlessLogin to customize the login experience with your own Visualforce Login and Verify pages. Invoke initPasswordlessLogin from the Login page where the user enters an email address or phone number.
      * Note
      * An alternative to using this combination of methods is to use Site.passwordlessLogin. Both approaches let you customize the Login page in Visualforce. With the paired methods, you can create custom Login and Verify pages. With Site.passwordlessLogin, Salesforce supplies the Verify page.
@@ -86,10 +86,10 @@ global class UserManagement {
 
     /**
      * Invokes a verification challenge for registering identity verification methods with a custom (Visualforce) page. Users can register either their email address or phone number.
-     * <p>Usage
+     * Usage
      * Use this method along with its paired verifyRegisterVerificationMethod to customize the process for registering a user’s verification method using a Visualforce Verify page.
      * First call the initRegisterVerificationMethod method to get the verification code sent to the user as input, and validate it. If the verification code isn’t valid, it returns an error message.
-     * <p>Example
+     * Example
      * Here’s a code example that registers a user’s phone number as a verification method. When the user enters a verification code on the Visualforce page, it invokes registerUser(). The method calls the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_methods_system_userinfo.htm" target="_blank">UserInfo</a> class to get the User ID of the user who’s registering the verification method. Using the user ID, it then finds the user’s phone number. It also gets the user’s registration status to check whether the phone number is verified already. If the user is registered with a different phone number, the number is updated.
      * public void registerUser() {
      *         try {
@@ -137,13 +137,13 @@ global class UserManagement {
 
     /**
      * Invokes a verification challenge for self-registration when creating a custom (Visualforce) Verify page for Experience Cloud self-registration.
-     * <p>Usage
+     * Usage
      * By default, when users sign up for your Experience Cloud site with an email address or phone number, Salesforce sends them a verification code. At the same time, it generates a Verify page for users to confirm their identity. You can replace the default Salesforce Verify page with your own Visualforce page and then invoke the verification process.
      * Call this method to initiate the authentication challenge, and include a User object to insert if the registration is successful. The method returns the identifier for the self-registration attempt.
      * Note
      * If you specify a language in the LanguageLocaleKey field on the User object, Salesforce uses this language for verification email and SMS messages.
      * Then call verifySelfRegistration, which, if the user enters the verification code correctly, logs in the user.
-     * <p>Example
+     * Example
      * This code contains the result of a verification challenge that registers a new user.
      * String id = System.UserManagement.initSelfRegistration
      *           (Auth.VerificationMethod.SMS, user);
@@ -158,10 +158,10 @@ global class UserManagement {
 
     /**
      * Initiates a verification service for email, phone (SMS), and the Salesforce Authenticator verification methods.
-     * <p>Usage
+     * Usage
      * Use this method along with its paired verifyVerificationMethod to customize a verification service for EMAIL, SMS, or SALESFORCE_AUTHENTICATOR verification methods. The returned identifier from initVerificationMethod must be passed into verifyVerificationMethod.
      * First invoke the initVerificationMethod method to send a verification code to the user’s email or phone number, or to send a push notification to the Salesforce Authenticator. The user then enters the code or approves the push notification. If the verification code isn’t valid or the push notification isn’t approved, the service returns an error message.
-     * <p>Email Example
+     * Email Example
      * This example shows multi-factor authentication using email.
      * public void initVerification() {
      * // user will receive code on their registered verified email
@@ -179,10 +179,10 @@ global class UserManagement {
 
     /**
      * Initiates a verification service for email, phone (SMS), and the Salesforce Authenticator verification methods.
-     * <p>Usage
+     * Usage
      * Use this method along with its paired verifyVerificationMethod to customize a verification service for EMAIL, SMS, or SALESFORCE_AUTHENTICATOR verification methods. The returned identifier from initVerificationMethod must be passed into verifyVerificationMethod method.
      * First invoke the initVerificationMethod method to send a verification code to the user’s email or phone number, or to send a push notification to the Salesforce Authenticator. The user then enters the code or approves the push notification. If the verification code isn’t valid or the push notification isn’t approved, the service returns an error message.
-     * <p>Salesforce Authenticator Example
+     * Salesforce Authenticator Example
      * This example shows multi-factor authentication (MFA) using the Salesforce Authenticator mobile app. In this example, the actionName parameter is set to the default setting and the extra parameter settings are set to false.
      * public void initVerification() {
      * // user will receive push notification on their registered MFA devices
@@ -213,7 +213,7 @@ global class UserManagement {
 
     /**
      * Scrambles users’ data on their request when they no longer want their personal data recognized in Salesforce. When you invoke the method for the user, the data becomes anonymous, and you can never recover it.
-     * <p>Usage
+     * Usage
      * This method is introduced in API version 43.0. It isn't available in earlier versions.
      * You can use the obfuscateUser method to protect the personal information of your org’s users. When invoked, Salesforce permanently scrambles the user’s object data and replaces it with random character strings. The user’s detail page exists, but the fields contain meaningless strings of characters. Salesforce merely obfuscates (scrambles) personal data because you can't delete a user in Salesforce; you can only disable or deactivate a user. In other words, the user record remains in the database and this method performs a soft delete.
      * Note
@@ -226,7 +226,7 @@ global class UserManagement {
      * Note
      * Assure your admins that invoking this method doesn’t trigger an email change notification.
      * This method is part of our effort to protect users’ personal data and privacy. For more information on what you can do to actively protect user data, see Data Protection and Privacy in Salesforce Help.
-     * <p>ObfuscateUser Code Example
+     * ObfuscateUser Code Example
      * public class UserManagementController{
      *     public List <User> users {get; set;}
      *
@@ -256,7 +256,7 @@ global class UserManagement {
 
     /**
      * Scrambles users’ data on their request when they no longer want their personal data recognized in Salesforce. When you invoke the method for the user, the data becomes anonymous, and you can never recover it. Use this method to set the username to a specific value after it’s scrambled.
-     * <p>Usage
+     * Usage
      * This method is introduced in API version 43.0. It isn't available in earlier versions.
      * You can use the obfuscateUser method to protect the personal information of your org’s users. When invoked, Salesforce permanently scrambles the user’s object data and replaces it with random character strings. The user’s detail page exists, but the fields contain meaningless strings of characters. Salesforce merely obfuscates (scrambles) personal data because you can't delete a user in Salesforce; you can only disable or deactivate a user. In other words, the user record remains in the database and this method performs a soft delete.
      * Note
@@ -274,7 +274,7 @@ global class UserManagement {
 
     /**
      * Registers an identity verification method. Verification methods can be a time-based one-time password (TOTP), email or text verification code, Salesforce Authenticator, or U2F-compatible security key. End users register verification methods for themselves.
-     * <p>Usage
+     * Usage
      * Use this method to enable users to complete identity verification, such as multi-factor authentication (MFA), or to log in to their Experience Cloud site without a password. Users register these methods to verify their identity when logging in. You create a custom registration page when implementing mobile-centric passwordless logins. See VerifyPasswordlessLogin.
      * The PageReference returned by registerVerificationMethod redirects the user to the Salesforce Verify page. If the user enters the correct code, the user is redirected to the Experience Cloud site page specified by the start URL. For example:
      * PageReference pr = System.UserManagement.registerVerificationMethod(Auth.VerificationMethod.TOTP,startUrl);
@@ -289,11 +289,11 @@ global class UserManagement {
 
     /**
      * Send an email message to a user’s email address for verification. The message contains a verification link (URL) that the user clicks to verify the email address later on. You can send email verifications in bulk.
-     * <p>Usage
+     * Usage
      * Sending an async email message is good practice to ensure that users are registered with a valid email address that they truly own. To determine which users receive an email with the verification link, check whether the User Verified Email field in the User detail page is set to true. You can also get this information from the TwoFactorMethodsInfo API.
      * Send async email verification to customers and partners to verify their email address. These users must verify their email address before they can log in with email OTP (passwordless login).
      * The error code and description are passed as query parameters so that you can process any errors when building a custom landing page.
-     * <p>Example
+     * Example
      * System.UserManagement.sendAsyncEmailConfirmation('005RM000001a0Ox',
      * '00XRM000000hxnG','0DBRM000000015i', '/s/contactsupport');
      * @return Indicates whether sending the email message succeeded or failed.
@@ -304,9 +304,9 @@ global class UserManagement {
 
     /**
      * Completes a verification challenge during a passwordless login that uses a custom Verify page (Visualforce only). If the user who is trying to log in enters the verification code successfully, the user is logged in.
-     * <p>Usage
+     * Usage
      * Call this method to complete the passwordless login authentication process. It validates the verification method and verification code. It also checks that the identifier is the same as the one returned by initPasswordlessLogin.
-     * <p>Example
+     * Example
      * For an example, see Auth.VerificationResult.
      * @return Result of the verification challenge, which includes the message displayed, and where the user is directed if they enter the verification code correctly.
      */
@@ -314,7 +314,7 @@ global class UserManagement {
 
     /**
      * Completes registering a user’s email address or phone number as a verification method when customizing the identity verification process.
-     * <p>Usage
+     * Usage
      * Call verifyRegisterVerificationMethod to complete the process of registering a user’s verification method. This method checks whether the user entered the correct verification code. If the verification code is correct, the method
      * Confirms that the user entered the correct verification code
      * From the user’s detail page, updates the user's verification method status (sets the verification bit)
@@ -322,7 +322,7 @@ global class UserManagement {
      * If the verification code is incorrect, an error message is returned.
      * Note
      * If users want to change their email address after registering one, don’t use the initRegisterVerificationMethod and verify RegisterVerificationMethod methods. To enable automatic identity verification for email address changes, from the Identity Verification Setup page, select the field Require email confirmations for email address changes (applies to users in Experience Builder sites).
-     * <p>Example
+     * Example
      * Here’s a code example that registers a user’s phone number as a verification method. When the user enters a verification code on the Visualforce page, it invokes registerUser(). The method gets the User ID of the user who’s registering the verification method and the user’s phone number. It also gets the user’s registration status to check whether the phone number is verified already. If the user is registered with a different phone number, the number is updated.
      * public void registerUser() {
      *         try {
@@ -370,11 +370,11 @@ global class UserManagement {
 
     /**
      * Completes a verification challenge when creating a custom (Visualforce) Verify page for Experience Cloud site self-registration. If the person who is attempting to register enters the verification code successfully, the user is created and logged in.
-     * <p>Usage
+     * Usage
      * By default, when users sign up for your Experience Cloud site with an email address or phone number, Salesforce sends them a verification code and generates a Verify page. This Verify page is where users enter the verification code to confirm their identity. You can replace this Salesforce-generated Verify page with a custom Verify page that you create with Visualforce. Then you invoke the verification process with Apex methods.
      * First, call the initSelfRegistration method, which returns the identifier of the user to create. Then call this verifySelfRegistration method to complete the verification process. If the user enters the verification code correctly, the user is created and directed to the page specified in the startURL.
      * This method returns the verification result, which contains the verification status and, if the user is created, the session ID. If the verification method is SMS, the User object must contain a properly formatted mobile number, which is country code, space, and then phone number, for example, +1 1234567890. Use System.UserManagement.formatPhoneNumber to ensure that the phone number is formatted correctly.
-     * <p>Example
+     * Example
      * This code contains the result of a verification challenge that registers a new user.
      * String id = System.UserManagement.initSelfRegistration
      *           (Auth.VerificationMethod.SMS, user);

@@ -1,6 +1,6 @@
 /**
  * Stores details from the external tax engine about the tax jurisdiction used in the tax calculation process. A tax jurisdiction represents a government entity that collects tax.
- * <p>Example
+ * Example
  * In this mock adapter example, the adapter sets the TaxDetailsResponse.setJurisdiction() method parameter to null if the request's document code indicates that the tax calculation didn't require any exceptions. Otherwise, it creates an instance of JurisdictionResponse and sets its address values. Because this code represents a mock adapter, the example defines the address parameters directly. In a standard implementation, the jurisdiction's setters receive values passed from the eternal tax engine.
  * if(request.DocumentCode == 'SetsNullForResponseWithoutException'){
  *                          taxDetailsResponse.setJurisdiction(null);

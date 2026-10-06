@@ -1,6 +1,6 @@
 /**
  * Contains the detailed fact map for the report, which represents the report’s data values.
- * <p>Usage
+ * Usage
  * The ReportFactWithDetails class extends the ReportFact class. A ReportFactWithDetails object is returned if includeDetails is set to true when the report is run. To access the detail values, you’ll need to cast the return value of the ReportResults.getFactMap method to a ReportFactWithDetails object.
  */
 global class ReportFactWithDetails extends reports.ReportFact {

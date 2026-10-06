@@ -1,6 +1,6 @@
 /**
  * Contains methods for extending the behavior of an external client app. For example, customize how an external client app is invoked depending on the protocol used. This class gives you more control over the interaction between Salesforce and your external client app.
- * <p>Usage
+ * Usage
  * When you create an external client app, you specify general information about the app and settings for OAuth. To customize how the app is invoked, create a external client app handler with the ExternalClientAppOauthHandler Apex class. For example, use this class to support new authentication protocols or respond to user attributes in a way that benefits the business process.
  * When you create an external client app handler, you also configure the ExternalClientAppOauthHandler class to run as an execution user. The execution user authorizes access for the external client app. For example, when you use the authorize method, the execution user authorizes the external client app to access data.
  * If you don't specify an execution user, the plug-in runs as an Automated Process User, which is a system user that executes tasks behind the scenes. Most ExternalClientAppOauthHandler methods require that you specify an execution user, with the exception of the customAttributes method.

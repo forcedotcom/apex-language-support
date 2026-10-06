@@ -1,6 +1,6 @@
 /**
  * Represents a picklist entry.
- * <p>Usage
+ * Usage
  * Picklist fields contain a list of one or more items from which a user chooses a single item. They display as drop-down lists in the Salesforce user interface. One of the items can be configured as the default item.
  * A Schema.PicklistEntry object is returned from the field describe result using the getPicklistValues method. For example:
  * Schema.DescribeFieldResult F = Account.Industry.getDescribe();

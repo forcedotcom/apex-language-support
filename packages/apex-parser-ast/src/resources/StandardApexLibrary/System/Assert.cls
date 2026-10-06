@@ -6,10 +6,10 @@ global class Assert {
 
     /**
      * Asserts that the two arguments are the same.
-     * <p>Usage
+     * Usage
      * If the two arguments aren't the same, a fatal error is returned that causes code execution to halt.
      * You can’t catch an assertion failure using a try/catch block even though it’s logged as an exception.
-     * <p>Example
+     * Example
      * String sub = 'abcde'.substring(2);
      * Assert.areEqual('cde', sub); // Succeeds
      */
@@ -17,10 +17,10 @@ global class Assert {
 
     /**
      * Asserts that the first two arguments are the same.
-     * <p>Usage
+     * Usage
      * If the first two arguments aren't the same, a fatal error is returned that causes code execution to halt.
      * You can’t catch an assertion failure using a try/catch block even though it’s logged as an exception.
-     * <p>Example
+     * Example
      * String sub = 'abcde'.substring(2);
      * Assert.areEqual('cde', sub, 'Expected characters after first two'); // Succeeds
      */
@@ -28,10 +28,10 @@ global class Assert {
 
     /**
      * Asserts that the two arguments aren’t the same.
-     * <p>Usage
+     * Usage
      * If the two arguments are the same, a fatal error is returned that causes code execution to halt.
      * You can’t catch an assertion failure using a try/catch block even though it’s logged as an exception.
-     * <p>Example
+     * Example
      * String sub = 'abcde'.substring(2);
      * Assert.areNotEqual('xyz', sub); // Succeeds
      */
@@ -39,10 +39,10 @@ global class Assert {
 
     /**
      * Asserts that the first two arguments aren’t the same.
-     * <p>Usage
+     * Usage
      * If the first two arguments are the same, a fatal error is returned that causes code execution to halt.
      * You can’t catch an assertion failure using a try/catch block even though it’s logged as an exception.
-     * <p>Example
+     * Example
      * String sub = 'abcde'.substring(2);
      * Assert.areNotEqual('xyz', sub, 'Characters not expected after first two'); // Succeeds
      */
@@ -52,9 +52,9 @@ global class Assert {
 
     /**
      * Immediately return a fatal error that causes code execution to halt.
-     * <p>Usage
+     * Usage
      * Commonly used in a try/catch block test case where an exception is expected to be thrown. You can’t, however, catch the assertion failure in the try/catch block even though it’s logged as an exception.
-     * <p>Example
+     * Example
      * // test case where exception is expected
      * try {
      *     SomeClass.methodUnderTest();
@@ -67,9 +67,9 @@ global class Assert {
 
     /**
      * Immediately return a fatal error that causes code execution to halt.
-     * <p>Usage
+     * Usage
      * Commonly used in a try/catch block test case where an exception is expected to be thrown. You can’t, however, catch the assertion failure in the try/catch block even though it’s logged as an exception.
-     * <p>Example
+     * Example
      * // test case where exception is expected
      * try {
      *     SomeClass.methodUnderTest();
@@ -84,10 +84,10 @@ global class Assert {
 
     /**
      * Asserts that the specified condition is false.
-     * <p>Usage
+     * Usage
      * If the condition is true, a fatal error is returned that causes code execution to halt.
      * You can’t catch an assertion failure using a try/catch block even though it’s logged as an exception.
-     * <p>Example
+     * Example
      * Boolean containsCode = 'Salesforce'.contains('code');
      * Assert.isFalse(containsCode); // Assertion succeeds
      */
@@ -95,10 +95,10 @@ global class Assert {
 
     /**
      * Asserts that the specified condition is false.
-     * <p>Usage
+     * Usage
      * If the condition is true, a fatal error is returned that causes code execution to halt.
      * You can’t catch an assertion failure using a try/catch block even though it’s logged as an exception.
-     * <p>Example
+     * Example
      * Boolean containsCode = 'Salesforce'.contains('code');
      * Assert.isFalse(containsCode, 'No code'); // Assertion succeeds
      */
@@ -106,10 +106,10 @@ global class Assert {
 
     /**
      * Asserts that the instance is of the specified type.
-     * <p>Usage
+     * Usage
      * If the instance isn't of the specified type, a fatal error is returned that causes code execution to halt.
      * You can’t catch an assertion failure using a try/catch block even though it’s logged as an exception.
-     * <p>Example
+     * Example
      * Account o = new Account();
      * Assert.isInstanceOfType(o, Account.class); // Succeeds
      * Account o = new Account();
@@ -119,10 +119,10 @@ global class Assert {
 
     /**
      * Asserts that the instance is of the specified type.
-     * <p>Usage
+     * Usage
      * If the instance isn't of the specified type, a fatal error is returned that causes code execution to halt.
      * You can’t catch an assertion failure using a try/catch block even though it’s logged as an exception.
-     * <p>Example
+     * Example
      * Account o = new Account();
      * Assert.isInstanceOfType(o, Account.class); // Succeeds
      */
@@ -130,10 +130,10 @@ global class Assert {
 
     /**
      * Asserts that the instance isn’t of the specified type.
-     * <p>Usage
+     * Usage
      * If the instance is of the specified type, a fatal error is returned that causes code execution to halt.
      * You can’t catch an assertion failure using a try/catch block even though it’s logged as an exception.
-     * <p>Example
+     * Example
      * Contact con = new Contact();
      * Assert.isNotInstanceOfType(con, Account.class); // Succeeds
      */
@@ -141,10 +141,10 @@ global class Assert {
 
     /**
      * Asserts that the instance isn’t of the specified type.
-     * <p>Usage
+     * Usage
      * If the instance is of the specified type, a fatal error is returned that causes code execution to halt.
      * You can’t catch an assertion failure using a try/catch block even though it’s logged as an exception.
-     * <p>Example
+     * Example
      * Contact con = new Contact();
      * Assert.isNotInstanceOfType(con, Account.class, 'Not expected type'); // Succeeds
      */
@@ -152,10 +152,10 @@ global class Assert {
 
     /**
      * Asserts that the value isn’t null.
-     * <p>Usage
+     * Usage
      * If the value is null, a fatal error is returned that causes code execution to halt.
      * You can’t catch an assertion failure using a try/catch block even though it’s logged as an exception.
-     * <p>Example
+     * Example
      * String myString = 'value';
      * Assert.isNotNull(myString); // Succeeds
      */
@@ -163,10 +163,10 @@ global class Assert {
 
     /**
      * Asserts that the value isn’t null.
-     * <p>Usage
+     * Usage
      * If the value is null, a fatal error is returned that causes code execution to halt.
      * You can’t catch an assertion failure using a try/catch block even though it’s logged as an exception.
-     * <p>Example
+     * Example
      * String myString = 'value';
      * Assert.isNotNull(myString, 'myString should not be null'); // Succeeds
      */
@@ -174,10 +174,10 @@ global class Assert {
 
     /**
      * Asserts that the value is null.
-     * <p>Usage
+     * Usage
      * If the value isn't null, a fatal error is returned that causes code execution to halt.
      * You can’t catch an assertion failure using a try/catch block even though it’s logged as an exception.
-     * <p>Example
+     * Example
      * String myString = null;
      * Assert.isNull(myString); // Succeeds
      */
@@ -185,10 +185,10 @@ global class Assert {
 
     /**
      * Asserts that the value is null.
-     * <p>Usage
+     * Usage
      * If the value isn't null, a fatal error is returned that causes code execution to halt.
      * You can’t catch an assertion failure using a try/catch block even though it’s logged as an exception.
-     * <p>Example
+     * Example
      * String myString = null;
      * Assert.isNull(myString, 'String should be null'); // Succeeds
      */
@@ -196,10 +196,10 @@ global class Assert {
 
     /**
      * Asserts that the specified condition is true.
-     * <p>Usage
+     * Usage
      * If the specified condition is false, a fatal error is returned that causes code execution to halt.
      * You can’t catch an assertion failure using a try/catch block even though it’s logged as an exception.
-     * <p>Example
+     * Example
      * Boolean containsForce = 'Salesforce'.contains('force');
      * Assert.isTrue(containsForce); // Assertion succeeds
      */
@@ -207,10 +207,10 @@ global class Assert {
 
     /**
      * Asserts that the specified condition is true.
-     * <p>Usage
+     * Usage
      * If the specified condition is false, a fatal error is returned that causes code execution to halt.
      * You can’t catch an assertion failure using a try/catch block even though it’s logged as an exception.
-     * <p>Example
+     * Example
      * Boolean containsForce = 'Salesforce'.contains('force');
      * Assert.isTrue(containsForce, 'Contains force'); // Assertion succeeds
      */

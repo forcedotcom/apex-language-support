@@ -1,6 +1,6 @@
 /**
  * Use FunctionInvocation to get the status and results of a synchronous or asynchronous Function invocation.
- * <p>Usage
+ * Usage
  * The results of a Function invocation are passed back via FunctionInvocation. Use this instance to determine if the invocation was successful, and any results from the Function invocation.
  * You can also implement your own FunctionInvocation interface if you run Apex tests with your Function invocation code. Your test code can create and use your own FunctionInvocation instance in place of using the results from a call to Function.invoke().
  */

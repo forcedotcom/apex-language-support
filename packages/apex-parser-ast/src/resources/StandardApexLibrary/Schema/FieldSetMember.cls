@@ -1,6 +1,6 @@
 /**
  * Contains methods for accessing the metadata for field set member fields.
- * <p>Usage
+ * Usage
  * Use the methods in the Schema.FieldSetMember class to get details about fields contained within a field set, such as the field label, type, a dynamic SOQL-ready field path, and so on. The following example shows how to get a collection of field set member describe result objects for a specific field set on an sObject:
  * List<Schema.FieldSetMember> fields =
  *     Schema.SObjectType.Account.fieldSets.getMap().get('field_set_name').getFields();
@@ -25,7 +25,7 @@ global class FieldSetMember {
 
     /**
      * Returns a field path string in a format ready to be used in a dynamic SOQL query.
-     * <p>Example
+     * Example
      * See Displaying a Field Set on a Visualforce Page for an example of how to use this method.
      */
     global String getFieldPath() { return null; }

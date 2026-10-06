@@ -1,6 +1,6 @@
 /**
  * Apex interface that allows an implementing class to assign a single territory to an opportunity.
- * <p>Usage
+ * Usage
  * Method called by Opportunity Territory Assignment job to assign territory to opportunity. Input is a list of (up to 1000) opportunityIds that have IsExcludedFromTerritory2Filter=false. Returns a map of OpportunityId to Territory2Id, which is used to update the Territory2Id field on the Opportunity object.
  */
 global interface OpportunityTerritory2AssignmentFilter {

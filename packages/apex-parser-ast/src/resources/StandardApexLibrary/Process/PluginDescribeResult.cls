@@ -4,26 +4,26 @@
 global class PluginDescribeResult {
     /**
      * This optional field describes the purpose of the plug-in.
-     * <p>Usage
+     * Usage
      * Size limit: 255 characters.
-     * <p>String
+     * String
      */
     global String description { get; set; }
     /**
      * The input parameters passed by the Process.PluginRequest class from a flow to the class that implements the Process.Plugin interface.
-     * <p>List<Process.PluginDescribeResult.InputParameter>
+     * List<Process.PluginDescribeResult.InputParameter>
      */
     global List inputParameters { get; set; }
     /**
      * Unique name of the plug-in.
-     * <p>Usage
+     * Usage
      * Size limit: 40 characters.
-     * <p>String
+     * String
      */
     global String name { get; set; }
     /**
      * The output parameters passed by the Process.PluginResult class from the class that implements the Process.Plugin interface to the flow.
-     * <p>List<Process.PluginDescribeResult.OutputParameter>
+     * List<Process.PluginDescribeResult.OutputParameter>
      */
     global List outputParameters { get; set; }
     global String tag { get; set; }
@@ -45,26 +45,26 @@ global class PluginDescribeResult {
     global class InputParameter {
         /**
          * This optional field describes the purpose of the plug-in.
-         * <p>Usage
+         * Usage
          * Size limit: 255 characters.
-         * <p>String
+         * String
          */
         global final String description { get; }
         /**
          * Unique name of the plug-in.
-         * <p>Usage
+         * Usage
          * Size limit: 40 characters.
-         * <p>String
+         * String
          */
         global final String name { get; }
         /**
          * The data type of the input parameter.
-         * <p>Process.PluginDescribeResult.ParameterType
+         * Process.PluginDescribeResult.ParameterType
          */
         global final Process.PluginDescribeResult.ParameterType parameterType { get; }
         /**
          * Set to true for required and false otherwise.
-         * <p>Boolean
+         * Boolean
          */
         global final Boolean required { get; }
 
@@ -93,21 +93,21 @@ global class PluginDescribeResult {
     global class OutputParameter {
         /**
          * This optional field describes the purpose of the plug-in.
-         * <p>Usage
+         * Usage
          * Size limit: 255 characters.
-         * <p>String
+         * String
          */
         global final String description { get; }
         /**
          * Unique name of the plug-in.
-         * <p>Usage
+         * Usage
          * Size limit: 40 characters.
-         * <p>String
+         * String
          */
         global final String name { get; }
         /**
          * The data type of the output parameter.
-         * <p>Process.PluginDescribeResult.ParameterType
+         * Process.PluginDescribeResult.ParameterType
          */
         global final Process.PluginDescribeResult.ParameterType parameterType { get; }
 
@@ -132,7 +132,7 @@ global class PluginDescribeResult {
 
     /**
      * Specifies the data types of input and output parameters of the Process.PluginDescribeResult class.
-     * <p>Enum Values
+     * Enum Values
      * The following are the values of the Process.PluginDescribeResult.ParameterType enum.
      */
     global enum ParameterType {

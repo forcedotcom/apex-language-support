@@ -1,12 +1,12 @@
 /**
  * Contains methods to randomly generate a version 4 universally unique identifier (UUID), compare UUIDs, and convert UUID instance to a string.
- * <p>Usage
+ * Usage
  * The UUID is generated using a cryptographically strong pseudo-random number generator and is represented as 32 hexadecimal values.
  */
 global class UUID {
     /**
      * Compares a UUID instance with the specified object and returns true if both are equal. Otherwise, returns false.
-     * <p>Example
+     * Example
      * // UUIDs are equal when all the characters in the UUID are the same
      * String uuidStr = '707b2538-98bb-41e7-95e3-1d77bf42b102';
      * UUID fromStr = UUID.fromString(uuidStr);
@@ -20,7 +20,7 @@ global class UUID {
 
     /**
      * Converts a 32 character hexadecimal string representation of a UUID to a UUID instance.
-     * <p>Example
+     * Example
      * String uuidStr = '707b2538-98bb-41e7-95e3-1d77bf42b102';
      * UUID fromStr = UUID.fromString(uuidStr);
      *
@@ -37,7 +37,7 @@ global class UUID {
 
     /**
      * A static method that randomly generates a version 4 UUID.
-     * <p>Example
+     * Example
      * UUID randomUUID = UUID.randomUUID();
      * system.debug(randomUUID); // Prints the UUID string that was randomly generated
      * @return A 32 hexadecimal value of the UUID generated.

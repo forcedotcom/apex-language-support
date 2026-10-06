@@ -1,8 +1,8 @@
 /**
  * The result status of a deployment.
- * <p>Usage
+ * Usage
  * Metadata.DeployResult.status uses this enum to describe the results of the deployment.
- * <p>Enum Values
+ * Enum Values
  * The following are the values of the Metadata.DeployStatus enum.
  */
 global enum DeployStatus {

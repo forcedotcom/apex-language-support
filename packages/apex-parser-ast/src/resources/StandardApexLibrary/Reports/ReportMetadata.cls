@@ -1,6 +1,6 @@
 /**
  * Contains report metadata for a tabular, summary, or matrix report.
- * <p>Usage
+ * Usage
  * Report metadata gives information about the report as a whole, such as the report type, format, summary fields, row or column groupings, and filters that are saved to the report. You can use the ReportMetadata class to retrieve report metadata and to set metadata that can be used to filter a report.
  */
 global class ReportMetadata {
@@ -12,7 +12,7 @@ global class ReportMetadata {
 
     /**
      * Returns unique identifiers for summary or custom summary formula fields in the report.
-     * <p>Usage
+     * Usage
      * For example:
      * a!Amount represents the average for the Amount column.
      * s!Amount represents the sum of the Amount column.
@@ -56,14 +56,14 @@ global class ReportMetadata {
 
     /**
      * Returns the division specified in the report.
-     * <p>Note
+     * Note
      * Reports that use standard filters (such as My Cases or My Team’s Accounts) show records in all divisions. These reports can’t be further limited to a specific division.
      */
     global String getDivision() { return null; }
 
     /**
      * Returns column groupings in a report.
-     * <p>Usage
+     * Usage
      * The identifier is:
      * An empty array for reports in summary format, because summary reports don't include column groupings
      * BucketField_(ID) for bucket fields
@@ -73,7 +73,7 @@ global class ReportMetadata {
 
     /**
      * Returns row groupings for a report.
-     * <p>Usage
+     * Usage
      * The identifier is:
      * BucketField_(ID) for bucket fields
      * The ID of a custom field when the custom field is used for grouping
@@ -117,7 +117,7 @@ global class ReportMetadata {
 
     /**
      * Returns the format of the report.
-     * <p>Usage
+     * Usage
      * This value can be:
      * TABULAR
      * SUMMARY
@@ -209,7 +209,7 @@ global class ReportMetadata {
 
     /**
      * Sets the division of the report.
-     * <p>Note
+     * Note
      * Reports that use standard filters (such as My Cases or My Team’s Accounts) show records in all divisions. These reports can’t be further limited to a specific division.
      */
     global void setDivision(String division) { }

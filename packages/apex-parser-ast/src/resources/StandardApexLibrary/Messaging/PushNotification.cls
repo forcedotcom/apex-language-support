@@ -1,6 +1,6 @@
 /**
  * PushNotification is used to configure push notifications and send them from an Apex trigger.
- * <p>Example
+ * Example
  * This sample Apex trigger sends push notifications to the external client app named Test_App, which corresponds to a mobile app on iOS mobile clients. The trigger fires after cases have been updated and sends the push notification to two users: the case owner and the user who last modified the case.
  * trigger caseAlert on Case (after update) {
  *
@@ -53,14 +53,14 @@ global class PushNotification {
 
     /**
      * Sends a push notification message to the specified users.
-     * <p>Example
+     * Example
      * See the Push Notification Example.
      */
     global void send(String application, Set users) { }
 
     /**
      * Sets the payload of the push notification message.
-     * <p>Example
+     * Example
      * See the Push Notification Example.
      */
     global void setPayload(Map payload) { }

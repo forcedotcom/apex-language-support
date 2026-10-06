@@ -1,6 +1,6 @@
 /**
  * Represents a payment line item in payment requests sent in enhanced Messaging channels.
- * <p>Example
+ * Example
  * public with sharing class MessagingPaymentLineItems {
  *
  *     @InvocableMethod
@@ -24,25 +24,25 @@
 global with sharing class PaymentLineItem {
     /**
      * The amount value of the payment line item.
-     * <p>Double
+     * Double
      */
     @InvocableVariable
     global Double amountValue;
     /**
      * The automatic reload payment threshold amount value of the payment line item.
-     * <p>Double
+     * Double
      */
     @InvocableVariable
     global Double automaticReloadPaymentThresholdAmountValue;
     /**
      * The commerce attributes variable for the payment line item.
-     * <p>RichMessaging.OrderItemCommerceAttributes
+     * RichMessaging.OrderItemCommerceAttributes
      */
     @InvocableVariable
     global RichMessaging.OrderItemCommerceAttributes commerceValue;
     /**
      * The discount variable for the payment line item.
-     * <p>RichMessaging.Discount
+     * RichMessaging.Discount
      */
     @InvocableVariable
     global RichMessaging.Discount discountValue;
@@ -50,56 +50,56 @@ global with sharing class PaymentLineItem {
     global String imageValue;
     /**
      * The label value of the payment line item.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String labelValue;
     /**
      * The quantity variable for the payment line item.
-     * <p>Integer
+     * Integer
      */
     @InvocableVariable
     global Integer quantityValue;
     /**
      * The sale amount variable for the payment line item.
-     * <p>Double
+     * Double
      */
     @InvocableVariable
     global Double saleAmountValue;
     /**
      * The status value of the payment line item.
-     * <p>RichMessaging.PaymentItemStatus
+     * RichMessaging.PaymentItemStatus
      */
     @InvocableVariable
     global RichMessaging.PaymentItemStatus statusValue;
     /**
      * The timing value of the payment line item.
-     * <p>RichMessaging.AbstractTiming
+     * RichMessaging.AbstractTiming
      */
     @InvocableVariable
     global RichMessaging.AbstractTiming timingValue;
 
     /**
      * The amount of the payment line item.
-     * <p>Double
+     * Double
      */
     @AuraEnabled
     global Double amount { get; set; }
     /**
      * The automatic reload payment threshold amount of the payment line item.
-     * <p>Double
+     * Double
      */
     @AuraEnabled
     global Double automaticReloadPaymentThresholdAmount { get; set; }
     /**
      * The commerce attributes of the payment line item.
-     * <p>RichMessaging.OrderItemCommerceAttributes
+     * RichMessaging.OrderItemCommerceAttributes
      */
     @AuraEnabled
     global RichMessaging.OrderItemCommerceAttributes commerce { get; set; }
     /**
      * The discount applied to the payment line item.
-     * <p>RichMessaging.Discount
+     * RichMessaging.Discount
      */
     @AuraEnabled
     global RichMessaging.Discount discount { get; set; }
@@ -107,37 +107,37 @@ global with sharing class PaymentLineItem {
     global String image { get; set; }
     /**
      * The label of the payment line item.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String label { get; set; }
     /**
      * The line item type of the payment line item. Read-only variable.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String lineItemType { get; }
     /**
      * The quantity of the payment line item.
-     * <p>Integer
+     * Integer
      */
     @AuraEnabled
     global Integer quantity { get; set; }
     /**
      * The sale amount of the payment line item.
-     * <p>Double
+     * Double
      */
     @AuraEnabled
     global Double saleAmount { get; set; }
     /**
      * The status of the payment line item.
-     * <p>String
+     * String
      */
     @AuraEnabled
     global String status { get; set; }
     /**
      * The timing of the payment line item.
-     * <p>RichMessaging.AbstractTiming
+     * RichMessaging.AbstractTiming
      */
     @AuraEnabled
     global RichMessaging.AbstractTiming timing { get; set; }

@@ -1,6 +1,6 @@
 /**
  * Use the DomainParser class to parse a domain that Salesforce hosts for the org and extract information about the domain.
- * <p>Examples
+ * Examples
  * This example code parses the org’s Lightning domain and gets the My Domain name and domain type from the System.Domain object.
  * System.Domain d = DomainParser.parse('mycompany.lightning.force.com');
  * String myDomainName = d.getMyDomainName();

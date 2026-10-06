@@ -1,10 +1,10 @@
 /**
  * Gateway response sent by payment gateway adapters for the payment method tokenization request. The response includes the payment method’s token ID value.
- * <p>Usage
+ * Usage
  * The constructor of this class takes no arguments. For example:
  * CommercePayments.PaymentMethodTokenizationResponse pmtr = new CommercePayments.PaymentMethodTokenizationResponse();
  * After the payment gateway processes a tokenization request, the fields of PaymentMethodTokenizationResponse receive and store information from the gateway's response. The gateway's response shows whether the tokenization request was successful, the token value, and any additional messages or information about the tokenization process. You can then pass an instance of PaymentMethodTokenizationResponse to an authorization response or a sale response. This class is mapped to a response class in the Java layer.
- * <p>Example
+ * Example
  * This constructor builds a new instance of the PaymentMethodTokenizationResponse class.
  * commercepayments.PaymentMethodTokenizationResponse tokenizeResponse = new commercepayments.PaymentMethodTokenizationResponse();
  * PaymentMethodTokenizationResponse contains only setter methods. Each setter accepts a value from the payment gateway and use it to set an attribute of PaymentMethodTokenizationResponse.

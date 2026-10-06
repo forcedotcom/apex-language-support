@@ -1,6 +1,6 @@
 /**
  * Contains methods for serializing Apex objects into JSON format and deserializing JSON content that was serialized using the serialize method in this class.
- * <p>Usage
+ * Usage
  * Use the methods in the System.JSON class to perform round-trip JSON serialization and deserialization of Apex objects.
  */
 global class JSON {
@@ -18,9 +18,9 @@ global class JSON {
 
     /**
      * Deserializes the specified JSON string into an Apex object of the specified type.
-     * <p>Usage
+     * Usage
      * If the JSON content contains attributes not present in the System.Type argument, such as a missing field or object, deserialization fails in some circumstances. When deserializing JSON content into a custom object or an sObject using Salesforce API version 34.0 or earlier, this method throws a runtime exception when passed extraneous attributes. When deserializing JSON content into an Apex class in any API version, or into an object in API version 35.0 or later, no exception is thrown. When no exception is thrown, this method ignores extraneous attributes and parses the rest of the JSON content.
-     * <p>Example
+     * Example
      * The following example deserializes a Decimal value.
      * Decimal n = (Decimal)JSON.deserialize(
      *                '100.1', Decimal.class);
@@ -30,9 +30,9 @@ global class JSON {
 
     /**
      * Deserializes the specified JSON string into an Apex object of the specified type.
-     * <p>Usage
+     * Usage
      * All attributes in the JSON string must be present in the specified type. If the JSON content contains attributes not present in the System.Type argument, such as a missing field or object, deserialization fails in some circumstances. When deserializing JSON content with extraneous attributes into an Apex class, this method throws an exception in all API versions. However, no exception is thrown when you use this method to deserialize JSON content into a custom object or an sObject.
-     * <p>Example
+     * Example
      * The following example deserializes a JSON string into an object of a user-defined type represented by the Car class, which this example also defines.
      * public class Car {
      *     public String make;
@@ -51,7 +51,7 @@ global class JSON {
 
     /**
      * Deserializes the specified JSON string into collections of primitive data types.
-     * <p>Example
+     * Example
      * The following example deserializes a JSON representation of an appliance object into a map that contains primitive data types and further collections of primitive types. It then verifies the deserialized values.
      * String jsonInput = '{\n' +
      *     ' "description" :"An appliance",\n' +
@@ -113,7 +113,7 @@ global class JSON {
 
     /**
      * Serializes Apex objects into JSON content.
-     * <p>Example
+     * Example
      * The following example serializes a new Datetime value.
      * Datetime dt = Datetime.newInstance(
      *                Date.newInstance(
@@ -129,7 +129,7 @@ global class JSON {
 
     /**
      * Suppresses null values when serializing Apex objects into JSON content.
-     * <p>Usage
+     * Usage
      * This method allows you to specify whether to suppress null values when serializing Apex objects into JSON content.
      */
     global static String serialize(Object o, Boolean suppressApexObjectNulls) { return null; }

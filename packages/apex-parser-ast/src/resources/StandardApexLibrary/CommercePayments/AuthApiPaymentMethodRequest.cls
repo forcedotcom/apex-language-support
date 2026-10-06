@@ -1,13 +1,13 @@
 /**
  * Sends information about a payment method to a gateway adapter during an authorization service call.
- * <p>Usage
+ * Usage
  * Contains information about the payment method that is used for an authorization request. It contains all available payment methods as fields, but populates only one field for each request. The gateway adapter uses this class when constructing an authorization request. An object of this class is available through the paymentMethod field on the AuthorizationRequest Class object.
  */
 global with sharing class AuthApiPaymentMethodRequest extends commercepayments.BaseApiPaymentMethodRequest {
     global commercepayments.AddressRequest address { get; set; }
     /**
      * The card payment method object used in a payment method request.
-     * <p>commercepayments.CardPaymentMethodRequest
+     * commercepayments.CardPaymentMethodRequest
      */
     global commercepayments.CardPaymentMethodRequest cardPaymentMethod { get; set; }
     global String id { get; set; }

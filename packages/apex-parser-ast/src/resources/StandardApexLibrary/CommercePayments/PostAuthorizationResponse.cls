@@ -1,6 +1,6 @@
 /**
  * Response sent by the payment gateway adapter for a postauthorization service.
- * <p>Usage
+ * Usage
  * This class extends <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexref.meta/apexref/apex_class_commercepayments_AbstractTransactionResponse.htm" target="_blank">AbstractTransactionResponse</a>. The constructor of this class takes no arguments. For example:
  * CommercePayments.PostAuthorizationResponse authr = new CommercePayments.PostAuthorizationResponse();
  * Contains information about the payment gateway’s response following an authorization transaction. The gateway adapter uses the payment gateway’s response to populate the PostAuthorizationResponse fields. The payments platform uses the information from this class to settle the transaction.

@@ -4,12 +4,12 @@
 global class Math {
     /**
      * Returns the mathematical constant e, which is the base of natural logarithms.
-     * <p>Double
+     * Double
      */
     global final static Double E;
     /**
      * Returns the mathematical constant pi, which is the ratio of the circumference of a circle to its diameter.
-     * <p>Double
+     * Double
      */
     global final static Double PI;
 
@@ -27,7 +27,7 @@ global class Math {
 
     /**
      * Returns the absolute value of the specified Integer.
-     * <p>Example
+     * Example
      * Integer i = -42;
      * Integer i2 = math.abs(i);
      * system.assertEquals(i2, 42);
@@ -165,7 +165,7 @@ global class Math {
 
     /**
      * Returns the larger of the two specified Decimals.
-     * <p>Example
+     * Example
      * Decimal larger = math.max(12.3, 156.6);
      * system.assertEquals(larger, 156.6);
      */
@@ -188,7 +188,7 @@ global class Math {
 
     /**
      * Returns the smaller of the two specified Decimals.
-     * <p>Example
+     * Example
      * Decimal smaller = math.min(12.3, 156.6);
      * system.assertEquals(smaller, 12.3);
      */
@@ -211,7 +211,7 @@ global class Math {
 
     /**
      * Returns the remainder of integerValue1 divided by integerValue2.
-     * <p>Example
+     * Example
      * Integer remainder = math.mod(12, 2);
      * system.assertEquals(remainder, 0);
      *
@@ -247,9 +247,9 @@ global class Math {
 
     /**
      * Returns the rounded approximation of this Decimal. The number is rounded to zero decimal places using half-even rounding mode, that is, it rounds towards the “nearest neighbor” unless both neighbors are equidistant, in which case, this mode rounds towards the even neighbor. If the result is less than -2,147,483,648 or greater than 2,147,483,647, Apex generates an error.
-     * <p>Usage
+     * Usage
      * Note that this rounding mode statistically minimizes cumulative error when applied repeatedly over a sequence of calculations.
-     * <p>Example
+     * Example
      * Decimal d1 = 4.5;
      * Integer i1 = Math.round(d1);
      * System.assertEquals(4, i1);
@@ -267,9 +267,9 @@ global class Math {
 
     /**
      * Returns the rounded approximation of this Decimal. The number is rounded to zero decimal places using half-even rounding mode, that is, it rounds towards the “nearest neighbor” unless both neighbors are equidistant, in which case, this mode rounds towards the even neighbor.
-     * <p>Usage
+     * Usage
      * Note that this rounding mode statistically minimizes cumulative error when applied repeatedly over a sequence of calculations.
-     * <p>Example
+     * Example
      * Decimal d1 = 4.5;
      * Long i1 = Math.roundToLong(d1);
      * System.assertEquals(4, i1);

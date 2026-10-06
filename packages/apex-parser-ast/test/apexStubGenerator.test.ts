@@ -87,6 +87,22 @@ describe('apexStubGenerator', () => {
       expect(stub.source).toContain(' * Literal * / marker');
     });
 
+    test('removes paragraph tags from API documentation', () => {
+      const [stub] = generateApexStubs({
+        typeStubs: [
+          {
+            name: 'PlainDocumentation',
+            kind: 'CLASS',
+            documentation: '<p>Usage</p>\nDetails',
+          },
+        ],
+      });
+
+      expect(stub.source).toContain(' * Usage\n * Details');
+      expect(stub.source).not.toContain('<p>');
+      expect(stub.source).not.toContain('</p>');
+    });
+
     test('generates simple class with fields and methods', () => {
       const input = {
         typeStubs: [

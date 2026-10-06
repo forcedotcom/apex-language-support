@@ -1,6 +1,6 @@
 /**
  * Apex interface that allows an implementing class to specify actions to take when certain events occur based on a transaction security policy.
- * <p>Usage
+ * Usage
  * Tip
  * The PolicyCondition interface applies only to Legacy Transaction Security, which is a retired feature as of Summer '20. Use the EventCondition interface instead of the PolicyCondition interface.
  * The evaluate method is called upon the occurrence of an event monitored by a transaction security policy. A typical implementation first selects the item of interest from the event. Then the item is tested to see if it meets the condition being monitored. If the condition is met, the method returns true.

@@ -1,11 +1,11 @@
 /**
  * Serializes and deserializes the content associated with a custom exercise when migrating an Enablement program from one org to another.
- * <p>Usage
+ * Usage
  * The class contains methods to serialize and deserialize custom exercise content between orgs when an Enablement program that includes a custom exercise is migrated from one org to another through change sets or packaging.
  * Extend the sfdc_enablement.LearningItemSerializeDeserializer Apex abstract class and add the class name to the ApexSerializerDeserializer field of the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.api_meta.meta/api_meta/meta_learningitemtype.htm" target="_blank">LearningItemType metadata record</a>. If you don’t add the class name to the LearningItemType metadata record, the customContent property for the custom exercise is empty in the destination org and no corresponding LearningItem record is created for the exercise’s <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.object_reference.meta/object_reference/sforce_api_objects_enblprogramtaskdefinition.htm" target="_blank">EnblProgramTaskDefinition record</a>.
  * The serialize method serializes the custom content of the learning item from the source org. This method is called when you retrieve custom content from the source org.
  * The deserialize method is called during the deployment of a program. This method takes the serialized custom content, recreates the custom object record in the target org, and returns a new learning item record ID.
- * <p>Example
+ * Example
  * The sample code serializes and deserializes the custom content for a given learning item of a custom screen flow exercise in an Enablement program. For this example to work, make sure the screen flow exists in the target org.
  * global class ScreenFlowSerializerDeserializer extends Sfdc_enablement.LearningItemSerializeDeserializer {
  *     // The serialize method returns the serialized output of the

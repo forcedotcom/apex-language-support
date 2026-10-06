@@ -1,6 +1,6 @@
 /**
  * Contains the deleted records retrieved for a specific sObject type and time window.
- * <p>Usage
+ * Usage
  * The Database.getDeleted method returns the deleted record information as a Database.GetDeletedResult object.
  */
 global class GetDeletedResult {
@@ -22,7 +22,7 @@ global class GetDeletedResult {
 
     /**
      * Returns the date in Coordinated Universal Time (UTC) of the last date covered in the Database.getDeleted call.
-     * <p>Usage
+     * Usage
      * If there is a value, it is less than or equal to the endDate argument of Database.getDeleted. A value here indicates that, for safety, you should use this value for the startDate of your next call to capture the changes that started after this date but didn’t complete before endDate and were, therefore, not returned in the previous call.
      */
     global Date getLatestDateCovered() { return null; }

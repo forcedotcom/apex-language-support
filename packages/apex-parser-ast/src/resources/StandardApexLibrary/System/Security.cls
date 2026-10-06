@@ -1,6 +1,6 @@
 /**
  * Contains methods to securely implement Apex applications.
- * <p>Usage
+ * Usage
  * In the context of the current user’s create, read, update, or upsert access permission, use the Security class methods to:
  * Strip fields that aren’t visible from query and subquery results
  * Remove inaccessible fields before a DML operation without causing an exception
@@ -15,7 +15,7 @@ global class Security {
 
     /**
      * Creates a list of sObjects from the source records, which are stripped of fields that fail the field-level security checks for the current user.
-     * <p>Example
+     * Example
      * In this example, the user doesn’t have permission to read the ActualCost field of a Campaign.
      * List<Campaign> campaigns = new List<Campaign>{
      *     new Campaign(Name='Campaign1', BudgetedCost=1000, ActualCost=2000),
@@ -49,7 +49,7 @@ global class Security {
 
     /**
      * Creates a list of sObjects from the source records, which are stripped of fields that fail the field-level security checks for the current user. The method also provides an option to enforce an object-level access check.
-     * <p>Example
+     * Example
      * In this example, the user doesn’t have permission to create the Probability field of an Opportunity.
      * List<Opportunity> opportunities = new List<Opportunity>{
      *     new Opportunity(Name='Opportunity1'),

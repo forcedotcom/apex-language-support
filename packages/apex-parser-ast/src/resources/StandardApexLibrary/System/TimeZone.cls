@@ -1,8 +1,8 @@
 /**
  * Represents a time zone. Contains methods for creating a new time zone and obtaining time zone properties, such as the time zone ID, offset, and display name.
- * <p>Usage
+ * Usage
  * You can use the methods in this class to get properties of a time zone, such as the properties of the time zone returned by UserInfo.getTimeZone, or the time zone returned by getTimeZone of this class.
- * <p>Example
+ * Example
  * This example shows how to get properties of the current user’s time zone and display them to the debug log. The output of the sample varies based on the user's time zone.
  * TimeZone tz = UserInfo.getTimeZone();
  * System.debug('Display name: ' + tz.getDisplayName());
@@ -41,7 +41,7 @@ global class TimeZone {
 
     /**
      * Returns this time zone’s display name.
-     * <p>Versioned Behavior Changes
+     * Versioned Behavior Changes
      * In API version 45.0 and later, getDisplayName displays Daylight Savings Time appropriately when daylight savings are in effect. For example, British Summer Time is displayed for Europe/London and Pacific Daylight Time for America/Los_Angeles.
      */
     global String getDisplayName() { return null; }
@@ -53,7 +53,7 @@ global class TimeZone {
 
     /**
      * Returns the time zone offset, in milliseconds, of the specified date to the GMT time zone.
-     * <p>Usage
+     * Usage
      * Note
      * The returned offset is adjusted for daylight saving time if the date argument falls within daylight saving time for this time zone.
      */

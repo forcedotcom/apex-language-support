@@ -10,7 +10,7 @@ global with sharing class PaymentTransaction {
     global String orderId;
     /**
      * The list of refunds associated with the transaction.
-     * <p>List<RichMessaging.Refund>
+     * List<RichMessaging.Refund>
      */
     @InvocableVariable
     global List refunds;
@@ -18,7 +18,7 @@ global with sharing class PaymentTransaction {
     global String statusRaw;
     /**
      * The unique identifier of the transaction.
-     * <p>String
+     * String
      */
     @InvocableVariable
     global String transactionId;
