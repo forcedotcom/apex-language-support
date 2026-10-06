@@ -1,16 +1,58 @@
 /**
  * Exception indicating a problem with the execution of a resolution strategy.
  */
-global class ResolutionException {
+global class ResolutionException extends Exception {
+    /**
+     * Default constructor for the ResolutionException class.
+     */
+    global ResolutionException() { }
 
-  global ResolutionException(String errorMessage, Exception exception) {}
+    /**
+     * Constructor that takes an exception as an argument,
+     */
+    global ResolutionException(Exception null) { }
 
-  global ResolutionException(Exception exception) {}
+    global ResolutionException(String null) { }
 
-  global ResolutionException(String errorMessage) {}
+    global ResolutionException(String null, Exception null) { }
 
-  global String getTypeName() {}
+    global override virtual Boolean equals(Object o) { return false; }
 
-  global Object clone() {}
+    global override virtual Exception getCause() { return null; }
 
+    global override virtual List getDmlFieldNames(Integer index) { return null; }
+
+    global override virtual List getDmlFields(Integer index) { return null; }
+
+    global override virtual String getDmlId(Integer index) { return null; }
+
+    global override virtual Integer getDmlIndex(Integer index) { return 0; }
+
+    global override virtual String getDmlMessage(Integer index) { return null; }
+
+    global override virtual String getDmlStatusCode(Integer index) { return null; }
+
+    global override virtual System.StatusCode getDmlType(Integer index) { return null; }
+
+    global virtual Map getInaccessibleFields() { return null; }
+
+    global virtual Map getInaccessibleFields(Integer index) { return null; }
+
+    global override virtual Integer getLineNumber() { return 0; }
+
+    global override virtual String getMessage() { return null; }
+
+    global override virtual Integer getNumDml() { return 0; }
+
+    global override virtual String getStackTraceString() { return null; }
+
+    global override virtual String getTypeName() { return null; }
+
+    global override virtual Integer hashCode() { return 0; }
+
+    global override virtual void initCause(Exception cause) { }
+
+    global override virtual void setMessage(String message) { }
+
+    global virtual String toString() { return null; }
 }

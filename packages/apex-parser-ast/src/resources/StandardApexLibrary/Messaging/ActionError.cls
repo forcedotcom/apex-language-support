@@ -1,10 +1,13 @@
 /**
  * Specifies the error that occurred during the execution of an actionable notification.
+ * Enum Values
+ * The following are the values of the Messaging.ActionError enum.
  */
 global enum ActionError {
-  ACCESS_DENIED,
-  ACTION_NOT_IMPLEMENTED,
-  INTERNAL_ERROR,
-  INVALID_ACTION_PARAMETERS,
-  INVALID_STATE
+    ACCESS_DENIED,
+    ACTION_NOT_IMPLEMENTED,
+    INTERNAL_ERROR,
+    INVALID_ACTION_PARAMETERS,
+    INVALID_STATE
+
 }

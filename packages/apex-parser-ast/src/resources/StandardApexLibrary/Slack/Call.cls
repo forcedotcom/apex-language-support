@@ -1,131 +1,49 @@
 global class Call {
+    global Call() { }
 
-  global Call() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global List<String> getChannels() {}
+    global List getChannels() { return null; }
 
-  global Integer getDateEnd() {}
+    global Integer getDateEnd() { return 0; }
 
-  global Integer getDateStart() {}
+    global Integer getDateStart() { return 0; }
 
-  global String getDesktopAppJoinUrl() {}
+    global String getDesktopAppJoinUrl() { return null; }
 
-  global String getExternalDisplayId() {}
+    global String getExternalDisplayId() { return null; }
 
-  global String getExternalUniqueId() {}
+    global String getExternalUniqueId() { return null; }
 
-  global String getId() {}
+    global String getId() { return null; }
 
-  global String getJoinUrl() {}
+    global String getJoinUrl() { return null; }
 
-  global String getTitle() {}
+    global String getTitle() { return null; }
 
-  global List<Slack.CallParticipant> getUsers() {}
+    global List getUsers() { return null; }
 
-  global void setChannels(List<String> channels) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global void setDateEnd(Integer dateEnd) {}
+    global void setChannels(List channels) { }
 
-  global void setDateStart(Integer dateStart) {}
+    global void setDateEnd(Integer dateEnd) { }
 
-  global void setDesktopAppJoinUrl(String desktopAppJoinUrl) {}
+    global void setDateStart(Integer dateStart) { }
 
-  global void setExternalDisplayId(String externalDisplayId) {}
+    global void setDesktopAppJoinUrl(String desktopAppJoinUrl) { }
 
-  global void setExternalUniqueId(String externalUniqueId) {}
+    global void setExternalDisplayId(String externalDisplayId) { }
 
-  global void setId(String id) {}
+    global void setExternalUniqueId(String externalUniqueId) { }
 
-  global void setJoinUrl(String joinUrl) {}
+    global void setId(String id) { }
 
-  global void setTitle(String title) {}
+    global void setJoinUrl(String joinUrl) { }
 
-  global void setUsers(List<Slack.CallParticipant> users) {}
+    global void setTitle(String title) { }
 
-  global String getAvatarUrl() {}
+    global void setUsers(List users) { }
 
-  global String getDisplayName() {}
-
-  global String getExternalId() {}
-
-  global String getSlackId() {}
-
-  global void setAvatarUrl(String avatarUrl) {}
-
-  global void setDisplayName(String displayName) {}
-
-  global void setExternalId(String externalId) {}
-
-  global void setSlackId(String slackId) {}
-
-  global static Slack.CallsAddRequest.Builder builder() {}
-
-  global Slack.CallsAddRequest build() {}
-
-  global Slack.CallsAddRequest.Builder createdBy(String createdBy) {}
-
-  global Slack.CallsAddRequest.Builder dateStart(Integer dateStart) {}
-
-  global Slack.CallsAddRequest.Builder desktopAppJoinUrl(String desktopAppJoinUrl) {}
-
-  global Slack.CallsAddRequest.Builder externalDisplayId(String externalDisplayId) {}
-
-  global Slack.CallsAddRequest.Builder externalUniqueId(String externalUniqueId) {}
-
-  global Slack.CallsAddRequest.Builder title(String title) {}
-
-  global Slack.CallsAddRequest.Builder users(List<Slack.CallParticipant> users) {}
-
-  global Slack.Call getCall() {}
-
-  global Slack.ResponseMetadata getResponseMetadata() {}
-
-  global void setCall(Slack.Call call) {}
-
-  global void setResponseMetadata(Slack.ResponseMetadata responseMetadata) {}
-
-  global static Slack.CallsEndRequest.Builder builder() {}
-
-  global Slack.CallsEndRequest build() {}
-
-  global Slack.CallsEndRequest.Builder duration(Integer duration) {}
-
-  global Slack.CallsEndRequest.Builder id(String id) {}
-
-  global static Slack.CallsInfoRequest.Builder builder() {}
-
-  global Slack.CallsInfoRequest build() {}
-
-  global Slack.CallsInfoRequest.Builder id(String id) {}
-
-  global static Slack.CallsParticipantsAddRequest.Builder builder() {}
-
-  global Slack.CallsParticipantsAddRequest build() {}
-
-  global Slack.CallsParticipantsAddRequest.Builder id(String id) {}
-
-  global Slack.CallsParticipantsAddRequest.Builder users(List<Slack.CallParticipant> users) {}
-
-  global static Slack.CallsParticipantsRemoveRequest.Builder builder() {}
-
-  global Slack.CallsParticipantsRemoveRequest build() {}
-
-  global Slack.CallsParticipantsRemoveRequest.Builder id(String id) {}
-
-  global Slack.CallsParticipantsRemoveRequest.Builder users(List<Slack.CallParticipant> users) {}
-
-  global static Slack.CallsUpdateRequest.Builder builder() {}
-
-  global Slack.CallsUpdateRequest build() {}
-
-  global Slack.CallsUpdateRequest.Builder desktopAppJoinUrl(String desktopAppJoinUrl) {}
-
-  global Slack.CallsUpdateRequest.Builder id(String id) {}
-
-  global Slack.CallsUpdateRequest.Builder joinUrl(String joinUrl) {}
-
-  global Slack.CallsUpdateRequest.Builder title(String title) {}
-
-  global Object clone() {}
-
+    global override String toString() { return null; }
 }

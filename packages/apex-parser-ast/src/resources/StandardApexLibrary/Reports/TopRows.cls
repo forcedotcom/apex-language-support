@@ -2,45 +2,47 @@
  * Contains methods and constructors for working with information about a row limit filter.
  */
 global class TopRows {
+    /**
+     * Creates an instance of the Reports.TopRows class. You can then set values by using the class’s set methods.
+     */
+    global TopRows() { }
 
-  global TopRows(Integer rowLimit, Reports.ColumnSortOrder direction) {}
+    /**
+     * Creates an instance of the Reports.TopRows class using the specified parameters.
+     */
+    global TopRows(Integer rowLimit, reports.ColumnSortOrder direction) { }
 
-  /**
-   * Returns the sort order of the report rows.
-   * @return Reports.ColumnSortOrder
-   */
-  global Reports.ColumnSortOrder getDirection() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Returns the maximum number of rows shown in the report.
-   * @return Integer
-   */
-  global Integer getRowLimit() {}
+    /**
+     * Returns the sort order of the report rows.
+     */
+    global reports.ColumnSortOrder getDirection() { return null; }
 
-  /**
-   * Sets the sort order of the report’s rows.
-   * @param value For possible values, see Reports.ColumnSortOrder .
-   */
-  global void setDirection(String value) {}
+    /**
+     * Returns the maximum number of rows shown in the report.
+     */
+    global Integer getRowLimit() { return 0; }
 
-  /**
-   * Sets the sort order of the report’s rows.
-   * @param direction 
-   */
-  global void setDirection(Reports.ColumnSortOrder direction) {}
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Sets the maximum number of rows included in the report.
-   * @param rowLimit 
-   */
-  global void setRowLimit(Integer rowLimit) {}
+    /**
+     * Sets the sort order of the report’s rows.
+     */
+    global void setDirection(reports.ColumnSortOrder direction) { }
 
-  /**
-   * Returns a string.
-   * @return String
-   */
-  global String toString() {}
+    /**
+     * Sets the sort order of the report’s rows.
+     */
+    global void setDirection(String value) { }
 
-  global Object clone() {}
+    /**
+     * Sets the maximum number of rows included in the report.
+     */
+    global void setRowLimit(Integer rowLimit) { }
 
+    /**
+     * Returns a string.
+     */
+    global override virtual String toString() { return null; }
 }

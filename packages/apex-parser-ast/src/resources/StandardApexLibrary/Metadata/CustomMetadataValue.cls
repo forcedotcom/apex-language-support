@@ -1,18 +1,51 @@
 /**
  * Represents custom metadata values for a custom metadata component.
+ * Usage
+ * Use Metadata.CustomMetadataValue to access values for custom fields of custom metadata records.
+ * Supported Apex primitive types are:
+ * Boolean
+ * Date
+ * DateTime
+ * Decimal
+ * Double
+ * Integer
+ * Long
+ * String
+ * Example
+ * // Set a custom field value for a custom metadata record
+ * Metadata.CustomMetadataValue customField = new Metadata.CustomMetadataValue();
+ * customField.field = 'CustomField1__c';
+ * customField.value = 'New Value';
+ * customMetadata.values.add(customField);
  */
-global class CustomMetadataValue {
+global class CustomMetadataValue extends Metadata.MetadataValue {
+    /**
+     * The field name for the custom metadata value.
+     * String
+     */
+    global String field { get; set; }
+    /**
+     * The field value for the custom metadata value.
+     * Object
+     * Supported Apex primitive types are:
+     * Boolean
+     * Date
+     * DateTime
+     * Decimal
+     * Double
+     * Integer
+     * Long
+     * String
+     * When setting the value for relationship fields, use the qualified API name of the related metadata, not the ID.
+     * For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/langCon_apex_primitives.htm" target="_blank">Primitive Data Types</a>.
+     */
+    global Object value { get; set; }
 
-  global CustomMetadataValue() {}
+    global CustomMetadataValue() { }
 
-  global String field;
+    global virtual Boolean equals(Object o) { return false; }
 
-  global Object value;
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Makes a duplicate copy of the Metadata.CustomMetadataValue .
-   * @return Object
-   */
-  global Object clone() {}
-
+    global override virtual String toString() { return null; }
 }

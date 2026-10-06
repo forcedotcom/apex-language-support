@@ -1,22 +1,21 @@
 /**
  * Contains the result of sending an email message.
+ * Usage
  */
 global class SendEmailResult {
+    global List errors { get; }
+    global Boolean success { get; }
 
-  global SendEmailResult() {}
+    global Boolean equals(Object obj) { return false; }
 
-  /**
-   * If an error occurred during the sendEmail method, a SendEmailError object is returned.
-   * @return SendEmailError[]
-   */
-  global SendEmailError[] getErrors() {}
+    global List getErrors() { return null; }
 
-  /**
-   * Indicates whether the email was successfully submitted for delivery ( true ) or not ( false ). Even if isSuccess is true, it does not mean the intended recipients received the email, as there could have been a problem with the email address or it could have bounced or been blocked by a spam blocker.
-   * @return Boolean
-   */
-  global Boolean isSuccess() {}
+    global Integer hashCode() { return 0; }
 
-  global Object clone() {}
+    /**
+     * Indicates whether the email was successfully submitted for delivery (true) or not (false). Even if isSuccess is true, it does not mean the intended recipients received the email, as there could have been a problem with the email address or it could have bounced or been blocked by a spam blocker.
+     */
+    global Boolean isSuccess() { return false; }
 
+    global String toString() { return null; }
 }

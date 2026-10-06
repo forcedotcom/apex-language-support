@@ -1,48 +1,53 @@
 /**
  * After you submit a record for approval, use the ProcessResult class to process the results of an approval process.
+ * Usage
+ * A ProcessResult object is returned by the process method. You must specify the Approval namespace when creating an instance of this class. For example:
+ * Approval.ProcessResult result = Approval.process(req1);
  */
 global class ProcessResult {
+    global List actorids { get; }
+    global String entityid { get; }
+    global List errors { get; }
+    global String instanceid { get; }
+    global String instancestatus { get; }
+    global List newworkitemids { get; }
+    global Boolean success { get; }
 
-  global ProcessResult() {}
+    global Boolean equals(Object obj) { return false; }
 
-  /**
-   * The ID of the record being processed.
-   * @return String
-   */
-  global String getEntityId() {}
+    global List getActorIds() { return null; }
 
-  /**
-   * If an error occurred, returns an array of one or more database error objects including the error code and description.
-   * @return Database.Error[]
-   */
-  global Database.Error[] getErrors() {}
+    /**
+     * The ID of the record being processed.
+     */
+    global String getEntityId() { return null; }
 
-  /**
-   * The ID of the approval process that has been submitted for approval.
-   * @return String
-   */
-  global String getInstanceId() {}
+    /**
+     * If an error occurred, returns an array of one or more database error objects including the error code and description.
+     */
+    global List getErrors() { return null; }
 
-  /**
-   * The status of the current approval process. Valid values are: Approved, Rejected, Removed or Pending.
-   * @return String
-   */
-  global String getInstanceStatus() {}
+    /**
+     * The ID of the approval process that has been submitted for approval.
+     */
+    global String getInstanceId() { return null; }
 
-  /**
-   * The IDs of the new items submitted to the approval process. There can be 0 or 1 approval processes.
-   * @return ID[]
-   */
-  global ID[] getNewWorkitemIds() {}
+    /**
+     * The status of the current approval process. Valid values are: Approved, Rejected, Removed or Pending.
+     */
+    global String getInstanceStatus() { return null; }
 
-  /**
-   * A Boolean value that is set to true if the approval process completed successfully; otherwise, it is set to false .
-   * @return Boolean
-   */
-  global Boolean isSuccess() {}
+    /**
+     * The IDs of the new items submitted to the approval process. There can be 0 or 1 approval processes.
+     */
+    global List getNewWorkitemIds() { return null; }
 
-  global List<Id> getActorIds() {}
+    global Integer hashCode() { return 0; }
 
-  global Object clone() {}
+    /**
+     * A Boolean value that is set to true if the approval process completed successfully; otherwise, it is set to false.
+     */
+    global Boolean isSuccess() { return false; }
 
+    global String toString() { return null; }
 }

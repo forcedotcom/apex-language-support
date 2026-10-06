@@ -1,455 +1,213 @@
 global class Conversation {
+    global Conversation() { }
 
-  global Conversation() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global List<String> getConnectedLimitedTeamIds() {}
+    global List getConnectedLimitedTeamIds() { return null; }
 
-  global List<String> getConnectedTeamIds() {}
+    global List getConnectedTeamIds() { return null; }
 
-  global String getConversationHostId() {}
+    global String getContextTeamId() { return null; }
 
-  global String getCreated() {}
+    global String getConversationHostId() { return null; }
 
-  global String getCreator() {}
+    global Integer getCreated() { return 0; }
 
-  global Integer getDateConnected() {}
+    global String getCreator() { return null; }
 
-  global String getEnterpriseId() {}
+    global Integer getDateConnected() { return 0; }
 
-  global String getId() {}
+    global String getEnterpriseId() { return null; }
 
-  global List<String> getInternalTeamIds() {}
+    global String getId() { return null; }
 
-  global Integer getIsMoved() {}
+    global List getInternalTeamIds() { return null; }
 
-  global Boolean getIsUserDeleted() {}
+    global Integer getIsMoved() { return 0; }
 
-  global String getLastRead() {}
+    global Boolean getIsUserDeleted() { return false; }
 
-  global Slack.Latest getLatest() {}
+    global String getLastRead() { return null; }
 
-  global String getLocale() {}
+    global Slack.Latest getLatest() { return null; }
 
-  global String getName() {}
+    global String getLocale() { return null; }
 
-  global String getNameNormalized() {}
+    global String getName() { return null; }
 
-  global Integer getNumOfMembers() {}
+    global String getNameNormalized() { return null; }
 
-  global String getParentConversation() {}
+    global Integer getNumOfMembers() { return 0; }
 
-  global List<String> getPendingConnectedTeamIds() {}
+    global String getParentConversation() { return null; }
 
-  global List<String> getPendingShared() {}
+    global List getPendingConnectedTeamIds() { return null; }
 
-  global List<String> getPreviousNames() {}
+    global List getPendingShared() { return null; }
 
-  global Double getPriority() {}
+    global List getPreviousNames() { return null; }
 
-  global Slack.Purpose getPurpose() {}
+    global Double getPriority() { return 0.0; }
 
-  global List<String> getSharedTeamIds() {}
+    global Slack.Purpose getPurpose() { return null; }
 
-  global Slack.Topic getTopic() {}
+    global List getSharedTeamIds() { return null; }
 
-  global Integer getUnlinked() {}
+    global Slack.Topic getTopic() { return null; }
 
-  global Integer getUnreadCount() {}
+    global Integer getUnlinked() { return 0; }
 
-  global Integer getUnreadCountDisplay() {}
+    global Integer getUnreadCount() { return 0; }
 
-  global String getUser() {}
+    global Integer getUnreadCountDisplay() { return 0; }
 
-  global Boolean isArchived() {}
+    global Long getUpdated() { return 0L; }
 
-  global Boolean isChannel() {}
+    global String getUser() { return null; }
 
-  global Boolean isExtShared() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Boolean isGeneral() {}
+    global Boolean isArchived() { return false; }
 
-  global Boolean isGlobalShared() {}
+    global Boolean isChannel() { return false; }
 
-  global Boolean isGroup() {}
+    global Boolean isExtShared() { return false; }
 
-  global Boolean isIm() {}
+    global Boolean isGeneral() { return false; }
 
-  global Boolean isMember() {}
+    global Boolean isGlobalShared() { return false; }
 
-  global Boolean isMpim() {}
+    global Boolean isGroup() { return false; }
 
-  global Boolean isNonThreadable() {}
+    global Boolean isIm() { return false; }
 
-  global Boolean isOpen() {}
+    global Boolean isMember() { return false; }
 
-  global Boolean isOrgDefault() {}
+    global Boolean isMpim() { return false; }
 
-  global Boolean isOrgMandatory() {}
+    global Boolean isNonThreadable() { return false; }
 
-  global Boolean isOrgShared() {}
+    global Boolean isOpen() { return false; }
 
-  global Boolean isPendingExtShared() {}
+    global Boolean isOrgDefault() { return false; }
 
-  global Boolean isPrivate() {}
+    global Boolean isOrgMandatory() { return false; }
 
-  global Boolean isReadOnly() {}
+    global Boolean isOrgShared() { return false; }
 
-  global Boolean isShared() {}
+    global Boolean isPendingExtShared() { return false; }
 
-  global Boolean isStarred() {}
+    global Boolean isPrivate() { return false; }
 
-  global Boolean isThreadOnly() {}
+    global Boolean isReadOnly() { return false; }
 
-  global void setIsUserDeleted(Boolean isUserDeleted) {}
+    global Boolean isShared() { return false; }
 
-  global void setArchived(Boolean isArchived) {}
+    global Boolean isStarred() { return false; }
 
-  global void setChannel(Boolean isChannel) {}
+    global Boolean isThreadOnly() { return false; }
 
-  global void setConnectedLimitedTeamIds(List<String> connectedLimitedTeamIds) {}
+    global void setArchived(Boolean isArchived) { }
 
-  global void setConnectedTeamIds(List<String> connectedTeamIds) {}
+    global void setChannel(Boolean isChannel) { }
 
-  global void setConversationHostId(String conversationHostId) {}
+    global void setConnectedLimitedTeamIds(List connectedLimitedTeamIds) { }
 
-  global void setCreated(String created) {}
+    global void setConnectedTeamIds(List connectedTeamIds) { }
 
-  global void setCreator(String creator) {}
+    global void setContextTeamId(String contextTeamId) { }
 
-  global void setDateConnected(Integer dateConnected) {}
+    global void setConversationHostId(String conversationHostId) { }
 
-  global void setEnterpriseId(String enterpriseId) {}
+    global void setCreated(Integer created) { }
 
-  global void setExtShared(Boolean isExtShared) {}
+    global void setCreator(String creator) { }
 
-  global void setGeneral(Boolean isGeneral) {}
+    global void setDateConnected(Integer dateConnected) { }
 
-  global void setGlobalShared(Boolean globalShared) {}
+    global void setEnterpriseId(String enterpriseId) { }
 
-  global void setGroup(Boolean isGroup) {}
+    global void setExtShared(Boolean isExtShared) { }
 
-  global void setId(String id) {}
+    global void setGeneral(Boolean isGeneral) { }
 
-  global void setIm(Boolean isIm) {}
+    global void setGlobalShared(Boolean globalShared) { }
 
-  global void setInternalTeamIds(List<String> internalTeamIds) {}
+    global void setGroup(Boolean isGroup) { }
 
-  global void setIsMoved(Integer isMoved) {}
+    global void setId(String id) { }
 
-  global void setLastRead(String lastRead) {}
+    global void setIm(Boolean isIm) { }
 
-  global void setLatest(Slack.Latest latest) {}
+    global void setInternalTeamIds(List internalTeamIds) { }
 
-  global void setLocale(String locale) {}
+    global void setIsMoved(Integer isMoved) { }
 
-  global void setMember(Boolean isMember) {}
+    global void setIsUserDeleted(Boolean isUserDeleted) { }
 
-  global void setMpim(Boolean isMpim) {}
+    global void setLastRead(String lastRead) { }
 
-  global void setName(String name) {}
+    global void setLatest(Slack.Latest latest) { }
 
-  global void setNameNormalized(String nameNormalized) {}
+    global void setLocale(String locale) { }
 
-  global void setNonThreadable(Boolean isNonThreadable) {}
+    global void setMember(Boolean isMember) { }
 
-  global void setNumOfMembers(Integer numOfMembers) {}
+    global void setMpim(Boolean isMpim) { }
 
-  global void setOpen(Boolean open) {}
+    global void setName(String name) { }
 
-  global void setOrgDefault(Boolean orgDefault) {}
+    global void setNameNormalized(String nameNormalized) { }
 
-  global void setOrgMandatory(Boolean orgMandatory) {}
+    global void setNonThreadable(Boolean isNonThreadable) { }
 
-  global void setOrgShared(Boolean isOrgShared) {}
+    global void setNumOfMembers(Integer numOfMembers) { }
 
-  global void setParentConversation(String parentConversation) {}
+    global void setOpen(Boolean open) { }
 
-  global void setPendingConnectedTeamIds(List<String> pendingConnectedTeamIds) {}
+    global void setOrgDefault(Boolean orgDefault) { }
 
-  global void setPendingExtShared(Boolean isPendingExtShared) {}
+    global void setOrgMandatory(Boolean orgMandatory) { }
 
-  global void setPendingShared(List<String> pendingShared) {}
+    global void setOrgShared(Boolean isOrgShared) { }
 
-  global void setPreviousNames(List<String> previousNames) {}
+    global void setParentConversation(String parentConversation) { }
 
-  global void setPriority(Double priority) {}
+    global void setPendingConnectedTeamIds(List pendingConnectedTeamIds) { }
 
-  global void setPrivate(Boolean isPrivate) {}
+    global void setPendingExtShared(Boolean isPendingExtShared) { }
 
-  global void setPurpose(Slack.Purpose purpose) {}
+    global void setPendingShared(List pendingShared) { }
 
-  global void setReadOnly(Boolean isReadOnly) {}
+    global void setPreviousNames(List previousNames) { }
 
-  global void setShared(Boolean isShared) {}
+    global void setPriority(Double priority) { }
 
-  global void setSharedTeamIds(List<String> sharedTeamIds) {}
+    global void setPrivate(Boolean isPrivate) { }
 
-  global void setStarred(Boolean isStarred) {}
+    global void setPurpose(Slack.Purpose purpose) { }
 
-  global void setThreadOnly(Boolean isThreadOnly) {}
+    global void setReadOnly(Boolean isReadOnly) { }
 
-  global void setTopic(Slack.Topic topic) {}
+    global void setShared(Boolean isShared) { }
 
-  global void setUnlinked(Integer unlinked) {}
+    global void setSharedTeamIds(List sharedTeamIds) { }
 
-  global void setUnreadCount(Integer unreadCount) {}
+    global void setStarred(Boolean isStarred) { }
 
-  global void setUnreadCountDisplay(Integer unreadCountDisplay) {}
+    global void setThreadOnly(Boolean isThreadOnly) { }
 
-  global void setUser(String user) {}
+    global void setTopic(Slack.Topic topic) { }
 
-  global static Slack.ConversationsArchiveRequest.Builder builder() {}
+    global void setUnlinked(Integer unlinked) { }
 
-  global Slack.ConversationsArchiveRequest build() {}
+    global void setUnreadCount(Integer unreadCount) { }
 
-  global Slack.ConversationsArchiveRequest.Builder channel(String channel) {}
+    global void setUnreadCountDisplay(Integer unreadCountDisplay) { }
 
-  global static Slack.ConversationsCloseRequest.Builder builder() {}
+    global void setUpdated(Long updated) { }
 
-  global Slack.ConversationsCloseRequest build() {}
+    global void setUser(String user) { }
 
-  global Slack.ConversationsCloseRequest.Builder channel(String channel) {}
-
-  global Boolean getAlreadyClosed() {}
-
-  global Boolean getNoOp() {}
-
-  global void setAlreadyClosed(Boolean alreadyClosed) {}
-
-  global void setNoOp(Boolean noOp) {}
-
-  global static Slack.ConversationsCreateRequest.Builder builder() {}
-
-  global Slack.ConversationsCreateRequest build() {}
-
-  global Slack.ConversationsCreateRequest.Builder isPrivate(Boolean isPrivate) {}
-
-  global Slack.ConversationsCreateRequest.Builder name(String name) {}
-
-  global Slack.ConversationsCreateRequest.Builder teamId(String teamId) {}
-
-  global Slack.Conversation getChannel() {}
-
-  global String getDetail() {}
-
-  global void setChannel(Slack.Conversation channel) {}
-
-  global void setDetail(String detail) {}
-
-  global static Slack.ConversationsHistoryRequest.Builder builder() {}
-
-  global Slack.ConversationsHistoryRequest build() {}
-
-  global Slack.ConversationsHistoryRequest.Builder channel(String channel) {}
-
-  global Slack.ConversationsHistoryRequest.Builder cursor(String cursor) {}
-
-  global Slack.ConversationsHistoryRequest.Builder inclusive(Boolean inclusive) {}
-
-  global Slack.ConversationsHistoryRequest.Builder latest(String latest) {}
-
-  global Slack.ConversationsHistoryRequest.Builder limitValue(Integer limitValue) {}
-
-  global Slack.ConversationsHistoryRequest.Builder oldest(String oldest) {}
-
-  global Integer getChannelActionsCount() {}
-
-  global String getChannelActionsTs() {}
-
-  global String getLatest() {}
-
-  global List<Slack.Message> getMessages() {}
-
-  global Integer getPinCount() {}
-
-  global Slack.ResponseMetadata getResponseMetadata() {}
-
-  global Boolean isHasMore() {}
-
-  global void setChannelActionsCount(Integer channelActionsCount) {}
-
-  global void setChannelActionsTs(String channelActionsTs) {}
-
-  global void setHasMore(Boolean hasMore) {}
-
-  global void setLatest(String latest) {}
-
-  global void setMessages(List<Slack.Message> messages) {}
-
-  global void setPinCount(Integer pinCount) {}
-
-  global void setResponseMetadata(Slack.ResponseMetadata responseMetadata) {}
-
-  global static Slack.ConversationsInfoRequest.Builder builder() {}
-
-  global Slack.ConversationsInfoRequest build() {}
-
-  global Slack.ConversationsInfoRequest.Builder channel(String channel) {}
-
-  global Slack.ConversationsInfoRequest.Builder includeLocale(Boolean includeLocale) {}
-
-  global Slack.ConversationsInfoRequest.Builder includeNumMembers(Boolean includeNumMembers) {}
-
-  global static Slack.ConversationsInviteRequest.Builder builder() {}
-
-  global Slack.ConversationsInviteRequest build() {}
-
-  global Slack.ConversationsInviteRequest.Builder channel(String channel) {}
-
-  global Slack.ConversationsInviteRequest.Builder users(List<String> users) {}
-
-  global List<Slack.ConversationsInviteResponse.Error> getErrors() {}
-
-  global void setErrors(List<Slack.ConversationsInviteResponse.Error> errors) {}
-
-  global String getError() {}
-
-  global Boolean isOk() {}
-
-  global void setError(String error) {}
-
-  global void setOk(Boolean ok) {}
-
-  global static Slack.ConversationsJoinRequest.Builder builder() {}
-
-  global Slack.ConversationsJoinRequest build() {}
-
-  global Slack.ConversationsJoinRequest.Builder channel(String channel) {}
-
-  global Slack.WarningResponseMetadata getResponseMetadata() {}
-
-  global void setResponseMetadata(Slack.WarningResponseMetadata responseMetadata) {}
-
-  global static Slack.ConversationsKickRequest.Builder builder() {}
-
-  global Slack.ConversationsKickRequest build() {}
-
-  global Slack.ConversationsKickRequest.Builder channel(String channel) {}
-
-  global Slack.ConversationsKickRequest.Builder user(String user) {}
-
-  global static Slack.ConversationsLeaveRequest.Builder builder() {}
-
-  global Slack.ConversationsLeaveRequest build() {}
-
-  global Slack.ConversationsLeaveRequest.Builder channel(String channel) {}
-
-  global Boolean isNotInChannel() {}
-
-  global void setNotInChannel(Boolean notInChannel) {}
-
-  global static Slack.ConversationsListRequest.Builder builder() {}
-
-  global Slack.ConversationsListRequest build() {}
-
-  global Slack.ConversationsListRequest.Builder cursor(String cursor) {}
-
-  global Slack.ConversationsListRequest.Builder excludeArchived(Boolean excludeArchived) {}
-
-  global Slack.ConversationsListRequest.Builder limitValue(Integer limitValue) {}
-
-  global Slack.ConversationsListRequest.Builder teamId(String teamId) {}
-
-  global Slack.ConversationsListRequest.Builder types(List<Slack.ConversationType> types) {}
-
-  global List<Slack.Conversation> getChannels() {}
-
-  global void setChannels(List<Slack.Conversation> channels) {}
-
-  global static Slack.ConversationsMarkRequest.Builder builder() {}
-
-  global Slack.ConversationsMarkRequest build() {}
-
-  global Slack.ConversationsMarkRequest.Builder channel(String channel) {}
-
-  global Slack.ConversationsMarkRequest.Builder ts(String ts) {}
-
-  global static Slack.ConversationsMembersRequest.Builder builder() {}
-
-  global Slack.ConversationsMembersRequest build() {}
-
-  global Slack.ConversationsMembersRequest.Builder channel(String channel) {}
-
-  global Slack.ConversationsMembersRequest.Builder cursor(String cursor) {}
-
-  global Slack.ConversationsMembersRequest.Builder limitValue(Integer limitValue) {}
-
-  global List<String> getMembers() {}
-
-  global void setMembers(List<String> members) {}
-
-  global static Slack.ConversationsOpenRequest.Builder builder() {}
-
-  global Slack.ConversationsOpenRequest build() {}
-
-  global Slack.ConversationsOpenRequest.Builder channel(String channel) {}
-
-  global Slack.ConversationsOpenRequest.Builder returnIm(Boolean returnIm) {}
-
-  global Slack.ConversationsOpenRequest.Builder users(List<String> users) {}
-
-  global Boolean isAlreadyOpen() {}
-
-  global Boolean isNoOp() {}
-
-  global void setAlreadyOpen(Boolean alreadyOpen) {}
-
-  global static Slack.ConversationsRenameRequest.Builder builder() {}
-
-  global Slack.ConversationsRenameRequest build() {}
-
-  global Slack.ConversationsRenameRequest.Builder channel(String channel) {}
-
-  global Slack.ConversationsRenameRequest.Builder name(String name) {}
-
-  global static Slack.ConversationsRepliesRequest.Builder builder() {}
-
-  global Slack.ConversationsRepliesRequest build() {}
-
-  global Slack.ConversationsRepliesRequest.Builder channel(String channel) {}
-
-  global Slack.ConversationsRepliesRequest.Builder cursor(String cursor) {}
-
-  global Slack.ConversationsRepliesRequest.Builder inclusive(Boolean inclusive) {}
-
-  global Slack.ConversationsRepliesRequest.Builder latest(String latest) {}
-
-  global Slack.ConversationsRepliesRequest.Builder limitValue(Integer limitValue) {}
-
-  global Slack.ConversationsRepliesRequest.Builder oldest(String oldest) {}
-
-  global Slack.ConversationsRepliesRequest.Builder ts(String ts) {}
-
-  global static Slack.ConversationsSetPurposeRequest.Builder builder() {}
-
-  global Slack.ConversationsSetPurposeRequest build() {}
-
-  global Slack.ConversationsSetPurposeRequest.Builder channel(String channel) {}
-
-  global Slack.ConversationsSetPurposeRequest.Builder purpose(String purpose) {}
-
-  global static Slack.ConversationsSetTopicRequest.Builder builder() {}
-
-  global Slack.ConversationsSetTopicRequest build() {}
-
-  global Slack.ConversationsSetTopicRequest.Builder channel(String channel) {}
-
-  global Slack.ConversationsSetTopicRequest.Builder topic(String topic) {}
-
-  global static Slack.ConversationsUnarchiveRequest.Builder builder() {}
-
-  global Slack.ConversationsUnarchiveRequest build() {}
-
-  global Slack.ConversationsUnarchiveRequest.Builder channel(String channel) {}
-
-  global Object clone() {}
-
-  global String getContextTeamId() {}
-
-  global Long getUpdated() {}
-
-  global void setContextTeamId(String contextTeamId) {}
-
-  global void setUpdated(Long updated) {}
-
+    global override String toString() { return null; }
 }

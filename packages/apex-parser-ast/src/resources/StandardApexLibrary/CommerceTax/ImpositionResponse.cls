@@ -1,20 +1,42 @@
 /**
  * Stores details of tax impositions from the external tax engine.
+ * Example
+ * In this mock adapter example, the adapter sets the TaxDetailsResponse.setImposition() method parameter to null if the request's document code indicates that the tax calculation didn't require any exceptions. Otherwise, it creates an instance of ImpositionResponse and sets its SubType and Type values, and then assigns it to TaxDetailsResponse.
+ * if(request.DocumentCode == 'SetsNullForResponseWithoutException'){
+ *   taxDetailsResponse.setImposition(null);
+ *                      }else{
+ *                         commercetax.ImpositionResponse imposition = new commercetax.ImpositionResponse();
+ *                         imposition.setSubType('subtype');
+ *                         imposition.setType('type');
+ *                         taxDetailsResponse.setImposition(imposition);
+ *                    }
  */
-global class ImpositionResponse {
+global with sharing class ImpositionResponse {
+    global ImpositionResponse() { }
 
-  global ImpositionResponse() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global void setId(String id) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global void setName(String name) {}
+    /**
+     * Sets the ID field of the ImpositionResponse class.
+     */
+    global void setId(String id) { }
 
-  global void setSubType(String subType) {}
+    /**
+     * Sets the Name field of the ImpositionResponse class.
+     */
+    global void setName(String name) { }
 
-  global void setType(String type) {}
+    /**
+     * Sets the SubType field of the ImpositionResponse class.
+     */
+    global void setSubType(String subType) { }
 
-  global Object clone() {}
+    /**
+     * Sets the Type field of the ImpositionResponse class.
+     */
+    global void setType(String type) { }
 
-  global java:commerce.tax.impl.engine.integration.response.ImpositionEngineResponse getDelegate() {}
-
+    global override virtual String toString() { return null; }
 }

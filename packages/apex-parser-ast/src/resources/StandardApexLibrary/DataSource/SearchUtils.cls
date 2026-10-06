@@ -1,18 +1,19 @@
 /**
  * Helper class for implementing search on a custom adapter for Salesforce Connect.
+ * Usage
+ * We recommend that you develop your own search implementation that can search columns in addition to the designated name field.
  */
 global class SearchUtils {
+    global SearchUtils() { }
 
-  global SearchUtils() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Queries all the tables and returns each row whose designated name field contains the search phrase.
-   * @param searchDetails The SearchContext class that specifies which data to search and what to search for.
-   * @param connection The DataSource.Connection class that connects to the external system.
-   * @return List<DataSource.TableResult>
-   */
-  global static List<DataSource.TableResult> searchByName(DataSource.SearchContext searchDetails, DataSource.Connection connection) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Object clone() {}
+    /**
+     * Queries all the tables and returns each row whose designated name field contains the search phrase.
+     */
+    global static List searchByName(DataSource.SearchContext c, DataSource.Connection conn) { return null; }
 
+    global override virtual String toString() { return null; }
 }

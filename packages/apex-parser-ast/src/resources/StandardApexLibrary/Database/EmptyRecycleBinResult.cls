@@ -1,28 +1,28 @@
 /**
  * The result of the emptyRecycleBin DML operation returned by the Database.emptyRecycleBin method.
+ * Usage
+ * A list of Database.EmptyRecycleBinResult objects is returned by the Database.emptyRecycleBin method. Each object in the list corresponds to either a record ID or an sObject passed as the parameter in the Database.emptyRecycleBin method. The first index in the EmptyRecycleBinResult list matches the first record or sObject specified in the list, the second with the second, and so on.
  */
 global class EmptyRecycleBinResult {
+    global List errors { get; }
+    global Id id { get; }
+    global Boolean success { get; }
 
-  global EmptyRecycleBinResult() {}
+    global Boolean equals(Object obj) { return false; }
 
-  /**
-   * If an error occurred during the delete for this record or sObject, returns a list of one or more Database.Error objects. If no errors occurred, the returned list is empty.
-   * @return Database.Errors[]
-   */
-  global Database.Errors[] getErrors() {}
+    global List getErrors() { return null; }
 
-  /**
-   * Returns the ID of the record or sObject you attempted to delete.
-   * @return ID
-   */
-  global ID getId() {}
+    /**
+     * Returns the ID of the record or sObject you attempted to delete.
+     */
+    global Id getId() { return null; }
 
-  /**
-   * Returns true if the record or sObject was successfully removed from the Recycle Bin; otherwise false .
-   * @return Boolean
-   */
-  global Boolean isSuccess() {}
+    global Integer hashCode() { return 0; }
 
-  global Object clone() {}
+    /**
+     * Returns true if the record or sObject was successfully removed from the Recycle Bin; otherwise false.
+     */
+    global Boolean isSuccess() { return false; }
 
+    global String toString() { return null; }
 }

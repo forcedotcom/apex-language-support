@@ -1,64 +1,60 @@
 /**
  * Represents the list of parameters that are passed to the ServiceResourceScheduleHandler interface. This class is implemented internally by Apex.
  */
-global class ServiceAppointmentRequestInfo {
+global with sharing class ServiceAppointmentRequestInfo {
+    /**
+     * Creates a new instance of the lxscheduler.ServiceAppointmentRequestInfo class using the specified start date, end date, service resources, scheduling policy, work type group, accound ID, primary resource, work type, and correlation.
+     */
+    global ServiceAppointmentRequestInfo(Datetime startDate, Datetime endDate, List ServiceResources, String SchedulingPolicyId, String workTypeGroupId, String accountId, String primaryResourceId, String workTypeId, String correlationId) { }
 
-  global ServiceAppointmentRequestInfo(Datetime startDate, Datetime endDate, List<lxscheduler.ServiceResourceInfo> ServiceResources, String SchedulingPolicyId, String workTypeGroupId, String accountId, String primaryResourceId, String workTypeId, String correlationId) {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Returns the account ID of the customer if the API request contains one.
-   * @return String
-   */
-  global String getAccountId() {}
+    /**
+     * Returns the account ID of the customer if the API request contains one.
+     */
+    global String getAccountId() { return null; }
 
-  /**
-   * Returns a unique identifier for a request.
-   * @return String
-   */
-  global String getCorrelationId() {}
+    /**
+     * Returns a unique identifier for a request.
+     */
+    global String getCorrelationId() { return null; }
 
-  /**
-   * Returns the end date and time for which unavailable time slots are requested.
-   * @return Datetime
-   */
-  global Datetime getEndDate() {}
+    /**
+     * Returns the end date and time for which unavailable time slots are requested.
+     */
+    global Datetime getEndDate() { return null; }
 
-  /**
-   * Returns the ID of the primary service resource.
-   * @return String
-   */
-  global String getPrimaryResourceId() {}
+    /**
+     * Returns the ID of the primary service resource.
+     */
+    global String getPrimaryResourceId() { return null; }
 
-  /**
-   * Returns the ID of the scheduling policy that the API request contains.
-   * @return String
-   */
-  global String getSchedulingPolicyId() {}
+    /**
+     * Returns the ID of the scheduling policy that the API request contains.
+     */
+    global String getSchedulingPolicyId() { return null; }
 
-  /**
-   * Returns the list of requested service resources for the unavailable time slots.
-   * @return List<lxscheduler.ServiceResourceInfo>
-   */
-  global List<lxscheduler.ServiceResourceInfo> getServiceResources() {}
+    /**
+     * Returns the list of requested service resources for the unavailable time slots.
+     */
+    global List getServiceResources() { return null; }
 
-  /**
-   * Returns the start date and time for which unavailable time slots are requested.
-   * @return Datetime
-   */
-  global Datetime getStartDate() {}
+    /**
+     * Returns the start date and time for which unavailable time slots are requested.
+     */
+    global Datetime getStartDate() { return null; }
 
-  /**
-   * Returns the work type group ID if the API request contains one.
-   * @return String
-   */
-  global String getWorkTypeGroupId() {}
+    /**
+     * Returns the work type group ID if the API request contains one.
+     */
+    global String getWorkTypeGroupId() { return null; }
 
-  /**
-   * Returns the work type ID if the API request contains one.
-   * @return String
-   */
-  global String getWorkTypeId() {}
+    /**
+     * Returns the work type ID if the API request contains one.
+     */
+    global String getWorkTypeId() { return null; }
 
-  global Object clone() {}
+    global virtual Integer hashCode() { return 0; }
 
+    global override virtual String toString() { return null; }
 }

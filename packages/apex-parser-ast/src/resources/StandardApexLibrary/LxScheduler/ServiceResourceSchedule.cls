@@ -1,14 +1,26 @@
 /**
  * Use this class to pass results from your implemented Apex class to the ServiceResourceScheduleHandler interface methods.
  */
-global class ServiceResourceSchedule {
+global with sharing class ServiceResourceSchedule {
+    /**
+     * Record ID of the service resource.
+     * String
+     */
+    global String serviceResourceId { get; set; }
+    /**
+     * An instance of lxscheduler.UnavailableTimeslot class.
+     * Set<lxscheduler.UnavailableTimeslot>
+     */
+    global Set unavailableTimeslots { get; set; }
 
-  global ServiceResourceSchedule(String serviceResourceId, Set<lxscheduler.UnavailableTimeslot> unavailableTimeslots) {}
+    /**
+     * Creates a new instance of lxscheduler.ServiceResourceSchedule class.
+     */
+    global ServiceResourceSchedule(String serviceResourceId, Set unavailableTimeslots) { }
 
-  global String serviceResourceId;
+    global virtual Boolean equals(Object o) { return false; }
 
-  global Set<lxscheduler.UnavailableTimeslot> unavailableTimeslots;
+    global virtual Integer hashCode() { return 0; }
 
-  global Object clone() {}
-
+    global override virtual String toString() { return null; }
 }

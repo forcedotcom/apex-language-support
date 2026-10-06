@@ -1,46 +1,102 @@
 /**
  * This class contains details about the card payment method.
  */
-global class CardPaymentMethodResponse {
+global with sharing class CardPaymentMethodResponse {
+    global CardPaymentMethodResponse() { }
 
-  global CardPaymentMethodResponse() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global void setAccountId(Id accountId) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global void setAutoPay(Boolean autoPay) {}
+    /**
+     * Sets the Salesforce payments account to which this payment method is linked.
+     */
+    global void setAccountId(Id accountId) { }
 
-  global void setCardBin(String cardBin) {}
+    /**
+     * Sets whether a token for recurring payments is being requested or not.
+     */
+    global void setAutoPay(Boolean autoPay) { }
 
-  global void setCardCategory(commercepayments.CardCategory cardCategory) {}
+    /**
+     * Sets the card Bank Identification Number (BIN).
+     */
+    global void setCardBin(String cardBin) { }
 
-  global void setCardHolderFirstName(String cardHolderFirstName) {}
+    /**
+     * Sets the card category.
+     */
+    global void setCardCategory(commercepayments.CardCategory cardCategory) { }
 
-  global void setCardHolderLastName(String cardHolderLastName) {}
+    /**
+     * Sets the first name of the card holder.
+     */
+    global void setCardHolderFirstName(String cardHolderFirstName) { }
 
-  global void setCardHolderName(String cardHolderName) {}
+    /**
+     * Sets the last name of the card holder.
+     */
+    global void setCardHolderLastName(String cardHolderLastName) { }
 
-  global void setCardLastFour(String cardLastFour) {}
+    /**
+     * Sets the name of the card holder.
+     */
+    global void setCardHolderName(String cardHolderName) { }
 
-  global void setCardType(String cardType) {}
+    /**
+     * Sets the last four digits of the card.
+     */
+    global void setCardLastFour(String cardLastFour) { }
 
-  global void setCardTypeCategory(commercepayments.CardType cardTypeCategory) {}
+    /**
+     * Specifies the type of the credit card issuer.
+     */
+    global void setCardType(String cardType) { }
 
-  global void setComments(String comments) {}
+    /**
+     * Sets the credit card issuer.
+     */
+    global void setCardTypeCategory(commercepayments.CardType cardTypeCategory) { }
 
-  global void setDisplayCardNumber(String displayCardNumber) {}
+    /**
+     * Sets the notes added by a user for card payment.
+     */
+    global void setComments(String comments) { }
 
-  global void setEmail(String email) {}
+    /**
+     * Sets the display card number.
+     */
+    global void setDisplayCardNumber(String displayCardNumber) { }
 
-  global void setExpiryMonth(Integer expiryMonth) {}
+    /**
+     * Sets the email address of the card holder.
+     */
+    global void setEmail(String email) { }
 
-  global void setExpiryYear(Integer expiryYear) {}
+    /**
+     * Sets the month of expiry of the card.
+     */
+    global void setExpiryMonth(Integer expiryMonth) { }
 
-  global void setNickName(String nickName) {}
+    /**
+     * Sets the year of expiry of the card.
+     */
+    global void setExpiryYear(Integer expiryYear) { }
 
-  global void setStartMonth(Integer startMonth) {}
+    /**
+     * Sets the nickname of the card.
+     */
+    global void setNickName(String nickName) { }
 
-  global void setStartYear(Integer startYear) {}
+    /**
+     * Sets the month the card becomes active.
+     */
+    global void setStartMonth(Integer startMonth) { }
 
-  global Object clone() {}
+    /**
+     * Sets the year the card becomes active.
+     */
+    global void setStartYear(Integer startYear) { }
 
+    global override virtual String toString() { return null; }
 }

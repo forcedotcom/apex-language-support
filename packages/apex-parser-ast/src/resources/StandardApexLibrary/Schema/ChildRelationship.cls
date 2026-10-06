@@ -1,50 +1,57 @@
 /**
  * Contains methods for accessing the child relationship as well as the child sObject for a parent sObject.
+ * Example
+ * A ChildRelationship object is returned from the sObject describe result using the getChildRelationship method. For example:
+ * Schema.DescribeSObjectResult R = Account.SObjectType.getDescribe();
+ * List<Schema.ChildRelationship> C = R.getChildRelationships();
  */
 global class ChildRelationship {
+    global Boolean cascadedelete { get; }
+    global Schema.SObjectType childsobject { get; }
+    global Boolean deprecatedandhidden { get; }
+    global Schema.SObjectField field { get; }
+    global List junctionidlistnames { get; }
+    global List junctionreferenceto { get; }
+    global String relationshipname { get; }
+    global Boolean restricteddelete { get; }
 
-  global ChildRelationship() {}
+    global Boolean equals(Object obj) { return false; }
 
-  /**
-   * Returns the token of the child sObject on which there is a foreign key back to the parent sObject.
-   * @return Schema.SObjectType
-   */
-  global Schema.SObjectType getChildSObject() {}
+    /**
+     * Returns the token of the child sObject on which there is a foreign key back to the parent sObject.
+     */
+    global Schema.SObjectType getChildSObject() { return null; }
 
-  /**
-   * Returns the token of the field that has a foreign key back to the parent sObject.
-   * @return Schema.SObjectField
-   */
-  global Schema.SObjectField getField() {}
+    /**
+     * Returns the token of the field that has a foreign key back to the parent sObject.
+     */
+    global Schema.SObjectField getField() { return null; }
 
-  /**
-   * Returns the name of the relationship.
-   * @return String
-   */
-  global String getRelationshipName() {}
+    global List getJunctionIdListNames() { return null; }
 
-  /**
-   * Returns true if the child object is deleted when the parent object is deleted, false otherwise.
-   * @return Boolean
-   */
-  global Boolean isCascadeDelete() {}
+    global List getJunctionReferenceTo() { return null; }
 
-  /**
-   * Reserved for future use.
-   * @return Boolean
-   */
-  global Boolean isDeprecatedAndHidden() {}
+    /**
+     * Returns the name of the relationship.
+     */
+    global String getRelationshipName() { return null; }
 
-  /**
-   * Returns true if the parent object can't be deleted because it is referenced by a child object, false otherwise.
-   * @return Boolean
-   */
-  global Boolean isRestrictedDelete() {}
+    global Integer hashCode() { return 0; }
 
-  global List<String> getJunctionIdListNames() {}
+    /**
+     * Returns true if the child object is deleted when the parent object is deleted, false otherwise.
+     */
+    global Boolean isCascadeDelete() { return false; }
 
-  global List<Schema.SObjectType> getJunctionReferenceTo() {}
+    /**
+     * Reserved for future use.
+     */
+    global Boolean isDeprecatedAndHidden() { return false; }
 
-  global Object clone() {}
+    /**
+     * Returns true if the parent object can't be deleted because it is referenced by a child object, false otherwise.
+     */
+    global Boolean isRestrictedDelete() { return false; }
 
+    global String toString() { return null; }
 }

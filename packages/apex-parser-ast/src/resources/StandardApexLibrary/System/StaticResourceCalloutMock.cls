@@ -1,37 +1,39 @@
 /**
  * Utility class used to specify a fake response for testing HTTP callouts.
+ * Usage
+ * Use the methods in this class to set the response properties for testing HTTP callouts.
  */
-global class StaticResourceCalloutMock {
+global class StaticResourceCalloutMock implements System.HttpCalloutMock {
+    /**
+     * Creates a new instance of the StaticResourceCalloutMock class.
+     */
+    global StaticResourceCalloutMock() { }
 
-  global StaticResourceCalloutMock() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Sets the specified header name and value for the fake response.
-   * @param headerName 
-   * @param headerValue 
-   */
-  global void setHeader(String headerName, String headerValue) {}
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Sets the specified static resource, which contains the response body.
-   * @param resourceName 
-   */
-  global void setStaticResource(String resourceName) {}
+    global System.HttpResponse respond(System.HttpRequest request) { return null; }
 
-  /**
-   * Sets the specified HTTP status for the response.
-   * @param httpStatus 
-   */
-  global void setStatus(String httpStatus) {}
+    /**
+     * Sets the specified header name and value for the fake response.
+     */
+    global void setHeader(String key, String val) { }
 
-  /**
-   * Sets the specified HTTP status for the response.
-   * @param httpStatusCode 
-   */
-  global void setStatusCode(Integer httpStatusCode) {}
+    /**
+     * Sets the specified static resource, which contains the response body.
+     */
+    global void setStaticResource(String staticResourceName) { }
 
-  global Object clone() {}
+    /**
+     * Sets the specified HTTP status for the response.
+     */
+    global void setStatus(String status) { }
 
-  global System.HttpResponse respond(System.HttpRequest request) {}
+    /**
+     * Sets the specified HTTP status for the response.
+     */
+    global void setStatusCode(Integer code) { }
 
+    global override virtual String toString() { return null; }
 }

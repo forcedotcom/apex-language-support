@@ -1,66 +1,80 @@
 /**
  * Use the ProcessSubmitRequest class to submit a record for approval.
+ * Usage
+ * You must specify the Approval namespace when creating an instance of this class. The constructor for this class takes no arguments. For example:
+ * Approval.ProcessSubmitRequest psr = new Approval.ProcessSubmitRequest();
+ * Inherited Methods
+ * In addition to the methods listed, the ProcessSubmitRequest class has access to all the methods in its parent class, ProcessRequest Class.
+ * getComments()
+ * getNextApproverIds()
+ * setComments(comments)
+ * setNextApproverIds(nextApproverIds)
+ * Example
+ * To view sample code, refer to <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.apexcode.meta/apexcode/apex_process_example.htm" target="_blank">Approval Processing Example</a>.
  */
-global class ProcessSubmitRequest {
+global class ProcessSubmitRequest extends Approval.ProcessRequest {
+    global String objectid { get; set; }
+    global String processdefinitionnameorid { get; set; }
+    global Boolean skipentrycriteria { get; set; }
+    global String submitterid { get; set; }
 
-  global ProcessSubmitRequest() {}
+    global ProcessSubmitRequest() { }
 
-  /**
-   * Returns the ID of the record that has been submitted for approval. For example, it can return an account, contact, or custom object record.
-   * @return String
-   */
-  global String getObjectId() {}
+    global Boolean equals(Object obj) { return false; }
 
-  /**
-   * Returns the developer name or ID of the process definition.
-   * @return String
-   */
-  global String getProcessDefinitionNameOrId() {}
+    global String getComments() { return null; }
 
-  /**
-   * If getProcessDefinitionNameOrId() returns a value other than null , getSkipEntryCriteria() determines whether to evaluate the entry criteria for the process ( true ) or not ( false ).
-   * @return Boolean
-   */
-  global Boolean getSkipEntryCriteria() {}
+    global List getNextApproverIds() { return null; }
 
-  /**
-   * Returns the user ID of the submitter requesting the approval record. The user must be one of the allowed submitters in the process definition setup.
-   * @return String
-   */
-  global String getSubmitterId() {}
+    /**
+     * Returns the ID of the record that has been submitted for approval. For example, it can return an account, contact, or custom object record.
+     */
+    global String getObjectId() { return null; }
 
-  /**
-   * Sets the ID of the record to be submitted for approval. For example, it can specify an account, contact, or custom object record.
-   * @param recordId 
-   */
-  global void setObjectId(String recordId) {}
+    /**
+     * Returns the developer name or ID of the process definition.
+     * Usage
+     * The default is null. If the return value is null, when a user submits a record for approval Salesforce evaluates the entry criteria for all processes applicable to the user.
+     */
+    global String getProcessDefinitionNameOrId() { return null; }
 
-  /**
-   * Sets the developer name or ID of the process definition to be evaluated.
-   * @param nameOrId The process definition developer name or process definition ID. The record is submitted to this specific process. If set to null , submission of a record approval follows standard evaluation; that is, every entry criteria of the process definition in the process order is evaluated and the one that satisfies is picked and submitted.
-   */
-  global void setProcessDefinitionNameOrId(String nameOrId) {}
+    /**
+     * If getProcessDefinitionNameOrId() returns a value other than null, getSkipEntryCriteria() determines whether to evaluate the entry criteria for the process (true) or not (false).
+     */
+    global Boolean getSkipEntryCriteria() { return false; }
 
-  /**
-   * If the process definition name or ID is not null, setSkipEntryCriteria() determines whether to evaluate the entry criteria for the process ( true ) or not ( false ).
-   * @param skipEntryCriteria If set to true , request submission skips the evaluation of entry criteria for the process set in setProcessDefinitionNameOrId(nameOrId) . If the process definition name or ID is not specified, this parameter is ignored and standard evaluation is followed based on process order. If set to false , or if this method isn’t called, the entry criteria is not skipped.
-   */
-  global void setSkipEntryCriteria(Boolean skipEntryCriteria) {}
+    /**
+     * Returns the user ID of the submitter requesting the approval record. The user must be one of the allowed submitters in the process definition setup.
+     */
+    global String getSubmitterId() { return null; }
 
-  /**
-   * Sets the user ID of the submitter requesting the approval record. The user must be one of the allowed submitters in the process definition setup. If you don’t set a submitter ID, the process uses the current user as the submitter.
-   * @param userID The user ID on behalf of which the record is submitted. If set to null , the current user is the submitter. If the submitter is not set with this method, the default submitter is null (the current user).
-   */
-  global void setSubmitterId(String userID) {}
+    global Integer hashCode() { return 0; }
 
-  global String getComments() {}
+    global void setComments(String param1) { }
 
-  global List<Id> getNextApproverIds() {}
+    global void setNextApproverIds(List param1) { }
 
-  global void setComments(String arg0) {}
+    /**
+     * Sets the ID of the record to be submitted for approval. For example, it can specify an account, contact, or custom object record.
+     */
+    global void setObjectId(String param1) { }
 
-  global void setNextApproverIds(List<Id> arg0) {}
+    /**
+     * Sets the developer name or ID of the process definition to be evaluated.
+     * Usage
+     * If the process definition name or ID is not set via this method, then by default it is null. If it is null, the submission of a record for approval evaluates entry criteria for all processes applicable to the submitter. The order of evaluation is based on the process order of the setup.
+     */
+    global void setProcessDefinitionNameOrId(String param1) { }
 
-  global Object clone() {}
+    /**
+     * If the process definition name or ID is not null, setSkipEntryCriteria() determines whether to evaluate the entry criteria for the process (true) or not (false).
+     */
+    global void setSkipEntryCriteria(Boolean param1) { }
 
+    /**
+     * Sets the user ID of the submitter requesting the approval record. The user must be one of the allowed submitters in the process definition setup. If you don’t set a submitter ID, the process uses the current user as the submitter.
+     */
+    global void setSubmitterId(String param1) { }
+
+    global String toString() { return null; }
 }

@@ -1,22 +1,20 @@
 /**
  * Is an abstract base class for an object that provides standard filter information.
  */
-global class StandardFilterInfo {
+global virtual class StandardFilterInfo {
+    global virtual Boolean equals(Object o) { return false; }
 
-  global StandardFilterInfo() {}
+    /**
+     * Returns the display label of the standard filter.
+     */
+    global String getLabel() { return null; }
 
-  /**
-   * Returns the display label of the standard filter.
-   * @return String
-   */
-  global String getLabel() {}
+    /**
+     * Returns the type of standard filter.
+     */
+    global reports.StandardFilterType getType() { return null; }
 
-  /**
-   * Returns the type of standard filter.
-   * @return Reports.StandardFilterType
-   */
-  global Reports.StandardFilterType getType() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Object clone() {}
-
+    global override virtual String toString() { return null; }
 }

@@ -2,15 +2,14 @@
  * A wrapper object that contains an sObject.
  */
 global class SuggestionResult {
+    global virtual Boolean equals(Object o) { return false; }
 
-  global SuggestionResult() {}
+    /**
+     * Returns the sObject from a SuggestionResult object.
+     */
+    global SObject getSObject() { return null; }
 
-  /**
-   * Returns the sObject from a SuggestionResult object.
-   * @return SObject
-   */
-  global SObject getSObject() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Object clone() {}
-
+    global override virtual String toString() { return null; }
 }

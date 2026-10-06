@@ -1,22 +1,22 @@
 /**
- * Parent class for the DataSource.Provider , DataSource.Connection , DataSource.Table , and DataSource.Column classes.
+ * Parent class for the DataSource.Provider, DataSource.Connection, DataSource.Table, and DataSource.Column classes.
  */
-global class DataSourceUtil {
+global abstract class DataSourceUtil {
+    global DataSourceUtil() { }
 
-  global DataSourceUtil() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Logs the error message in the debug log.
-   * @param message The error message.
-   */
-  global void logWarning(String message) {}
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Throws a DataSourceException and displays the provided message to the user.
-   * @param message Error message to display to the user.
-   */
-  global void throwException(String message) {}
+    /**
+     * Logs the error message in the debug log.
+     */
+    global void logWarning(String msg) { }
 
-  global Object clone() {}
+    /**
+     * Throws a DataSourceException and displays the provided message to the user.
+     */
+    global void throwException(String msg) { }
 
+    global override virtual String toString() { return null; }
 }

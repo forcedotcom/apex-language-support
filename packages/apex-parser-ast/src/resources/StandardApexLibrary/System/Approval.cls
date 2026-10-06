@@ -1,188 +1,108 @@
 /**
  * Contains methods for processing approval requests and setting approval-process locks and unlocks on records.
+ * Usage
+ * Salesforce admins can edit locked records. Depending on your approval process configuration settings, an assigned approver can also edit locked records. Locks and unlocks that are set programmatically use the same record editability settings as other approval-process locks and unlocks.
+ * Record locks and unlocks are treated as DML. They’re blocked before a callout, they count toward your DML limits, and if a failure occurs, they’re rolled back along with the rest of your transaction. To change this rollback behavior, use an allOrNone parameter.
+ * Approval is also used as a namespace for the ProcessRequest and ProcessResult classes.
  */
 global class Approval {
+    /**
+     * Returns true if the record with the ID id is locked, or false if it’s not.
+     */
+    global static Boolean isLocked(Id id) { return false; }
 
-  global Approval() {}
+    /**
+     * Returns true if the sobject record is locked, or false if it’s not.
+     */
+    global static Boolean isLocked(SObject sobject) { return false; }
 
-  /**
-   * Returns true if the record with the ID id is locked, or false if it’s not.
-   * @param id The ID of the record whose lock or unlock status is in question.
-   * @return Boolean
-   */
-  global static Boolean isLocked(Id id) {}
+    /**
+     * Returns a map of record IDs and their lock statuses. If the record is locked the status is true. If the record is not locked the status is false.
+     */
+    global static Map isLocked(List ids) { return null; }
 
-  /**
-   * Returns true if the record with the ID id is locked, or false if it’s not.
-   * @param ids 
-   * @return Map<Id,Boolean>
-   */
-  global static Map<Id,Boolean> isLocked(List<Id> ids) {}
+    /**
+     * Returns a map of record IDs to lock statuses. If the record is locked the status is true. If the record is not locked the status is false.
+     */
+    global static Map isLocked(List sobjects) { return null; }
 
-  /**
-   * Returns true if the record with the ID id is locked, or false if it’s not.
-   * @param sobject 
-   * @return Boolean
-   */
-  global static Boolean isLocked(SObject sobject) {}
+    /**
+     * Locks a set of objects, and returns the lock results, including failures.
+     */
+    global static List lock(List ids) { return null; }
 
-  /**
-   * Returns true if the record with the ID id is locked, or false if it’s not.
-   * @param sobjects 
-   * @return Map<Id,Boolean>
-   */
-  global static Map<Id,Boolean> isLocked(List<SObject> sobjects) {}
+    /**
+     * Locks a set of objects, and returns the lock results, including failures.
+     */
+    global static List lock(List sobjects) { return null; }
 
-  /**
-   * Locks an object, and returns the lock results.
-   * @param recordId ID of the object to lock.
-   * @return Approval.LockResult
-   */
-  global static Approval.LockResult lock(Id recordId) {}
+    /**
+     * Locks a set of objects, with the option for partial success. It returns the lock results, including failures.
+     */
+    global static List lock(List ids, Boolean allOrNothing) { return null; }
 
-  /**
-   * Locks an object, and returns the lock results.
-   * @param ids 
-   * @return List<Approval.LockResult>
-   */
-  global static List<Approval.LockResult> lock(List<Id> ids) {}
+    /**
+     * Locks a set of objects, with the option for partial success. It returns the lock results, including failures.
+     */
+    global static List lock(List sobjects, Boolean allOrNothing) { return null; }
 
-  /**
-   * Locks an object, and returns the lock results.
-   * @param recordToLock 
-   * @return Approval.LockResult
-   */
-  global static Approval.LockResult lock(SObject recordToLock) {}
+    /**
+     * Locks an object, and returns the lock results.
+     */
+    global static Approval.LockResult lock(Id id) { return null; }
 
-  /**
-   * Locks an object, and returns the lock results.
-   * @param recordsToLock 
-   * @return List<Approval.LockResult>
-   */
-  global static List<Approval.LockResult> lock(List<SObject> recordsToLock) {}
+    /**
+     * Locks an object, and returns the lock results.
+     */
+    global static Approval.LockResult lock(SObject sobject) { return null; }
 
-  /**
-   * Locks an object, and returns the lock results.
-   * @param recordId ID of the object to lock.
-   * @param allOrNothing 
-   * @return Approval.LockResult
-   */
-  global static Approval.LockResult lock(Id recordId, Boolean allOrNothing) {}
+    /**
+     * Locks an object, with the option for partial success, and returns the lock result.
+     */
+    global static Approval.LockResult lock(Id id, Boolean allOrNothing) { return null; }
 
-  /**
-   * Locks an object, and returns the lock results.
-   * @param recordIds 
-   * @param allOrNothing 
-   * @return List<Approval.LockResult>
-   */
-  global static List<Approval.LockResult> lock(List<Id> recordIds, Boolean allOrNothing) {}
+    /**
+     * Locks an object, with the option for partial success, and returns the lock result.
+     */
+    global static Approval.LockResult lock(SObject sobject, Boolean allOrNothing) { return null; }
 
-  /**
-   * Locks an object, and returns the lock results.
-   * @param recordToLock 
-   * @param allOrNothing 
-   * @return Approval.LockResult
-   */
-  global static Approval.LockResult lock(SObject recordToLock, Boolean allOrNothing) {}
+    /**
+     * Unlocks a set of objects, and returns the unlock results, including failures.
+     */
+    global static List unlock(List ids) { return null; }
 
-  /**
-   * Locks an object, and returns the lock results.
-   * @param recordsToLock 
-   * @param allOrNothing 
-   * @return List<Approval.LockResult>
-   */
-  global static List<Approval.LockResult> lock(List<SObject> recordsToLock, Boolean allOrNothing) {}
+    /**
+     * Unlocks a set of objects, and returns the unlock results, including failures.
+     */
+    global static List unlock(List sobjects) { return null; }
 
-  /**
-   * Submits a new approval request and approves or rejects existing approval requests.
-   * @param approvalRequest 
-   * @return Approval.ProcessResult
-   */
-  global static Approval.ProcessResult process(Approval.ProcessRequest approvalRequest) {}
+    /**
+     * Unlocks a set of objects, with the option for partial success. It returns the unlock results, including failures.
+     */
+    global static List unlock(List ids, Boolean allOrNothing) { return null; }
 
-  /**
-   * Submits a new approval request and approves or rejects existing approval requests.
-   * @param approvalRequest 
-   * @param allOrNone 
-   * @return Approval.ProcessResult
-   */
-  global static Approval.ProcessResult process(Approval.ProcessRequest approvalRequest, Boolean allOrNone) {}
+    /**
+     * Unlocks a set of objects, with the option for partial success. It returns the unlock results, including failures.
+     */
+    global static List unlock(List sobjects, Boolean allOrNothing) { return null; }
 
-  /**
-   * Submits a new approval request and approves or rejects existing approval requests.
-   * @param approvalRequests 
-   * @return Approval.ProcessResult []
-   */
-  global static Approval.ProcessResult [] process(Approval.ProcessRequest[] approvalRequests) {}
+    /**
+     * Unlocks an object, and returns the unlock results.
+     */
+    global static Approval.UnlockResult unlock(Id id) { return null; }
 
-  /**
-   * Submits a new approval request and approves or rejects existing approval requests.
-   * @param approvalRequests 
-   * @param allOrNone 
-   * @return Approval.ProcessResult []
-   */
-  global static Approval.ProcessResult [] process(Approval.ProcessRequest[] approvalRequests, Boolean allOrNone) {}
+    /**
+     * Unlocks an object, and returns the unlock results.
+     */
+    global static Approval.UnlockResult unlock(SObject sobject) { return null; }
 
-  /**
-   * Unlocks an object, and returns the unlock results.
-   * @param recordId ID of the object to unlock.
-   * @return Approval.UnlockResult
-   */
-  global static Approval.UnlockResult unlock(Id recordId) {}
+    /**
+     * Unlocks an object, with the option for partial success, and returns the unlock result.
+     */
+    global static Approval.UnlockResult unlock(Id id, Boolean allOrNothing) { return null; }
 
-  /**
-   * Unlocks an object, and returns the unlock results.
-   * @param recordIds 
-   * @return List<Approval.UnlockResult>
-   */
-  global static List<Approval.UnlockResult> unlock(List<Id> recordIds) {}
-
-  /**
-   * Unlocks an object, and returns the unlock results.
-   * @param recordToUnlock 
-   * @return Approval.UnlockResult
-   */
-  global static Approval.UnlockResult unlock(SObject recordToUnlock) {}
-
-  /**
-   * Unlocks an object, and returns the unlock results.
-   * @param recordsToUnlock 
-   * @return List<Approval.UnlockResult>
-   */
-  global static List<Approval.UnlockResult> unlock(List<SObject> recordsToUnlock) {}
-
-  /**
-   * Unlocks an object, and returns the unlock results.
-   * @param recordId ID of the object to unlock.
-   * @param allOrNothing 
-   * @return Approval.UnlockResult
-   */
-  global static Approval.UnlockResult unlock(Id recordId, Boolean allOrNothing) {}
-
-  /**
-   * Unlocks an object, and returns the unlock results.
-   * @param recordIds 
-   * @param allOrNothing 
-   * @return List<Approval.UnlockResult>
-   */
-  global static List<Approval.UnlockResult> unlock(List<Id> recordIds, Boolean allOrNothing) {}
-
-  /**
-   * Unlocks an object, and returns the unlock results.
-   * @param recordToUnlock 
-   * @param allOrNothing 
-   * @return Approval.UnlockResult
-   */
-  global static Approval.UnlockResult unlock(SObject recordToUnlock, Boolean allOrNothing) {}
-
-  /**
-   * Unlocks an object, and returns the unlock results.
-   * @param recordsToUnlock 
-   * @param allOrNothing 
-   * @return List<Approval.UnlockResult>
-   */
-  global static List<Approval.UnlockResult> unlock(List<SObject> recordsToUnlock, Boolean allOrNothing) {}
-
-  global Object clone() {}
-
+    /**
+     * Unlocks an object, with the option for partial success, and returns the unlock result.
+     */
+    global static Approval.UnlockResult unlock(SObject sobject, Boolean allOrNothing) { return null; }
 }

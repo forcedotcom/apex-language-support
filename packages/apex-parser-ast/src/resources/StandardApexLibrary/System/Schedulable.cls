@@ -2,11 +2,11 @@
  * The class that implements this interface can be scheduled to run at different intervals.
  */
 global interface Schedulable {
+    virtual Boolean equals(Object arg0);
 
-  /**
-   * Executes the scheduled Apex job.
-   * @param context Contains the job ID.
-   */
-  void execute(SchedulableContext context);
+    abstract void execute(System.SchedulableContext ctx);
 
+    virtual Integer hashCode();
+
+    virtual String toString();
 }

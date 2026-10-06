@@ -2,33 +2,35 @@
  * Contains information about the sort column used in the report.
  */
 global class SortColumn {
+    global SortColumn() { }
 
-  global SortColumn() {}
+    global SortColumn(String sortColumn, reports.ColumnSortOrder sortOrder) { }
 
-  /**
-   * Returns the column used to sort the records in the report.
-   * @return String
-   */
-  global String getSortColumn() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Returns the the sort order— ascending or descending—for the sort column.
-   * @return Reports.ColumnSortOrder
-   */
-  global Reports.ColumnSortOrder getSortOrder() {}
+    /**
+     * Returns the column used to sort the records in the report.
+     */
+    global String getSortColumn() { return null; }
 
-  /**
-   * Sets the column used to sort the records in the report.
-   * @param sortColumn 
-   */
-  global void setSortColumn(String sortColumn) {}
+    /**
+     * Returns the the sort order— ascending or descending—for the sort column.
+     */
+    global reports.ColumnSortOrder getSortOrder() { return null; }
 
-  /**
-   * Sets the sort order— ascending or descending—for the sort column.
-   * @param sortOrder 
-   */
-  global void setSortOrder(Reports.ColumnSortOrder sortOrder) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Object clone() {}
+    /**
+     * Sets the column used to sort the records in the report.
+     */
+    global void setSortColumn(String sortColumn) { }
 
+    /**
+     * Sets the sort order— ascending or descending—for the sort column.
+     */
+    global void setSortOrder(reports.ColumnSortOrder sortOrder) { }
+
+    global void setSortOrder(String value) { }
+
+    global override virtual String toString() { return null; }
 }

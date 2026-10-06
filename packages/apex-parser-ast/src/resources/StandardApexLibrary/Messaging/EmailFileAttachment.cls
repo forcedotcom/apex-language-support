@@ -1,38 +1,62 @@
 /**
  * EmailFileAttachment is used in SingleEmailMessage to specify attachments passed in as part of the request, as opposed to existing documents in Salesforce.
+ * Usage
+ * Important
+ * Sending an email by using Apex requires domain-level and user-level email verification. System-generated emails also require verification of the From email address. Email delivery fails if any of these verifications is incomplete. See <a class="xref" href="https://help.salesforce.com/s/articleView?id=xcloud.security_email_verification_requirements.htm&amp;language=en_US&amp;type=5" target="_blank">Requirements to Send Email from Salesforce</a>.
  */
 global class EmailFileAttachment {
+    /**
+     * Gets or sets the attachment itself.
+     * Blob
+     */
+    global Blob body { get; set; }
+    /**
+     * Gets or sets the attachment's Content-Type.
+     * String
+     */
+    global String contenttype { get; set; }
+    /**
+     * Gets or sets the name of the file to attach.
+     * String
+     */
+    global String filename { get; set; }
+    /**
+     * Read-Only. Gets the attachment ID.
+     * Id
+     */
+    global Id id { get; }
+    /**
+     * Specifies a Content-Disposition of inline (true) or attachment (false).
+     * Boolean
+     */
+    global Boolean inline { get; set; }
 
-  global EmailFileAttachment() {}
+    /**
+     * Creates a new instance of the Messaging.EmailFileAttachment class.
+     */
+    global EmailFileAttachment() { }
 
-  global Blob body;
+    global Boolean equals(Object obj) { return false; }
 
-  global String contenttype;
+    global Blob getBody() { return null; }
 
-  global String filename;
+    global String getContentType() { return null; }
 
-  global Id id;
+    global String getFileName() { return null; }
 
-  global Boolean inline;
+    global Id getId() { return null; }
 
-  global Blob getBody() {}
+    global Boolean getInline() { return false; }
 
-  global String getContentType() {}
+    global Integer hashCode() { return 0; }
 
-  global String getFileName() {}
+    global void setBody(Blob param1) { }
 
-  global Id getId() {}
+    global void setContentType(String param1) { }
 
-  global Boolean getInline() {}
+    global void setFileName(String param1) { }
 
-  global void setBody(Blob arg0) {}
+    global void setInline(Boolean param1) { }
 
-  global void setContentType(String arg0) {}
-
-  global void setFileName(String arg0) {}
-
-  global void setInline(Boolean arg0) {}
-
-  global Object clone() {}
-
+    global String toString() { return null; }
 }

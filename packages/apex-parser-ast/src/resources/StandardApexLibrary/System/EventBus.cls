@@ -2,50 +2,63 @@
  * Contains methods for publishing platform events.
  */
 global class EventBus {
+    global static String getOperationId(Database.SaveResult result) { return null; }
 
-  global EventBus() {}
+    /**
+     * Publishes the given list of platform events.
+     * Usage
+     * The platform event message is published either immediately or after a transaction is committed, depending on the publish behavior you set in the platform event definition. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_define_ui.htm" target="_blank">Platform Event Fields</a> in the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_intro.htm" target="_blank">Platform Events Developer Guide</a>.
+     * Apex governor limits apply. For events configured with the Publish After Commit behavior, each method execution is counted as one DML statement against the Apex DML statement limit. You can check limit usage using the Limits.getDMLStatements() method. For events configured with the Publish Immediately behavior, each method execution is counted against a separate event publishing limit of 150 EventBus.publish() calls. You can check limit usage using the Limits.getPublishImmediateDML() method.
+     * Prior to API version 67.0, this method ran with AccessLevel.SYSTEM_MODE access. Starting with API version 67.0, it runs with AccessLevel.USER_MODE access. The user will be the automated process user unless you set a user using the PlatformEventSubscriberConfig.
+     * @return A list of results, each corresponding to the result of publishing one event. For each event, Database.SaveResult contains information about whether the operation was successful and the errors encountered. If the isSuccess() method returns true, the publish request is queued in Salesforce and the event message is published asynchronously. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_considerations.htm#pe_async_publish_errors" target="_blank" title="HTML (New Window)">High-Volume Platform Event Persistence</a>. If isSuccess() returns false, the event publish operation resulted in errors, which are returned in the Database.Error object. EventBus.publish() can publish some passed-in events, even when other events can’t be published due to errors. The EventBus.publish() method doesn’t throw exceptions caused by an unsuccessful publish operation. It’s similar in behavior to the Apex Database.insert method when called with the partial success option.
+     * Database.SaveResult also contains the Id system field. The Id field value isn’t included in the event message delivered to subscribers. It isn’t used to identify an event message, and isn’t always unique.
+     * If an empty list is passed in for the events parameter, no event is published, and an empty List<Database.SaveResult> is returned.
+     * This method returns a System.UnexpectedException if you attempt to publish a list of type List<SObject> that contains objects that aren’t platform events.
+     */
+    global static List publish(List sobjects) { return null; }
 
-  /**
-   * Returns the event UUID, which identifies a published event message.
-   * @param result The SaveResult that is returned by the EventBus.publish call.
-   * @return String
-   */
-  global static String getOperationId(Object result) {}
+    /**
+     * Publishes the given list of platform events using the specified callback. To track asynchronous publish failures, you can implement an Apex publish callback.
+     * Usage
+     * Use this method with Apex publish callbacks. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_publish_callbacks.htm" target="_blank">Get the Result of Asynchronous Platform Event Publishing with Apex Publish Callbacks</a> in the Platform Events Developer Guide.
+     * The platform event message is published either immediately or after a transaction is committed, depending on the publish behavior you set in the platform event definition. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_define_ui.htm" target="_blank">Platform Event Fields</a> in the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_intro.htm" target="_blank">Platform Events Developer Guide</a>.
+     * Apex governor limits apply. For events configured with the Publish After Commit behavior, each method execution is counted as one DML statement against the Apex DML statement limit. You can check limit usage using the Limits.getDMLStatements() method. For events configured with the Publish Immediately behavior, each method execution is counted against a separate event publishing limit of 150 EventBus.publish() calls. You can check limit usage using the Limits.getPublishImmediateDML() method.
+     * Prior to API version 67.0, this method ran with AccessLevel.SYSTEM_MODE access. Starting with API version 67.0, it runs with AccessLevel.USER_MODE access. The user will be the automated process user unless you set a user using the PlatformEventSubscriberConfig.
+     * @return A list of results, each corresponding to the result of publishing one event. For each event, Database.SaveResult contains information about whether the operation was successful and the errors encountered. If the isSuccess() method returns true, the publish request is queued in Salesforce and the event message is published asynchronously. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_considerations.htm#pe_async_publish_errors" target="_blank" title="HTML (New Window)">High-Volume Platform Event Persistence</a>. If isSuccess() returns false, the event publish operation resulted in errors, which are returned in the Database.Error object. EventBus.publish() can publish some passed-in events, even when other events can’t be published due to errors. The EventBus.publish() method doesn’t throw exceptions caused by an unsuccessful publish operation. It’s similar in behavior to the Apex Database.insert method when called with the partial success option.
+     * If an empty list is passed in for the events parameter, no event is published, and an empty List<Database.SaveResult> is returned.
+     * This method returns a System.UnexpectedException if you attempt to publish a list of type List<SObject> that contains objects that aren’t platform events.
+     */
+    global static List publish(List sobjects, Object callback) { return null; }
 
-  /**
-   * Publishes the given platform event.
-   * @param event An instance of a platform event. For example, an instance of MyEvent__e . You must first define your platform event object in your org.
-   * @return Database.SaveResult
-   */
-  global static Database.SaveResult publish(SObject event) {}
+    /**
+     * Publishes the given platform event.
+     * Usage
+     * The platform event message is published either immediately or after a transaction is committed, depending on the publish behavior you set in the platform event definition. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_define_ui.htm" target="_blank">Platform Event Fields</a> in the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_intro.htm" target="_blank">Platform Events Developer Guide</a>.
+     * Apex governor limits apply. For events configured with the Publish After Commit behavior, each method execution is counted as one DML statement against the Apex DML statement limit. You can check limit usage using the Limits.getDMLStatements() method. For events configured with the Publish Immediately behavior, each method execution is counted against a separate event publishing limit of 150 EventBus.publish() calls. You can check limit usage using the Limits.getPublishImmediateDML() method.
+     * Prior to API version 67.0, this method ran with AccessLevel.SYSTEM_MODE access. Starting with API version 67.0, it runs with AccessLevel.USER_MODE access. The user will be the automated process user unless you set a user using the PlatformEventSubscriberConfig.
+     * @return The result of publishing the given event. Database.SaveResult contains information about whether the operation was successful and the errors encountered. If the isSuccess() method returns true, the publish request is queued in Salesforce and the event message is published asynchronously. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_considerations.htm#pe_async_publish_errors" target="_blank">High-Volume Platform Event Persistence</a>. If isSuccess() returns false, the event publish operation resulted in errors, which are returned in the Database.Error object. This method doesn’t throw an exception due to an unsuccessful publish operation.
+     * Database.SaveResult also contains the Id system field. The Id field value isn’t included in the event message delivered to subscribers. It isn’t used to identify an event message, and isn’t always unique.
+     * This method returns a System.UnexpectedException if you attempt to publish an SObject that represents an object that isn’t a platform event.
+     */
+    global static Database.SaveResult publish(SObject sobject) { return null; }
 
-  /**
-   * Publishes the given platform event.
-   * @param events 
-   * @return List<Database.SaveResult>
-   */
-  global static List<Database.SaveResult> publish(List<SObject> events) {}
+    /**
+     * Publishes the given platform event using the specified callback. To track asynchronous publish failures, you can implement an Apex publish callback.
+     * Usage
+     * Use this method with Apex publish callbacks. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_publish_callbacks.htm" target="_blank">Get the Result of Asynchronous Platform Event Publishing with Apex Publish Callbacks</a> in the Platform Events Developer Guide.
+     * The platform event message is published either immediately or after a transaction is committed, depending on the publish behavior you set in the platform event definition. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_define_ui.htm" target="_blank">Platform Event Fields</a> in the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_intro.htm" target="_blank">Platform Events Developer Guide</a>.
+     * Apex governor limits apply. For events configured with the Publish After Commit behavior, each method execution is counted as one DML statement against the Apex DML statement limit. You can check limit usage using the Limits.getDMLStatements() method. For events configured with the Publish Immediately behavior, each method execution is counted against a separate event publishing limit of 150 EventBus.publish() calls. You can check limit usage using the Limits.getPublishImmediateDML() method.
+     * Prior to API version 67.0, this method ran with AccessLevel.SYSTEM_MODE access. Starting with API version 67.0, it runs with AccessLevel.USER_MODE access. The user will be the automated process user unless you set a user using the PlatformEventSubscriberConfig.
+     * @return The result of publishing the given event. Database.SaveResult contains information about whether the operation was successful and the errors encountered. If the isSuccess() method returns true, the publish request is queued in Salesforce and the event message is published asynchronously. For more information, see <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.platform_events.meta/platform_events/platform_events_considerations.htm#pe_async_publish_errors" target="_blank">High-Volume Platform Event Persistence</a>. If isSuccess() returns false, the event publish operation resulted in errors, which are returned in the Database.Error object. This method doesn’t throw an exception due to an unsuccessful publish operation.
+     * This method returns a System.UnexpectedException if you attempt to publish an SObject that represents an object that isn’t a platform event.
+     */
+    global static Database.SaveResult publish(SObject sobject, Object callback) { return null; }
 
-  /**
-   * Publishes the given platform event.
-   * @param event An instance of a platform event. For example, an instance of MyEvent__e . You must first define your platform event object in your org.
-   * @param callback 
-   * @return Database.SaveResult
-   */
-  global static Database.SaveResult publish(SObject event, Object callback) {}
+    global static List publishWithAccessLevel(List sobjects, System.AccessLevel accessLevel) { return null; }
 
-  /**
-   * Publishes the given platform event.
-   * @param sobjects 
-   * @param callback 
-   * @return List<Database.SaveResult>
-   */
-  global static List<Database.SaveResult> publish(List<SObject> sobjects, Object callback) {}
+    global static List publishWithAccessLevel(List sobjects, Object callback, System.AccessLevel accessLevel) { return null; }
 
-  global static Database.SaveResult publishWithAccessLevel(SObject event, AccessLevel accesslevel) {}
+    global static Database.SaveResult publishWithAccessLevel(SObject sobject, System.AccessLevel accessLevel) { return null; }
 
-  global static List<Database.SaveResult> publishWithAccessLevel(List<SObject> events, AccessLevel accesslevel) {}
-
-  global Object clone() {}
-
+    global static Database.SaveResult publishWithAccessLevel(SObject sobject, Object callback, System.AccessLevel accessLevel) { return null; }
 }
