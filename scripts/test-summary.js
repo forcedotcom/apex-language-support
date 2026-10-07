@@ -142,7 +142,7 @@ if (packageResults.length > 0) {
     output(`   Time:        ${(totalTime / 1000).toFixed(1)}s in tests`);
     output(
       '   Note:        results span multiple runs; wall-clock unavailable. ' +
-        'Run `npm test` once for all packages to get it.',
+        'Run `pnpm test` once for all packages to get it.',
     );
   }
 } else {

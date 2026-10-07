@@ -72,44 +72,48 @@ jobs:
         with:
           ref: ${{ inputs.branch || github.head_ref || github.ref }}
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Setup Node.js ${{ inputs.node-version || '22.x' }}
         uses: actions/setup-node@v6
         with:
           node-version: ${{ inputs.node-version || '22.x' }}
+          cache: 'pnpm'
 
       - name: Install dependencies
-        uses: salesforcecli/github-workflows/.github/actions/npmInstallWithRetries@main
+        run: pnpm install --frozen-lockfile
 
       # Universal + web-target VSIXs are defined in packages/apex-lsp-vscode-extension (Wireit: package + package-web).
       - name: Package packages
         run: |
           if [ "${{ inputs.pre-release }}" = "true" ]; then
-            npm run package:packages:prerelease
+            pnpm run package:packages:prerelease
           else
-            npm run package:packages
+            pnpm run package:packages
           fi
 
       - name: Generate MD5 checksums
         id: md5-checksums
         run: |
           echo "Generating MD5 checksums for VSIX files..."
-          
+
           # Universal + web-target VSIX under packages/
           VSIX_FILES=$(find packages -name "*.vsix" -type f)
-          
+
           if [ -z "$VSIX_FILES" ]; then
             echo "No VSIX files found to generate checksums for"
             echo "checksums_generated=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-          
+
           # Create checksums directory structure
           CHECKSUMS_FILE="checksums.md5"
           CHECKSUMS_JSON_FILE="checksums.json"
           > "$CHECKSUMS_FILE"  # Create/clear checksums file
           > "$CHECKSUMS_JSON_FILE"  # Create/clear JSON file
           echo "[" > "$CHECKSUMS_JSON_FILE"
-          
+
           FIRST=true
           # Generate MD5 checksums for each VSIX file
           while IFS= read -r vsix_file; do
@@ -143,13 +147,13 @@ jobs:
               echo "  Size: $FILE_SIZE bytes"
             fi
           done <<< "$VSIX_FILES"
-          
+
           echo "]" >> "$CHECKSUMS_JSON_FILE"
-          
+
           # Move combined checksums files to packages root for artifact upload
           mv "$CHECKSUMS_FILE" "packages/checksums.md5"
           mv "$CHECKSUMS_JSON_FILE" "packages/checksums.json"
-          
+
           echo "checksums_generated=true" >> $GITHUB_OUTPUT
           echo "checksums_file=packages/checksums.json" >> $GITHUB_OUTPUT
 
@@ -186,10 +190,10 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Extension | MD5 Checksum | Size |" >> $GITHUB_STEP_SUMMARY
           echo "|-----------|-------------|------|" >> $GITHUB_STEP_SUMMARY
-          
+
           # Read checksums from JSON file and format table
           CHECKSUMS_FILE="${{ steps.md5-checksums.outputs.checksums_file }}"
-          
+
           if [ -f "$CHECKSUMS_FILE" ]; then
             # Use node to parse JSON and format table
             node -e "
@@ -206,7 +210,7 @@ jobs:
           else
             echo "| No checksums available | - | - |" >> $GITHUB_STEP_SUMMARY
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Note:** Individual \`.md5\` files are available alongside each VSIX file in the artifacts." >> $GITHUB_STEP_SUMMARY
           echo "A combined \`checksums.md5\` file and \`checksums.json\` file are also included in the artifacts." >> $GITHUB_STEP_SUMMARY

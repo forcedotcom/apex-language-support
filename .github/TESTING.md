@@ -235,13 +235,13 @@ git push origin test-workflow
 ```bash
 # Test locally with different Node versions
 nvm use 18
-npm test
+pnpm run test
 
 nvm use 20
-npm test
+pnpm run test
 
 nvm use node
-npm test
+pnpm run test
 ```
 
 ### Testing Artifact Downloads

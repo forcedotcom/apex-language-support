@@ -9,7 +9,7 @@
  * When invoked without --check, the script `gh api`-fetches the latest version
  * from code-builder-web and OVERWRITES `.vscode-version`. This must be a
  * deliberate, opt-in action — never wired into the build graph — otherwise
- * every local `npm run compile` (or pre-commit hook) silently bumps the file
+ * every local `pnpm run compile` (or pre-commit hook) silently bumps the file
  * and the bump leaks into the next commit.
  *
  * Note: Neither engines.vscode nor @types/vscode are synced here. Both must
@@ -24,7 +24,7 @@
  *
  *   (default) Fetches the latest version from the Code Builder Web repo and
  *             writes it to `.vscode-version`. Run via
- *             `npm run sync:vscode-version:update` when you want to bump.
+ *             `pnpm run sync:vscode-version:update` when you want to bump.
  *
  * Other scripts can import `readLocalVSCodeVersion` to read the pinned version.
  *

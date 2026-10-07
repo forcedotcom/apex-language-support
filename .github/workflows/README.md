@@ -91,7 +91,7 @@ The workflows use TypeScript-based release scripts located in `.github/scripts/`
     PRE_RELEASE: 'true'
     IS_PROMOTION: 'false'
     SELECTED_EXTENSIONS: ${{ inputs.extensions }}
-  run: npx tsx .github/scripts/index.ts ext-change-detector
+  run: pnpm exec tsx .github/scripts/index.ts ext-change-detector
 
 # Bump versions (bump type flows from determine-changes output)
 - name: Bump versions and tag for selected extensions
@@ -101,7 +101,7 @@ The workflows use TypeScript-based release scripts located in `.github/scripts/`
     PRE_RELEASE: 'true'
     IS_NIGHTLY: 'true'
     IS_PROMOTION: 'false'
-  run: npx tsx .github/scripts/index.ts ext-version-bumper
+  run: pnpm exec tsx .github/scripts/index.ts ext-version-bumper
 ```
 
 #### NPM Release Scripts
@@ -111,7 +111,7 @@ The workflows use TypeScript-based release scripts located in `.github/scripts/`
 - name: Determine changed NPM packages
   env:
     INPUT_BASE_BRANCH: 'main'
-  run: npx tsx .github/scripts/index.ts npm-change-detector
+  run: pnpm exec tsx .github/scripts/index.ts npm-change-detector
 
 # Select packages
 - name: Determine selected packages
@@ -119,7 +119,7 @@ The workflows use TypeScript-based release scripts located in `.github/scripts/`
     SELECTED_PACKAGE: ${{ github.event.inputs.packages || inputs.packages }}
     AVAILABLE_PACKAGES: ${{ inputs.available-packages }}
     CHANGED_PACKAGES: ${{ steps.changes.outputs.packages }}
-  run: npx tsx .github/scripts/index.ts npm-package-selector
+  run: pnpm exec tsx .github/scripts/index.ts npm-package-selector
 ```
 
 ### Available Scripts
@@ -272,7 +272,7 @@ graph LR
 
 **Purpose:** Create VSIX files for extensions.
 
-- **CI** runs `npm run package:packages` (or `:prerelease`) only. Universal and web VSIX logic lives in **`packages/apex-lsp-vscode-extension`** Wireit (`package` / `package-web` and prerelease variants).
+- **CI** runs `pnpm run package:packages` (or `:prerelease`) only. Universal and web VSIX logic lives in **`packages/apex-lsp-vscode-extension`** Wireit (`package` / `package-web` and prerelease variants).
 - **Universal VSIX** (`vsce package`): desktop + browser entry points in one bundle — used for VS Code Marketplace / Open VSX, GitHub release assets, and Manual Publish.
 - **Web-target VSIX** (`vsce package --target web`, trimmed in `scripts/package-web-vsix.mjs`): internal **CBWeb** marketplace only (`nightly-extensions` `publish-to-cbweb-marketplace`). GitHub releases still attach universal only ([`ext-github-releases.ts`](.github/scripts/ext-github-releases.ts) excludes `*-web-*` filenames).
 

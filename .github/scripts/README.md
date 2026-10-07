@@ -68,7 +68,7 @@ Common utilities used across workflows:
 All scripts are executed through the main CLI interface:
 
 ```bash
-npx tsx .github/scripts/index.ts <command>
+pnpm exec tsx .github/scripts/index.ts <command>
 ```
 
 ### Environment Variables
@@ -79,34 +79,34 @@ Scripts expect inputs via environment variables. Here are the common patterns:
 
 ```bash
 # ext-build-type
-npx tsx .github/scripts/index.ts ext-build-type
+pnpm exec tsx .github/scripts/index.ts ext-build-type
 
 # ext-promotion-finder
-npx tsx .github/scripts/index.ts ext-promotion-finder
+pnpm exec tsx .github/scripts/index.ts ext-promotion-finder
 
 # ext-change-detector
 IS_NIGHTLY=true VERSION_BUMP=minor PRE_RELEASE=false IS_PROMOTION=false PROMOTION_COMMIT_SHA=abc123 \
-npx tsx .github/scripts/index.ts ext-change-detector
+pnpm exec tsx .github/scripts/index.ts ext-change-detector
 
 # ext-package-selector
 SELECTED_EXTENSIONS=all AVAILABLE_EXTENSIONS=apex-lsp-vscode-extension CHANGED_EXTENSIONS=apex-lsp-vscode-extension \
-npx tsx .github/scripts/index.ts ext-package-selector
+pnpm exec tsx .github/scripts/index.ts ext-package-selector
 
 # ext-release-plan
 BRANCH=main BUILD_TYPE=workflow_dispatch IS_NIGHTLY=false VERSION_BUMP=auto REGISTRIES=all PRE_RELEASE=false SELECTED_EXTENSIONS=apex-lsp-vscode-extension \
-npx tsx .github/scripts/index.ts ext-release-plan
+pnpm exec tsx .github/scripts/index.ts ext-release-plan
 
 # ext-version-bumper
 DRY_RUN=true VERSION_BUMP=minor SELECTED_EXTENSIONS=apex-lsp-vscode-extension PRE_RELEASE=false IS_NIGHTLY=false IS_PROMOTION=false \
-npx tsx .github/scripts/index.ts ext-version-bumper
+pnpm exec tsx .github/scripts/index.ts ext-version-bumper
 
 # ext-publish-matrix
 REGISTRIES=all SELECTED_EXTENSIONS=apex-lsp-vscode-extension \
-npx tsx .github/scripts/index.ts ext-publish-matrix
+pnpm exec tsx .github/scripts/index.ts ext-publish-matrix
 
 # ext-github-releases
 DRY_RUN=true PRE_RELEASE=false VERSION_BUMP=auto SELECTED_EXTENSIONS=apex-lsp-vscode-extension IS_NIGHTLY=false VSIX_ARTIFACTS_PATH=./vsix-artifacts \
-npx tsx .github/scripts/index.ts ext-github-releases
+pnpm exec tsx .github/scripts/index.ts ext-github-releases
 ```
 
 #### NPM Scripts
@@ -114,19 +114,19 @@ npx tsx .github/scripts/index.ts ext-github-releases
 ```bash
 # npm-change-detector
 INPUT_BASE_BRANCH=main \
-npx tsx .github/scripts/index.ts npm-change-detector
+pnpm exec tsx .github/scripts/index.ts npm-change-detector
 
 # npm-package-selector
 SELECTED_PACKAGE=all AVAILABLE_PACKAGES=apex-lsp-shared,apex-parser-ast CHANGED_PACKAGES=apex-lsp-shared \
-npx tsx .github/scripts/index.ts npm-package-selector
+pnpm exec tsx .github/scripts/index.ts npm-package-selector
 
 # npm-release-plan
 MATRIX_PACKAGE=apex-lsp-shared VERSION_BUMP=patch DRY_RUN=true \
-npx tsx .github/scripts/index.ts npm-release-plan
+pnpm exec tsx .github/scripts/index.ts npm-release-plan
 
 # npm-package-details
 SELECTED_PACKAGES='["apex-lsp-shared"]' VERSION_BUMP=patch \
-npx tsx .github/scripts/index.ts npm-package-details
+pnpm exec tsx .github/scripts/index.ts npm-package-details
 ```
 
 #### Utility Scripts
@@ -134,7 +134,7 @@ npx tsx .github/scripts/index.ts npm-package-details
 ```bash
 # audit-logger
 ACTION=release ACTOR=github-actions REPOSITORY=forcedotcom/apex-language-support BRANCH=main WORKFLOW=release RUN_ID=123456789 DETAILS='{"packages":"apex-lsp-shared","version":"1.0.0"}' \
-npx tsx .github/scripts/index.ts audit-logger
+pnpm exec tsx .github/scripts/index.ts audit-logger
 ```
 
 ### Outputs
@@ -175,7 +175,7 @@ jobs:
           node-version: '20.x'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Determine changes
         id: changes
@@ -186,7 +186,7 @@ jobs:
           IS_PROMOTION: ${{ needs.build-type.outputs.is-promotion }}
           PROMOTION_COMMIT_SHA: ${{ needs.promotion-finder.outputs.promotion-commit-sha }}
         run: |
-          npx tsx .github/scripts/index.ts ext-change-detector
+          pnpm exec tsx .github/scripts/index.ts ext-change-detector
 
   bump-versions:
     needs: determine-changes
@@ -201,7 +201,7 @@ jobs:
           node-version: '20.x'
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Bump versions
         env:
@@ -213,7 +213,7 @@ jobs:
           IS_PROMOTION: ${{ needs.build-type.outputs.is-promotion }}
           PROMOTION_COMMIT_SHA: ${{ needs.promotion-finder.outputs.promotion-commit-sha }}
         run: |
-          npx tsx .github/scripts/index.ts ext-version-bumper
+          pnpm exec tsx .github/scripts/index.ts ext-version-bumper
 ```
 
 ## Environment Variables Reference
@@ -231,19 +231,19 @@ jobs:
 
 ### Extension-Specific Variables
 
-| Variable                     | Description                  | Example                                                   |
-| ---------------------------- | ---------------------------- | --------------------------------------------------------- |
-| `SELECTED_EXTENSIONS`        | Extension selection mode     | `none`, `all`, `changed`, `apex-lsp-vscode-extension`     |
-| `AVAILABLE_EXTENSIONS`       | Available VS Code extensions | `apex-lsp-vscode-extension` |
-| `CHANGED_EXTENSIONS`         | Changed VS Code extensions   | `apex-lsp-vscode-extension`                               |
-| `REGISTRIES`                 | Registries to publish to     | `all`, `vsce`, `ovsx`                                     |
-| `VSIX_ARTIFACTS_PATH`        | Path to VSIX artifacts       | `./vsix-artifacts`                                        |
-| `BRANCH`                     | Branch to release from       | `main`                                                    |
-| `BUILD_TYPE`                 | Build type                   | `workflow_dispatch`, `schedule`                           |
-| `INPUT_VERSION_BUMP`         | Version bump from workflow   | `auto`, `patch`, `minor`, `major`                         |
-| `INPUT_PRE_RELEASE`          | Pre-release from workflow    | `true` or `false`                                         |
-| `PACKAGE_DIR`                | Package directory for VSIX   | `./packages/apex-lsp-vscode-extension`                    |
-| `VSCE_PERSONAL_ACCESS_TOKEN` | VSCE token for publishing    | `ghp_...`                                                 |
+| Variable                     | Description                  | Example                                               |
+| ---------------------------- | ---------------------------- | ----------------------------------------------------- |
+| `SELECTED_EXTENSIONS`        | Extension selection mode     | `none`, `all`, `changed`, `apex-lsp-vscode-extension` |
+| `AVAILABLE_EXTENSIONS`       | Available VS Code extensions | `apex-lsp-vscode-extension`                           |
+| `CHANGED_EXTENSIONS`         | Changed VS Code extensions   | `apex-lsp-vscode-extension`                           |
+| `REGISTRIES`                 | Registries to publish to     | `all`, `vsce`, `ovsx`                                 |
+| `VSIX_ARTIFACTS_PATH`        | Path to VSIX artifacts       | `./vsix-artifacts`                                    |
+| `BRANCH`                     | Branch to release from       | `main`                                                |
+| `BUILD_TYPE`                 | Build type                   | `workflow_dispatch`, `schedule`                       |
+| `INPUT_VERSION_BUMP`         | Version bump from workflow   | `auto`, `patch`, `minor`, `major`                     |
+| `INPUT_PRE_RELEASE`          | Pre-release from workflow    | `true` or `false`                                     |
+| `PACKAGE_DIR`                | Package directory for VSIX   | `./packages/apex-lsp-vscode-extension`                |
+| `VSCE_PERSONAL_ACCESS_TOKEN` | VSCE token for publishing    | `ghp_...`                                             |
 
 ### NPM-Specific Variables
 
@@ -290,11 +290,11 @@ Test scripts locally with environment variables:
 ```bash
 # Test extension change detection
 IS_NIGHTLY=true VERSION_BUMP=minor PRE_RELEASE=false IS_PROMOTION=false \
-npx tsx .github/scripts/index.ts ext-change-detector
+ pnpm exec tsx .github/scripts/index.ts ext-change-detector
 
 # Test NPM package selection
 SELECTED_PACKAGE=all AVAILABLE_PACKAGES=apex-lsp-shared,apex-parser-ast CHANGED_PACKAGES=apex-lsp-shared \
-npx tsx .github/scripts/index.ts npm-package-selector
+ pnpm exec tsx .github/scripts/index.ts npm-package-selector
 ```
 
 ### Dry Run Mode
@@ -302,7 +302,7 @@ npx tsx .github/scripts/index.ts npm-package-selector
 Most scripts support dry-run mode for safe testing:
 
 ```bash
-DRY_RUN=true npx tsx .github/scripts/index.ts ext-version-bumper
+DRY_RUN=true pnpm exec tsx .github/scripts/index.ts ext-version-bumper
 ```
 
 ## Error Handling

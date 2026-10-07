@@ -13,8 +13,7 @@ module.exports = {
   moduleNameMapper: {
     ...baseConfig.moduleNameMapper,
     // Force CJS entry for apex-parser in Jest (browser export is ESM-only .mjs)
-    '^@apexdevtools/apex-parser$':
-      '<rootDir>/../../node_modules/@apexdevtools/apex-parser/dist/cjs/index.cjs',
+    '^@apexdevtools/apex-parser$': require.resolve('@apexdevtools/apex-parser'),
     // VSCode Language Server mocks for browser environment
     '^vscode-languageserver/browser$':
       '<rootDir>/test/__mocks__/vscode-languageserver-browser.mock.js',
@@ -24,7 +23,7 @@ module.exports = {
       '<rootDir>/test/__mocks__/vscode-languageserver-textdocument.mock.js',
     // Map ESM exports from vscode-languageserver-types to CJS
     '^vscode-languageserver-types$':
-      '<rootDir>/../../node_modules/vscode-languageserver-types/lib/umd/main.js',
+      require.resolve('vscode-languageserver-types'),
     // Mock Node.js-specific OpenTelemetry packages for web tests
     // These packages use ESM exports that Jest cannot handle in browser environment
     '^@azure/monitor-opentelemetry-exporter$':

@@ -35,7 +35,7 @@
     "test": "wireit",
     "test:coverage": "wireit",
     "clean": "rimraf out dist .wireit coverage tsconfig.tsbuildinfo",
-    "clean:all": "npm run clean && rimraf node_modules",
+    "clean:all": "pnpm run clean && rimraf node_modules",
     "lint": "wireit",
     "typecheck": "wireit"
   },
@@ -134,7 +134,7 @@
     }
   },
   "dependencies": {
-    "@salesforce/apex-lsp-shared": "*",
+    "@salesforce/apex-lsp-shared": "workspace:*",
     "effect": "^3.22.1",
     "vscode-jsonrpc": "^8.2.1",
     "vscode-languageserver-protocol": "^3.17.5"
@@ -149,7 +149,7 @@
   },
   "devDependencies": {
     "@jest/globals": "^30.5.1",
-    "@salesforce/esbuild-presets": "^0.1.0",
+    "@salesforce/esbuild-presets": "workspace:*",
     "vscode-languageclient": "^9.0.1"
   }
 }

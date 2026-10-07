@@ -45,29 +45,33 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.ref }}
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: '22.x'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        uses: salesforcecli/github-workflows/.github/actions/npmInstallWithRetries@main
+        run: pnpm install --frozen-lockfile
 
       - name: Determine changed NPM packages
         id: changes
         env:
           INPUT_BASE_BRANCH: 'main'
         run: |
-          npx tsx .github/scripts/index.ts npm-change-detector
+          pnpm exec tsx .github/scripts/index.ts npm-change-detector
 
       - name: Determine selected packages
         id: selected-packages
         env:
           SELECTED_PACKAGE: ${{ github.event.inputs.packages }}
-          AVAILABLE_PACKAGES: ""
+          AVAILABLE_PACKAGES: ''
           CHANGED_PACKAGES: ${{ steps.changes.outputs.packages }}
         run: |
-          npx tsx .github/scripts/index.ts npm-package-selector
+          pnpm exec tsx .github/scripts/index.ts npm-package-selector
 
       - name: Determine version bump type
         id: version-bump
@@ -76,7 +80,7 @@ jobs:
           VERSION_BUMP: 'auto'
           DRY_RUN: 'true'
         run: |
-          npx tsx .github/scripts/index.ts npm-release-plan
+          pnpm exec tsx .github/scripts/index.ts npm-release-plan
 
   release-npm:
     needs: determine-npm-changes
@@ -93,14 +97,18 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.ref }}
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: '22.x'
           registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        uses: salesforcecli/github-workflows/.github/actions/npmInstallWithRetries@main
+        run: pnpm install --frozen-lockfile
 
       - name: Display Release Plan
         if: inputs.dry-run == 'true' || github.event.inputs.dry-run == 'true'
@@ -109,20 +117,20 @@ jobs:
           VERSION_BUMP: ${{ needs.determine-npm-changes.outputs.version-bump }}
           DRY_RUN: 'true'
         run: |
-          npx tsx .github/scripts/index.ts npm-release-plan
+          pnpm exec tsx .github/scripts/index.ts npm-release-plan
 
       - name: Build package
         if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
         run: |
           cd packages/${{ matrix.package }}
-          npm run compile
-          npm run bundle
+          pnpm run compile
+          pnpm run bundle
 
       - name: Release to NPM
         if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'
         run: |
           cd packages/${{ matrix.package }}
-          npx semantic-release
+          pnpm exec semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -144,13 +152,25 @@ jobs:
         with:
           ref: ${{ github.ref }}
 
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Get Package Details
         id: package-details
         env:
           SELECTED_PACKAGES: ${{ needs.determine-npm-changes.outputs.selected-packages }}
           VERSION_BUMP: ${{ needs.determine-npm-changes.outputs.version-bump }}
         run: |
-          npx tsx .github/scripts/index.ts npm-package-details
+          pnpm exec tsx .github/scripts/index.ts npm-package-details
 
       - name: Notify Slack
         uses: slackapi/slack-github-action@v3.0.5
@@ -218,13 +238,25 @@ jobs:
         with:
           ref: ${{ github.ref }}
 
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Get Package Details
         id: package-details
         env:
           SELECTED_PACKAGES: ${{ needs.determine-npm-changes.outputs.selected-packages }}
           VERSION_BUMP: ${{ needs.determine-npm-changes.outputs.version-bump }}
         run: |
-          npx tsx .github/scripts/index.ts npm-package-details
+          pnpm exec tsx .github/scripts/index.ts npm-package-details
 
       - name: Notify Slack
         uses: slackapi/slack-github-action@v3.0.5

@@ -26,7 +26,7 @@ try {
     delete pkg[k];
   }
   writeFileSync(pjPath, JSON.stringify(pkg, null, 2) + '\n');
-  execFileSync('npx', ['vsce', 'package', ...vsceArgs], { stdio: 'inherit', cwd: root });
+  execFileSync('pnpm', ['exec', 'vsce', 'package', ...vsceArgs], { stdio: 'inherit', cwd: root });
 } catch (err) {
   exitCode = typeof err?.status === 'number' ? err.status : 1;
 } finally {

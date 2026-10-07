@@ -18,7 +18,7 @@
     "test:e2e:desktop:all-browsers": "wireit",
     "server": "node test-server.js",
     "clean": "echo 'No artifacts to clean in e2e-tests'",
-    "clean:all": "npm run clean"
+    "clean:all": "pnpm run clean"
   },
   "wireit": {
     "lint": {

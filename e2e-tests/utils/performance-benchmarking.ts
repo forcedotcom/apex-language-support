@@ -402,7 +402,7 @@ export class MemoryProfiler {
       lines.push('No memory snapshots recorded.');
       lines.push('');
       lines.push('Note: Memory profiling requires desktop mode.');
-      lines.push('Run tests with: npm run test:e2e:desktop');
+      lines.push('Run tests with: pnpm run test:e2e:desktop');
       return lines.join('\n');
     }
 

@@ -32,24 +32,27 @@ jobs:
           persist-credentials: false
           submodules: false
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        uses: salesforcecli/github-workflows/.github/actions/npmInstallWithRetries@main
+        run: pnpm install --frozen-lockfile
 
       - name: Run linting
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Compile project
-        run: npm run compile
+        run: pnpm run compile
 
       - name: Run tests with coverage (lts/current)
         if: ${{ matrix.node-version != 'lts/-1' }}
-        run: npm run test:coverage
+        run: pnpm run test:coverage
 
       - name: Run tests (lts/-1, no coverage)
         if: ${{ matrix.node-version == 'lts/-1' }}
@@ -57,11 +60,11 @@ jobs:
           # Old-LTS defaults to ~4 GB old-space, which is too low for heavy stdlib suites.
           # Keep this scoped to lts/-1 and non-coverage runs only.
           NODE_OPTIONS: --max-old-space-size=6144
-        run: npm run test
+        run: pnpm run test
 
       - name: Merge coverage reports
         if: ${{ matrix.node-version != 'lts/-1' }}
-        run: npm run test:coverage:report
+        run: pnpm run test:coverage:report
 
       - name: Determine Node Label
         id: node-label
@@ -105,17 +108,20 @@ jobs:
           persist-credentials: false
           submodules: false
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        uses: salesforcecli/github-workflows/.github/actions/npmInstallWithRetries@main
+        run: pnpm install --frozen-lockfile
 
       - name: Run quality tests
-        run: npm run test:quality
+        run: pnpm run test:quality
 
   browser-compilation:
     name: Browser Compilation
@@ -129,20 +135,23 @@ jobs:
           persist-credentials: false
           submodules: false
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Setup Node.js lts/*
         uses: actions/setup-node@v6
         with:
           node-version: 'lts/*'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        uses: salesforcecli/github-workflows/.github/actions/npmInstallWithRetries@main
+        run: pnpm install --frozen-lockfile
 
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Run browser compilation integration test
-        run: npm run test:browser-compilation --workspace=packages/apex-ls
+        run: pnpm --filter @salesforce/apex-ls run test:browser-compilation
 
   package:
     name: Package
