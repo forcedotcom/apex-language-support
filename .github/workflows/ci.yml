@@ -148,7 +148,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Chromium
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm --dir e2e-tests exec playwright install --with-deps chromium
 
       - name: Run browser compilation integration test
         run: pnpm --filter @salesforce/apex-ls run test:browser-compilation

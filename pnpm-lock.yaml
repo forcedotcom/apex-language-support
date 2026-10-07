@@ -568,6 +568,9 @@ importers:
       fflate:
         specifier: ^0.8.3
         version: 0.8.3
+      vscode-jsonrpc:
+        specifier: ^8.2.1
+        version: 8.2.1
       vscode-languageclient:
         specifier: ^9.0.1
         version: 9.0.1

@@ -789,7 +789,7 @@
   },
   "wireit": {
     "precompile": {
-      "command": "shx cp -R \"$(node -e \"process.stdout.write(require('node:path').dirname(require.resolve('@salesforce/apex-tmlanguage/package.json')))\")/grammars\" . && shx mkdir -p out && shx cp package.nls*.json language-configuration.json out/",
+      "command": "node scripts/prepare-extension-resources.mjs",
       "output": [
         "grammars/**"
       ],
@@ -970,6 +970,7 @@
     "effect": "^3.22.1",
     "fflate": "^0.8.3",
     "vscode-languageclient": "^9.0.1",
+    "vscode-jsonrpc": "^8.2.1",
     "web-worker": "^1.5.0"
   },
   "devDependencies": {

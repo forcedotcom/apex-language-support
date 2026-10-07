@@ -196,7 +196,7 @@ jobs:
           Write-Host "✅ Extension build verified"
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps ${{ matrix.browser }}
+        run: pnpm --dir e2e-tests exec playwright install --with-deps ${{ matrix.browser }}
 
       - name: Run E2E tests (Desktop - ${{ matrix.browser }} on ${{ matrix.os }})
         id: parallel-run
