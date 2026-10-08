@@ -7,16 +7,16 @@ This is the fastest path to validate changes in this repo.
 Run from repo root:
 
 ```bash
-npm run compile
-npm run lint
-npm run test
-npm run bundle
+pnpm run compile
+pnpm run lint
+pnpm run test
+pnpm run bundle
 ```
 
 For e2e coverage:
 
 ```bash
-npm run test:e2e
+pnpm run test:e2e
 ```
 
 ## CI Workflows to Use
@@ -38,10 +38,10 @@ Use GitHub Actions for these workflows:
 
 ## Release Readiness Checklist
 
-- [ ] `npm run compile` passes
-- [ ] `npm run lint` passes
-- [ ] `npm run test` passes
-- [ ] `npm run bundle` passes
+- [ ] `pnpm run compile` passes
+- [ ] `pnpm run lint` passes
+- [ ] `pnpm run test` passes
+- [ ] `pnpm run bundle` passes
 - [ ] `e2e-tests.yml` results are acceptable
 - [ ] Dry-run release workflows complete successfully
 - [ ] Required GitHub secrets are configured (`NPM_TOKEN`, `VSCE_PAT`, `OVSX_PAT`, etc.)

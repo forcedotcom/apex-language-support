@@ -39,10 +39,10 @@ console.log(`  Input: ${protoFile}`);
 console.log(`  Output: ${outputDir}`);
 
 try {
-  // Use npx to run the protobuf-ts plugin
+  // Run the workspace-installed protobuf-ts plugin.
   // The plugin is invoked via protoc with the --ts_out option
   const command = [
-    'npx',
+    'pnpm exec',
     'protoc',
     '--ts_out',
     outputDir,
@@ -70,7 +70,7 @@ try {
   console.error(
     '1. Ensure protoc is installed: brew install protobuf (macOS) or apt install protobuf-compiler (Linux)',
   );
-  console.error('2. Ensure @protobuf-ts/plugin is installed: npm install');
+  console.error('2. Ensure @protobuf-ts/plugin is installed: pnpm install');
   console.error('3. Check that the proto file is valid');
 
   process.exit(1);

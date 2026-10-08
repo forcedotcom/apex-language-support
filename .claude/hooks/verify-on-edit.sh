@@ -27,7 +27,7 @@ esac
 # is missing). The package is a top-level devDep in package.json.
 EFFECT_LS="$ROOT/node_modules/.bin/effect-language-service"
 if [ ! -x "$EFFECT_LS" ]; then
-  echo "[verify-on-edit] effect LS skipped — $EFFECT_LS not found (run npm install)" >&2
+  echo "[verify-on-edit] effect LS skipped — $EFFECT_LS not found (run pnpm install)" >&2
   exit 0
 fi
 

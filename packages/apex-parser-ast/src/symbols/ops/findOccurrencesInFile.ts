@@ -127,7 +127,9 @@ function* flattenReferences(
     yield ref;
     const chain = ref.chainNodes;
     if (chain && chain.length > 0) {
-      yield* chain;
+      for (const chainRef of chain) {
+        yield chainRef;
+      }
     }
   }
 }

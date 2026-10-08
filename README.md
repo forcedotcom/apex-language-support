@@ -218,7 +218,7 @@ npm install @salesforce/apex-lsp-testbed
 ## Requirements
 
 - Node.js (latest LTS recommended)
-- npm
+- pnpm (managed through Corepack)
 
 ## Installation
 
@@ -228,7 +228,8 @@ git clone <repository-url>
 cd apex-language-support
 
 # Install dependencies
-npm install
+corepack enable
+pnpm install
 ```
 
 ## Development
@@ -237,23 +238,23 @@ To build all packages, run the following command from the root of the repository
 
 ```bash
 # Build all packages
-npm run compile
+pnpm run compile
 ```
 
 Other useful commands for development include:
 
 ```bash
 # Run all tests
-npm run test
+pnpm run test
 
 # Run all tests with coverage
-npm run test:coverage
+pnpm run test:coverage
 
 # Lint all packages
-npm run lint
+pnpm run lint
 
 # Fix linting issues
-npm run lint:fix
+pnpm run lint:fix
 ```
 
 ### Building and Packaging the VS Code Extension
@@ -262,7 +263,7 @@ To build and package the VS Code extension (`.vsix` file), run the following com
 
 ```bash
 # Build and package the VS Code extension
-npm run package --workspace=apex-language-server-extension
+pnpm --filter apex-language-server-extension run package
 ```
 
 The packaged extension will be available in the `packages/apex-lsp-vscode-extension` directory.
@@ -275,10 +276,10 @@ This project includes comprehensive test coverage for all packages. Test coverag
 
 ```bash
 # Run all tests with coverage
-npm run test:coverage
+pnpm run test:coverage
 
 # Generate a consolidated coverage report for the entire repository
-npm run test:coverage:report
+pnpm run test:coverage:report
 ```
 
 ### Coverage Reports

@@ -7,7 +7,7 @@ Thank you for your interest in contributing to the Apex Language Support project
 Before you begin, ensure your development environment meets these requirements:
 
 - **Node.js**: v20.0.0 or higher (v22.x recommended)
-- **npm**: v10.2.0 or higher
+- **pnpm**: v12.10.1 (managed through Corepack)
 - Git
 
 ## Development Environment Setup
@@ -22,17 +22,18 @@ Before you begin, ensure your development environment meets these requirements:
 2. **Install dependencies**:
 
    ```bash
-   npm install
+    corepack enable
+    pnpm install
    ```
 
 3. **Build the project**:
    ```bash
-   npm run compile
+    pnpm run compile
    ```
 
 ## Project Structure & Architecture
 
-The project is organized as a **monorepo** using npm workspaces with multiple interconnected packages. The architecture follows a layered approach with clear separation of concerns:
+The project is organized as a **pnpm workspace monorepo** with multiple interconnected packages. The architecture follows a layered approach with clear separation of concerns:
 
 ### Package Overview
 
@@ -262,24 +263,24 @@ This project uses **Wireit** for smart incremental builds that only rebuild what
 - **Build all packages**:
 
   ```bash
-  npm run compile
+  pnpm run compile
   ```
 
 - **Build a specific package** (will also build its dependencies):
 
   ```bash
-  npm run compile --workspace=@salesforce/apex-lsp-parser-ast
+  pnpm --filter @salesforce/apex-lsp-parser-ast run compile
   ```
 
 - **Clean build** (remove all build artifacts):
 
   ```bash
-  npm run clean
+  pnpm run clean
   ```
 
 - **Bundle packages** (create optimized bundles):
   ```bash
-  npm run bundle
+  pnpm run bundle
   ```
 
 ### Building Extensions
@@ -288,7 +289,7 @@ For VS Code extensions specifically:
 
 ```bash
 # Build extension (includes both desktop and web)
-npm run package --workspace=apex-language-server-extension
+pnpm --filter apex-language-server-extension run package
 ```
 
 ### Testing
@@ -296,13 +297,13 @@ npm run package --workspace=apex-language-server-extension
 - **Run all tests**:
 
   ```bash
-  npm test
+  pnpm test
   ```
 
 - **Run tests with coverage**:
 
   ```bash
-  npm run test:coverage
+  pnpm run test:coverage
   ```
 
 ### Code Quality
@@ -310,12 +311,12 @@ npm run package --workspace=apex-language-server-extension
 - **Check code style**:
 
   ```bash
-  npm run lint
+  pnpm run lint
   ```
 
 - **Fix code style issues**:
   ```bash
-  npm run lint:fix
+  pnpm run lint:fix
   ```
 
 ## TypeScript Declaration Files
@@ -414,18 +415,18 @@ This project follows these code style practices:
 
 ### Build Issues
 
-- **Wireit cache issues**: Run `npm run clean` to clear build artifacts
+- **Wireit cache issues**: Run `pnpm run clean` to clear build artifacts
 - **TypeScript path resolution**: Ensure packages are built in dependency order
-- **Missing dependencies**: Run `npm install` in the root directory
+- **Missing dependencies**: Run `pnpm install` in the root directory
 
-### npm Workspace Issues
+### pnpm Workspace Issues
 
-If you encounter issues with npm workspaces:
+If you encounter issues with pnpm workspaces:
 
-- Make sure you're using npm v10.2.0+
-- If you can't update npm globally, use the project's recommended approach:
+- Enable Corepack to use the pnpm version pinned in `package.json`:
   ```bash
-  npx npm@10.2.0 run compile
+   corepack enable
+   pnpm run compile
   ```
 
 ### Extension Development
@@ -439,7 +440,7 @@ If you encounter issues with npm workspaces:
 - **Incremental builds**: Wireit automatically handles incremental building based on file changes
 - **Parallel execution**: Tasks that don't depend on each other run in parallel
 - **Caching**: Build outputs are cached to avoid redundant work
-- **Bundle optimization**: Use `npm run bundle` for optimized production builds
+- **Bundle optimization**: Use `pnpm run bundle` for optimized production builds
 
 ## License
 

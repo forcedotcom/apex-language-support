@@ -13,7 +13,7 @@
 # 4. Analyzes spans with trace-debugger agent
 #
 # Prerequisites:
-# - Extension must be built (npm run compile)
+# - Extension must be built (pnpm run compile)
 # - Test project must have .vscode/settings.json configured:
 #   {
 #     "apex.performance.enableWorkspaceLoadOnStartup": true,
@@ -42,9 +42,9 @@ fi
 
 # Ensure extension is built
 if [ ! -d "$REPO_ROOT/packages/apex-lsp-vscode-extension/out" ]; then
-  echo "⚠️  Extension not built. Running npm run compile..."
+  echo "⚠️  Extension not built. Running pnpm run compile..."
   cd "$REPO_ROOT"
-  npm run compile
+  pnpm run compile
 fi
 
 # Clear old spans

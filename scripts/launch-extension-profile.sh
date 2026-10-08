@@ -21,7 +21,7 @@ if [ ! -e "${WORKSPACE_PATH}" ]; then
 fi
 
 echo "Building extension..."
-npm run bundle
+pnpm run bundle
 
 echo "Launching VS Code Insiders with extension profiling enabled..."
 echo "Workspace: ${WORKSPACE_PATH}"

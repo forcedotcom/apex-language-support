@@ -774,29 +774,29 @@
     "precompile": "wireit",
     "compile": "wireit",
     "bundle": "wireit",
-    "vscode:bundle": "npm run bundle",
+    "vscode:bundle": "pnpm run bundle",
     "package": "wireit",
     "package-prerelease": "wireit",
     "package-web": "wireit",
     "package-web-prerelease": "wireit",
-    "rebuild": "npm run clean && npm run build",
+    "rebuild": "pnpm run clean && pnpm run compile && pnpm run bundle",
     "test": "wireit",
     "test:coverage": "wireit",
     "typecheck": "wireit",
     "clean": "rimraf out dist .wireit coverage grammars tsconfig.tsbuildinfo server-bundle",
-    "clean:all": "npm run clean && rimraf node_modules",
+    "clean:all": "pnpm run clean && rimraf node_modules",
     "lint": "wireit"
   },
   "wireit": {
     "precompile": {
-      "command": "shx cp -R ../../node_modules/@salesforce/apex-tmlanguage/grammars . && shx mkdir -p out && shx cp package.nls*.json language-configuration.json out/",
+      "command": "node scripts/prepare-extension-resources.mjs",
       "output": [
         "grammars/**"
       ],
       "files": [
         "package.nls*.json",
         "language-configuration.json",
-        "../../node_modules/@salesforce/apex-tmlanguage/grammars/**"
+        "node_modules/@salesforce/apex-tmlanguage/grammars/**"
       ]
     },
     "compile": {
@@ -964,19 +964,20 @@
     "@effect/platform-node": "^0.108.1",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/sdk-trace-base": "^2.11.0",
-    "@salesforce/apex-lsp-client": "*",
-    "@salesforce/apex-lsp-compliant-services": "1.0.0",
-    "@salesforce/apex-lsp-shared": "1.0.0",
+    "@salesforce/apex-lsp-client": "workspace:*",
+    "@salesforce/apex-lsp-compliant-services": "workspace:*",
+    "@salesforce/apex-lsp-shared": "workspace:*",
     "effect": "^3.22.1",
     "fflate": "^0.8.3",
     "vscode-languageclient": "^9.0.1",
+    "vscode-jsonrpc": "^8.2.1",
     "web-worker": "^1.5.0"
   },
   "devDependencies": {
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
     "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
     "@salesforce/apex-tmlanguage": "^2.0.3",
-    "@salesforce/esbuild-presets": "^0.1.0",
+    "@salesforce/esbuild-presets": "workspace:*",
     "@salesforce/vscode-services": "^67.20.0",
     "@types/vscode": "^1.120.0",
     "@vscode/vsce": "^3.9.2",

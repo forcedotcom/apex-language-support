@@ -26,7 +26,7 @@
   "scripts": {
     "fetch:api-stubs": "node scripts/fetch-api-stubs.mjs",
     "generate:api-stubs": "node scripts/generate-api-stubs.mjs",
-    "update:stubs": "npm run fetch:api-stubs && npm run generate:api-stubs",
+    "update:stubs": "pnpm run fetch:api-stubs && pnpm run generate:api-stubs",
     "generate:stdlib-cache": "wireit",
     "precompile": "wireit",
     "bundle": "wireit",
@@ -35,9 +35,9 @@
     "test:one": "wireit",
     "test:coverage": "wireit",
     "test:perf": "wireit",
-    "test:perf:quick": "QUICK=true npm run test:perf",
+    "test:perf:quick": "QUICK=true pnpm run test:perf",
     "clean": "rimraf out dist resources .wireit coverage src/generated tsconfig.tsbuildinfo",
-    "clean:all": "npm run clean && rimraf node_modules",
+    "clean:all": "pnpm run clean && rimraf node_modules",
     "lint": "wireit",
     "typecheck": "wireit",
     "check:error-codes": "node scripts/check-error-code-coverage.mjs"
@@ -215,7 +215,7 @@
   "dependencies": {
     "@apexdevtools/apex-parser": "5.2.0",
     "@protobuf-ts/runtime": "^2.9.4",
-    "@salesforce/apex-lsp-shared": "^1.0.0",
+    "@salesforce/apex-lsp-shared": "workspace:*",
     "@salesforce/vscode-i18n": "^66.8.0",
     "antlr4": "4.13.2",
     "data-structure-typed": "^2.6.4",
@@ -225,7 +225,8 @@
   },
   "devDependencies": {
     "@protobuf-ts/plugin": "^2.9.4",
-    "@salesforce/esbuild-presets": "^0.1.0",
+    "@protobuf-ts/protoc": "^2.11.1",
+    "@salesforce/esbuild-presets": "workspace:*",
     "@types/benchmark": "^2.1.5",
     "benchmark": "^2.1.4",
     "esbuild-plugin-copy": "^2.1.1"

@@ -1,0 +1,14 @@
+packages:
+  - packages/*
+  - e2e-tests
+
+allowBuilds:
+  '@parcel/watcher': true
+  '@playwright/browser-chromium': true
+  '@vscode/vsce-sign': true
+  core-js: true
+  core-js-pure: true
+  esbuild: true
+  keytar: true
+  msgpackr-extract: true
+  unrs-resolver: true

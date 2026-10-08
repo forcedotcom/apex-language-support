@@ -115,7 +115,7 @@ test_package_scripts() {
     local missing_scripts=()
     
     for script in "${required_scripts[@]}"; do
-        if npm run | grep -q "$script"; then
+        if pnpm run | grep -q "$script"; then
             print_status "SUCCESS" "Script found: $script"
         else
             print_status "ERROR" "Script missing: $script"
@@ -273,12 +273,12 @@ test_environment() {
         return 1
     fi
     
-    # Check npm
-    if command -v npm &> /dev/null; then
-        local npm_version=$(npm --version)
-        print_status "SUCCESS" "npm version: $npm_version"
+    # Check pnpm
+    if command -v pnpm &> /dev/null; then
+        local pnpm_version=$(pnpm --version)
+        print_status "SUCCESS" "pnpm version: $pnpm_version"
     else
-        print_status "ERROR" "npm not found"
+        print_status "ERROR" "pnpm not found"
         return 1
     fi
     
@@ -332,4 +332,4 @@ main() {
 }
 
 # Run main function
-main "$@" 
+main "$@"

@@ -8,9 +8,8 @@ updates:
       - "dependencies"
     open-pull-requests-limit: 10
     versioning-strategy: "increase"
-    # Mirror the local `min-release-age=7` npm setting: wait 7 days after a
-    # release before opening an update PR, so freshly published versions
-    # aren't blocked locally while CI (which has no such restriction) passes.
+    # Wait seven days after a release before opening an update PR, so freshly
+    # published versions have time to stabilize before CI evaluates them.
     cooldown:
       default-days: 7
     ignore:
@@ -32,7 +31,7 @@ updates:
       interval: "weekly"
     labels:
       - "dependencies"
-    # Mirror the local `min-release-age=7` npm setting (see npm block above).
+    # Use the same release-age policy as dependency updates above.
     cooldown:
       default-days: 7
     ignore:

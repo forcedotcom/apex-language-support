@@ -46,8 +46,8 @@ echo "[verify-stop] edits detected in session, running verification" >&2
 # Clean up marker for next run
 rm -f "$SESSION_MARKER"
 
-run_step "compile" "npm run compile" && echo "[verify-stop] compile ok" >&2
-run_step "lint" "npm run lint" && echo "[verify-stop] lint ok" >&2
+run_step "compile" "pnpm run compile" && echo "[verify-stop] compile ok" >&2
+run_step "lint" "pnpm run lint" && echo "[verify-stop] lint ok" >&2
 
 # Effect LS: only uncommitted .ts files.
 # Invoke the locally-installed bin directly (never bare `npx`, which would
@@ -86,11 +86,11 @@ if [ -n "$ts_files" ] && [ -x "$EFFECT_LS" ]; then
     echo "[verify-stop] effect LS ok (no errors/warnings/messages)" >&2
   fi
 elif [ -n "$ts_files" ]; then
-  echo "[verify-stop] WARNING: effect LS skipped — $EFFECT_LS not found (run npm install)" >&2
+  echo "[verify-stop] WARNING: effect LS skipped — $EFFECT_LS not found (run pnpm install)" >&2
 else
   echo "[verify-stop] effect LS skipped (no uncommitted .ts in packages)" >&2
 fi
 
-run_step "test" "npm run test" && echo "[verify-stop] test ok" >&2
-run_step "bundle" "npm run bundle" && echo "[verify-stop] bundle ok" >&2
+run_step "test" "pnpm run test" && echo "[verify-stop] test ok" >&2
+run_step "bundle" "pnpm run bundle" && echo "[verify-stop] bundle ok" >&2
 echo "[verify-stop] all passed" >&2

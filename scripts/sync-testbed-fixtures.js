@@ -19,7 +19,7 @@
  *
  * Usage:
  *   node scripts/sync-testbed-fixtures.js
- *   npm run sync:testbed-fixtures
+ *   pnpm run sync:testbed-fixtures
  */
 
 const fs = require('fs');

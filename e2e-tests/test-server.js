@@ -52,7 +52,7 @@ async function startTestServer() {
 
     if (!fs.existsSync(extensionDevelopmentPath)) {
       throw new Error(
-        `Extension directory not found: ${extensionDevelopmentPath}. Run 'npm run bundle' first.`,
+        `Extension directory not found: ${extensionDevelopmentPath}. Run 'pnpm run bundle' first.`,
       );
     }
 

@@ -29,7 +29,7 @@
     "test:browser-compilation": "wireit",
     "test:coverage": "wireit",
     "clean": "rimraf out dist .wireit coverage tsconfig.tsbuildinfo || rm -rf out dist .wireit coverage tsconfig.tsbuildinfo",
-    "clean:all": "npm run clean && rimraf node_modules",
+    "clean:all": "pnpm run clean && rimraf node_modules",
     "lint": "wireit",
     "typecheck": "wireit",
     "rebuild": "wireit"
@@ -73,7 +73,7 @@
         "bundle"
       ],
       "cache": false,
-      "command": "npm run clean && npm run compile"
+      "command": "pnpm run clean && pnpm run compile"
     },
     "bundle": {
       "command": "tsx esbuild.config.ts",
@@ -188,9 +188,9 @@
     "@opentelemetry/resources": "^2.9.0",
     "@opentelemetry/sdk-trace-base": "^2.11.0",
     "@opentelemetry/sdk-trace-node": "^2.11.0",
-    "@salesforce/apex-lsp-compliant-services": "1.0.0",
-    "@salesforce/apex-lsp-parser-ast": "1.0.0",
-    "@salesforce/apex-lsp-shared": "1.0.0",
+    "@salesforce/apex-lsp-compliant-services": "workspace:*",
+    "@salesforce/apex-lsp-parser-ast": "workspace:*",
+    "@salesforce/apex-lsp-shared": "workspace:*",
     "data-structure-typed": "^2.6.4",
     "effect": "^3.22.1",
     "fflate": "^0.8.3",
@@ -199,7 +199,7 @@
     "vscode-uri": "^3.2.0"
   },
   "devDependencies": {
-    "@salesforce/esbuild-presets": "^0.1.0",
+    "@salesforce/esbuild-presets": "workspace:*",
     "@types/node": "^20.19.43",
     "@types/vscode": "^1.120.0",
     "assert": "^2.1.0",

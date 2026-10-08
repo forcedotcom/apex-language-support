@@ -5,6 +5,7 @@
 All tests pass with the Effect tracing instrumentation in place:
 
 **Node tests:**
+
 ```
 Test Suites: 1 skipped, 32 passed, 32 of 33 total
 Tests:       1 skipped, 224 passed, 225 total
@@ -12,6 +13,7 @@ Time:        133.678 s
 ```
 
 **Web tests:**
+
 ```
 Test Suites: 14 passed, 14 total
 Tests:       12 skipped, 106 passed, 118 total
@@ -25,10 +27,11 @@ The tracing instrumentation is now in place and all tests pass. To verify that w
 ### Prerequisites
 
 1. **Grafana Tempo must be running:**
+
    ```bash
    # Check if Tempo API is accessible
    curl -s "http://localhost:3200/api/search?limit=1"
-   
+
    # Check if OTLP endpoint is accessible
    curl -s -X POST http://localhost:4318/v1/traces
    ```
@@ -60,9 +63,10 @@ missing parents inside the captured server/worker subtree.
 ### Verification Steps
 
 1. **Build the extension with tracing changes:**
+
    ```bash
    cd /Users/peter.hale/git/apex-language-support-my-work/.claude/worktrees/workspace-load-investigation
-   npm run compile -w @salesforce/apex-ls
+   pnpm --filter @salesforce/apex-ls run compile
    ```
 
 2. **Launch VSCode with the extension:**
@@ -71,6 +75,7 @@ missing parents inside the captured server/worker subtree.
    - Watch for workspace batch processing in Output panel (Apex Language Server)
 
 3. **Expected log messages:**
+
    ```
    [coordinatorTracing] Initialized OTEL tracing for apex-ls-coordinator -> http://127.0.0.1:<port>
    [BATCH-PROCESSING] Processing N stored batches for session workspace-load-...
@@ -78,11 +83,12 @@ missing parents inside the captured server/worker subtree.
    ```
 
 4. **Query Tempo for workspace load spans:**
+
    ```bash
    # Search for coordinator traces
    curl -s "http://localhost:3200/api/search?tags=service.name%3Dapex-ls-coordinator&limit=50" | \
      jq '.traces[] | select(.rootTraceName | contains("workspace"))'
-   
+
    # Expected span names:
    # - workspace.load.total (root span)
    #   - workspace.batch.decode (per batch)
@@ -95,7 +101,7 @@ missing parents inside the captured server/worker subtree.
    ```bash
    # Get trace ID from search results
    TRACE_ID="<trace-id-from-search>"
-   
+
    # Fetch full trace details
    curl -s "http://localhost:3200/api/traces/${TRACE_ID}" | jq '.'
    ```
@@ -136,8 +142,9 @@ missing parents inside the captured server/worker subtree.
 **Child spans work**: The child spans (decode, ingest, compile) are shorter-lived and complete while the parent Effect is still active, so they export successfully.
 
 **Workaround**: The root span timing information can be reconstructed from the child spans:
+
 - Start time: earliest child span start time
-- End time: latest child span end time  
+- End time: latest child span end time
 - Duration: end time - start time
 
 **Impact**: The span hierarchy is still correct (child spans have proper `parentSpanId`), and all timing data is present. Only the root span wrapper is missing from Tempo's view.
@@ -147,12 +154,14 @@ missing parents inside the captured server/worker subtree.
 ### No coordinator spans in Tempo
 
 1. **Check if tracing is enabled:**
+
    ```bash
    # Look for coordinator tracing init message in logs
    tail -1000 ~/.sf/vscode-spans/coordinator-*.log | rg "Initialized OTEL"
    ```
 
 2. **Check VSCode setting:**
+
    ```bash
    # Verify enableLocalTraces is true
    code --list-extensions --show-versions | rg salesforce

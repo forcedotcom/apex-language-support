@@ -5,7 +5,7 @@
  * Tests the Apex Language Server extension in a web environment
  *
  * Usage:
- *   npm run test:web
+ *   pnpm run test:web
  *   node scripts/test-web-ext.js [web]
  *
  * Options:
@@ -492,7 +492,7 @@ async function runWebExtensionTests() {
 
     if (!fs.existsSync(extensionDistPath)) {
       throw new Error(
-        `Extension dist directory not found: ${extensionDistPath}. Run 'npm run bundle' first.`,
+        `Extension dist directory not found: ${extensionDistPath}. Run 'pnpm run bundle' first.`,
       );
     }
 
@@ -722,7 +722,7 @@ async function runWebExtensionTests() {
       console.log('🔨 Extension not built yet, building...');
       const { execSync } = require('child_process');
       try {
-        execSync('npm run compile && npm run bundle', {
+        execSync('pnpm run compile && pnpm run bundle', {
           cwd: extensionDevelopmentPath,
           stdio: 'inherit',
         });

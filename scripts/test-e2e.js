@@ -390,7 +390,7 @@ function runCI(specFiles) {
 
   for (const specFile of specFiles) {
     process.stdout.write(
-      `\nRunning: npx playwright test tests/${specFile}\n`,
+      `\nRunning: pnpm exec playwright test tests/${specFile}\n`,
     );
     const testMode = process.env.TEST_MODE || 'web';
     const configArg =
@@ -398,7 +398,7 @@ function runCI(specFiles) {
         ? ['test', '--config=playwright.config.web.ts', `tests/${specFile}`]
         : ['test', `tests/${specFile}`];
 
-    const runResult = spawnSync('npx', ['playwright', ...configArg], {
+    const runResult = spawnSync('pnpm', ['exec', 'playwright', ...configArg], {
       cwd: e2eRoot,
       stdio: 'inherit',
       shell: process.platform === 'win32',
@@ -439,7 +439,7 @@ function runLocal() {
       ? ['test', '--config=playwright.config.web.ts']
       : ['test'];
 
-  const runResult = spawnSync('npx', ['playwright', ...configArg], {
+  const runResult = spawnSync('pnpm', ['exec', 'playwright', ...configArg], {
     cwd: e2eRoot,
     stdio: 'inherit',
     shell: process.platform === 'win32',
@@ -462,7 +462,7 @@ function runLocal() {
 
 function showReport() {
   process.stdout.write('\nOpening Playwright HTML report...\n');
-  spawnSync('npx', ['playwright', 'show-report'], {
+  spawnSync('pnpm', ['exec', 'playwright', 'show-report'], {
     cwd: e2eRoot,
     stdio: 'inherit',
     shell: process.platform === 'win32',

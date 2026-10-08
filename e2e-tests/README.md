@@ -118,15 +118,15 @@ e2e-tests/
 ### Prerequisites
 
 - Node.js >= 20.0.0
-- npm >= 10.0.0
+- pnpm >= 12.10.1 (managed through Corepack)
 - Extension must be built before running tests
 
 ### Build Extension
 
 ```bash
 # From repository root
-npm run compile
-npm run bundle
+pnpm run compile
+pnpm run bundle
 ```
 
 ### Run Tests
@@ -137,25 +137,25 @@ Uses `playwright.config.web.ts` and VS Code Web via `@vscode/test-web`:
 
 ```bash
 # Run all web tests (recommended)
-npm run test:e2e
+pnpm run test:e2e
 
 # Run web tests with Chromium
-npm run test:e2e:web:chromium
+pnpm run test:e2e:web:chromium
 
 # Debug mode with browser UI visible
-npm run test:e2e:debug
+pnpm run test:e2e:debug
 
 # Visual mode for test development
-npm run test:e2e:visual
+pnpm run test:e2e:visual
 
 # Run specific test file
-npx playwright test tests/apex-outline.spec.ts --config=playwright.config.web.ts
+pnpm exec playwright test tests/apex-outline.spec.ts --config=playwright.config.web.ts
 
 # Run tests in headed mode
-npx playwright test --config=playwright.config.web.ts --headed
+pnpm exec playwright test --config=playwright.config.web.ts --headed
 
 # Run with specific project
-npx playwright test --config=playwright.config.web.ts --project=chromium-web
+pnpm exec playwright test --config=playwright.config.web.ts --project=chromium-web
 ```
 
 #### Desktop Mode
@@ -164,18 +164,18 @@ Uses `playwright.config.desktop.ts` and VS Code Electron via `@vscode/test-elect
 
 ```bash
 # Run desktop tests (recommended)
-npm run test:e2e:desktop
+pnpm run test:e2e:desktop
 
 # Debug desktop tests with VS Code window visible (pauses on failure)
-npm run test:e2e:desktop:debug
+pnpm run test:e2e:desktop:debug
 
 # Run desktop tests
-npm run test:e2e:desktop:chromium
-npm run test:e2e:desktop:webkit
-npm run test:e2e:desktop:all-browsers
+pnpm run test:e2e:desktop:chromium
+pnpm run test:e2e:desktop:webkit
+pnpm run test:e2e:desktop:all-browsers
 
 # Run with explicit config
-npx playwright test --config=playwright.config.desktop.ts --project=desktop-electron
+pnpm exec playwright test --config=playwright.config.desktop.ts --project=desktop-electron
 ```
 
 **Desktop vs Web:**
@@ -481,7 +481,7 @@ test('complex test', async ({ apexEditor }) => {
 Run tests with browser UI visible:
 
 ```bash
-npm run test:e2e:debug
+pnpm run test:e2e:debug
 ```
 
 ### Visual Mode
@@ -489,7 +489,7 @@ npm run test:e2e:debug
 Interactive test development:
 
 ```bash
-npm run test:e2e:visual
+pnpm run test:e2e:visual
 ```
 
 ### Screenshots
@@ -500,7 +500,7 @@ Location: `e2e-tests/test-results/screenshots/`
 ### Traces
 
 Playwright captures execution traces.
-View with: `npx playwright show-trace trace.zip`
+View with: `pnpm exec playwright show-trace trace.zip`
 
 ### Console Logs
 
@@ -549,7 +549,7 @@ Tests run automatically in GitHub Actions on:
 After test run:
 
 ```bash
-npx playwright show-report
+pnpm exec playwright show-report
 ```
 
 View comprehensive HTML report with:

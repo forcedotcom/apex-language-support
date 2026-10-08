@@ -20,11 +20,11 @@
       "outFiles": [
         "${workspaceFolder}/packages/apex-lsp-vscode-extension/out/**/*.js"
       ],
-      "preLaunchTask": "npm: bundle",
+      "preLaunchTask": "pnpm: bundle",
       "env": {
         "NODE_OPTIONS": "--enable-source-maps",
         "APEX_LS_MODE": "development",
-        "APEX_WORKER_EXPERIMENT": "1",
+        "APEX_WORKER_EXPERIMENT": "1"
       }
     },
     {
@@ -131,7 +131,7 @@
       "outFiles": [
         "${workspaceFolder}/packages/apex-lsp-vscode-extension/out/**/*.js"
       ],
-      "preLaunchTask": "npm: compile",
+      "preLaunchTask": "pnpm: compile",
       "env": {
         "NODE_OPTIONS": "--enable-source-maps",
         "APEX_LS_MODE": "production"
@@ -180,7 +180,7 @@
         "${workspaceFolder}/packages/apex-lsp-vscode-extension/**",
         "!**/node_modules/**"
       ],
-      "preLaunchTask": "npm: compile"
+      "preLaunchTask": "pnpm: compile"
     },
     {
       "type": "node",

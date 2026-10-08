@@ -2,45 +2,45 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "type": "npm",
-      "script": "build",
+      "type": "shell",
+      "command": "pnpm run compile",
       "group": {
         "kind": "build",
         "isDefault": true
       },
       "problemMatcher": ["$tsc"],
-      "label": "npm: build",
+      "label": "pnpm: compile",
       "detail": "Build all packages"
     },
     {
-      "type": "npm",
-      "script": "clean",
-      "label": "npm: clean",
+      "type": "shell",
+      "command": "pnpm run clean",
+      "label": "pnpm: clean",
       "detail": "Clean all packages"
     },
     {
-      "type": "npm",
-      "script": "dev",
+      "type": "shell",
+      "command": "pnpm run dev",
       "group": "build",
       "problemMatcher": ["$tsc-watch"],
-      "label": "npm: dev",
+      "label": "pnpm: dev",
       "detail": "Run development mode",
       "isBackground": true
     },
     {
-      "type": "npm",
-      "script": "compile",
+      "type": "shell",
+      "command": "pnpm run compile",
       "group": "build",
       "problemMatcher": ["$tsc"],
-      "label": "npm: compile",
+      "label": "pnpm: compile",
       "detail": "Compile all packages for development"
     },
     {
-      "type": "npm",
-      "script": "bundle",
+      "type": "shell",
+      "command": "pnpm run bundle",
       "group": "build",
       "problemMatcher": [],
-      "label": "npm: bundle",
+      "label": "pnpm: bundle",
       "detail": "Bundle all packages for development"
     },
     {
@@ -55,7 +55,9 @@
     {
       "type": "shell",
       "command": "open",
-      "args": ["${workspaceFolder}/packages/${input:packageName}/coverage/lcov-report/index.html"],
+      "args": [
+        "${workspaceFolder}/packages/${input:packageName}/coverage/lcov-report/index.html"
+      ],
       "label": "Open Coverage Report (Package)",
       "detail": "Open package-specific coverage HTML report",
       "problemMatcher": [],
@@ -81,7 +83,7 @@
     },
     {
       "label": "Compile and Start Grafana",
-      "dependsOn": ["Start Grafana LGTM", "npm: compile"],
+      "dependsOn": ["Start Grafana LGTM", "pnpm: compile"],
       "dependsOrder": "parallel",
       "problemMatcher": []
     }

@@ -23,8 +23,9 @@ jobs:
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
     steps:
       - uses: actions/checkout@v6
+      - run: corepack enable
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ vars.NODE_VERSION || 'lts/*' }}
-          cache: npm
-      - run: npm ci
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile

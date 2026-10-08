@@ -2,16 +2,16 @@
   "name": "@salesforce/apex-language-server",
   "version": "1.0.0",
   "engines": {
-    "node": ">=20.0.0",
-    "npm": ">=10.0.0"
+    "node": ">=20.0.0"
   },
+  "packageManager": "pnpm@12.10.1",
   "scripts": {
     "typecheck": "wireit",
     "test": "wireit",
     "test:eslint-rules": "wireit",
     "test:coverage": "wireit",
     "test:perf": "wireit",
-    "test:perf:quick": "QUICK=true npm run test:perf",
+    "test:perf:quick": "QUICK=true pnpm run test:perf",
     "test:quality": "wireit",
     "test:coverage:report": "wireit",
     "test:web": "wireit",
@@ -19,16 +19,16 @@
     "test:web:prod": "node scripts/test-web-ext.js --prod",
     "test:web:full": "wireit",
     "test:e2e": "wireit",
-    "test:e2e:debug": "npm run test:debug --workspace=e2e-tests",
-    "test:e2e:server": "npm run server --workspace=e2e-tests",
-    "test:e2e:visual": "npm run test:visual --workspace=e2e-tests",
-    "test:e2e:web": "npm run test:e2e:web --workspace=e2e-tests",
-    "test:e2e:web:chromium": "npm run test:e2e:web:chromium --workspace=e2e-tests",
-    "test:e2e:desktop": "npm run test:e2e:desktop --workspace=e2e-tests",
-    "test:e2e:desktop:debug": "npm run test:e2e:desktop:debug --workspace=e2e-tests",
-    "test:e2e:desktop:chromium": "npm run test:e2e:desktop:chromium --workspace=e2e-tests",
-    "test:e2e:desktop:webkit": "npm run test:e2e:desktop:webkit --workspace=e2e-tests",
-    "test:e2e:desktop:all-browsers": "npm run test:e2e:desktop:all-browsers --workspace=e2e-tests",
+    "test:e2e:debug": "pnpm --filter e2e-tests run test:debug",
+    "test:e2e:server": "pnpm --filter e2e-tests run server",
+    "test:e2e:visual": "pnpm --filter e2e-tests run test:visual",
+    "test:e2e:web": "pnpm --filter e2e-tests run test:e2e:web",
+    "test:e2e:web:chromium": "pnpm --filter e2e-tests run test:e2e:web:chromium",
+    "test:e2e:desktop": "pnpm --filter e2e-tests run test:e2e:desktop",
+    "test:e2e:desktop:debug": "pnpm --filter e2e-tests run test:e2e:desktop:debug",
+    "test:e2e:desktop:chromium": "pnpm --filter e2e-tests run test:e2e:desktop:chromium",
+    "test:e2e:desktop:webkit": "pnpm --filter e2e-tests run test:e2e:desktop:webkit",
+    "test:e2e:desktop:all-browsers": "pnpm --filter e2e-tests run test:e2e:desktop:all-browsers",
     "lint": "wireit",
     "lint:fix": "wireit",
     "knip": "knip",
@@ -45,9 +45,9 @@
     "semantic-release": "semantic-release",
     "bundle": "wireit",
     "package": "wireit",
-    "package:packages": "npm run package",
+    "package:packages": "pnpm run package",
     "package:packages:prerelease": "wireit",
-    "rebuild": "npm run clean && npm run compile && npm run bundle",
+    "rebuild": "pnpm run clean && pnpm run compile && pnpm run bundle",
     "sync:vscode-version": "wireit",
     "sync:vscode-version:update": "node scripts/sync-vscode-version.js"
   },
@@ -72,8 +72,8 @@
     "@commitlint/cli": "^20.5.3",
     "@commitlint/config-conventional": "^20.5.3",
     "@effect/language-service": "^0.87.2",
-    "@salesforce/apex-lsp-compliant-services": "1.0.0",
-    "@salesforce/apex-lsp-parser-ast": "1.0.0",
+    "@salesforce/apex-lsp-compliant-services": "workspace:*",
+    "@salesforce/apex-lsp-parser-ast": "workspace:*",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "@tony.ganchev/eslint-plugin-header": "^3.4.4",
@@ -122,19 +122,16 @@
     "@rollup/rollup-linux-x64-musl": "^4.63.1"
   },
   "dependencies": {
-    "vscode-languageserver-protocol": "^3.17.5",
+    "vscode-languageserver-protocol": "3.17.5",
     "vscode-languageserver-textdocument": "^1.0.15",
     "vscode-uri": "^3.2.0"
   },
   "overrides": {
     "vscode-jsonrpc": "8.2.1",
     "playwright": "1.62.1",
-    "@playwright/browser-chromium": "1.62.1"
+    "@playwright/browser-chromium": "1.62.1",
+    "vscode-languageserver-protocol": "3.17.5"
   },
-  "workspaces": [
-    "packages/*",
-    "e2e-tests"
-  ],
   "wireit": {
     "typecheck": {
       "dependencies": [
@@ -250,21 +247,21 @@
       ]
     },
     "server": {
-      "command": "npm run server --workspaces --if-present",
+      "command": "pnpm -r --if-present run server",
       "dependencies": [
         "compile"
       ],
       "cache": false
     },
     "test:debug": {
-      "command": "npm run test:debug --workspaces --if-present",
+      "command": "pnpm -r --if-present run test:debug",
       "dependencies": [
         "compile"
       ],
       "cache": false
     },
     "test:visual": {
-      "command": "npm run test:visual --workspaces --if-present",
+      "command": "pnpm -r --if-present run test:visual",
       "dependencies": [
         "compile"
       ],
@@ -329,11 +326,11 @@
       ]
     },
     "clean": {
-      "command": "npm run clean --workspaces --if-present && rimraf .wireit coverage test-artifacts",
+      "command": "pnpm -r --if-present run clean && rimraf .wireit coverage test-artifacts",
       "cache": false
     },
     "clean:all": {
-      "command": "npm run clean:all --workspaces --if-present && rimraf node_modules coverage test-artifacts",
+      "command": "pnpm -r --if-present run clean:all && rimraf node_modules coverage test-artifacts",
       "cache": false
     },
     "test:coverage:report": {

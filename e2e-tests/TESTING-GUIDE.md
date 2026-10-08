@@ -27,11 +27,13 @@ Complete guide for end-to-end testing of the Apex Language Server Extension.
 The e2e test suite validates the Apex Language Server Extension in real browser environments:
 
 **Core Functionality:**
+
 - ✅ Extension activation and lifecycle
 - ✅ LSP (Language Server Protocol) integration
 - ✅ LCS (LSP-Compliant-Services) inclusion
 
 **LSP Features:**
+
 - ✅ Document symbols (outline view)
 - ✅ Hover information
 - ✅ Go-to-definition navigation
@@ -39,6 +41,7 @@ The e2e test suite validates the Apex Language Server Extension in real browser 
 - ✅ Signature help
 
 **Stability:**
+
 - ✅ Error handling and recovery
 - ✅ Performance benchmarking
 - ✅ Memory profiling
@@ -62,7 +65,7 @@ The e2e test suite validates the Apex Language Server Extension in real browser 
 ```bash
 # Required
 Node.js >= 20.0.0
-npm >= 10.0.0
+pnpm >= 12.10.1 (managed through Corepack)
 
 # Optional (for desktop mode)
 Playwright browsers: chromium, webkit
@@ -76,10 +79,11 @@ git clone https://github.com/forcedotcom/apex-language-support.git
 cd apex-language-support
 
 # Install dependencies
-npm install
+corepack enable
+pnpm install
 
 # Install Playwright browsers
-npx playwright install chromium webkit --with-deps
+pnpm exec playwright install chromium webkit --with-deps
 ```
 
 ### Build Extension
@@ -88,24 +92,24 @@ Before running tests, build the extension:
 
 ```bash
 # From repository root
-npm run compile
-npm run bundle
+pnpm run compile
+pnpm run bundle
 ```
 
 ### Quick Start
 
 ```bash
 # Run all tests (web mode, default)
-npm run test:e2e
+pnpm run test:e2e
 
 # Run with visual debugger
-npm run test:e2e:debug
+pnpm run test:e2e:debug
 
 # Run in desktop mode
-npm run test:e2e:desktop
+pnpm run test:e2e:desktop
 
 # Run specific test file
-npx playwright test tests/apex-hover.spec.ts
+pnpm exec playwright test tests/apex-hover.spec.ts
 ```
 
 ---
@@ -117,6 +121,7 @@ npx playwright test tests/apex-hover.spec.ts
 **Purpose:** Test browser-based VS Code Web environment
 
 **Characteristics:**
+
 - Standard web browser capabilities
 - Default viewport sizes
 - Web worker limitations
@@ -124,15 +129,17 @@ npx playwright test tests/apex-hover.spec.ts
 - CI/CD optimized
 
 **When to Use:**
+
 - Standard feature testing
 - Quick smoke tests
 - CI/CD pipelines
 - Web-specific compatibility
 
 **Commands:**
+
 ```bash
-npm run test:e2e
-npm run test:e2e:web:chromium
+pnpm run test:e2e
+pnpm run test:e2e:web:chromium
 ```
 
 ### Desktop Mode
@@ -140,21 +147,24 @@ npm run test:e2e:web:chromium
 **Purpose:** Test with actual VS Code Desktop (Electron) via `@vscode/test-electron`
 
 **Characteristics:**
+
 - Launches real VS Code via `createDesktopTest` fixture
 - Large viewport (1920x1080)
 - Video recording with test-name renaming
 - Clipboard permissions, DEBUG_MODE pause on failure
 
 **When to Use:**
+
 - Performance benchmarking
 - Memory profiling
 - Desktop bug reproduction
 
 **Commands:**
+
 ```bash
-npm run test:e2e:desktop
-npm run test:e2e:desktop:chromium
-npm run test:e2e:desktop:debug   # Pauses on failure
+pnpm run test:e2e:desktop
+pnpm run test:e2e:desktop:chromium
+pnpm run test:e2e:desktop:debug   # Pauses on failure
 ```
 
 **See Also:** [DESKTOP-TESTING.md](DESKTOP-TESTING.md)
@@ -167,74 +177,74 @@ npm run test:e2e:desktop:debug   # Pauses on failure
 
 ```bash
 # Run all tests (web mode)
-npm run test:e2e
+pnpm run test:e2e
 
 # Run in debug mode (headed, slow motion)
-npm run test:e2e:debug
+pnpm run test:e2e:debug
 
 # Run in visual mode (interactive UI)
-npm run test:e2e:visual
+pnpm run test:e2e:visual
 
 # Run specific test file (web mode)
-npx playwright test tests/apex-outline.spec.ts --config=playwright.config.web.ts
+pnpm exec playwright test tests/apex-outline.spec.ts --config=playwright.config.web.ts
 
 # Run tests matching pattern
-npx playwright test --config=playwright.config.web.ts --grep "should navigate"
+pnpm exec playwright test --config=playwright.config.web.ts --grep "should navigate"
 ```
 
 ### Browser-Specific
 
 ```bash
 # Web mode browsers
-npm run test:e2e:web:chromium
+pnpm run test:e2e:web:chromium
 
 # Desktop mode browsers
-npm run test:e2e:desktop:chromium
-npm run test:e2e:desktop:webkit
+pnpm run test:e2e:desktop:chromium
+pnpm run test:e2e:desktop:webkit
 ```
 
 ### Environment Variables
 
 ```bash
 # Enable debug mode
-DEBUG_MODE=1 npm run test:e2e
+DEBUG_MODE=1 pnpm run test:e2e
 
 # CI mode (automatically detected)
-CI=1 npm run test:e2e
+CI=1 pnpm run test:e2e
 
 # Sequential execution (used for --last-failed retry in CI)
-E2E_SEQUENTIAL=1 npx playwright test --last-failed
+E2E_SEQUENTIAL=1 pnpm exec playwright test --last-failed
 
 # Disable retries (used for try-run in CI)
-E2E_NO_RETRIES=1 npm run test:e2e
+E2E_NO_RETRIES=1 pnpm run test:e2e
 ```
 
 ### Advanced Options
 
 ```bash
 # Run tests in parallel
-npx playwright test --config=playwright.config.web.ts --workers=4
+pnpm exec playwright test --config=playwright.config.web.ts --workers=4
 
 # Run with trace recording
-npx playwright test --config=playwright.config.web.ts --trace=on
+pnpm exec playwright test --config=playwright.config.web.ts --trace=on
 
 # Run with screenshots
-npx playwright test --config=playwright.config.web.ts --screenshot=on
+pnpm exec playwright test --config=playwright.config.web.ts --screenshot=on
 
 # Run with video recording
-npx playwright test --config=playwright.config.web.ts --video=on
+pnpm exec playwright test --config=playwright.config.web.ts --video=on
 
 # Run specific project (web)
-npx playwright test --config=playwright.config.web.ts --project=chromium-web
+pnpm exec playwright test --config=playwright.config.web.ts --project=chromium-web
 
 # Run desktop tests (Electron)
-npx playwright test --config=playwright.config.desktop.ts --project=desktop-electron
+pnpm exec playwright test --config=playwright.config.desktop.ts --project=desktop-electron
 
 # Run in headed mode
-npx playwright test --config=playwright.config.web.ts --headed
+pnpm exec playwright test --config=playwright.config.web.ts --headed
 
 # Update snapshots
-npx playwright test --config=playwright.config.web.ts --update-snapshots
+pnpm exec playwright test --config=playwright.config.web.ts --update-snapshots
 ```
 
 ---
@@ -272,12 +282,12 @@ test.describe('Feature Name', () => {
 
 ```typescript
 test('example', async ({
-  apexEditor,          // ApexEditorPage instance
-  outlineView,         // OutlineViewPage instance
-  hoverHelper,         // HoverPage instance
+  apexEditor, // ApexEditorPage instance
+  outlineView, // OutlineViewPage instance
+  hoverHelper, // HoverPage instance
   apexTestEnvironment, // Complete test environment
-  consoleErrors,       // Captured console errors
-  networkErrors,       // Captured network errors
+  consoleErrors, // Captured console errors
+  networkErrors, // Captured network errors
 }) => {
   // Test code
 });
@@ -286,12 +296,14 @@ test('example', async ({
 ### Available Page Objects
 
 **BasePage:**
+
 - `waitForWorkbenchLoad()`
 - `openCommandPalette()`
 - `executeCommand()`
 - `goToLine()`
 
 **ApexEditorPage:**
+
 - `openFile()`
 - `goToPosition()`
 - `goToDefinition()`
@@ -299,6 +311,7 @@ test('example', async ({
 - `waitForLanguageServerReady()`
 
 **OutlineViewPage:**
+
 - `open()`
 - `getSymbols()`
 - `findSymbol()`
@@ -306,6 +319,7 @@ test('example', async ({
 - `waitForSymbols()`
 
 **HoverPage:**
+
 - `hoverOnWord()`
 - `getHoverContent()`
 - `hasTypeInformation()`
@@ -315,6 +329,7 @@ test('example', async ({
 ### Test Best Practices
 
 **DO:**
+
 - ✅ Use page objects for all UI interactions
 - ✅ Use fixtures for setup/teardown
 - ✅ Use `test.step()` for clear reporting
@@ -325,6 +340,7 @@ test('example', async ({
 - ✅ Make tests independent
 
 **DON'T:**
+
 - ❌ Use `page.locator()` directly in tests
 - ❌ Import from `@playwright/test`
 - ❌ Put assertions in page objects
@@ -336,6 +352,7 @@ test('example', async ({
 ### Example Tests
 
 **Simple Feature Test:**
+
 ```typescript
 test('should show hover for class name', async ({ hoverHelper }) => {
   await hoverHelper.hoverOnWord('ApexClassExample');
@@ -346,6 +363,7 @@ test('should show hover for class name', async ({ hoverHelper }) => {
 ```
 
 **Complex Workflow Test:**
+
 ```typescript
 test('should navigate through class hierarchy', async ({
   apexEditor,
@@ -413,7 +431,7 @@ test('should not leak memory', async ({ page, apexEditor }) => {
   await profiler.takeSnapshot(page);
 
   await profiler.forceGC(page);
-  await new Promise(resolve => setTimeout(resolve, 1000));
+  await new Promise((resolve) => setTimeout(resolve, 1000));
   await profiler.takeSnapshot(page);
 
   console.log(profiler.generateReport());
@@ -430,28 +448,29 @@ test('should not leak memory', async ({ page, apexEditor }) => {
 
 ```bash
 # Open Playwright Inspector
-npm run test:e2e:debug
+pnpm run test:e2e:debug
 
 # Debug specific test
-npx playwright test tests/apex-hover.spec.ts --debug
+pnpm exec playwright test tests/apex-hover.spec.ts --debug
 
 # Debug in headed mode
-npx playwright test --headed
+pnpm exec playwright test --headed
 ```
 
 ### Trace Viewer
 
 ```bash
 # Run with trace
-npx playwright test --trace=on
+pnpm exec playwright test --trace=on
 
 # View trace
-npx playwright show-trace trace.zip
+pnpm exec playwright show-trace trace.zip
 ```
 
 ### Screenshots and Videos
 
 Tests automatically capture on failure:
+
 - Screenshots: `e2e-tests/test-results/`
 - Videos: `e2e-tests/test-results/`
 - Traces: `e2e-tests/test-results/`
@@ -472,10 +491,11 @@ console.log('🔍 Debug details');
 Debug in headed mode:
 
 ```bash
-npm run test:e2e:desktop:debug
+pnpm run test:e2e:desktop:debug
 ```
 
 Then use Chrome DevTools:
+
 - Performance tab
 - Memory tab
 - Network tab
@@ -488,16 +508,19 @@ Then use Chrome DevTools:
 ### GitHub Actions
 
 Tests run automatically on:
+
 - Push to `main`
 - Pull requests to `main`
 - Manual workflow dispatch
 
 **Web Mode (Default):**
+
 - Runs on: `ubuntu-latest`
 - Browser: `chromium`
 - Parallelized by test file in CI
 
 **Desktop Mode (Manual):**
+
 - Runs on: `ubuntu-latest`, `macos-latest`, `windows-latest`
 - Browser: `chromium`
 - Trigger: Workflow dispatch with `test_mode: desktop`
@@ -505,6 +528,7 @@ Tests run automatically on:
 ### Manual Trigger
 
 Go to Actions → E2E Tests → Run workflow:
+
 - Choose test mode: `web`, `desktop`, or `both`
 - Click "Run workflow"
 
@@ -538,6 +562,7 @@ on:
 ### PR Comments
 
 Test results automatically posted as PR comments with:
+
 - Pass/fail summary
 - Test counts
 - Link to full report
@@ -627,18 +652,19 @@ Test results automatically posted as PR comments with:
 **Issue:** Tests pass in CI but fail locally
 
 **Solution:**
+
 ```bash
 # Ensure extension is built
-npm run compile && npm run bundle
+pnpm run compile && pnpm run bundle
 
 # Install/update browsers
-npx playwright install --with-deps
+pnpm exec playwright install --with-deps
 
 # Clear test artifacts
 rm -rf e2e-tests/test-results e2e-tests/playwright-report
 
 # Run again
-npm run test:e2e
+pnpm run test:e2e
 ```
 
 ### Browser Launch Fails
@@ -646,15 +672,16 @@ npm run test:e2e
 **Issue:** Browser won't launch
 
 **Solution:**
+
 ```bash
 # Install browsers with dependencies
-npx playwright install --with-deps chromium webkit
+pnpm exec playwright install --with-deps chromium webkit
 
 # macOS: Grant accessibility permissions
 # System Preferences → Security & Privacy → Privacy → Accessibility
 
 # Linux: Install dependencies
-sudo npx playwright install-deps
+sudo pnpm exec playwright install-deps
 ```
 
 ### Tests Timeout
@@ -662,6 +689,7 @@ sudo npx playwright install-deps
 **Issue:** Tests timeout
 
 **Solution:**
+
 ```typescript
 // Increase timeout for specific test
 test('slow test', async ({ apexEditor }) => {
@@ -676,6 +704,7 @@ test('slow test', async ({ apexEditor }) => {
 **Issue:** Tests pass/fail intermittently
 
 **Solution:**
+
 ```typescript
 // Replace hard-coded waits
 await page.waitForTimeout(5000); // Bad
@@ -689,15 +718,16 @@ await outlineView.waitForSymbols(1, 10000); // Good
 **Issue:** Tests crash with out of memory
 
 **Solution:**
+
 ```bash
 # Reduce parallel workers
-npx playwright test --workers=1
+pnpm exec playwright test --workers=1
 
 # Run tests serially
-npx playwright test --fully-parallel=false
+pnpm exec playwright test --fully-parallel=false
 
 # Increase Node.js memory
-NODE_OPTIONS=--max-old-space-size=4096 npm run test:e2e
+NODE_OPTIONS=--max-old-space-size=4096 pnpm run test:e2e
 ```
 
 ### Desktop Mode Not Working
@@ -705,12 +735,13 @@ NODE_OPTIONS=--max-old-space-size=4096 npm run test:e2e
 **Issue:** Desktop-specific features don't work
 
 **Solution:**
+
 ```bash
 # Use npm script (sets VSCODE_DESKTOP automatically)
-npm run test:e2e:desktop
+pnpm run test:e2e:desktop
 
 # Ensure extension is built first
-npm run compile && npm run bundle
+pnpm run compile && pnpm run bundle
 
 # Desktop uses @vscode/test-electron - VS Code is downloaded on first run
 ```
@@ -745,6 +776,7 @@ npm run compile && npm run bundle
 ## Summary
 
 **Test Suite Capabilities:**
+
 - ✅ 79 comprehensive e2e tests
 - ✅ 100% LSP feature coverage
 - ✅ Web and desktop mode support
@@ -755,6 +787,7 @@ npm run compile && npm run bundle
 - ✅ Comprehensive documentation
 
 **Getting Help:**
+
 - Check this guide first
 - Review test examples
 - Check [Troubleshooting](#troubleshooting)

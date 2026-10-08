@@ -21,7 +21,8 @@ The release scripts use dependencies from the root package.json. No separate ins
 
 ```bash
 # Install all dependencies (including release script dependencies)
-npm install
+corepack enable
+pnpm install --frozen-lockfile
 ```
 
 ## Usage
@@ -36,28 +37,28 @@ Handle VS Code extensions (packages with `publisher` field in package.json):
 
 ```bash
 # Determine build type (nightly/promotion/regular)
-npx tsx .github/scripts/index.ts ext-build-type
+pnpm exec tsx .github/scripts/index.ts ext-build-type
 
 # Find promotion candidates for nightly builds
-npx tsx .github/scripts/index.ts ext-promotion-finder
+pnpm exec tsx .github/scripts/index.ts ext-promotion-finder
 
 # Detect changes in VS Code extensions
-npx tsx .github/scripts/index.ts ext-change-detector
+pnpm exec tsx .github/scripts/index.ts ext-change-detector
 
 # Select VS Code extensions for release
-npx tsx .github/scripts/index.ts ext-package-selector
+pnpm exec tsx .github/scripts/index.ts ext-package-selector
 
 # Display extension release plan
-npx tsx .github/scripts/index.ts ext-release-plan
+pnpm exec tsx .github/scripts/index.ts ext-release-plan
 
 # Bump versions for selected extensions
-npx tsx .github/scripts/index.ts ext-version-bumper
+pnpm exec tsx .github/scripts/index.ts ext-version-bumper
 
 # Determine publish matrix for extensions
-npx tsx .github/scripts/index.ts ext-publish-matrix
+pnpm exec tsx .github/scripts/index.ts ext-publish-matrix
 
 # Create GitHub releases for extensions
-npx tsx .github/scripts/index.ts ext-github-releases
+pnpm exec tsx .github/scripts/index.ts ext-github-releases
 ```
 
 #### NPM Commands (prefixed with "npm-")
@@ -66,23 +67,23 @@ Handle NPM packages (packages without `publisher` field in package.json):
 
 ```bash
 # Detect changes in NPM packages
-npx tsx .github/scripts/index.ts npm-change-detector
+pnpm exec tsx .github/scripts/index.ts npm-change-detector
 
 # Select NPM packages for release
-npx tsx .github/scripts/index.ts npm-package-selector
+pnpm exec tsx .github/scripts/index.ts npm-package-selector
 
 # Extract NPM package details for notifications
-npx tsx .github/scripts/index.ts npm-package-details
+pnpm exec tsx .github/scripts/index.ts npm-package-details
 
 # Generate NPM release plan
-npx tsx .github/scripts/index.ts npm-release-plan
+pnpm exec tsx .github/scripts/index.ts npm-release-plan
 ```
 
 #### Utility Commands
 
 ```bash
 # Log audit events for release operations
-npx tsx .github/scripts/index.ts audit-logger
+pnpm exec tsx .github/scripts/index.ts audit-logger
 ```
 
 ### Environment Variables

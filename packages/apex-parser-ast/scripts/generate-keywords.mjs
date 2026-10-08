@@ -22,31 +22,21 @@ const EXCLUDE_ID_TOKENS = new Set(['Identifier', 'IntegralCurrencyLiteral']);
 const EXCLUDE_LEXER_KEYWORDS = new Set(['SYSTEMRUNAS', 'FORMULA']);
 
 /**
- * Read @apexdevtools/apex-parser version. Prefer package-lock.json (exact resolved);
- * fall back to package.json (strip ^/~ if present).
+ * Read @apexdevtools/apex-parser's exact resolved version from pnpm-lock.yaml.
  * @param {string} packageRoot - Path to packages/apex-parser-ast
  * @returns {Promise<string|null>} Version string or null
  */
 async function readApexParserVersion(packageRoot) {
   const workspaceRoot = path.join(packageRoot, '..', '..');
-  const lockPath = path.join(workspaceRoot, 'package-lock.json');
+  const lockPath = path.join(workspaceRoot, 'pnpm-lock.yaml');
   try {
     const lockContent = await readFile(lockPath, 'utf-8');
-    const lock = JSON.parse(lockContent);
-    const pkg = lock.packages?.['node_modules/@apexdevtools/apex-parser'];
-    if (pkg?.version) {
-      return pkg.version;
-    }
+    const match = lockContent.match(/^\s{2}'?@apexdevtools\/apex-parser@([^:\n]+):/m);
+    if (match) return match[1];
   } catch {
-    // Fall through to package.json
+    // The grammar fallback can proceed without an exact version.
   }
-  const pkgPath = path.join(packageRoot, 'package.json');
-  const pkgContent = await readFile(pkgPath, 'utf-8');
-  const pkg = JSON.parse(pkgContent);
-  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-  const raw = deps['@apexdevtools/apex-parser'];
-  if (!raw) return null;
-  return raw.replace(/^[\^~]/, '');
+  return null;
 }
 
 /**

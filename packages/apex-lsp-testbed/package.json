@@ -24,11 +24,11 @@
     "test:quality": "wireit",
     "test:coverage": "wireit",
     "test:perf": "wireit",
-    "test:perf:quick": "QUICK=true npm run test:perf",
+    "test:perf:quick": "QUICK=true pnpm run test:perf",
     "test:perf:eda": "wireit",
     "test:perf:lsp": "wireit",
     "clean": "rimraf out dist .wireit tsconfig.tsbuildinfo coverage test-artifacts",
-    "clean:all": "npm run clean && rimraf node_modules coverage test-artifacts",
+    "clean:all": "pnpm run clean && rimraf node_modules coverage test-artifacts",
     "start:demo": "node --enable-source-maps ./out/cli.js --server demo --interactive",
     "start:jorje": "node --enable-source-maps ./out/cli.js --server jorje --interactive --workspace https://github.com/trailheadapps/dreamhouse-lwc.git",
     "start:demo:verbose": "node --enable-source-maps ./out/cli.js --server demo --interactive --verbose",
@@ -199,11 +199,11 @@
     }
   },
   "dependencies": {
-    "@salesforce/apex-lsp-client": "*",
+    "@salesforce/apex-lsp-client": "workspace:*",
     "data-structure-typed": "^2.6.4"
   },
   "devDependencies": {
-    "@salesforce/apex-lsp-parser-ast": "1.0.0",
-    "@salesforce/apex-lsp-shared": "1.0.0"
+    "@salesforce/apex-lsp-parser-ast": "workspace:*",
+    "@salesforce/apex-lsp-shared": "workspace:*"
   }
 }

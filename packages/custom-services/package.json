@@ -22,7 +22,7 @@
     "test": "wireit",
     "test:coverage": "wireit",
     "clean": "rimraf out dist .wireit coverage tsconfig.tsbuildinfo",
-    "clean:all": "npm run clean && rimraf node_modules",
+    "clean:all": "pnpm run clean && rimraf node_modules",
     "lint": "wireit"
   },
   "wireit": {
@@ -109,6 +109,6 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "@salesforce/esbuild-presets": "^0.1.0"
+    "@salesforce/esbuild-presets": "workspace:*"
   }
 }
