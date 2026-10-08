@@ -1,16 +1,28 @@
 /**
  * Contains methods to build an instance of the lxscheduler.SkillRequirement class.
+ * A Builder object is obtained by invoking one of the SkillRequirementBuilder methods defined by the SkillRequirement class.
  */
-global class SkillRequirementBuilder {
+global without sharing class SkillRequirementBuilder {
+    global SkillRequirementBuilder() { }
 
-  global SkillRequirementBuilder() {}
+    /**
+     * Returns an instance of the lxscheduler.SkillRequirement object.
+     */
+    global lxscheduler.SkillRequirement build() { return null; }
 
-  global lxscheduler.SkillRequirement build() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global lxscheduler.SkillRequirementBuilder setSkillId(String skillId) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global lxscheduler.SkillRequirementBuilder setSkillLevel(Double skillLevel) {}
+    /**
+     * Sets the skill that is required to complete a particular task for a work type. This is a required field.
+     */
+    global lxscheduler.SkillRequirementBuilder setSkillId(String skillId) { return null; }
 
-  global Object clone() {}
+    /**
+     * Sets the level of the skill that is required to complete a particular task for a work type
+     */
+    global lxscheduler.SkillRequirementBuilder setSkillLevel(Double skillLevel) { return null; }
 
+    global override virtual String toString() { return null; }
 }

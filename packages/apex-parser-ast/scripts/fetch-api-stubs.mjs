@@ -39,14 +39,11 @@
  */
 
 import { spawn } from 'child_process';
-import {
-  existsSync,
-  mkdirSync,
-  writeFileSync,
-} from 'fs';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { createHash } from 'crypto';
+import { TARGET_NAMESPACES } from './api-stub-config.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(__dirname, '..');
@@ -55,6 +52,12 @@ const projectRoot = join(__dirname, '..');
 const OUTPUT_DIR = join(projectRoot, 'build', 'api-stubs');
 const METADATA_FILE = join(OUTPUT_DIR, 'fetch-metadata.json');
 const DEFAULT_API_VERSION = 'latest';
+const CANONICAL_NAMESPACES = new Map(
+  [...TARGET_NAMESPACES].map((namespace) => [
+    namespace.toLowerCase(),
+    namespace,
+  ]),
+);
 
 /**
  * Parse command line arguments
@@ -107,7 +110,9 @@ function sfApiRequest(url, orgAlias) {
     child.on('close', (code) => {
       if (code !== 0) {
         console.error(`  ❌ Failed to fetch: ${url}`);
-        console.error(`     Error: ${stderr || `Command exited with code ${code}`}`);
+        console.error(
+          `     Error: ${stderr || `Command exited with code ${code}`}`,
+        );
         reject(new Error(stderr || `Command exited with code ${code}`));
         return;
       }
@@ -117,14 +122,14 @@ function sfApiRequest(url, orgAlias) {
         const result = JSON.parse(stdout);
         resolve(result);
       } catch (error) {
-        console.error(`  ❌ Failed to parse JSON response`);
+        console.error('  ❌ Failed to parse JSON response');
         console.error(`     Error: ${error.message}`);
         reject(error);
       }
     });
 
     child.on('error', (error) => {
-      console.error(`  ❌ Failed to spawn sf command`);
+      console.error('  ❌ Failed to spawn sf command');
       console.error(`     Error: ${error.message}`);
       reject(error);
     });
@@ -164,6 +169,21 @@ function extractNamespace(stub) {
   return 'System'; // default
 }
 
+export function groupStubsByNamespace(stubs) {
+  const grouped = {};
+  const namesByLowercase = new Map(CANONICAL_NAMESPACES);
+
+  for (const stub of stubs) {
+    const rawNamespace = extractNamespace(stub);
+    const key = rawNamespace.toLowerCase();
+    const namespace = namesByLowercase.get(key) ?? rawNamespace;
+    namesByLowercase.set(key, namespace);
+    (grouped[namespace] ??= []).push(stub);
+  }
+
+  return grouped;
+}
+
 /**
  * Fetch all stubs and group by namespace
  */
@@ -182,17 +202,14 @@ async function fetchAndGroupByNamespace(config) {
   console.log(`   ✓ Fetched ${allStubs.length} total types`);
 
   // Group by namespace
-  const grouped = {};
-  for (const stub of allStubs) {
-    const ns = extractNamespace(stub);
-    if (!grouped[ns]) {
-      grouped[ns] = [];
-    }
-    grouped[ns].push(stub);
-  }
+  const grouped = groupStubsByNamespace(allStubs);
 
   const namespaceList = Object.keys(grouped).sort();
-  console.log(`   Found ${namespaceList.length} namespaces: ${namespaceList.slice(0, 10).join(', ')}${namespaceList.length > 10 ? '...' : ''}`);
+  const preview = namespaceList.slice(0, 10).join(', ');
+  const suffix = namespaceList.length > 10 ? '...' : '';
+  console.log(
+    `   Found ${namespaceList.length} namespaces: ${preview}${suffix}`,
+  );
 
   return grouped;
 }
@@ -255,7 +272,9 @@ async function fetchAllStubs(config) {
 
       totalTypes += stubs.length;
     } catch (error) {
-      console.error(`   ❌ Failed to write namespace ${namespace}: ${error.message}`);
+      console.error(
+        `   ❌ Failed to write namespace ${namespace}: ${error.message}`,
+      );
       metadata.namespaces[namespace] = {
         error: error.message,
       };
@@ -290,6 +309,9 @@ async function main() {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   main().catch(console.error);
 }

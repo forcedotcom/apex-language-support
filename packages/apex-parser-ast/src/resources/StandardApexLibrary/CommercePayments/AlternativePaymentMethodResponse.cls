@@ -1,22 +1,48 @@
 /**
  * The class contains the response details of the alternative payment method.
+ * Example
+ * commercepayments.AlternativePaymentMethodResponse response = new commercepayments.AlternativePaymentMethodResponse();
+ * response.setEmail('alternativePaymentMethod');
+ * response.setEmail('foo@foo.com');
+ * response.setGatewayToken('NMoPoIOnTZSaRaWcV7gUUXe');
+ * response.setGatewayTokenDetails('gateway token details');
  */
-global class AlternativePaymentMethodResponse {
+global with sharing class AlternativePaymentMethodResponse {
+    global AlternativePaymentMethodResponse() { }
 
-  global AlternativePaymentMethodResponse() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global void setAccountId(Id accountId) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global void setComments(String comments) {}
+    /**
+     * Sets the ID of the Salesforce payments account to which the payment method is linked.
+     */
+    global void setAccountId(Id accountId) { }
 
-  global void setEmail(String email) {}
+    /**
+     * Sets the notes about the payment method added by users.
+     */
+    global void setComments(String comments) { }
 
-  global void setGatewayToken(String gatewayToken) {}
+    /**
+     * Sets the email ID of the card holder.
+     */
+    global void setEmail(String email) { }
 
-  global void setGatewayTokenDetails(String gatewayTokenDetails) {}
+    /**
+     * Sets the token ID that a payment gateway generates when it first processes a payment.
+     */
+    global void setGatewayToken(String gatewayToken) { }
 
-  global void setName(String name) {}
+    /**
+     * Sets the details about the payment gateway token.
+     */
+    global void setGatewayTokenDetails(String gatewayTokenDetails) { }
 
-  global Object clone() {}
+    /**
+     * Sets the name that is assigned to the PaymentMethod object.
+     */
+    global void setName(String name) { }
 
+    global override virtual String toString() { return null; }
 }

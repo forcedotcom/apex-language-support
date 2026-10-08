@@ -1,55 +1,49 @@
 /**
  * Add aggregate functions to the query, or define an alias.
+ * Usage
+ * Refer to the QueryBuilder example.
  */
-global class ProjectionNode {
+global virtual class ProjectionNode {
+    /**
+     * Define output column names.
+     */
+    global wave.ProjectionNode alias(String name) { return null; }
 
-  global ProjectionNode() {}
+    /**
+     * Returns the average value of a numeric field.
+     */
+    global wave.ProjectionNode avg() { return null; }
 
-  /**
-   * Returns the sum of a numeric field.
-   * @return wave.ProjectionNode
-   */
-  global wave.ProjectionNode sum() {}
+    global String build() { return null; }
 
-  /**
-   * Returns the average value of a numeric field.
-   * @return wave.ProjectionNode
-   */
-  global wave.ProjectionNode avg() {}
+    /**
+     * Returns the number of rows that match the query criteria.
+     */
+    global wave.ProjectionNode count() { return null; }
 
-  /**
-   * Returns the minimum value of a field.
-   * @return wave.ProjectionNode
-   */
-  global wave.ProjectionNode min() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Returns the maximum value of a field.
-   * @return wave.ProjectionNode
-   */
-  global wave.ProjectionNode max() {}
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Returns the number of rows that match the query criteria.
-   * @return wave.ProjectionNode
-   */
-  global wave.ProjectionNode count() {}
+    /**
+     * Returns the maximum value of a field.
+     */
+    global wave.ProjectionNode max() { return null; }
 
-  /**
-   * Returns the count of unique values.
-   * @return wave.ProjectionNode
-   */
-  global wave.ProjectionNode unique() {}
+    /**
+     * Returns the minimum value of a field.
+     */
+    global wave.ProjectionNode min() { return null; }
 
-  /**
-   * Define output column names.
-   * @param name The name to use for this column. For example, this code defines the alias c : Wave.ProjectionNode[] projs = new Wave.ProjectionNode[]{Wave.QueryBuilder.count().alias('c')};
-   * @return wave.ProjectionNode
-   */
-  global wave.ProjectionNode alias(String name) {}
+    /**
+     * Returns the sum of a numeric field.
+     */
+    global wave.ProjectionNode sum() { return null; }
 
-  global String build() {}
+    global override virtual String toString() { return null; }
 
-  global Object clone() {}
-
+    /**
+     * Returns the count of unique values.
+     */
+    global wave.ProjectionNode unique() { return null; }
 }

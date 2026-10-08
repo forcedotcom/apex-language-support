@@ -1,20 +1,42 @@
 /**
  * Represents a WHERE clause in a SOSL or SOQL query.
+ * Usage
+ * Compound types require child filters. Specifically, the subfilters property can’t be null if the type property is NOT_, AND_, or OR_.
  */
 global class Filter {
+    /**
+     * Name of the column that’s being evaluated in a simple comparative type of filter.
+     * String
+     */
+    global String columnName { get; set; }
+    /**
+     * Value that the filter compares records against in a simple comparative type of filter.
+     * Object
+     */
+    global Object columnValue { get; set; }
+    /**
+     * List of subfilters for compound filter types, such as NOT_, AND_, and OR_.
+     * List<DataSource.Filter>
+     */
+    global List subfilters { get; set; }
+    /**
+     * Name of the table whose column is being evaluated in a simple comparative type of filter.
+     * String
+     */
+    global String tableName { get; set; }
+    /**
+     * Type of filter operation that limits the returned data.
+     * DataSource.FilterType
+     */
+    global DataSource.FilterType type { get; set; }
 
-  global Filter() {}
+    global Filter() { }
 
-  global String columnName;
+    global Filter(DataSource.FilterType type, String tableName, String columnName, Object columnValue) { }
 
-  global Object columnValue;
+    global Boolean equals(Object obj) { return false; }
 
-  global List<DataSource.Filter> subfilters;
+    global Integer hashCode() { return 0; }
 
-  global String tableName;
-
-  global DataSource.FilterType type;
-
-  global Object clone() {}
-
+    global override virtual String toString() { return null; }
 }

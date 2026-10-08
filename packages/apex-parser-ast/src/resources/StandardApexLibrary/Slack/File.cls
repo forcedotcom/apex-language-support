@@ -1,715 +1,669 @@
 global class File {
+    global File() { }
 
-  global File() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global String getAppId() {}
+    global String getAltTxt() { return null; }
 
-  global String getAppName() {}
+    global String getAppId() { return null; }
 
-  global List<Slack.File.Address> getCc() {}
+    global String getAppName() { return null; }
 
-  global Integer getChannelActionsCount() {}
+    global List getCc() { return null; }
 
-  global String getChannelActionsTs() {}
+    global Integer getChannelActionsCount() { return 0; }
 
-  global List<String> getChannels() {}
+    global String getChannelActionsTs() { return null; }
 
-  global String getConvertedPdf() {}
+    global List getChannels() { return null; }
 
-  global Integer getCreated() {}
+    global String getConvertedPdf() { return null; }
 
-  global String getDeanimate() {}
+    global Integer getCreated() { return 0; }
 
-  global String getDeanimateGif() {}
+    global String getDeanimate() { return null; }
 
-  global String getEditLink() {}
+    global String getDeanimateGif() { return null; }
 
-  global String getEditor() {}
+    global Integer getDurationMs() { return 0; }
 
-  global String getExternalId() {}
+    global String getEditLink() { return null; }
 
-  global String getExternalType() {}
+    global String getEditor() { return null; }
 
-  global String getExternalUrl() {}
+    global String getExternalId() { return null; }
 
-  global String getFiletype() {}
+    global String getExternalType() { return null; }
 
-  global List<Slack.File.Address> getFrom() {}
+    global String getExternalUrl() { return null; }
 
-  global List<String> getGroups() {}
+    global String getFileAccess() { return null; }
 
-  global Slack.File.Headers getHeaders() {}
+    global String getFiletype() { return null; }
 
-  global String getId() {}
+    global List getFrom() { return null; }
 
-  global Integer getImageExifRotation() {}
+    global List getGroups() { return null; }
 
-  global List<String> getIms() {}
+    global Slack.File.Headers getHeaders() { return null; }
 
-  global String getLastEditor() {}
+    global String getHls() { return null; }
 
-  global Integer getLines() {}
+    global String getHlsEmbed() { return null; }
 
-  global Integer getLinesMore() {}
+    global String getId() { return null; }
 
-  global String getMediaDisplayType() {}
+    global Integer getImageExifRotation() { return 0; }
 
-  global String getMimetype() {}
+    global List getIms() { return null; }
 
-  global String getMode() {}
+    global String getLastEditor() { return null; }
 
-  global String getName() {}
+    global Integer getLines() { return 0; }
 
-  global Integer getOriginalAttachmentCount() {}
+    global Integer getLinesMore() { return 0; }
 
-  global String getOriginalHeight() {}
+    global String getMediaDisplayType() { return null; }
 
-  global String getOriginalWidth() {}
+    global Slack.File.MediaProgress getMediaProgress() { return null; }
 
-  global String getPermalink() {}
+    global String getMimetype() { return null; }
 
-  global String getPermalinkPublic() {}
+    global String getMode() { return null; }
 
-  global Map<String,Slack.File.PinnedInfo> getPinnedInfo() {}
+    global String getMp4() { return null; }
 
-  global String getPjpeg() {}
+    global String getName() { return null; }
 
-  global String getPlainText() {}
+    global Integer getOriginalAttachmentCount() { return 0; }
 
-  global String getPrettyType() {}
+    global String getOriginalHeight() { return null; }
 
-  global String getPreview() {}
+    global String getOriginalWidth() { return null; }
 
-  global String getPreviewHighlight() {}
+    global String getPermalink() { return null; }
 
-  global String getPreviewPlainText() {}
+    global String getPermalinkPublic() { return null; }
 
-  global Slack.File.Shares getShares() {}
+    global Map getPinnedInfo() { return null; }
 
-  global String getSimplifiedHtml() {}
+    global String getPjpeg() { return null; }
 
-  global Integer getSize() {}
+    global String getPlainText() { return null; }
 
-  global String getSubject() {}
+    global String getPrettyType() { return null; }
 
-  global String getThumb64() {}
+    global String getPreview() { return null; }
 
-  global String getThumb64Gif() {}
+    global String getPreviewHighlight() { return null; }
 
-  global String getThumb64Height() {}
+    global String getPreviewPlainText() { return null; }
 
-  global String getThumb64Width() {}
+    global Slack.File.Shares getShares() { return null; }
 
-  global String getThumb80() {}
+    global String getSimplifiedHtml() { return null; }
 
-  global String getThumb80Gif() {}
+    global Integer getSize() { return 0; }
 
-  global String getThumb80Height() {}
+    global String getSubject() { return null; }
 
-  global String getThumb80Width() {}
+    global String getSubtype() { return null; }
 
-  global String getThumb160() {}
+    global String getThumb1024() { return null; }
 
-  global String getThumb160Gif() {}
+    global String getThumb1024Gif() { return null; }
 
-  global String getThumb160Height() {}
+    global String getThumb1024Height() { return null; }
 
-  global String getThumb160Width() {}
+    global String getThumb1024Width() { return null; }
 
-  global String getThumb360() {}
+    global String getThumb160() { return null; }
 
-  global String getThumb360Gif() {}
+    global String getThumb160Gif() { return null; }
 
-  global String getThumb360Height() {}
+    global String getThumb160Height() { return null; }
 
-  global String getThumb360Width() {}
+    global String getThumb160Width() { return null; }
 
-  global String getThumb480() {}
+    global String getThumb360() { return null; }
 
-  global String getThumb480Gif() {}
+    global String getThumb360Gif() { return null; }
 
-  global String getThumb480Height() {}
+    global String getThumb360Height() { return null; }
 
-  global String getThumb480Width() {}
+    global String getThumb360Width() { return null; }
 
-  global String getThumb720() {}
+    global String getThumb480() { return null; }
 
-  global String getThumb720Gif() {}
+    global String getThumb480Gif() { return null; }
 
-  global String getThumb720Height() {}
+    global String getThumb480Height() { return null; }
 
-  global String getThumb720Width() {}
+    global String getThumb480Width() { return null; }
 
-  global String getThumb800() {}
+    global String getThumb64() { return null; }
 
-  global String getThumb800Gif() {}
+    global String getThumb64Gif() { return null; }
 
-  global String getThumb800Height() {}
+    global String getThumb64Height() { return null; }
 
-  global String getThumb800Width() {}
+    global String getThumb64Width() { return null; }
 
-  global String getThumb960() {}
+    global String getThumb720() { return null; }
 
-  global String getThumb960Gif() {}
+    global String getThumb720Gif() { return null; }
 
-  global String getThumb960Height() {}
+    global String getThumb720Height() { return null; }
 
-  global String getThumb960Width() {}
+    global String getThumb720Width() { return null; }
 
-  global String getThumb1024() {}
+    global String getThumb80() { return null; }
 
-  global String getThumb1024Gif() {}
+    global String getThumb800() { return null; }
 
-  global String getThumb1024Height() {}
+    global String getThumb800Gif() { return null; }
 
-  global String getThumb1024Width() {}
+    global String getThumb800Height() { return null; }
 
-  global String getThumbGif() {}
+    global String getThumb800Width() { return null; }
 
-  global String getThumbPdf() {}
+    global String getThumb80Gif() { return null; }
 
-  global String getThumbPdfHeight() {}
+    global String getThumb80Height() { return null; }
 
-  global String getThumbPdfWidth() {}
+    global String getThumb80Width() { return null; }
 
-  global String getThumbTiny() {}
+    global String getThumb960() { return null; }
 
-  global String getThumbVideo() {}
+    global String getThumb960Gif() { return null; }
 
-  global Integer getTimestamp() {}
+    global String getThumb960Height() { return null; }
 
-  global String getTitle() {}
+    global String getThumb960Width() { return null; }
 
-  global List<Slack.File.Address> getTo() {}
+    global String getThumbGif() { return null; }
 
-  global Integer getUpdated() {}
+    global String getThumbPdf() { return null; }
 
-  global String getUrlPrivate() {}
+    global String getThumbPdfHeight() { return null; }
 
-  global String getUrlPrivateDownload() {}
+    global String getThumbPdfWidth() { return null; }
 
-  global String getUser() {}
+    global String getThumbTiny() { return null; }
 
-  global String getUsername() {}
+    global String getThumbVideo() { return null; }
 
-  global Boolean isDisplayAsBot() {}
+    global Integer getThumbVideoH() { return 0; }
 
-  global Boolean isEditable() {}
+    global Integer getThumbVideoW() { return 0; }
 
-  global Boolean isExternal() {}
+    global Integer getTimestamp() { return 0; }
 
-  global Boolean isHasMore() {}
+    global String getTitle() { return null; }
 
-  global Boolean isHasRichPreview() {}
+    global List getTo() { return null; }
 
-  global Boolean isNonOwnerEditable() {}
+    global Slack.File.Transcription getTranscription() { return null; }
 
-  global Boolean isPreviewTruncated() {}
+    global Integer getUpdated() { return 0; }
 
-  global Boolean ispublic() {}
+    global String getUrlPrivate() { return null; }
 
-  global Boolean isPublicUrlShared() {}
+    global String getUrlPrivateDownload() { return null; }
 
-  global Boolean isSentToSelf() {}
+    global String getUser() { return null; }
 
-  global Boolean isStarred() {}
+    global String getUserTeam() { return null; }
 
-  global void setAppId(String appId) {}
+    global String getUsername() { return null; }
 
-  global void setAppName(String appName) {}
+    global String getVtt() { return null; }
 
-  global void setCc(List<Slack.File.Address> cc) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global void setChannelActionsCount(Integer channelActionsCount) {}
+    global Boolean isDisplayAsBot() { return false; }
 
-  global void setChannelActionsTs(String channelActionsTs) {}
+    global Boolean isEditable() { return false; }
 
-  global void setChannels(List<String> channels) {}
+    global Boolean isExternal() { return false; }
 
-  global void setConvertedPdf(String convertedPdf) {}
+    global Boolean isHasMore() { return false; }
 
-  global void setCreated(Integer created) {}
+    global Boolean isHasRichPreview() { return false; }
 
-  global void setDeanimateGif(String deanimateGif) {}
+    global Boolean isNonOwnerEditable() { return false; }
 
-  global void setDisplayAsBot(Boolean displayAsBot) {}
+    global Boolean isPreviewTruncated() { return false; }
 
-  global void setEditable(Boolean editable) {}
+    global Boolean isPublicUrlShared() { return false; }
 
-  global void setEditLink(String editLink) {}
+    global Boolean isSentToSelf() { return false; }
 
-  global void setEditor(String editor) {}
+    global Boolean isStarred() { return false; }
 
-  global void setExternal(Boolean external) {}
+    global Boolean ispublic() { return false; }
 
-  global void setExternalId(String externalId) {}
+    global void setAltTxt(String altTxt) { }
 
-  global void setExternalType(String externalType) {}
+    global void setAppId(String appId) { }
 
-  global void setExternalUrl(String externalUrl) {}
+    global void setAppName(String appName) { }
 
-  global void setFiletype(String filetype) {}
+    global void setCc(List cc) { }
 
-  global void setFrom(List<Slack.File.Address> fromValue) {}
+    global void setChannelActionsCount(Integer channelActionsCount) { }
 
-  global void setGroups(List<String> groups) {}
+    global void setChannelActionsTs(String channelActionsTs) { }
 
-  global void setHasMore(Boolean hasMore) {}
+    global void setChannels(List channels) { }
 
-  global void setHasRichPreview(Boolean hasRichPreview) {}
+    global void setConvertedPdf(String convertedPdf) { }
 
-  global void setId(String id) {}
+    global void setCreated(Integer created) { }
 
-  global void setImageExifRotation(Integer imageExifRotation) {}
+    global void setDeanimate(String deanimate) { }
 
-  global void setIms(List<String> ims) {}
+    global void setDeanimateGif(String deanimateGif) { }
 
-  global void setLastEditor(String lastEditor) {}
+    global void setDisplayAsBot(Boolean displayAsBot) { }
 
-  global void setLines(Integer lines) {}
+    global void setDurationMs(Integer durationMs) { }
 
-  global void setLinesMore(Integer linesMore) {}
+    global void setEditLink(String editLink) { }
 
-  global void setMediaDisplayType(String mediaDisplayType) {}
+    global void setEditable(Boolean editable) { }
 
-  global void setMimetype(String mimetype) {}
+    global void setEditor(String editor) { }
 
-  global void setMode(String mode) {}
+    global void setExternal(Boolean external) { }
 
-  global void setName(String name) {}
+    global void setExternalId(String externalId) { }
 
-  global void setNonOwnerEditable(Boolean nonOwnerEditable) {}
+    global void setExternalType(String externalType) { }
 
-  global void setOriginalAttachmentCount(Integer originalAttachmentCount) {}
+    global void setExternalUrl(String externalUrl) { }
 
-  global void setOriginalHeight(String originalHeight) {}
+    global void setFileAccess(String fileAccess) { }
 
-  global void setOriginalWidth(String originalWidth) {}
+    global void setFiletype(String filetype) { }
 
-  global void setPermalink(String permalink) {}
+    global void setFrom(List fromValue) { }
 
-  global void setPermalinkPublic(String permalinkPublic) {}
+    global void setGroups(List groups) { }
 
-  global void setPinnedInfo(Slack.File.PinnedInfo> pinnedInfo) {}
+    global void setHasMore(Boolean hasMore) { }
 
-  global void setPjpeg(String pjpeg) {}
+    global void setHasRichPreview(Boolean hasRichPreview) { }
 
-  global void setPlainText(String plainText) {}
+    global void setHeaders(Slack.File.Headers headers) { }
 
-  global void setPrettyType(String prettyType) {}
+    global void setHls(String hls) { }
 
-  global void setPreview(String preview) {}
+    global void setHlsEmbed(String hlsEmbed) { }
 
-  global void setPreviewHighlight(String previewHighlight) {}
+    global void setId(String id) { }
 
-  global void setPreviewPlainText(String previewPlainText) {}
+    global void setImageExifRotation(Integer imageExifRotation) { }
 
-  global void setPreviewTruncated(Boolean previewTruncated) {}
+    global void setIms(List ims) { }
 
-  global void setpublic(Boolean _public) {}
+    global void setLastEditor(String lastEditor) { }
 
-  global void setPublicUrlShared(Boolean publicUrlShared) {}
+    global void setLines(Integer lines) { }
 
-  global void setSentToSelf(Boolean sentToSelf) {}
+    global void setLinesMore(Integer linesMore) { }
 
-  global void setShares(Slack.File.Shares shares) {}
+    global void setMediaDisplayType(String mediaDisplayType) { }
 
-  global void setSize(Integer size) {}
+    global void setMediaProgress(Slack.File.MediaProgress mediaProgress) { }
 
-  global void setStarred(Boolean starred) {}
+    global void setMimetype(String mimetype) { }
 
-  global void setSubject(String subject) {}
+    global void setMode(String mode) { }
 
-  global void setThumb64(String thumb64) {}
+    global void setMp4(String mp4) { }
 
-  global void setThumb64Gif(String thumb64Gif) {}
+    global void setName(String name) { }
 
-  global void setThumb64Height(String thumb64Height) {}
+    global void setNonOwnerEditable(Boolean nonOwnerEditable) { }
 
-  global void setThumb64Width(String thumb64Width) {}
+    global void setOriginalAttachmentCount(Integer originalAttachmentCount) { }
 
-  global void setThumb80(String thumb80) {}
+    global void setOriginalHeight(String originalHeight) { }
 
-  global void setThumb80Gif(String thumb80Gif) {}
+    global void setOriginalWidth(String originalWidth) { }
 
-  global void setThumb80Height(String thumb80Height) {}
+    global void setPermalink(String permalink) { }
 
-  global void setThumb80Width(String thumb80Width) {}
+    global void setPermalinkPublic(String permalinkPublic) { }
 
-  global void setThumb160(String thumb160) {}
+    global void setPinnedInfo(Map pinnedInfo) { }
 
-  global void setThumb160Gif(String thumb160Gif) {}
+    global void setPjpeg(String pjpeg) { }
 
-  global void setThumb160Height(String thumb160Height) {}
+    global void setPlainText(String plainText) { }
 
-  global void setThumb160Width(String thumb160Width) {}
+    global void setPrettyType(String prettyType) { }
 
-  global void setThumb360(String thumb360) {}
+    global void setPreview(String preview) { }
 
-  global void setThumb360Gif(String thumb360Gif) {}
+    global void setPreviewHighlight(String previewHighlight) { }
 
-  global void setThumb360Height(String thumb360Height) {}
+    global void setPreviewPlainText(String previewPlainText) { }
 
-  global void setThumb360Width(String thumb360Width) {}
+    global void setPreviewTruncated(Boolean previewTruncated) { }
 
-  global void setThumb480(String thumb480) {}
+    global void setPublicUrlShared(Boolean publicUrlShared) { }
 
-  global void setThumb480Gif(String thumb480Gif) {}
+    global void setSentToSelf(Boolean sentToSelf) { }
 
-  global void setThumb480Height(String thumb480Height) {}
+    global void setShares(Slack.File.Shares shares) { }
 
-  global void setThumb480Width(String thumb480Width) {}
+    global void setSimplifiedHtml(String simplifiedHtml) { }
 
-  global void setThumb720(String thumb720) {}
+    global void setSize(Integer size) { }
 
-  global void setThumb720Gif(String thumb720Gif) {}
+    global void setStarred(Boolean starred) { }
 
-  global void setThumb720Height(String thumb720Height) {}
+    global void setSubject(String subject) { }
 
-  global void setThumb720Width(String thumb720Width) {}
+    global void setSubtype(String subtype) { }
 
-  global void setThumb800(String thumb800) {}
+    global void setThumb1024(String thumb1024) { }
 
-  global void setThumb800Gif(String thumb800Gif) {}
+    global void setThumb1024Gif(String thumb1024Gif) { }
 
-  global void setThumb800Height(String thumb800Height) {}
+    global void setThumb1024Height(String thumb1024Height) { }
 
-  global void setThumb800Width(String thumb800Width) {}
+    global void setThumb1024Width(String thumb1024Width) { }
 
-  global void setThumb960(String thumb960) {}
+    global void setThumb160(String thumb160) { }
 
-  global void setThumb960Gif(String thumb960Gif) {}
+    global void setThumb160Gif(String thumb160Gif) { }
 
-  global void setThumb960Height(String thumb960Height) {}
+    global void setThumb160Height(String thumb160Height) { }
 
-  global void setThumb960Width(String thumb960Width) {}
+    global void setThumb160Width(String thumb160Width) { }
 
-  global void setThumb1024(String thumb1024) {}
+    global void setThumb360(String thumb360) { }
 
-  global void setThumb1024Gif(String thumb1024Gif) {}
+    global void setThumb360Gif(String thumb360Gif) { }
 
-  global void setThumb1024Height(String thumb1024Height) {}
+    global void setThumb360Height(String thumb360Height) { }
 
-  global void setThumb1024Width(String thumb1024Width) {}
+    global void setThumb360Width(String thumb360Width) { }
 
-  global void setThumbGif(String thumbGif) {}
+    global void setThumb480(String thumb480) { }
 
-  global void setThumbPdf(String thumbPdf) {}
+    global void setThumb480Gif(String thumb480Gif) { }
 
-  global void setThumbPdfHeight(String thumbPdfHeight) {}
+    global void setThumb480Height(String thumb480Height) { }
 
-  global void setThumbPdfWidth(String thumbPdfWidth) {}
+    global void setThumb480Width(String thumb480Width) { }
 
-  global void setThumbTiny(String thumbTiny) {}
+    global void setThumb64(String thumb64) { }
 
-  global void setThumbVideo(String thumbVideo) {}
+    global void setThumb64Gif(String thumb64Gif) { }
 
-  global void setTimestamp(Integer timestamp) {}
+    global void setThumb64Height(String thumb64Height) { }
 
-  global void setTitle(String title) {}
+    global void setThumb64Width(String thumb64Width) { }
 
-  global void setTo(List<Slack.File.Address> to) {}
+    global void setThumb720(String thumb720) { }
 
-  global void setUpdated(Integer updated) {}
+    global void setThumb720Gif(String thumb720Gif) { }
 
-  global void setUrlPrivate(String urlPrivate) {}
+    global void setThumb720Height(String thumb720Height) { }
 
-  global void setUrlPrivateDownload(String urlPrivateDownload) {}
+    global void setThumb720Width(String thumb720Width) { }
 
-  global void setUser(String user) {}
+    global void setThumb80(String thumb80) { }
 
-  global void setUsername(String username) {}
+    global void setThumb800(String thumb800) { }
 
-  global String getAddress() {}
+    global void setThumb800Gif(String thumb800Gif) { }
 
-  global String getOriginal() {}
+    global void setThumb800Height(String thumb800Height) { }
 
-  global void setAddress(String address) {}
+    global void setThumb800Width(String thumb800Width) { }
 
-  global void setOriginal(String original) {}
+    global void setThumb80Gif(String thumb80Gif) { }
 
-  global String getDate() {}
+    global void setThumb80Height(String thumb80Height) { }
 
-  global String getInReplyTo() {}
+    global void setThumb80Width(String thumb80Width) { }
 
-  global String getReplyTo() {}
+    global void setThumb960(String thumb960) { }
 
-  global String getMessageId() {}
+    global void setThumb960Gif(String thumb960Gif) { }
 
-  global void setDate(String dateValue) {}
+    global void setThumb960Height(String thumb960Height) { }
 
-  global void setInReplyTo(String inReplyTo) {}
+    global void setThumb960Width(String thumb960Width) { }
 
-  global void setReplyTo(String replyTo) {}
+    global void setThumbGif(String thumbGif) { }
 
-  global void setMessageId(String messageId) {}
+    global void setThumbPdf(String thumbPdf) { }
 
-  global String getPinnedBy() {}
+    global void setThumbPdfHeight(String thumbPdfHeight) { }
 
-  global Integer getPinnedTs() {}
+    global void setThumbPdfWidth(String thumbPdfWidth) { }
 
-  global void setPinnedBy(String pinnedBy) {}
+    global void setThumbTiny(String thumbTiny) { }
 
-  global void setPinnedTs(Integer pinnedTs) {}
+    global void setThumbVideo(String thumbVideo) { }
 
-  global String getChannelName() {}
+    global void setThumbVideoH(Integer thumbVideoH) { }
 
-  global String getLatestReply() {}
+    global void setThumbVideoW(Integer thumbVideoW) { }
 
-  global Integer getReplyCount() {}
+    global void setTimestamp(Integer timestamp) { }
 
-  global List<String> getReplyUsers() {}
+    global void setTitle(String title) { }
 
-  global Integer getReplyUsersCount() {}
+    global void setTo(List to) { }
 
-  global String getShareUserId() {}
+    global void setTranscription(Slack.File.Transcription transcription) { }
 
-  global String getTeamId() {}
+    global void setUpdated(Integer updated) { }
 
-  global String getThreadTs() {}
+    global void setUrlPrivate(String urlPrivate) { }
 
-  global String getTs() {}
+    global void setUrlPrivateDownload(String urlPrivateDownload) { }
 
-  global void setChannelName(String channelName) {}
+    global void setUser(String user) { }
 
-  global void setLatestReply(String latestReply) {}
+    global void setUserTeam(String userTeam) { }
 
-  global void setReplyCount(Integer replyCount) {}
+    global void setUsername(String username) { }
 
-  global void setReplyUsers(List<String> replyUsers) {}
+    global void setVtt(String vtt) { }
 
-  global void setReplyUsersCount(Integer replyUsersCount) {}
+    global void setpublic(Boolean _public) { }
 
-  global void setShareUserId(String shareUserId) {}
+    global override String toString() { return null; }
 
-  global void setTeamId(String teamId) {}
+    global class Address {
+        global Address() { }
 
-  global void setThreadTs(String threadTs) {}
+        global Slack.File.Address clone() { return null; }
 
-  global void setTs(String ts) {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global Map<String,List<Slack.File.ShareDetail>> getPrivateChannels() {}
+        global String getAddress() { return null; }
 
-  global Map<String,List<Slack.File.ShareDetail>> getPublicChannels() {}
+        global String getName() { return null; }
 
-  global void setPrivateChannels(List<Slack.File.ShareDetail>> privateChannels) {}
+        global String getOriginal() { return null; }
 
-  global void setPublicChannels(List<Slack.File.ShareDetail>> publicChannels) {}
+        global virtual Integer hashCode() { return 0; }
 
-  global String getChannel() {}
+        global void setAddress(String address) { }
 
-  global String getComment() {}
+        global void setName(String name) { }
 
-  global Boolean isIntro() {}
+        global void setOriginal(String original) { }
 
-  global void setChannel(String channel) {}
+        global override virtual String toString() { return null; }
+    }
 
-  global void setComment(String comment) {}
+    global class Headers {
+        global Headers() { }
 
-  global void setDeanimate(String deanimate) {}
+        global Slack.File.Headers clone() { return null; }
 
-  global void setIntro(Boolean intro) {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global static Slack.FilesDeleteRequest.Builder builder() {}
+        global String getDate() { return null; }
 
-  global Slack.FilesDeleteRequest build() {}
+        global String getInReplyTo() { return null; }
 
-  global Slack.FilesDeleteRequest.Builder file(String file) {}
+        global String getMessageId() { return null; }
 
-  global static Slack.FilesInfoRequest.Builder builder() {}
+        global String getReplyTo() { return null; }
 
-  global Slack.FilesInfoRequest build() {}
+        global virtual Integer hashCode() { return 0; }
 
-  global Slack.FilesInfoRequest.Builder count(Integer count) {}
+        global void setDate(String dateValue) { }
 
-  global Slack.FilesInfoRequest.Builder file(String file) {}
+        global void setInReplyTo(String inReplyTo) { }
 
-  global Slack.FilesInfoRequest.Builder page(Integer page) {}
+        global void setMessageId(String messageId) { }
 
-  global String getContent() {}
+        global void setReplyTo(String replyTo) { }
 
-  global String getContentHighlightCss() {}
+        global override virtual String toString() { return null; }
+    }
 
-  global String getContentHighlightHtml() {}
+    global class MediaProgress {
+        global MediaProgress() { }
 
-  global Slack.File getFile() {}
+        global Slack.File.MediaProgress clone() { return null; }
 
-  global Boolean isTruncated() {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global void setContent(String content) {}
+        global Integer getDurationMs() { return 0; }
 
-  global void setContentHighlightCss(String contentHighlightCss) {}
+        global Integer getMaxOffsetMs() { return 0; }
 
-  global void setContentHighlightHtml(String contentHighlightHtml) {}
+        global Integer getOffsetMs() { return 0; }
 
-  global void setFile(Slack.File file) {}
+        global virtual Integer hashCode() { return 0; }
 
-  global void setTruncated(Boolean truncated) {}
+        global void setDurationMs(Integer durationMs) { }
 
-  global static Slack.FilesListRequest.Builder builder() {}
+        global void setMaxOffsetMs(Integer maxOffsetMs) { }
 
-  global Slack.FilesListRequest build() {}
+        global void setOffsetMs(Integer offsetMs) { }
 
-  global Slack.FilesListRequest.Builder channel(String channel) {}
+        global override virtual String toString() { return null; }
+    }
 
-  global Slack.FilesListRequest.Builder count(Integer count) {}
+    global class PinnedInfo {
+        global PinnedInfo() { }
 
-  global Slack.FilesListRequest.Builder page(Integer page) {}
+        global Slack.File.PinnedInfo clone() { return null; }
 
-  global Slack.FilesListRequest.Builder showFilesHiddenByLimit(Boolean showFilesHiddenByLimit) {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global Slack.FilesListRequest.Builder teamId(String teamId) {}
+        global String getPinnedBy() { return null; }
 
-  global Slack.FilesListRequest.Builder tsFrom(String tsFrom) {}
+        global Integer getPinnedTs() { return 0; }
 
-  global Slack.FilesListRequest.Builder tsTo(String tsTo) {}
+        global virtual Integer hashCode() { return 0; }
 
-  global Slack.FilesListRequest.Builder types(List<String> types) {}
+        global void setPinnedBy(String pinnedBy) { }
 
-  global Slack.FilesListRequest.Builder user(String user) {}
+        global void setPinnedTs(Integer pinnedTs) { }
 
-  global List<Slack.File> getFiles() {}
+        global override virtual String toString() { return null; }
+    }
 
-  global Slack.Paging getPaging() {}
+    global class ShareDetail {
+        global ShareDetail() { }
 
-  global void setFiles(List<Slack.File> files) {}
+        global Slack.File.ShareDetail clone() { return null; }
 
-  global void setPaging(Slack.Paging paging) {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global static Slack.FilesRemoteAddRequest.Builder builder() {}
+        global String getChannelName() { return null; }
 
-  global Slack.FilesRemoteAddRequest build() {}
+        global String getLatestReply() { return null; }
 
-  global Slack.FilesRemoteAddRequest.Builder externalId(String externalId) {}
+        global Integer getReplyCount() { return 0; }
 
-  global Slack.FilesRemoteAddRequest.Builder externalUrl(String externalUrl) {}
+        global List getReplyUsers() { return null; }
 
-  global Slack.FilesRemoteAddRequest.Builder filetype(String filetype) {}
+        global Integer getReplyUsersCount() { return 0; }
 
-  global Slack.FilesRemoteAddRequest.Builder title(String title) {}
+        global String getShareUserId() { return null; }
 
-  global static Slack.FilesRemoteInfoRequest.Builder builder() {}
+        global String getTeamId() { return null; }
 
-  global Slack.FilesRemoteInfoRequest build() {}
+        global String getThreadTs() { return null; }
 
-  global Slack.FilesRemoteInfoRequest.Builder externalId(String externalId) {}
+        global String getTs() { return null; }
 
-  global Slack.FilesRemoteInfoRequest.Builder file(String file) {}
+        global virtual Integer hashCode() { return 0; }
 
-  global static Slack.FilesRemoteListRequest.Builder builder() {}
+        global void setChannelName(String channelName) { }
 
-  global Slack.FilesRemoteListRequest build() {}
+        global void setLatestReply(String latestReply) { }
 
-  global Slack.FilesRemoteListRequest.Builder channel(String channel) {}
+        global void setReplyCount(Integer replyCount) { }
 
-  global Slack.FilesRemoteListRequest.Builder cursor(String cursor) {}
+        global void setReplyUsers(List replyUsers) { }
 
-  global Slack.FilesRemoteListRequest.Builder limitValue(Integer limitValue) {}
+        global void setReplyUsersCount(Integer replyUsersCount) { }
 
-  global Slack.FilesRemoteListRequest.Builder tsFrom(String tsFrom) {}
+        global void setShareUserId(String shareUserId) { }
 
-  global Slack.FilesRemoteListRequest.Builder tsTo(String tsTo) {}
+        global void setTeamId(String teamId) { }
 
-  global Slack.ResponseMetadata getResponseMetadata() {}
+        global void setThreadTs(String threadTs) { }
 
-  global void setResponseMetadata(Slack.ResponseMetadata responseMetadata) {}
+        global void setTs(String ts) { }
 
-  global static Slack.FilesRemoteRemoveRequest.Builder builder() {}
+        global override virtual String toString() { return null; }
+    }
 
-  global Slack.FilesRemoteRemoveRequest build() {}
+    global class Shares {
+        global Shares() { }
 
-  global Slack.FilesRemoteRemoveRequest.Builder externalId(String externalId) {}
+        global Slack.File.Shares clone() { return null; }
 
-  global Slack.FilesRemoteRemoveRequest.Builder file(String file) {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global static Slack.FilesRemoteShareRequest.Builder builder() {}
+        global Map getPrivateChannels() { return null; }
 
-  global Slack.FilesRemoteShareRequest build() {}
+        global Map getPublicChannels() { return null; }
 
-  global Slack.FilesRemoteShareRequest.Builder channels(List<String> channels) {}
+        global virtual Integer hashCode() { return 0; }
 
-  global Slack.FilesRemoteShareRequest.Builder externalId(String externalId) {}
+        global void setPrivateChannels(Map privateChannels) { }
 
-  global Slack.FilesRemoteShareRequest.Builder file(String file) {}
+        global void setPublicChannels(Map publicChannels) { }
 
-  global static Slack.FilesRemoteUpdateRequest.Builder builder() {}
+        global override virtual String toString() { return null; }
+    }
 
-  global Slack.FilesRemoteUpdateRequest build() {}
+    global class Transcription {
+        global Transcription() { }
 
-  global Slack.FilesRemoteUpdateRequest.Builder externalId(String externalId) {}
+        global Slack.File.Transcription clone() { return null; }
 
-  global Slack.FilesRemoteUpdateRequest.Builder externalUrl(String externalUrl) {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global Slack.FilesRemoteUpdateRequest.Builder filetype(String filetype) {}
+        global String getLocale() { return null; }
 
-  global static Slack.FilesRevokePublicURLRequest.Builder builder() {}
+        global String getStatus() { return null; }
 
-  global Slack.FilesRevokePublicURLRequest build() {}
+        global virtual Integer hashCode() { return 0; }
 
-  global Slack.FilesRevokePublicURLRequest.Builder file(String file) {}
+        global void setLocale(String locale) { }
 
-  global static Slack.FilesSharedPublicURLRequest.Builder builder() {}
+        global void setStatus(String status) { }
 
-  global Slack.FilesSharedPublicURLRequest build() {}
-
-  global Slack.FilesSharedPublicURLRequest.Builder file(String file) {}
-
-  global Object clone() {}
-
-  global String getAltTxt() {}
-
-  global Integer getDurationMs() {}
-
-  global String getFileAccess() {}
-
-  global String getHls() {}
-
-  global String getHlsEmbed() {}
-
-  global Slack.File.MediaProgress getMediaProgress() {}
-
-  global String getMp4() {}
-
-  global String getSubtype() {}
-
-  global Integer getThumbVideoH() {}
-
-  global Integer getThumbVideoW() {}
-
-  global Slack.File.Transcription getTranscription() {}
-
-  global String getUserTeam() {}
-
-  global String getVtt() {}
-
-  global void setAltTxt(String altTxt) {}
-
-  global void setDurationMs(Integer durationMs) {}
-
-  global void setFileAccess(String fileAccess) {}
-
-  global void setHeaders(Slack.File.Headers headers) {}
-
-  global void setHls(String hls) {}
-
-  global void setHlsEmbed(String hlsEmbed) {}
-
-  global void setMediaProgress(Slack.File.MediaProgress mediaProgress) {}
-
-  global void setMp4(String mp4) {}
-
-  global void setSimplifiedHtml(String simplifiedHtml) {}
-
-  global void setSubtype(String subtype) {}
-
-  global void setThumbVideoH(Integer thumbVideoH) {}
-
-  global void setThumbVideoW(Integer thumbVideoW) {}
-
-  global void setTranscription(Slack.File.Transcription transcription) {}
-
-  global void setUserTeam(String userTeam) {}
-
-  global void setVtt(String vtt) {}
-
+        global override virtual String toString() { return null; }
+    }
 }

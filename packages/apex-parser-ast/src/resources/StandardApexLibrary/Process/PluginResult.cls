@@ -2,11 +2,19 @@
  * Returns output parameters from the class that implements the Process.Plugin interface to the flow.
  */
 global class PluginResult {
+    /**
+     * Output parameters returned from the class that implements the interface to the flow.
+     * Map<String, Object>
+     */
+    global Map outputParameters { get; set; }
 
-  global PluginResult() {}
+    global PluginResult(Map outputParameters) { }
 
-  global Map<String, Object> outputParameters;
+    global PluginResult(String outputKey, Object outputValue) { }
 
-  global Object clone() {}
+    global virtual Boolean equals(Object o) { return false; }
 
+    global virtual Integer hashCode() { return 0; }
+
+    global override virtual String toString() { return null; }
 }

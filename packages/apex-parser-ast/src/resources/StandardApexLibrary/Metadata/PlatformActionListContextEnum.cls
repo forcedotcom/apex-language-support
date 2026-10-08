@@ -1,25 +1,29 @@
 /**
  * Describes the different contexts of action lists.
+ * Enum Values
+ * The following are the values of the Metadata.PlatformActionListContextEnum enum.
  */
 global enum PlatformActionListContextEnum {
-  ActionDefinition,
-  Assistant,
-  BannerPhoto,
-  Chatter,
-  Dockable,
-  FeedElement,
-  Flexipage,
-  Global_x,
-  ListView,
-  ListViewDefinition,
-  ListViewRecord,
-  Lookup,
-  MruList,
-  MruRow,
-  ObjectHomeChart,
-  Photo,
-  Record,
-  RecordEdit,
-  RelatedList,
-  RelatedListRecord
+    ActionDefinition,
+    Assistant,
+    BannerPhoto,
+    Chatter,
+    Dockable,
+    FeedElement,
+    Flexipage,
+    Global_x,
+    ListView,
+    ListViewDefinition,
+    ListViewRecord,
+    Lookup,
+    MetadataExplorer,
+    MruList,
+    MruRow,
+    ObjectHomeChart,
+    Photo,
+    Record,
+    RecordEdit,
+    RelatedList,
+    RelatedListRecord
+
 }

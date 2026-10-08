@@ -1,19 +1,21 @@
 global class Field {
+    global Field() { }
 
-  global Field() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global String getTitle() {}
+    global String getTitle() { return null; }
 
-  global String getValue() {}
+    global String getValue() { return null; }
 
-  global Boolean isValueShortEnough() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global void setTitle(String title) {}
+    global Boolean isValueShortEnough() { return false; }
 
-  global void setValue(String value) {}
+    global void setTitle(String title) { }
 
-  global void setValueShortEnough(Boolean valueShortEnough) {}
+    global void setValue(String value) { }
 
-  global Object clone() {}
+    global void setValueShortEnough(Boolean valueShortEnough) { }
 
+    global override String toString() { return null; }
 }

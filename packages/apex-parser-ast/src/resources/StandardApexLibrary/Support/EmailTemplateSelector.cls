@@ -2,14 +2,11 @@
  * The Support.EmailTemplateSelector interface enables providing default email templates in Case Feed. With default email templates, specified email templates are preloaded for cases based on criteria such as case origin or subject.
  */
 global interface EmailTemplateSelector {
+    virtual Boolean equals(Object arg0);
 
-  /**
-   * Returns the ID of the email template to preload for the case currently being viewed in the case feed using the specified case ID.
-   * @param caseId 
-   * @return ID
-   */
-  ID getDefaultTemplateId(ID caseId);
+    abstract Id getDefaultEmailTemplateId(Id caseId);
 
-  Id getDefaultEmailTemplateId(Id arg0);
+    virtual Integer hashCode();
 
+    virtual String toString();
 }

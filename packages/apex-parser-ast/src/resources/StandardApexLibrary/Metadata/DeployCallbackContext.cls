@@ -1,20 +1,26 @@
 /**
  * Represents context information for a deployment job.
+ * Usage
+ * After an asynchronous metadata deployment finishes, Salesforce provides an instance ofMetadata.DeployCallbackContext in an asynchronous call to your implementation of handleResult() in your Metadata.DeployCallback class.
+ * Example
+ * public void handleResult(Metadata.DeployResult result,
+ *                          Metadata.DeployCallbackContext context) {
+ *   // Check the callback job ID for the deployment
+ *   Id jobId = context.getCallbackJobId();
+ *   // ...process the results...
+ * }
  */
-global class DeployCallbackContext {
+global virtual class DeployCallbackContext {
+    global DeployCallbackContext() { }
 
-  global DeployCallbackContext() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Makes a duplicate copy of the Metadata.DeployCallbackContext .
-   * @return Object
-   */
-  global Object clone() {}
+    /**
+     * Gets the asynchronous Apex job ID for the callback job.
+     */
+    global virtual Id getCallbackJobId() { return null; }
 
-  /**
-   * Gets the asynchronous Apex job ID for the callback job.
-   * @return Id
-   */
-  global Id getCallbackJobId() {}
+    global virtual Integer hashCode() { return 0; }
 
+    global override virtual String toString() { return null; }
 }

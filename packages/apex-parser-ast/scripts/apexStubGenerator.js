@@ -185,6 +185,21 @@ function formatAnnotations(annotations, indent = '') {
 }
 
 /**
+ * Format documentation supplied by the Symbol Table API as an Apex block comment.
+ */
+function formatDocumentation(documentation, indent = '') {
+    if (typeof documentation !== 'string' || !documentation.trim()) return '';
+
+    const lines = documentation
+        .trim()
+        .replace(/<\/?p\s*>/gi, '')
+        .replace(/\*\//g, '* /')
+        .split(/\r?\n/)
+        .map(line => line.trimEnd());
+    return `${indent}/**\n${lines.map(line => `${indent} *${line ? ` ${line}` : ''}`).join('\n')}\n${indent} */\n`;
+}
+
+/**
  * Get the default return value for a type
  */
 function getDefaultReturn(typeName) {
@@ -209,19 +224,21 @@ function getDefaultReturn(typeName) {
  * Generate field declaration
  */
 function generateField(field, indent = '    ') {
+    const documentation = formatDocumentation(field.documentation, indent);
     const annotations = formatAnnotations(field.annotations, indent);
     const modifiers = formatModifiers(field.modifiers);
     const modStr = modifiers.length > 0 ? modifiers.join(' ') + ' ' : '';
     const type = formatType(field.type);
     const initializer = field.initializer ? ` = ${field.initializer}` : '';
     
-    return `${annotations}${indent}${modStr}${type} ${field.name}${initializer};`;
+    return `${documentation}${annotations}${indent}${modStr}${type} ${field.name}${initializer};`;
 }
 
 /**
  * Generate property declaration
  */
 function generateProperty(property, indent = '    ') {
+    const documentation = formatDocumentation(property.documentation, indent);
     const annotations = formatAnnotations(property.annotations, indent);
     const modifiers = formatModifiers(property.modifiers);
     const modStr = modifiers.length > 0 ? modifiers.join(' ') + ' ' : '';
@@ -258,23 +275,26 @@ function generateProperty(property, indent = '    ') {
     
     const accessors = [getterStr, setterStr].filter(Boolean).join(' ');
     
-    return `${annotations}${indent}${modStr}${type} ${property.name} { ${accessors} }`;
+    return `${documentation}${annotations}${indent}${modStr}${type} ${property.name} { ${accessors} }`;
 }
 
 /**
  * Generate method/constructor signature and body
  */
-function generateMethod(method, className, typeKind, indent = '    ') {
+function generateMethod(method, className, typeKind, indent = '    ', classModifiers = []) {
+    const documentation = formatDocumentation(method.documentation, indent);
     const annotations = formatAnnotations(method.annotations, indent);
+    const isConstructor = method.isConstructor === true || method.name === '<init>';
     const modifiers = formatModifiers(method.modifiers);
+    if (isConstructor && !modifiers.some(modifier => VISIBILITY_MODIFIERS.includes(modifier))) {
+        const classVisibility = classModifiers.find(modifier => VISIBILITY_MODIFIERS.includes(modifier));
+        if (classVisibility) modifiers.unshift(classVisibility);
+    }
     // Apex interface methods inherit their visibility from the interface.
     const methodModifiers = typeKind === 'INTERFACE'
         ? modifiers.filter(modifier => !VISIBILITY_MODIFIERS.includes(modifier))
         : modifiers;
     const modStr = methodModifiers.length > 0 ? methodModifiers.join(' ') + ' ' : '';
-
-    // Handle constructor
-    const isConstructor = method.name === '<init>';
 
     // Demangle method name to extract clean name and generic return type
     const { cleanName, genericReturnType } = isConstructor
@@ -300,13 +320,13 @@ function generateMethod(method, className, typeKind, indent = '    ') {
     }).join(', ');
 
     // Generate body - use base type name for default return
-    const returnTypeName = genericReturnType || formatType(method.returnType);
+    const returnTypeName = isConstructor ? 'void' : genericReturnType || formatType(method.returnType);
     const defaultReturn = getDefaultReturn(returnTypeName);
 
     let body;
     if (modifiers.includes('abstract') || typeKind === 'INTERFACE') {
         // Abstract methods and interface methods have no body
-        return `${annotations}${indent}${modStr}${returnType}${methodName}(${params});`;
+        return `${documentation}${annotations}${indent}${modStr}${returnType}${methodName}(${params});`;
     } else if (defaultReturn === null) {
         // void method
         body = '{ }';
@@ -314,7 +334,7 @@ function generateMethod(method, className, typeKind, indent = '    ') {
         body = `{ return ${defaultReturn}; }`;
     }
 
-    return `${annotations}${indent}${modStr}${returnType}${methodName}(${params}) ${body}`;
+    return `${documentation}${annotations}${indent}${modStr}${returnType}${methodName}(${params}) ${body}`;
 }
 
 /**
@@ -330,6 +350,11 @@ function generateInnerType(innerType, indent = '    ') {
 function generateTypeBody(typeStub, indent = '') {
     const innerIndent = indent + '    ';
     const lines = [];
+
+    const documentation = formatDocumentation(typeStub.documentation, indent);
+    if (documentation) {
+        lines.push(documentation.trimEnd());
+    }
     
     // Annotations
     if (typeStub.annotations && typeStub.annotations.length > 0) {
@@ -421,7 +446,7 @@ function generateTypeBody(typeStub, indent = '') {
 
     if (methods.length > 0) {
         methods.forEach((method, idx) => {
-            lines.push(generateMethod(method, className, typeStub.kind, innerIndent));
+            lines.push(generateMethod(method, className, typeStub.kind, innerIndent, modifiers));
             if (idx < methods.length - 1) {
                 lines.push('');
             }

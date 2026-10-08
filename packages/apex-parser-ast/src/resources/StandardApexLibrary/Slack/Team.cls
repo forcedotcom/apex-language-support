@@ -1,311 +1,161 @@
 global class Team {
+    global Team() { }
 
-  global Team() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  global List<String> getDefaultChannels() {}
+    global String getAvatarBaseUrl() { return null; }
 
-  global String getDiscoverable() {}
+    global List getDefaultChannels() { return null; }
 
-  global String getDomain() {}
+    global String getDiscoverable() { return null; }
 
-  global String getEmailDomain() {}
+    global String getDomain() { return null; }
 
-  global String getEnterpriseDomain() {}
+    global String getEmailDomain() { return null; }
 
-  global String getEnterpriseId() {}
+    global String getEnterpriseDomain() { return null; }
 
-  global String getEnterpriseName() {}
+    global String getEnterpriseId() { return null; }
 
-  global Slack.TeamIcon getIcon() {}
+    global String getEnterpriseName() { return null; }
 
-  global String getId() {}
+    global Slack.TeamIcon getIcon() { return null; }
 
-  global Boolean getIsVerified() {}
+    global String getId() { return null; }
 
-  global String getName() {}
+    global Boolean getIsVerified() { return false; }
 
-  global String getUrl() {}
+    global String getName() { return null; }
 
-  global void setDefaultChannels(List<String> defaultChannels) {}
+    global String getUrl() { return null; }
 
-  global void setDiscoverable(String discoverable) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global void setDomain(String domain) {}
+    global void setAvatarBaseUrl(String avatarBaseUrl) { }
 
-  global void setEmailDomain(String emailDomain) {}
+    global void setDefaultChannels(List defaultChannels) { }
 
-  global void setEnterpriseId(String enterpriseId) {}
+    global void setDiscoverable(String discoverable) { }
 
-  global void setEnterpriseDomain(String enterpriseDomain) {}
+    global void setDomain(String domain) { }
 
-  global void setEnterpriseName(String enterpriseName) {}
+    global void setEmailDomain(String emailDomain) { }
 
-  global void setIcon(Slack.TeamIcon icon) {}
+    global void setEnterpriseDomain(String enterpriseDomain) { }
 
-  global void setId(String id) {}
+    global void setEnterpriseId(String enterpriseId) { }
 
-  global void setIsVerified(Boolean isVerified) {}
+    global void setEnterpriseName(String enterpriseName) { }
 
-  global void setName(String name) {}
+    global void setIcon(Slack.TeamIcon icon) { }
 
-  global void setUrl(String url) {}
+    global void setId(String id) { }
 
-  global String getFieldName() {}
+    global void setIsVerified(Boolean isVerified) { }
 
-  global String getHint() {}
+    global void setName(String name) { }
 
-  global String getLabel() {}
+    global void setUrl(String url) { }
 
-  global Slack.Team.ProfileOptions getOptions() {}
+    global override String toString() { return null; }
 
-  global Integer getOrdering() {}
+    global class Profile {
+        global Profile() { }
 
-  global List<String> getPossibleValues() {}
+        global Slack.Team.Profile clone() { return null; }
 
-  global String getType() {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global Boolean isHidden() {}
+        global String getFieldName() { return null; }
 
-  global void setFieldName(String fieldName) {}
+        global String getHint() { return null; }
 
-  global void setHidden(Boolean hidden) {}
+        global String getId() { return null; }
 
-  global void setHint(String hintValue) {}
+        global String getLabel() { return null; }
 
-  global void setLabel(String label) {}
+        global Slack.Team.ProfileOptions getOptions() { return null; }
 
-  global void setOptions(Slack.Team.ProfileOptions options) {}
+        global Integer getOrdering() { return 0; }
 
-  global void setOrdering(Integer ordering) {}
+        global Slack.Team.ProfilePermissions getPermissions() { return null; }
 
-  global void setPossibleValues(List<String> possibleValues) {}
+        global List getPossibleValues() { return null; }
 
-  global void setType(String type) {}
+        global String getSectionId() { return null; }
 
-  global Boolean isprotected() {}
+        global String getType() { return null; }
 
-  global void setprotected(Boolean _protected) {}
+        global virtual Integer hashCode() { return 0; }
 
-  global String getImage34() {}
+        global Boolean isHidden() { return false; }
 
-  global String getImage44() {}
+        global void setFieldName(String fieldName) { }
 
-  global String getImage68() {}
+        global void setHidden(Boolean hidden) { }
 
-  global String getImage88() {}
+        global void setHint(String hintValue) { }
 
-  global String getImage102() {}
+        global void setId(String id) { }
 
-  global String getImage132() {}
+        global void setLabel(String label) { }
 
-  global String getImage230() {}
+        global void setOptions(Slack.Team.ProfileOptions options) { }
 
-  global String getImageOriginal() {}
+        global void setOrdering(Integer ordering) { }
 
-  global Boolean isImageDefault() {}
+        global void setPermissions(Slack.Team.ProfilePermissions permissions) { }
 
-  global void setImage34(String image34) {}
+        global void setPossibleValues(List possibleValues) { }
 
-  global void setImage44(String image44) {}
+        global void setSectionId(String sectionId) { }
 
-  global void setImage68(String image68) {}
+        global void setType(String type) { }
 
-  global void setImage88(String image88) {}
+        global override virtual String toString() { return null; }
+    }
 
-  global void setImage102(String image102) {}
+    global class ProfileOptions {
+        global ProfileOptions() { }
 
-  global void setImage132(String image132) {}
+        global Slack.Team.ProfileOptions clone() { return null; }
 
-  global void setImage230(String image230) {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global void setImageDefault(Boolean imageDefault) {}
+        global virtual Integer hashCode() { return 0; }
 
-  global void setImageOriginal(String imageOriginal) {}
+        global Boolean isScim() { return false; }
 
-  global Boolean isBillingActive() {}
+        global Boolean isprotected() { return false; }
 
-  global void setBillingActive(Boolean billingActive) {}
+        global void setScim(Boolean scim) { }
 
-  global String getAppId() {}
+        global void setprotected(Boolean _protected) { }
 
-  global String getAppType() {}
+        global override virtual String toString() { return null; }
+    }
 
-  global String getChangeType() {}
+    global class ProfilePermissions {
+        global ProfilePermissions() { }
 
-  global String getChannel() {}
+        global Slack.Team.ProfilePermissions clone() { return null; }
 
-  global Integer getDate() {}
+        global virtual Boolean equals(Object o) { return false; }
 
-  global String getReason() {}
+        global List getApi() { return null; }
 
-  global String getResolution() {}
+        global virtual Integer hashCode() { return 0; }
 
-  global String getRssFeedChangeType() {}
+        global Boolean isScim() { return false; }
 
-  global String getRssFeedTitle() {}
+        global Boolean isUi() { return false; }
 
-  global String getRssFeedUrl() {}
+        global void setApi(List api) { }
 
-  global String getScope() {}
+        global void setScim(Boolean scim) { }
 
-  global String getServiceId() {}
+        global void setUi(Boolean ui) { }
 
-  global String getServiceType() {}
-
-  global String getUserId() {}
-
-  global String getUserName() {}
-
-  global Boolean isRssFeed() {}
-
-  global void setAppId(String appId) {}
-
-  global void setAppType(String appType) {}
-
-  global void setChangeType(String changeType) {}
-
-  global void setChannel(String channel) {}
-
-  global void setDate(Integer dateValue) {}
-
-  global void setReason(String reason) {}
-
-  global void setResolution(String resolution) {}
-
-  global void setRssFeed(Boolean rssFeed) {}
-
-  global void setRssFeedChangeType(String rssFeedChangeType) {}
-
-  global void setRssFeedTitle(String rssFeedTitle) {}
-
-  global void setRssFeedUrl(String rssFeedUrl) {}
-
-  global void setScope(String scope) {}
-
-  global void setServiceId(String serviceId) {}
-
-  global void setServiceType(String serviceType) {}
-
-  global void setUserId(String userId) {}
-
-  global void setUserName(String userName) {}
-
-  global Integer getCount() {}
-
-  global String getCountry() {}
-
-  global Integer getDateFirst() {}
-
-  global Integer getDateLast() {}
-
-  global String getIp() {}
-
-  global String getIsp() {}
-
-  global String getRegion() {}
-
-  global String getUserAgent() {}
-
-  global String getUsername() {}
-
-  global void setCount(Integer count) {}
-
-  global void setCountry(String country) {}
-
-  global void setDateFirst(Integer dateFirst) {}
-
-  global void setDateLast(Integer dateLast) {}
-
-  global void setIp(String ip) {}
-
-  global void setIsp(String isp) {}
-
-  global void setRegion(String region) {}
-
-  global void setUserAgent(String userAgent) {}
-
-  global void setUsername(String username) {}
-
-  global static Slack.TeamAccessLogsRequest.Builder builder() {}
-
-  global Slack.TeamAccessLogsRequest.Builder before(Integer before) {}
-
-  global Slack.TeamAccessLogsRequest build() {}
-
-  global Slack.TeamAccessLogsRequest.Builder count(Integer count) {}
-
-  global Slack.TeamAccessLogsRequest.Builder page(Integer page) {}
-
-  global Slack.TeamAccessLogsRequest.Builder teamId(String teamId) {}
-
-  global List<Slack.Login> getLogins() {}
-
-  global Slack.Paging getPaging() {}
-
-  global void setLogins(List<Slack.Login> logins) {}
-
-  global void setPaging(Slack.Paging paging) {}
-
-  global static Slack.TeamBillableInfoRequest.Builder builder() {}
-
-  global Slack.TeamBillableInfoRequest build() {}
-
-  global Slack.TeamBillableInfoRequest.Builder teamId(String teamId) {}
-
-  global Slack.TeamBillableInfoRequest.Builder user(String user) {}
-
-  global Map<String,Slack.BillableInfo> getBillableInfo() {}
-
-  global void setBillableInfo(Slack.BillableInfo> billableInfo) {}
-
-  global static Slack.TeamInfoRequest.Builder builder() {}
-
-  global Slack.TeamInfoRequest build() {}
-
-  global Slack.TeamInfoRequest.Builder team(String team) {}
-
-  global Slack.Team getTeam() {}
-
-  global void setTeam(Slack.Team team) {}
-
-  global static Slack.TeamIntegrationLogsRequest.Builder builder() {}
-
-  global Slack.TeamIntegrationLogsRequest.Builder appId(String appId) {}
-
-  global Slack.TeamIntegrationLogsRequest build() {}
-
-  global Slack.TeamIntegrationLogsRequest.Builder changeType(String changeType) {}
-
-  global Slack.TeamIntegrationLogsRequest.Builder count(Integer count) {}
-
-  global Slack.TeamIntegrationLogsRequest.Builder page(Integer page) {}
-
-  global Slack.TeamIntegrationLogsRequest.Builder serviceId(String serviceId) {}
-
-  global Slack.TeamIntegrationLogsRequest.Builder teamId(String teamId) {}
-
-  global Slack.TeamIntegrationLogsRequest.Builder user(String user) {}
-
-  global List<Slack.IntegrationLog> getLogs() {}
-
-  global void setLogs(List<Slack.IntegrationLog> logs) {}
-
-  global static Slack.TeamProfileGetRequest.Builder builder() {}
-
-  global Slack.TeamProfileGetRequest build() {}
-
-  global Slack.TeamProfileGetRequest.Builder teamId(String teamId) {}
-
-  global Slack.TeamProfileGetRequest.Builder visibility(String visibility) {}
-
-  global Slack.TeamProfileGetResponse.Profiles getProfile() {}
-
-  global void setProfile(Slack.TeamProfileGetResponse.Profiles profile) {}
-
-  global Object clone() {}
-
-  global String getAvatarBaseUrl() {}
-
-  global void setAvatarBaseUrl(String avatarBaseUrl) {}
-
+        global override virtual String toString() { return null; }
+    }
 }

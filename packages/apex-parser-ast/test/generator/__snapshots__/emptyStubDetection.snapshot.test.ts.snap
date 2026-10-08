@@ -3,8 +3,12 @@
 exports[`Empty stub snapshot — known stubs with no members matches the accepted list of empty stubs across all namespaces 1`] = `
 [
   {
-    "className": "GatewayResponse",
-    "namespace": "CommercePayments",
+    "className": "PageReference",
+    "namespace": "ApexPages",
+  },
+  {
+    "className": "SelectOption",
+    "namespace": "ApexPages",
   },
   {
     "className": "CartStatusEnum",
@@ -13,26 +17,6 @@ exports[`Empty stub snapshot — known stubs with no members matches the accepte
   {
     "className": "CdpIdentityResolutionConfigurationType",
     "namespace": "ConnectApi",
-  },
-  {
-    "className": "SOAPType",
-    "namespace": "Schema",
-  },
-  {
-    "className": "CallbackStatus",
-    "namespace": "System",
-  },
-  {
-    "className": "JSONToken",
-    "namespace": "System",
-  },
-  {
-    "className": "TriggerOperation",
-    "namespace": "System",
-  },
-  {
-    "className": "AsyncCondition",
-    "namespace": "TxnSecurity",
   },
 ]
 `;

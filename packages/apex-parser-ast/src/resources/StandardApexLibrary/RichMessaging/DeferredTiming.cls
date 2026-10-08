@@ -1,16 +1,40 @@
 /**
  * Represents timing for a transaction that occurs in the future.
  */
-global class DeferredTiming {
+global with sharing class DeferredTiming extends RichMessaging.AbstractTiming {
+    /**
+     * The deferred date. Enabled for Lightning components.
+     * Datetime
+     */
+    @InvocableVariable
+    global Datetime deferredDateValue;
 
-  global DeferredTiming(Datetime deferredDate) {}
+    /**
+     * The deferred date. Invocable variable.
+     * Datetime
+     */
+    @AuraEnabled
+    global Datetime deferredDate { get; set; }
+    /**
+     * Always returns “DeferredTiming”.
+     * String
+     */
+    @AuraEnabled
+    global String timingType { get; }
 
-  global Datetime deferredDate;
+    /**
+     * Creates a new instance of the RichMessaging.DeferredTiming class.
+     */
+    global DeferredTiming() { }
 
-  global Datetime deferredDateValue;
+    /**
+     * Creates a new instance of the RichMessaging.DeferredTiming class.
+     */
+    global DeferredTiming(Datetime deferredDate) { }
 
-  global String timingType;
+    global virtual Boolean equals(Object o) { return false; }
 
-  global Object clone() {}
+    global virtual Integer hashCode() { return 0; }
 
+    global override virtual String toString() { return null; }
 }

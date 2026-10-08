@@ -1,0 +1,45 @@
+global class FileCreatedEvent extends Slack.Event {
+    global FileCreatedEvent() { }
+
+    global virtual Boolean equals(Object o) { return false; }
+
+    global String getEventTs() { return null; }
+
+    global Slack.FileCreatedEvent.File getFile() { return null; }
+
+    global String getFileId() { return null; }
+
+    global virtual String getSubtype() { return null; }
+
+    global override String getType() { return null; }
+
+    global String getUserId() { return null; }
+
+    global virtual Integer hashCode() { return 0; }
+
+    global void setEventTs(String eventTs) { }
+
+    global void setFile(Slack.FileCreatedEvent.File file) { }
+
+    global void setFileId(String fileId) { }
+
+    global void setUserId(String userId) { }
+
+    global override String toString() { return null; }
+
+    global class File {
+        global File() { }
+
+        global Slack.FileCreatedEvent.File clone() { return null; }
+
+        global virtual Boolean equals(Object o) { return false; }
+
+        global String getId() { return null; }
+
+        global virtual Integer hashCode() { return 0; }
+
+        global void setId(String id) { }
+
+        global override virtual String toString() { return null; }
+    }
+}

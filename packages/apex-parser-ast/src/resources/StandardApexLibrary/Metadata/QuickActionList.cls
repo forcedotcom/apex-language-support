@@ -1,16 +1,20 @@
 /**
  * Represents the list of actions associated with the page layout.
+ * Usage
+ * Use this class when accessing Metadata.Layout metadata components. For more information, see “QuickActionList” in the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.api_meta.meta/api_meta/meta_intro.htm" target="_blank">Metadata API Developer Guide</a>.
  */
-global class QuickActionList {
+global class QuickActionList extends Metadata.MetadataValue {
+    /**
+     * List of QuickActionList objects.
+     * List<Metadata.QuickActionListItem>
+     */
+    global List quickActionListItems { get; set; }
 
-  global QuickActionList() {}
+    global QuickActionList() { }
 
-  global List<Metadata.QuickActionListItem> quickActionListItems;
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Makes a duplicate copy of the Metadata.QuickActionList .
-   * @return Object
-   */
-  global Object clone() {}
+    global virtual Integer hashCode() { return 0; }
 
+    global override virtual String toString() { return null; }
 }

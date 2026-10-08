@@ -1,28 +1,93 @@
 /**
  * Represents a shipping method listed in payment requests sent in enhanced Messaging channels.
+ * Example
+ * public with sharing class MessagingShippingMethods {
+ *
+ *     @InvocableMethod
+ *     public static List<List<RichMessaging.ShippingMethod>> getShippingMethods(){
+ *         Double amount = 0.25;
+ *         List<List<RichMessaging.ShippingMethod>> result = new List<List<RichMessaging.ShippingMethod>>();
+ *
+ *         List<RichMessaging.ShippingMethod> options = new List<RichMessaging.ShippingMethod>{
+ *             new RichMessaging.ShippingMethod('doordash', amount, '1 hour delivery to your door', 'ddash'),
+ *             new RichMessaging.ShippingMethod('UPS', amount, '2 days delivery', 'UPS')
+ *         };
+ *         result.add(options);
+ *         return result;
+ *     }
+ *
+ * }
  */
-global class ShippingMethod {
+global with sharing class ShippingMethod {
+    /**
+     * The amount value of the shipping method.
+     * Double
+     */
+    @InvocableVariable
+    global Double amountValue;
+    /**
+     * The detail value of the shipping method.
+     * String
+     */
+    @InvocableVariable
+    global String detailValue;
+    /**
+     * The identifier value of the shipping method.
+     * String
+     */
+    @InvocableVariable
+    global String identifierValue;
+    /**
+     * The label value of the shipping method.
+     * String
+     */
+    @InvocableVariable
+    global String labelValue;
 
-  global ShippingMethod(String label, Double amount, String detail, String identifier) {}
+    /**
+     * The amount of the shipping method.
+     * Double
+     */
+    @AuraEnabled
+    global Double amount { get; set; }
+    /**
+     * Details about the shipping method.
+     * String
+     */
+    @AuraEnabled
+    global String detail { get; set; }
+    /**
+     * The identifier of the shipping method.
+     * String
+     */
+    @AuraEnabled
+    global String identifier { get; set; }
+    /**
+     * The label of the shipping method.
+     * String
+     */
+    @AuraEnabled
+    global String label { get; set; }
+    /**
+     * The shipping method type. Read only.
+     * String
+     */
+    @AuraEnabled
+    global String shippingMethodType { get; }
 
-  global Double amount;
+    /**
+     * Creates a new instance of the RichMessaging.ShippingMethod class.
+     */
+    global ShippingMethod() { }
 
-  global Double amountValue;
+    /**
+     * Creates a new instance of the RichMessaging.ShippingMethod class.
+     */
+    global ShippingMethod(String label, Double amount, String detail, String identifier) { }
 
-  global String detail;
+    global virtual Boolean equals(Object o) { return false; }
 
-  global String detailValue;
+    global virtual Integer hashCode() { return 0; }
 
-  global String identifier;
-
-  global String identifierValue;
-
-  global String label;
-
-  global String labelValue;
-
-  global String shippingMethodType;
-
-  global Object clone() {}
-
+    global override virtual String toString() { return null; }
 }

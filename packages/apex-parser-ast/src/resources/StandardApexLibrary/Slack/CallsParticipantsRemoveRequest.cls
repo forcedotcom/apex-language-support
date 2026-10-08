@@ -1,0 +1,31 @@
+global class CallsParticipantsRemoveRequest {
+    global static Slack.CallsParticipantsRemoveRequest.Builder builder() { return null; }
+
+    global virtual Boolean equals(Object o) { return false; }
+
+    global String getId() { return null; }
+
+    global List getUsers() { return null; }
+
+    global virtual Integer hashCode() { return 0; }
+
+    global override String toString() { return null; }
+
+    global class Builder {
+        global Builder() { }
+
+        global Slack.CallsParticipantsRemoveRequest build() { return null; }
+
+        global Slack.CallsParticipantsRemoveRequest.Builder clone() { return null; }
+
+        global virtual Boolean equals(Object o) { return false; }
+
+        global virtual Integer hashCode() { return 0; }
+
+        global Slack.CallsParticipantsRemoveRequest.Builder id(String id) { return null; }
+
+        global override virtual String toString() { return null; }
+
+        global Slack.CallsParticipantsRemoveRequest.Builder users(List users) { return null; }
+    }
+}

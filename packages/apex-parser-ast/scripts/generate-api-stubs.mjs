@@ -38,7 +38,6 @@ const projectRoot = join(__dirname, '..');
 // Configuration
 const INPUT_DIR = join(projectRoot, 'build', 'api-stubs');
 const OUTPUT_DIR = join(projectRoot, 'src', 'resources', 'StandardApexLibrary');
-const BUILTINS_DIR = join(projectRoot, 'src', 'resources', 'builtins');
 const METADATA_FILE = join(INPUT_DIR, 'fetch-metadata.json');
 const GENERATION_METADATA_FILE = join(INPUT_DIR, 'generation-metadata.json');
 
@@ -83,7 +82,6 @@ const BUILTIN_NAMESPACED_CLASSES = new Map([
   ['DescribeSObjectResult.cls', 'Schema'],
 ]);
 
-
 /**
  * Check if a file should be skipped (is a builtin)
  */
@@ -114,21 +112,38 @@ function shouldSkipFile(filename, namespace) {
  */
 function loadFetchMetadata() {
   if (!existsSync(METADATA_FILE)) {
-    throw new Error(
-      'Fetch metadata not found. Run fetch-api-stubs.mjs first.',
-    );
+    throw new Error('Fetch metadata not found. Run fetch-api-stubs.mjs first.');
   }
 
   const content = readFileSync(METADATA_FILE, 'utf8');
   return JSON.parse(content);
 }
 
-export function validateCapture(metadata, inputDir, targetNamespaces = TARGET_NAMESPACES) {
+export function validateCapture(
+  metadata,
+  inputDir,
+  targetNamespaces = TARGET_NAMESPACES,
+) {
   const invalidNamespaces = [];
+  const namesByLowercase = new Map();
+
+  for (const capturedNamespace of Object.keys(metadata.namespaces ?? {})) {
+    const key = capturedNamespace.toLowerCase();
+    const prior = namesByLowercase.get(key);
+    if (prior) {
+      invalidNamespaces.push(
+        `${capturedNamespace} (duplicate namespace casing: ${prior}, ${capturedNamespace})`,
+      );
+    } else {
+      namesByLowercase.set(key, capturedNamespace);
+    }
+  }
 
   for (const namespace of targetNamespaces) {
-    const captureNamespace = getCaptureNamespace(metadata, namespace);
-    const info = captureNamespace ? metadata.namespaces[captureNamespace] : undefined;
+    const captureNamespace = namesByLowercase.get(namespace.toLowerCase());
+    const info = captureNamespace
+      ? metadata.namespaces[captureNamespace]
+      : undefined;
     if (!SAFE_PATH_COMPONENT.test(namespace)) {
       invalidNamespaces.push(`${namespace} (invalid namespace)`);
     } else if (!info) {
@@ -137,6 +152,20 @@ export function validateCapture(metadata, inputDir, targetNamespaces = TARGET_NA
       invalidNamespaces.push(`${namespace} (${info.error})`);
     } else if (!info.filename || !existsSync(join(inputDir, info.filename))) {
       invalidNamespaces.push(`${namespace} (missing input file)`);
+    } else {
+      const content = readFileSync(join(inputDir, info.filename));
+      const checksum = createHash('sha256').update(content).digest('hex');
+      if (info.checksum && !checksum.startsWith(info.checksum)) {
+        invalidNamespaces.push(`${namespace} (input checksum mismatch)`);
+      } else if (info.typeCount !== undefined) {
+        const data = JSON.parse(content.toString('utf8'));
+        if (
+          !Array.isArray(data.typeStubs) ||
+          data.typeStubs.length !== info.typeCount
+        ) {
+          invalidNamespaces.push(`${namespace} (input type count mismatch)`);
+        }
+      }
     }
   }
 
@@ -147,7 +176,11 @@ export function validateCapture(metadata, inputDir, targetNamespaces = TARGET_NA
   }
 }
 
-export function calculateCaptureChecksum(metadata, inputDir, targetNamespaces = TARGET_NAMESPACES) {
+export function calculateCaptureChecksum(
+  metadata,
+  inputDir,
+  targetNamespaces = TARGET_NAMESPACES,
+) {
   const hash = createHash('sha256');
   for (const namespace of [...targetNamespaces].sort()) {
     const captureNamespace = getCaptureNamespace(metadata, namespace);
@@ -187,7 +220,9 @@ export function loadNamespaceStubs(namespace, jsonFilePath) {
   const stubs = generatedStubs
     .filter((stub) => !shouldSkipFile(stub.filename, namespace))
     .map((stub) => {
-      if (!SAFE_PATH_COMPONENT.test(stub.filename.replace(/\.(cls|trigger)$/, ''))) {
+      if (
+        !SAFE_PATH_COMPONENT.test(stub.filename.replace(/\.(cls|trigger)$/, ''))
+      ) {
         throw new Error(`Invalid generated filename: ${stub.filename}`);
       }
       return stub;
@@ -243,7 +278,10 @@ async function main() {
   for (const namespace of TARGET_NAMESPACES) {
     const captureNamespace = getCaptureNamespace(fetchMetadata, namespace);
     const info = fetchMetadata.namespaces[captureNamespace];
-    generatedStubs.set(namespace, loadNamespaceStubs(namespace, join(INPUT_DIR, info.filename)));
+    generatedStubs.set(
+      namespace,
+      loadNamespaceStubs(namespace, join(INPUT_DIR, info.filename)),
+    );
   }
 
   // Clean generated files only from namespaces this capture replaces.
@@ -255,7 +293,7 @@ async function main() {
     }
     console.log(`   ✓ Removed ${removed} generated files`);
   } else {
-    console.log(`   ⊘ Output directory does not exist yet`);
+    console.log('   ⊘ Output directory does not exist yet');
   }
 
   // Generate stubs for TARGET_NAMESPACES only
@@ -309,12 +347,17 @@ async function main() {
   console.log('\n=== Generation Complete ===');
   console.log(`   Generated: ${totalGenerated} files`);
   console.log(`   Skipped: ${totalSkipped} builtins`);
-  console.log(`   Namespaces: ${Object.keys(generationMetadata.namespaces).length}`);
+  console.log(
+    `   Namespaces: ${Object.keys(generationMetadata.namespaces).length}`,
+  );
   console.log(`   Time: ${elapsed}s`);
   console.log(`   Output: ${OUTPUT_DIR}`);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   main().catch((error) => {
     console.error('\n❌ Generation failed:', error);
     process.exit(1);

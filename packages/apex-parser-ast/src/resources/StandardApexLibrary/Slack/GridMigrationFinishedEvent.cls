@@ -1,0 +1,17 @@
+global class GridMigrationFinishedEvent extends Slack.Event {
+    global GridMigrationFinishedEvent() { }
+
+    global virtual Boolean equals(Object o) { return false; }
+
+    global String getEnterpriseId() { return null; }
+
+    global virtual String getSubtype() { return null; }
+
+    global override String getType() { return null; }
+
+    global virtual Integer hashCode() { return 0; }
+
+    global void setEnterpriseId(String enterpriseId) { }
+
+    global override String toString() { return null; }
+}

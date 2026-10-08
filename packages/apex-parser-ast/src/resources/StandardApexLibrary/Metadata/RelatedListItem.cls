@@ -1,28 +1,51 @@
 /**
  * Represents an item in the related list in a page layout.
+ * Usage
+ * Use this class when accessing Metadata.Layout metadata components. For more information, see “RelatedListItem” in the <a class="xref" href="https://developer.salesforce.com/docs/atlas.en-us.262.0.api_meta.meta/api_meta/meta_intro.htm" target="_blank">Metadata API Developer Guide</a>.
  */
-global class RelatedListItem {
+global class RelatedListItem extends Metadata.MetadataValue {
+    /**
+     * A list of custom buttons used in the related list.
+     * List<String>
+     * For more information, see “Define Custom Buttons and Links” in the Salesforce online help.
+     */
+    global List customButtons { get; set; }
+    /**
+     * A list of excluded related-list buttons.
+     * List<String>
+     */
+    global List excludeButtons { get; set; }
+    /**
+     * A list of fields displayed in the related list. Uses aliases instead of field or API names.
+     * List<String>
+     */
+    global List fields { get; set; }
+    /**
+     * A list of quick actions used on the related list.
+     * List<String>
+     */
+    global List quickActions { get; set; }
+    /**
+     * The name of the related list.
+     * String
+     */
+    global String relatedList { get; set; }
+    /**
+     * The name of the field used for sorting.
+     * String
+     */
+    global String sortField { get; set; }
+    /**
+     * When sortField is set, the sortOrder property determines the sort order.
+     * Metadata.SortOrder
+     */
+    global Metadata.SortOrder sortOrder { get; set; }
 
-  global RelatedListItem() {}
+    global RelatedListItem() { }
 
-  global List<String> customButtons;
+    global virtual Boolean equals(Object o) { return false; }
 
-  global List<String> excludeButtons;
+    global virtual Integer hashCode() { return 0; }
 
-  global List<String> fields;
-
-  global List<String> quickActions;
-
-  global String relatedList;
-
-  global String sortField;
-
-  global Metadata.SortOrder sortOrder;
-
-  /**
-   * Makes a duplicate copy of the Metadata.RelatedListItem .
-   * @return Object
-   */
-  global Object clone() {}
-
+    global override virtual String toString() { return null; }
 }

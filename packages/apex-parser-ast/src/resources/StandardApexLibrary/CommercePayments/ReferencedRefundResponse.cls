@@ -1,70 +1,69 @@
 /**
  * The payment gateway adapter sends this response for the ReferencedRefund request type.
+ * Usage
+ * The constructor of this class takes no arguments. For example:
+ * CommercePayments.ReferencedRefundResponse refr = new CommercePayments.ReferencedRefundResponse();
  */
-global class ReferencedRefundResponse {
+global with sharing class ReferencedRefundResponse extends commercepayments.AbstractTransactionResponse {
+    global ReferencedRefundResponse() { }
 
-  global ReferencedRefundResponse() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Sets the transaction amount. The value must be a postive number.
-   * @param amount The amount to be debited or captured.
-   */
-  global void setAmount(Double amount) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global void setAsync(Boolean async) {}
+    /**
+     * Sets the transaction amount. The value must be a postive number.
+     */
+    global virtual void setAmount(Double amount) { }
 
-  /**
-   * Sets the payment gateway’s address verification system (AVS) code.
-   * @param gatewayAvsCode Code sent by gateways that use an address verification system.
-   */
-  global void setGatewayAvsCode(String gatewayAvsCode) {}
+    /**
+     * Sets whether the payment capture or authorization is asynchronous (True) or synchronous (False). If True, then the payment refund record created has a status of Pending.
+     */
+    global void setAsync(Boolean async) { }
 
-  /**
-   * Sets the payment gateway’s date.
-   * @param gatewayDate Date and time of the gateway communication.
-   */
-  global void setGatewayDate(Datetime gatewayDate) {}
+    /**
+     * Sets the payment gateway’s address verification system (AVS) code.
+     */
+    global void setGatewayAvsCode(String gatewayAvsCode) { }
 
-  /**
-   * Sets information or messages that the gateway returned.
-   * @param gatewayMessage Information or error messages returned by the gateway.
-   */
-  global void setGatewayMessage(String gatewayMessage) {}
+    /**
+     * Sets the payment gateway’s date.
+     */
+    global void setGatewayDate(Datetime gatewayDate) { }
 
-  /**
-   * Sets the payment gateway’s reference details.
-   * @param gatewayReferenceDetails Information about the gateway communication.
-   */
-  global void setGatewayReferenceDetails(String gatewayReferenceDetails) {}
+    /**
+     * Sets information or messages that the gateway returned.
+     */
+    global void setGatewayMessage(String gatewayMessage) { }
 
-  /**
-   * Sets the payment gateway’s reference number.
-   * @param gatewayReferenceNumber Unique transaction ID created by the payment gateway.
-   */
-  global void setGatewayReferenceNumber(String gatewayReferenceNumber) {}
+    /**
+     * Sets the payment gateway’s reference details.
+     */
+    global void setGatewayReferenceDetails(String gatewayReferenceDetails) { }
 
-  /**
-   * Sets the payment gateway’s result code.
-   * @param gatewayResultCode The gateway result code. Must be mapped to a Salesforce result code.
-   */
-  global void setGatewayResultCode(String gatewayResultCode) {}
+    /**
+     * Sets the payment gateway’s reference number.
+     */
+    global virtual void setGatewayReferenceNumber(String gatewayReferenceNumber) { }
 
-  /**
-   * Sets the payment gateway’s result code description.
-   * @param gatewayResultCodeDescription Description of the GatewayResultCode . Provides more information about the result code returned by the gateway.
-   */
-  global void setGatewayResultCodeDescription(String gatewayResultCodeDescription) {}
+    /**
+     * Sets the payment gateway’s result code.
+     */
+    global void setGatewayResultCode(String gatewayResultCode) { }
 
-  /**
-   * Set the Salesforce result code info.
-   * @param salesforceResultCodeInfo Describes the Salesforce result code value.
-   */
-  global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+    /**
+     * Sets the payment gateway’s result code description.
+     */
+    global void setGatewayResultCodeDescription(String gatewayResultCodeDescription) { }
 
-  global Object clone() {}
+    global void setRetryCategory(commercepayments.RetryCategory retryCategory) { }
 
-  global void setRetryCategory(commercepayments.RetryCategory retryCategory) {}
+    global void setRetryDecision(commercepayments.RetryDecision retryDecision) { }
 
-  global void setRetryDecision(commercepayments.RetryDecision retryDecision) {}
+    /**
+     * Set the Salesforce result code info.
+     */
+    global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) { }
 
+    global override virtual String toString() { return null; }
 }

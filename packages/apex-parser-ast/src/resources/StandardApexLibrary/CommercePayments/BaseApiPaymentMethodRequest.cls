@@ -1,37 +1,47 @@
 /**
  * Abstract class used to send information about a payment method to a gateway adapter during a service call.
+ * Usage
+ * BaseApiPaymentMethodRequest is the base class for SaleApiPaymentMethodRequest and AuthApiPaymentMethodRequest.
  */
-global class BaseApiPaymentMethodRequest {
+global abstract with sharing class BaseApiPaymentMethodRequest {
+    /**
+     * The payment method’s address.
+     * AddressRequest
+     */
+    global commercepayments.AddressRequest address { get; set; }
+    /**
+     * ID of the payment method request.
+     * String
+     */
+    global String id { get; set; }
+    /**
+     * ID of the payment method type.
+     * commercepayments.PaymentMethodIdType
+     */
+    global commercepayments.PaymentMethodIdType idType { get; set; }
+    /**
+     * Indicates whether the payment method is saved as a record in Salesforce for future use.
+     * Boolean
+     */
+    global Boolean saveForFuture { get; set; }
 
-  global BaseApiPaymentMethodRequest(commercepayments.AddressRequest address, String id, Boolean saveForFuture) {}
+    /**
+     * Constructs a payment method. This constructor is intended for test usage and throws an exception if used outside of the Apex test context.
+     */
+    global BaseApiPaymentMethodRequest(commercepayments.AddressRequest address, String id, Boolean saveForFuture) { }
 
-  global commercepayments.AddressRequest address;
+    /**
+     * Maintains the integrity of lists of type BaseApiPaymentMethodRequest by determining the equality of external objects in a list. This method is dynamic and is based on the equals method in Java.
+     */
+    global virtual Boolean equals(Object obj) { return false; }
 
-  global String id;
+    /**
+     * Maintains the integrity of lists of type BaseApiPaymentMethodRequest by determining the uniqueness of the external object records in a list.
+     */
+    global virtual Integer hashCode() { return 0; }
 
-  global commercepayments.PaymentMethodIdType idType;
-
-  global Boolean saveForFuture;
-
-  /**
-   * Maintains the integrity of lists of type BaseApiPaymentMethodRequest by determining the equality of external objects in a list. This method is dynamic and is based on the equals method in Java.
-   * @param obj External object whose key is to be validated.
-   * @return Boolean
-   */
-  global Boolean equals(Object obj) {}
-
-  /**
-   * Maintains the integrity of lists of type BaseApiPaymentMethodRequest by determining the uniqueness of the external object records in a list.
-   * @return Integer
-   */
-  global Integer hashCode() {}
-
-  /**
-   * Converts a date to a string.
-   * @return String
-   */
-  global String toString() {}
-
-  global Object clone() {}
-
+    /**
+     * Converts a date to a string.
+     */
+    global override virtual String toString() { return null; }
 }

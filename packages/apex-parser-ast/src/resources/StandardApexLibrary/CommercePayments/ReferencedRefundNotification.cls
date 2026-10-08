@@ -1,76 +1,88 @@
 /**
  * When a payment gateway sends a notification for a refund transaction, the payment gateway adapter creates the ReferencedRefundNotification object to store information about notification.
+ * Usage
+ * This class is used with asynchronous payments. When a payment gateway sends a notification for a refund transcation, the gateway adapter creates an object of type ReferencedRefundNotification to populate the respective values.
+ * The constructor of this class takes no arguments. For example:
+ * CommercePayments.ReferencedRefundNotification rrn = new CommercePayments.ReferencedRefundNotification();
+ * Example
+ * commercepayments.NotificationStatus notificationStatus = null;
+ *         if (success) {
+ *             notificationStatus = commercepayments.NotificationStatus.Success;
+ *         } else {
+ *             notificationStatus = commercepayments.NotificationStatus.Failed;
+ *         }
+ *         commercepayments.BaseNotification notification = null;
+ *         if ('CAPTURE'.equals(eventCode)) {
+ *             notification = new commercepayments.CaptureNotification();
+ *         } else if ('REFUND'.equals(eventCode)) {
+ *             notification = new commercepayments.ReferencedRefundNotification();
+ *         }
  */
-global class ReferencedRefundNotification {
+global with sharing class ReferencedRefundNotification extends commercepayments.BaseNotification {
+    global ReferencedRefundNotification() { }
 
-  global ReferencedRefundNotification() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Sets the transaction amount. Can be positive, negative, or zero.
-   * @param amount The amount to be debited or captured.
-   */
-  global void setAmount(Double amount) {}
+    global virtual Integer hashCode() { return 0; }
 
-  global void setGatewayAvsCode(String gatewayAvsCode) {}
+    /**
+     * Sets the transaction amount. Can be positive, negative, or zero.
+     */
+    global override void setAmount(Double amount) { }
 
-  /**
-   * Sets the date that communication for the refund notification occurred with the payment gateway.
-   * @param gatewayDate The date that communication happened with the gateway.
-   */
-  global void setGatewayDate(Datetime gatewayDate) {}
+    /**
+     * Sets the AVS (address verification system) result code information that the gateway returned. Maximum length of 64 characters.
+     */
+    global void setGatewayAvsCode(String gatewayAvsCode) { }
 
-  /**
-   * Sets information or messages that the gateway returned.
-   * @param gatewayMessage 
-   */
-  global void setGatewayMessage(String gatewayMessage) {}
+    /**
+     * Sets the date that communication for the refund notification occurred with the payment gateway.
+     */
+    global void setGatewayDate(Datetime gatewayDate) { }
 
-  /**
-   * Sets the payment gateway’s reference details.
-   * @param gatewayReferenceDetails Provides information about the gateway communication.
-   */
-  global void setGatewayReferenceDetails(String gatewayReferenceDetails) {}
+    /**
+     * Sets information or messages that the gateway returned.
+     */
+    global void setGatewayMessage(String gatewayMessage) { }
 
-  /**
-   * Sets the payment gateway’s reference number.
-   * @param gatewayReferenceNumber Unique transaction ID created by the payment gateway.
-   */
-  global void setGatewayReferenceNumber(String gatewayReferenceNumber) {}
+    /**
+     * Sets the payment gateway’s reference details.
+     */
+    global void setGatewayReferenceDetails(String gatewayReferenceDetails) { }
 
-  /**
-   * Sets the payment gateway’s result code.
-   * @param gatewayResultCode The gateway result code. You must map this to a Salesforce-specific result code.
-   */
-  global void setGatewayResultCode(String gatewayResultCode) {}
+    /**
+     * Sets the payment gateway’s reference number.
+     */
+    global override void setGatewayReferenceNumber(String gatewayReferenceNumber) { }
 
-  /**
-   * Sets the payment gateway’s result code description.
-   * @param gatewayResultCodeDescription Description of the gateway result code. Provides additional context about the result code .
-   */
-  global void setGatewayResultCodeDescription(String gatewayResultCodeDescription) {}
+    /**
+     * Sets the payment gateway’s result code.
+     */
+    global void setGatewayResultCode(String gatewayResultCode) { }
 
-  /**
-   * Sets the ID of a notification sent by the payment gateway.
-   * @param id 
-   */
-  global void setId(String id) {}
+    /**
+     * Sets the payment gateway’s result code description.
+     */
+    global void setGatewayResultCodeDescription(String gatewayResultCodeDescription) { }
 
-  /**
-   * Sets Salesforce result code information.
-   * @param salesforceResultCodeInfo Description of the Salesforce result code value.
-   */
-  global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) {}
+    /**
+     * Sets the ID of a notification sent by the payment gateway.
+     */
+    global void setId(String id) { }
 
-  /**
-   * Sets the notification status value on the notification object.
-   * @param status Indicates whether the payments platform successfully received the notification from the payment gateway.
-   */
-  global void setStatus(commercepayments.NotificationStatus status) {}
+    global void setRetryCategory(commercepayments.RetryCategory retryCategory) { }
 
-  global Object clone() {}
+    global void setRetryDecision(commercepayments.RetryDecision retryDecision) { }
 
-  global void setRetryCategory(commercepayments.RetryCategory retryCategory) {}
+    /**
+     * Sets Salesforce result code information.
+     */
+    global void setSalesforceResultCodeInfo(commercepayments.SalesforceResultCodeInfo salesforceResultCodeInfo) { }
 
-  global void setRetryDecision(commercepayments.RetryDecision retryDecision) {}
+    /**
+     * Sets the notification status value on the notification object.
+     */
+    global void setStatus(commercepayments.NotificationStatus status) { }
 
+    global override virtual String toString() { return null; }
 }

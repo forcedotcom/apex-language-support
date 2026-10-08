@@ -38,6 +38,34 @@ describe('API stub scripts', () => {
     );
   });
 
+  test('merges namespace casing before writing captures', () => {
+    const output = runModule(`
+      import { groupStubsByNamespace } from ${JSON.stringify(
+        scriptUrl('fetch-api-stubs.mjs'),
+      )};
+      const grouped = groupStubsByNamespace([
+        { name: 'Document', namespace: 'dom' },
+        { name: 'XmlNodeType', namespace: 'Dom' },
+        { name: 'XmlNode', namespace: 'dom' },
+        { name: 'First', namespace: 'Other' },
+        { name: 'Second', namespace: 'other' },
+      ]);
+      console.log(JSON.stringify(grouped));
+    `);
+
+    expect(JSON.parse(output)).toEqual({
+      Dom: [
+        { name: 'Document', namespace: 'dom' },
+        { name: 'XmlNodeType', namespace: 'Dom' },
+        { name: 'XmlNode', namespace: 'dom' },
+      ],
+      Other: [
+        { name: 'First', namespace: 'Other' },
+        { name: 'Second', namespace: 'other' },
+      ],
+    });
+  });
+
   test('the generator uses the canonical target namespace set', () => {
     const output = runModule(`
        import { TARGET_NAMESPACES } from ${JSON.stringify(
@@ -110,6 +138,65 @@ describe('API stub scripts', () => {
     );
 
     expect(output).toBe('valid');
+  });
+
+  test('capture validation rejects namespace collisions and overwritten input', () => {
+    const root = mkdtempSync(join(tmpdir(), 'apex-api-collision-'));
+    writeFileSync(
+      join(root, 'Dom.json'),
+      '{"typeStubs":[{"name":"XmlNodeType"}]}',
+    );
+
+    const validate = (metadata: object): string =>
+      runModule(
+        `
+          import { validateCapture } from ${JSON.stringify(
+            scriptUrl('generate-api-stubs.mjs'),
+          )};
+          try {
+            validateCapture(JSON.parse(process.argv[1]), process.argv[2], new Set(['Dom']));
+            console.log('valid');
+          } catch (error) {
+            console.log(error.message);
+          }
+        `,
+        [JSON.stringify(metadata), root],
+      );
+
+    expect(
+      validate({
+        namespaces: {
+          dom: { filename: 'dom.json' },
+          Dom: { filename: 'Dom.json' },
+        },
+      }),
+    ).toContain('duplicate namespace casing');
+
+    expect(
+      validate({
+        namespaces: {
+          Dom: { filename: 'Dom.json', typeCount: 1 },
+          Other: { filename: 'Other.json' },
+          other: { filename: 'other.json' },
+        },
+      }),
+    ).toContain('duplicate namespace casing: Other, other');
+
+    expect(
+      validate({
+        namespaces: {
+          Dom: { filename: 'Dom.json', typeCount: 3 },
+        },
+      }),
+    ).toContain('input type count mismatch');
+
+    expect(
+      validate({
+        namespaces: {
+          Dom: { filename: 'Dom.json', checksum: '0000000000000000' },
+        },
+      }),
+    ).toContain('input checksum mismatch');
   });
 
   test('cleanup preserves skipped builtin files', () => {

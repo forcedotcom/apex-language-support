@@ -2,40 +2,43 @@
  * Contains information about one item in a picklist used in a Lightning component on a Lightning page.
  */
 global class DataRow {
+    /**
+     * Creates an instance of the VisualEditor.DataRow class using the specified label and value.
+     */
+    global DataRow(String label, Object value) { }
 
-  global DataRow(String label, Object value, Boolean selected) {}
+    /**
+     * Creates an instance of the VisualEditor.DataRow class using the specified label, value, and selected option.
+     */
+    global DataRow(String label, Object value, Boolean selected) { }
 
-  global DataRow(String label, Object value) {}
+    /**
+     * Compares the current VisualEditor.DataRow object to the specified one. Returns an integer value that is the result of the comparison.
+     * @return Returns one of the following values:
+     * Zero if the current package version is equal to the specified package version
+     * An integer value greater than zero if the current package version is greater than the specified package version
+     * An integer value less than zero if the current package version is less than the specified package version
+     */
+    global Integer compareTo(VisualEditor.DataRow o) { return 0; }
 
-  /**
-   * Makes a duplicate copy of the VisualEditor.DataRow object.
-   * @return Object
-   */
-  global Object clone() {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Compares the current VisualEditor.DataRow object to the specified one. Returns an integer value that is the result of the comparison.
-   * @param o A single item in a picklist.
-   * @return Integer
-   */
-  global Integer compareTo(VisualEditor.DataRow o) {}
+    /**
+     * Returns the user-facing label of the picklist item.
+     */
+    global String getLabel() { return null; }
 
-  /**
-   * Returns the user-facing label of the picklist item.
-   * @return String
-   */
-  global String getLabel() {}
+    /**
+     * Returns the value of the picklist item.
+     */
+    global Object getValue() { return null; }
 
-  /**
-   * Returns the value of the picklist item.
-   * @return Object
-   */
-  global Object getValue() {}
+    global virtual Integer hashCode() { return 0; }
 
-  /**
-   * Returns the state of the picklist item, indicating whether it’s selected or not.
-   * @return Boolean
-   */
-  global Boolean isSelected() {}
+    /**
+     * Returns the state of the picklist item, indicating whether it’s selected or not.
+     */
+    global Boolean isSelected() { return false; }
 
+    global override virtual String toString() { return null; }
 }

@@ -2,15 +2,14 @@
  * Contains data cells for a detail row of a report.
  */
 global class ReportDetailRow {
+    global virtual Boolean equals(Object o) { return false; }
 
-  global ReportDetailRow() {}
+    /**
+     * Returns a list of data cells for a detail row.
+     */
+    global List getDataCells() { return null; }
 
-  /**
-   * Returns a list of data cells for a detail row.
-   * @return LIST<Reports.ReportDataCell>
-   */
-  global LIST<Reports.ReportDataCell> getDataCells() {}
+    global virtual Integer hashCode() { return 0; }
 
-  global Object clone() {}
-
+    global override virtual String toString() { return null; }
 }

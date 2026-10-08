@@ -2,15 +2,19 @@
  * Contains a list of evaluated conditions for a report notification.
  */
 global class ThresholdInformation {
+    /**
+     * Creates a new instance of the Reports.EvaluatedCondition class.
+     */
+    global ThresholdInformation(List evaluatedConditions) { }
 
-  global ThresholdInformation(List<Reports.EvaluatedCondition> evaluatedConditions) {}
+    global virtual Boolean equals(Object o) { return false; }
 
-  /**
-   * Returns a list of evaluated conditions for a report notification.
-   * @return List<Reports.EvaluatedCondition>
-   */
-  global List<Reports.EvaluatedCondition> getEvaluatedConditions() {}
+    /**
+     * Returns a list of evaluated conditions for a report notification.
+     */
+    global List getEvaluatedConditions() { return null; }
 
-  global Object clone() {}
+    global virtual Integer hashCode() { return 0; }
 
+    global override virtual String toString() { return null; }
 }
