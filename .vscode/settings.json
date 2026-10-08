@@ -12,9 +12,9 @@
   "prettier.requireConfig": true,
   "prettier.useEditorConfig": false,
   "files.autoSave": "afterDelay",
-  "jest.jestCommandLine": "node_modules/.bin/jest",
-  "jest.debugMode": true,
-  "jest.autoRun": {
+  "vitest.commandLine": "node_modules/.bin/vitest",
+  "vitest.debugMode": true,
+  "vitest.autoRun": {
     "watch": false,
     "onSave": false
   },

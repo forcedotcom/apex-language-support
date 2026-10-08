@@ -129,7 +129,7 @@
       ]
     },
     "test": {
-      "command": "jest --json --outputFile=.wireit/test-results.json",
+      "command": "vitest run --reporter=json --outputFile=.wireit/test-results.json",
       "dependencies": [
         "compile"
       ],
@@ -139,13 +139,11 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs",
-        "../../jest.config.cjs",
-        "../../scripts/jest-teardown.js"
+        "vitest.config.mts"
       ]
     },
     "test:coverage": {
-      "command": "jest --coverage --coverageDirectory=./coverage",
+      "command": "vitest run --coverage --coverage.reportsDirectory=./coverage",
       "dependencies": [
         "compile"
       ],
@@ -155,9 +153,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs",
-        "../../jest.config.cjs",
-        "../../scripts/jest-teardown.js"
+        "vitest.config.mts"
       ]
     },
     "lint": {
@@ -185,7 +181,7 @@
       "output": []
     },
     "test:one": {
-      "command": "jest --testPathPattern=resourceLoader --json --outputFile=.wireit/test-results-one.json",
+      "command": "vitest run resourceLoader --reporter=json --outputFile=.wireit/test-results-one.json",
       "dependencies": [
         "compile"
       ],
@@ -195,20 +191,18 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs",
-        "../../jest.config.cjs",
-        "../../scripts/jest-teardown.js"
+        "vitest.config.mts"
       ]
     },
     "test:perf": {
-      "command": "jest --testMatch \"**/test/**/*.perf.ts\" --runInBand",
+      "command": "vitest run --include=\"test/**/*.perf.ts\" --pool=forks --poolOptions.forks.singleFork",
       "dependencies": [
         "compile"
       ],
       "files": [
         "src/**/*.ts",
         "test/**/*.perf.ts",
-        "**/jest.config.cjs"
+        "vitest.config.mts"
       ]
     }
   },
@@ -229,6 +223,7 @@
     "@salesforce/esbuild-presets": "workspace:*",
     "@types/benchmark": "^2.1.5",
     "benchmark": "^2.1.4",
-    "esbuild-plugin-copy": "^2.1.1"
+    "esbuild-plugin-copy": "^2.1.1",
+    "vitest": "5.0.1"
   }
 }
