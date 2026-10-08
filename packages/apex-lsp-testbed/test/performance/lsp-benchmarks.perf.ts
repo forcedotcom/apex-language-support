@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 /**
  * LSP Performance Benchmarks
  *
@@ -51,7 +52,7 @@ const logData: Record<string, any> = JSON.parse(rawData);
 // Normalize the trace data for portability
 const normalizedLogData = normalizeTraceData(logData);
 
-jest.setTimeout(1000 * 60 * 10);
+vi.setConfig({ testTimeout: 1000 * 60 * 10 });
 
 // Helper function to extract filename from URI
 const getFilenameFromUri = (uri: string): string => {

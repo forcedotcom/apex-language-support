@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { Effect, LogLevel } from 'effect';
 import {
   ApexSymbolManager,
@@ -265,17 +266,17 @@ describe('worker.platform.shared', () => {
           'RightTarget',
           'file:///right/RightTarget.cls',
         );
-        const getSymbolAtPosition = jest.fn(async () =>
+        const getSymbolAtPosition = vi.fn(async () =>
           symbol('wrong-id', 'WrongTarget', 'file:///wrong/WrongTarget.cls'),
         );
         const svc = services({
-          getReferencesAtPosition: jest.fn(async () => references),
-          getSymbol: jest.fn(async (id: string) =>
+          getReferencesAtPosition: vi.fn(async () => references),
+          getSymbol: vi.fn(async (id: string) =>
             id === 'right-id' ? right : null,
           ),
           getSymbolAtPosition,
-          findSymbolByFQN: jest.fn(async () => null),
-          findSymbolByName: jest.fn(async () => []),
+          findSymbolByFQN: vi.fn(async () => null),
+          findSymbolByName: vi.fn(async () => []),
         });
         const cursor = { line: 1, character: 10 };
 
@@ -304,18 +305,18 @@ describe('worker.platform.shared', () => {
         fqn: 'NsTwo.Widget',
         namespace: 'NsTwo',
       });
-      const findSymbolByName = jest.fn(async () => [nsOne, nsTwo]);
+      const findSymbolByName = vi.fn(async () => [nsOne, nsTwo]);
       const svc = services({
-        getReferencesAtPosition: jest.fn(async () => [
+        getReferencesAtPosition: vi.fn(async () => [
           {
             name: 'NsTwo.Widget',
             context: 4,
             location: location(8, 20),
           },
         ]),
-        getSymbol: jest.fn(async () => null),
-        getSymbolAtPosition: jest.fn(async () => nsOne),
-        findSymbolByFQN: jest.fn(async (fqn: string) =>
+        getSymbol: vi.fn(async () => null),
+        getSymbolAtPosition: vi.fn(async () => nsOne),
+        findSymbolByFQN: vi.fn(async (fqn: string) =>
           fqn === 'NsTwo.Widget' ? nsTwo : null,
         ),
         findSymbolByName,
@@ -368,11 +369,11 @@ describe('worker.platform.shared', () => {
         { parentId: 'owner-two', kind: 'method' },
       );
       const svc = services({
-        getReferencesAtPosition: jest.fn(async () => [exact]),
-        getSymbol: jest.fn(async () => null),
-        getSymbolAtPosition: jest.fn(async () => ownerOneMember),
-        findSymbolByFQN: jest.fn(async () => null),
-        findSymbolByName: jest.fn(async () => [ownerOneMember, ownerTwoMember]),
+        getReferencesAtPosition: vi.fn(async () => [exact]),
+        getSymbol: vi.fn(async () => null),
+        getSymbolAtPosition: vi.fn(async () => ownerOneMember),
+        findSymbolByFQN: vi.fn(async () => null),
+        findSymbolByName: vi.fn(async () => [ownerOneMember, ownerTwoMember]),
       });
 
       await expect(
@@ -399,13 +400,13 @@ describe('worker.platform.shared', () => {
         }),
       ];
       const svc = services({
-        getReferencesAtPosition: jest.fn(async () => [
+        getReferencesAtPosition: vi.fn(async () => [
           { name: 'Widget', context: 4, location: location(8, 14) },
         ]),
-        getSymbol: jest.fn(async () => null),
-        getSymbolAtPosition: jest.fn(async () => candidates[0]),
-        findSymbolByFQN: jest.fn(async () => null),
-        findSymbolByName: jest.fn(async () => candidates),
+        getSymbol: vi.fn(async () => null),
+        getSymbolAtPosition: vi.fn(async () => candidates[0]),
+        findSymbolByFQN: vi.fn(async () => null),
+        findSymbolByName: vi.fn(async () => candidates),
       });
       const cursor = { line: 1, character: 10 };
 
@@ -426,13 +427,13 @@ describe('worker.platform.shared', () => {
         location: location(8, 14),
       };
       const svc = services({
-        getReferencesAtPosition: jest.fn(async () => [
+        getReferencesAtPosition: vi.fn(async () => [
           { name: 'Widget', context: 4, location: location(8, 14) },
         ]),
-        getSymbol: jest.fn(async () => null),
-        getSymbolAtPosition: jest.fn(async () => declaration),
-        findSymbolByFQN: jest.fn(async () => null),
-        findSymbolByName: jest.fn(async () => []),
+        getSymbol: vi.fn(async () => null),
+        getSymbolAtPosition: vi.fn(async () => declaration),
+        findSymbolByFQN: vi.fn(async () => null),
+        findSymbolByName: vi.fn(async () => []),
       });
 
       await expect(
@@ -460,7 +461,7 @@ describe('worker.platform.shared', () => {
   });
 
   it('preloads configured stdlib namespaces through DataOwner services', async () => {
-    const assistance = jest.fn(async () => ({
+    const assistance = vi.fn(async () => ({
       'database/batchable.cls': compileToWireSymbolTable(
         'global class Batchable {}',
         'apexlib://resources/StandardApexLibrary/database/batchable.cls',
@@ -472,7 +473,7 @@ describe('worker.platform.shared', () => {
       'system/missing.cls': null,
     }));
     setAssistanceTransport(assistance);
-    const addSymbolTable = jest.fn(() => Effect.void);
+    const addSymbolTable = vi.fn(() => Effect.void);
     const svc = {
       stdlibProvider: {
         getStandardNamespaces: () =>
@@ -523,7 +524,7 @@ describe('worker.platform.shared', () => {
         'apexlib://resources/StandardApexLibrary/System/Assert.cls',
       ),
     }));
-    const addSymbolTable = jest.fn(() => Effect.void);
+    const addSymbolTable = vi.fn(() => Effect.void);
     const svc = {
       stdlibProvider: {
         getStandardNamespaces: () =>
@@ -547,7 +548,7 @@ describe('worker.platform.shared', () => {
       throw new Error('assistance unavailable');
     });
     const svc = {
-      storageManager: { getStorage: () => ({ setDocument: jest.fn() }) },
+      storageManager: { getStorage: () => ({ setDocument: vi.fn() }) },
       symbolManager: {},
     } as unknown as Parameters<typeof loadSymbolDataForEnrichment>[0];
 
@@ -562,7 +563,7 @@ describe('worker.platform.shared', () => {
       versions: {},
       detailLevels: {},
     }));
-    const setDocument = jest.fn();
+    const setDocument = vi.fn();
     const svc = {
       storageManager: { getStorage: () => ({ setDocument }) },
       symbolManager: {},
@@ -582,7 +583,7 @@ describe('worker.platform.shared', () => {
       'public class CodeLensTarget { RelatedType value; }',
       uri,
     );
-    const assistance = jest.fn(async (method: string) => {
+    const assistance = vi.fn(async (method: string) => {
       if (method === 'dataOwner:QuerySymbolSubset') {
         return {
           entries: { [uri]: wireTable },
@@ -594,10 +595,10 @@ describe('worker.platform.shared', () => {
     });
     setAssistanceTransport(assistance);
 
-    const resolveCrossFileReferencesForFile = jest.fn(() => Effect.void);
+    const resolveCrossFileReferencesForFile = vi.fn(() => Effect.void);
     const svc = {
       symbolManager: {
-        addSymbolTable: jest.fn(() => Effect.void),
+        addSymbolTable: vi.fn(() => Effect.void),
         resolveCrossFileReferencesForFile,
       },
     } as unknown as Parameters<typeof loadCodeLensSymbolData>[0];
@@ -624,18 +625,18 @@ describe('worker.platform.shared', () => {
       detailLevels: {},
     }));
     let currentTable: unknown;
-    const addSymbolTable = jest.fn((table: unknown) => {
+    const addSymbolTable = vi.fn((table: unknown) => {
       currentTable = table;
       return Effect.void;
     });
     const svc = {
       storageManager: {
-        getStorage: () => ({ setDocument: jest.fn() }),
+        getStorage: () => ({ setDocument: vi.fn() }),
       },
       symbolManager: {
         addSymbolTable,
-        getSymbolTableForFile: jest.fn(async () => currentTable),
-        resolveCrossFileReferencesForFile: jest.fn(() => Effect.void),
+        getSymbolTableForFile: vi.fn(async () => currentTable),
+        resolveCrossFileReferencesForFile: vi.fn(() => Effect.void),
       },
     } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
     const content = 'public class SharedCursor {}';
@@ -665,7 +666,7 @@ describe('worker.platform.shared', () => {
   });
 
   it('loads nested and qualified dependencies from the cursor receiver type', async () => {
-    const assistance = jest.fn(async (method: string, _params: unknown) => {
+    const assistance = vi.fn(async (method: string, _params: unknown) => {
       if (method === 'dataOwner:QuerySymbolSubset') {
         return { entries: {}, versions: {}, detailLevels: {} };
       }
@@ -678,20 +679,20 @@ describe('worker.platform.shared', () => {
     let currentTable: TestTable | undefined;
     const svc = {
       storageManager: {
-        getStorage: () => ({ setDocument: jest.fn() }),
+        getStorage: () => ({ setDocument: vi.fn() }),
       },
       symbolManager: {
-        addSymbolTable: jest.fn((table: TestTable) => {
+        addSymbolTable: vi.fn((table: TestTable) => {
           currentTable = table;
           return Effect.void;
         }),
-        getSymbolTableForFile: jest.fn(async (fileUri: string) =>
+        getSymbolTableForFile: vi.fn(async (fileUri: string) =>
           fileUri === 'file:///CursorTarget.cls' ? currentTable : undefined,
         ),
-        getSymbol: jest.fn(async (id: string) =>
+        getSymbol: vi.fn(async (id: string) =>
           currentTable?.getAllSymbols().find((symbol) => symbol.id === id),
         ),
-        findSymbolByName: jest.fn(async (name: string) => {
+        findSymbolByName: vi.fn(async (name: string) => {
           if (name === 'AmbiguousType') {
             return [
               { id: 'ambiguous-one', name, fileUri: 'file:///one.cls' },
@@ -702,8 +703,8 @@ describe('worker.platform.shared', () => {
             (symbol) => symbol.name.toLowerCase() === name.toLowerCase(),
           );
         }),
-        findSymbolByFQN: jest.fn(async () => null),
-        resolveCrossFileReferencesForFile: jest.fn(() => Effect.void),
+        findSymbolByFQN: vi.fn(async () => null),
+        resolveCrossFileReferencesForFile: vi.fn(() => Effect.void),
       },
     } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
     const content = [
@@ -744,7 +745,7 @@ describe('worker.platform.shared', () => {
   });
 
   it('reuses a version-matched local cursor without querying the owner', async () => {
-    const assistance = jest.fn(async (method: string, _params: unknown) => {
+    const assistance = vi.fn(async (method: string, _params: unknown) => {
       if (method === 'dataOwner:QuerySymbolSubset') {
         return {
           entries: {},
@@ -761,24 +762,24 @@ describe('worker.platform.shared', () => {
     let currentTable: TestTable | undefined;
     const svc = {
       storageManager: {
-        getStorage: () => ({ setDocument: jest.fn() }),
+        getStorage: () => ({ setDocument: vi.fn() }),
       },
       symbolManager: {
-        addSymbolTable: jest.fn((table: TestTable) => {
+        addSymbolTable: vi.fn((table: TestTable) => {
           currentTable = table;
           return Effect.void;
         }),
-        getSymbolTableForFile: jest.fn(async () => currentTable),
-        getSymbol: jest.fn(async (id: string) =>
+        getSymbolTableForFile: vi.fn(async () => currentTable),
+        getSymbol: vi.fn(async (id: string) =>
           currentTable?.getAllSymbols().find((symbol) => symbol.id === id),
         ),
-        findSymbolByName: jest.fn(async (name: string) =>
+        findSymbolByName: vi.fn(async (name: string) =>
           (currentTable?.getAllSymbols() ?? []).filter(
             (symbol) => symbol.name.toLowerCase() === name.toLowerCase(),
           ),
         ),
-        findSymbolByFQN: jest.fn(async () => null),
-        resolveCrossFileReferencesForFile: jest.fn(() => Effect.void),
+        findSymbolByFQN: vi.fn(async () => null),
+        resolveCrossFileReferencesForFile: vi.fn(() => Effect.void),
       },
     } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
     const content = [
@@ -875,7 +876,7 @@ describe('worker.platform.shared', () => {
     });
     const svc = {
       storageManager: {
-        getStorage: () => ({ setDocument: jest.fn() }),
+        getStorage: () => ({ setDocument: vi.fn() }),
       },
       symbolManager,
     } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
@@ -925,7 +926,7 @@ describe('worker.platform.shared', () => {
   });
 
   it('rejects write-back when the table did not achieve the claimed detail', async () => {
-    const assistance = jest.fn(async () => ({ accepted: true }));
+    const assistance = vi.fn(async () => ({ accepted: true }));
     setAssistanceTransport(assistance);
     const symbolTable = {
       getAllSymbols: () => [],
@@ -996,7 +997,7 @@ describe('worker.platform.shared', () => {
 
     const svc = {
       storageManager: {
-        getStorage: () => ({ setDocument: jest.fn() }),
+        getStorage: () => ({ setDocument: vi.fn() }),
       },
       symbolManager,
     } as unknown as Parameters<typeof prepareLspRequestCursor>[0];

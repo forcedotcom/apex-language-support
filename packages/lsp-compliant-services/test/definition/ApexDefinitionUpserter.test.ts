@@ -5,6 +5,9 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+
+import type { Mocked } from 'vitest';
+import { vi } from 'vitest';
 import {
   ApexSymbol,
   CompilerService,
@@ -21,19 +24,19 @@ import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
 // Use real compiler from parser-ast for service-side tests
 
 describe('DefaultApexDefinitionPopulator', () => {
-  let mockStorage: jest.Mocked<ApexStorageInterface>;
+  let mockStorage: Mocked<ApexStorageInterface>;
   let populator: DefaultApexDefinitionUpserter;
   let _mockGlobalSymbols: ApexSymbol[];
 
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Setup mock storage
     mockStorage = {
-      getDocument: jest.fn(),
-      setDefinition: jest.fn(),
-    } as unknown as jest.Mocked<ApexStorageInterface>;
+      getDocument: vi.fn(),
+      setDefinition: vi.fn(),
+    } as unknown as Mocked<ApexStorageInterface>;
 
     // Build per-test via compiler
     _mockGlobalSymbols = [];
@@ -62,8 +65,8 @@ describe('DefaultApexDefinitionPopulator', () => {
         positionAt: () => ({ line: 0, character: 0 }),
         offsetAt: () => 0,
         lineCount: 1,
-        getLineRange: jest.fn(),
-        getEOLCharacters: jest.fn(),
+        getLineRange: vi.fn(),
+        getEOLCharacters: vi.fn(),
       },
     };
 
@@ -103,8 +106,8 @@ describe('DefaultApexDefinitionPopulator', () => {
         positionAt: () => ({ line: 0, character: 0 }),
         offsetAt: () => 0,
         lineCount: 1,
-        getLineRange: jest.fn(),
-        getEOLCharacters: jest.fn(),
+        getLineRange: vi.fn(),
+        getEOLCharacters: vi.fn(),
       },
     };
 
@@ -149,8 +152,8 @@ describe('DefaultApexDefinitionPopulator', () => {
         positionAt: () => ({ line: 0, character: 0 }),
         offsetAt: () => 0,
         lineCount: 1,
-        getLineRange: jest.fn(),
-        getEOLCharacters: jest.fn(),
+        getLineRange: vi.fn(),
+        getEOLCharacters: vi.fn(),
       },
     };
 
@@ -187,8 +190,8 @@ describe('DefaultApexDefinitionPopulator', () => {
           positionAt: () => ({ line: 0, character: 0 }),
           offsetAt: () => 0,
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       },
       {
@@ -200,8 +203,8 @@ describe('DefaultApexDefinitionPopulator', () => {
           positionAt: () => ({ line: 0, character: 0 }),
           offsetAt: () => 0,
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       },
     ];

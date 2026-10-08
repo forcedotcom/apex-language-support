@@ -97,7 +97,7 @@
       ]
     },
     "test:integration": {
-      "command": "vitest run --include=\"test/{integration,accuracy}/**/*.test.ts\" --reporter=json --outputFile=.wireit/test-results-integration.json",
+      "command": "vitest run --config vitest.config.integration.mts --reporter=json --outputFile=.wireit/test-results-integration.json",
       "dependencies": [
         "compile",
         "../apex-ls:bundle",
@@ -110,11 +110,12 @@
         "src/**/*.ts",
         "test/integration/**/*.ts",
         "test/accuracy/**/*.test.ts",
-        "vitest.config.mts"
+        "vitest.config.mts",
+        "vitest.config.integration.mts"
       ]
     },
     "test:quality": {
-      "command": "vitest run --include=\"test/**/*.quality.ts\"",
+      "command": "vitest run --config vitest.config.quality.mts",
       "dependencies": [
         "compile",
         "../apex-ls:bundle"
@@ -122,7 +123,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.quality.ts",
-        "vitest.config.mts"
+        "vitest.config.quality.mts"
       ]
     },
     "test:coverage": {
@@ -141,36 +142,36 @@
       ]
     },
     "test:perf": {
-      "command": "vitest run --include=\"test/**/*.perf.ts\"",
+      "command": "vitest run --config vitest.config.perf.mts",
       "dependencies": [
         "compile"
       ],
       "files": [
         "src/**/*.ts",
         "test/**/*.perf.ts",
-        "vitest.config.mts"
+        "vitest.config.perf.mts"
       ]
     },
     "test:perf:eda": {
-      "command": "vitest run --include=\"test/**/*.perf.ts\" eda-workspace",
+      "command": "vitest run --config vitest.config.perf.mts eda-workspace",
       "dependencies": [
         "compile"
       ],
       "files": [
         "src/**/*.ts",
         "test/**/*.perf.ts",
-        "vitest.config.mts"
+        "vitest.config.perf.mts"
       ]
     },
     "test:perf:lsp": {
-      "command": "vitest run --include=\"test/**/*.perf.ts\" lsp-benchmarks",
+      "command": "vitest run --config vitest.config.perf.mts lsp-benchmarks",
       "dependencies": [
         "compile"
       ],
       "files": [
         "src/**/*.ts",
         "test/**/*.perf.ts",
-        "vitest.config.mts"
+        "vitest.config.perf.mts"
       ]
     },
     "lint": {

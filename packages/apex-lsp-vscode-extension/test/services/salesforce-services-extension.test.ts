@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import * as vscode from 'vscode';
 import {
   getSalesforceServicesExtension,
@@ -19,12 +20,12 @@ const contextFor = (extensionMode: vscode.ExtensionMode) =>
 
 describe('Salesforce Services extension discovery', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('uses the published Services API type to discover the extension', () => {
     const extension = { isActive: true } as vscode.Extension<unknown>;
-    jest.mocked(vscode.extensions.getExtension).mockReturnValue(extension);
+    vi.mocked(vscode.extensions.getExtension).mockReturnValue(extension);
 
     expect(getSalesforceServicesExtension()).toBe(extension);
     expect(vscode.extensions.getExtension).toHaveBeenCalledWith(
@@ -44,7 +45,7 @@ describe('Salesforce Services extension discovery', () => {
   );
 
   it('requires Services in an Extension Development Host', () => {
-    jest.mocked(vscode.extensions.getExtension).mockReturnValue(undefined);
+    vi.mocked(vscode.extensions.getExtension).mockReturnValue(undefined);
 
     expect(() =>
       requireSalesforceServicesInDevelopment(
@@ -56,9 +57,9 @@ describe('Salesforce Services extension discovery', () => {
   });
 
   it('accepts Services when it is available in development', () => {
-    jest
-      .mocked(vscode.extensions.getExtension)
-      .mockReturnValue({ isActive: false } as vscode.Extension<unknown>);
+    vi.mocked(vscode.extensions.getExtension).mockReturnValue({
+      isActive: false,
+    } as vscode.Extension<unknown>);
 
     expect(() =>
       requireSalesforceServicesInDevelopment(

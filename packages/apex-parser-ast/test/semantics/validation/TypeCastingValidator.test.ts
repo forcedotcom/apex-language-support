@@ -5,6 +5,8 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+
+import { vi } from 'vitest';
 import { TypeCastingValidator } from '../../../src/semantics/validation/TypeCastingValidator';
 import type { ValidationScope } from '../../../src/semantics/validation/TypeValidator';
 import type { ApexSymbol } from '../../../src/types/symbol';
@@ -14,8 +16,8 @@ describe('TypeCastingValidator', () => {
   const createMockScope = (allSymbols: ApexSymbol[] = []): ValidationScope =>
     ({
       errors: {
-        addError: jest.fn(),
-        addWarning: jest.fn(),
+        addError: vi.fn(),
+        addWarning: vi.fn(),
       },
       settings: {
         collectMultipleErrors: true,

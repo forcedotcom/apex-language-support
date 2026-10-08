@@ -1,11 +1,13 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 /**
  * didOpen Performance Benchmarks - Complexity Scaling & Blocking Analysis
  *
@@ -51,15 +53,15 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 // Minimal mocks - only mock external dependencies
-jest.mock('@salesforce/apex-lsp-shared', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
+vi.mock('@salesforce/apex-lsp-shared', async () => {
+  const actual = await vi.importActual('@salesforce/apex-lsp-shared');
   return {
     ...actual,
     LSPConfigurationManager: {
-      getInstance: jest.fn(),
+      getInstance: vi.fn(),
     },
     ApexSettingsManager: {
-      getInstance: jest.fn(),
+      getInstance: vi.fn(),
     },
   };
 });
@@ -117,7 +119,7 @@ describe('didOpen Performance Benchmarks', () => {
   });
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     logger = getLogger();
 
     ApexStorageManager.reset();
@@ -128,16 +130,16 @@ describe('didOpen Performance Benchmarks', () => {
     await storageManager.initialize();
 
     mockConfigManager = {
-      getConnection: jest.fn().mockReturnValue({
-        sendRequest: jest.fn(),
+      getConnection: vi.fn().mockReturnValue({
+        sendRequest: vi.fn(),
       }),
     };
-    (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue(
+    (LSPConfigurationManager.getInstance as Mock).mockReturnValue(
       mockConfigManager,
     );
 
     mockSettingsManager = {
-      getSettings: jest.fn().mockReturnValue({
+      getSettings: vi.fn().mockReturnValue({
         apex: {
           findMissingArtifact: { enabled: false },
           scheduler: {
@@ -167,12 +169,12 @@ describe('didOpen Performance Benchmarks', () => {
           },
         },
       }),
-      getCompilationOptions: jest.fn().mockReturnValue({
+      getCompilationOptions: vi.fn().mockReturnValue({
         collectReferences: true,
         resolveReferences: true,
       }),
     };
-    (ApexSettingsManager.getInstance as jest.Mock).mockReturnValue(
+    (ApexSettingsManager.getInstance as Mock).mockReturnValue(
       mockSettingsManager,
     );
 
@@ -196,123 +198,138 @@ describe('didOpen Performance Benchmarks', () => {
 
   // Complexity Scaling Benchmarks
   fixtures.forEach((fixture) => {
-    it(`benchmarks ${fixture.complexity} complexity (${fixture.name})`, (done) => {
-      const suite = new Benchmark.Suite();
-      const results: Record<string, Benchmark.Target> = {};
+    it(
+      `benchmarks ${fixture.complexity} complexity (${fixture.name})`,
+      () =>
+        new Promise<void>((done) => {
+          const suite = new Benchmark.Suite();
+          const results: Record<string, Benchmark.Target> = {};
 
-      const content = readFileSync(join(__dirname, fixture.path), 'utf8');
-      const document = TextDocument.create(fixture.uri, 'apex', 1, content);
-      const event: TextDocumentChangeEvent<TextDocument> = { document };
+          const content = readFileSync(join(__dirname, fixture.path), 'utf8');
+          const document = TextDocument.create(fixture.uri, 'apex', 1, content);
+          const event: TextDocumentChangeEvent<TextDocument> = { document };
 
-      suite
-        .add(`didOpen ${fixture.complexity}`, {
-          defer: true,
-          ...benchmarkSettings,
-          fn: (deferred: any) => {
-            service
-              .processDocumentOpenInternal(event)
-              .then(() => deferred.resolve())
-              .catch((err: any) => {
-                console.error(`Error in ${fixture.name}:`, err);
-                deferred.resolve();
-              });
-          },
-        })
-        .on('cycle', (event: any) => {
-          results[event.target.name] = event.target;
-          logger.alwaysLog(String(event.target));
-        })
-        .on('complete', function (this: any) {
-          const fs = require('fs');
-          const path = require('path');
-          const outputPath = path.join(
-            __dirname,
-            '../lsp-compliant-services-benchmark-results.json',
-          );
+          suite
+            .add(`didOpen ${fixture.complexity}`, {
+              defer: true,
+              ...benchmarkSettings,
+              fn: (deferred: any) => {
+                service
+                  .processDocumentOpenInternal(event)
+                  .then(() => deferred.resolve())
+                  .catch((err: any) => {
+                    console.error(`Error in ${fixture.name}:`, err);
+                    deferred.resolve();
+                  });
+              },
+            })
+            .on('cycle', (event: any) => {
+              results[event.target.name] = event.target;
+              logger.alwaysLog(String(event.target));
+            })
+            .on('complete', function (this: any) {
+              const fs = require('fs');
+              const path = require('path');
+              const outputPath = path.join(
+                __dirname,
+                '../lsp-compliant-services-benchmark-results.json',
+              );
 
-          // Merge with existing results if file exists
-          let allResults = results;
-          try {
-            if (fs.existsSync(outputPath)) {
-              const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-              allResults = { ...existing, ...results };
-            }
-          } catch (error) {
-            console.warn('Could not read existing results:', error);
-          }
+              // Merge with existing results if file exists
+              let allResults = results;
+              try {
+                if (fs.existsSync(outputPath)) {
+                  const existing = JSON.parse(
+                    fs.readFileSync(outputPath, 'utf8'),
+                  );
+                  allResults = { ...existing, ...results };
+                }
+              } catch (error) {
+                console.warn('Could not read existing results:', error);
+              }
 
-          fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-          done();
-        })
-        .run({ async: true });
-    }, 120000);
+              fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
+              done();
+            })
+            .run({ async: true });
+        }),
+      120000,
+    );
   });
 
   // Variance Analysis Benchmark
-  it('benchmarks didOpen variance across iterations', (done) => {
-    const suite = new Benchmark.Suite();
-    const results: Record<string, Benchmark.Target> = {};
+  it(
+    'benchmarks didOpen variance across iterations',
+    () =>
+      new Promise<void>((done) => {
+        const suite = new Benchmark.Suite();
+        const results: Record<string, Benchmark.Target> = {};
 
-    const fixtureContent = readFileSync(
-      join(__dirname, '../fixtures/classes/PerformanceTestClass.cls'),
-      'utf8',
-    );
-    const document = TextDocument.create(
-      'file:///workspace/PerformanceTestClass.cls',
-      'apex',
-      1,
-      fixtureContent,
-    );
-    const event: TextDocumentChangeEvent<TextDocument> = { document };
-
-    suite
-      .add('didOpen variance test', {
-        defer: true,
-        ...benchmarkSettings,
-        fn: (deferred: any) => {
-          // Reset symbol manager for each iteration to measure cold start
-          const newSymbolManager = new ApexSymbolManager();
-          const processingManager = ApexSymbolProcessingManager.getInstance();
-          // @ts-expect-error - accessing private field for testing
-          processingManager.symbolManager = newSymbolManager;
-
-          service
-            .processDocumentOpenInternal(event)
-            .then(() => deferred.resolve())
-            .catch((err: any) => {
-              console.error('Error in variance test:', err);
-              deferred.resolve();
-            });
-        },
-      })
-      .on('cycle', (event: any) => {
-        results[event.target.name] = event.target;
-        logger.alwaysLog(String(event.target));
-      })
-      .on('complete', function (this: any) {
-        const fs = require('fs');
-        const path = require('path');
-        const outputPath = path.join(
-          __dirname,
-          '../lsp-compliant-services-benchmark-results.json',
+        const fixtureContent = readFileSync(
+          join(__dirname, '../fixtures/classes/PerformanceTestClass.cls'),
+          'utf8',
         );
+        const document = TextDocument.create(
+          'file:///workspace/PerformanceTestClass.cls',
+          'apex',
+          1,
+          fixtureContent,
+        );
+        const event: TextDocumentChangeEvent<TextDocument> = { document };
 
-        // Merge with existing results
-        let allResults = results;
-        try {
-          if (fs.existsSync(outputPath)) {
-            const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-            allResults = { ...existing, ...results };
-          }
-        } catch (error) {
-          console.warn('Could not read existing results:', error);
-        }
+        suite
+          .add('didOpen variance test', {
+            defer: true,
+            ...benchmarkSettings,
+            fn: (deferred: any) => {
+              // Reset symbol manager for each iteration to measure cold start
+              const newSymbolManager = new ApexSymbolManager();
+              const processingManager =
+                ApexSymbolProcessingManager.getInstance();
+              // @ts-expect-error - accessing private field for testing
+              processingManager.symbolManager = newSymbolManager;
 
-        fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-        done();
-      })
-      .run({ async: true });
-  }, 120000);
+              service
+                .processDocumentOpenInternal(event)
+                .then(() => deferred.resolve())
+                .catch((err: any) => {
+                  console.error('Error in variance test:', err);
+                  deferred.resolve();
+                });
+            },
+          })
+          .on('cycle', (event: any) => {
+            results[event.target.name] = event.target;
+            logger.alwaysLog(String(event.target));
+          })
+          .on('complete', function (this: any) {
+            const fs = require('fs');
+            const path = require('path');
+            const outputPath = path.join(
+              __dirname,
+              '../lsp-compliant-services-benchmark-results.json',
+            );
+
+            // Merge with existing results
+            let allResults = results;
+            try {
+              if (fs.existsSync(outputPath)) {
+                const existing = JSON.parse(
+                  fs.readFileSync(outputPath, 'utf8'),
+                );
+                allResults = { ...existing, ...results };
+              }
+            } catch (error) {
+              console.warn('Could not read existing results:', error);
+            }
+
+            fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
+            done();
+          })
+          .run({ async: true });
+      }),
+    120000,
+  );
 
   // Blocking Detection (informational)
   it('detects event loop blocking during didOpen', async () => {

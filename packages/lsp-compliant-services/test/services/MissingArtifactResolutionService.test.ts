@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import type {
   LoggerInterface,
   FindMissingArtifactParams,
@@ -22,21 +23,21 @@ import {
 
 // Mock implementations
 const mockLogger: LoggerInterface = {
-  debug: jest.fn(),
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  log: jest.fn(),
-  alwaysLog: jest.fn(),
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  log: vi.fn(),
+  alwaysLog: vi.fn(),
 };
 
 const _mockRpcClient = {
-  customRequest: jest.fn(),
+  customRequest: vi.fn(),
 };
 
 const _mockIndexingObserver = {
-  waitForAnyIndexed: jest.fn(),
-  waitForFileIndexed: jest.fn(),
+  waitForAnyIndexed: vi.fn(),
+  waitForFileIndexed: vi.fn(),
 };
 
 const _mockDispatchQueues = {
@@ -46,9 +47,9 @@ const _mockDispatchQueues = {
 };
 
 const _mockSymbolManager = {
-  waitForSymbol: jest.fn(),
-  findSymbolByName: jest.fn(),
-  findSymbolsInFile: jest.fn(),
+  waitForSymbol: vi.fn(),
+  findSymbolByName: vi.fn(),
+  findSymbolsInFile: vi.fn(),
   // Add other ISymbolManager methods as needed
 } as any;
 
@@ -66,7 +67,7 @@ const semanticProvenance = {
 
 describe('MissingArtifactResolutionService', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Service Interface', () => {

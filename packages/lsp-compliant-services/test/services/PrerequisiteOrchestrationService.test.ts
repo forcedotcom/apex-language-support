@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import {
   ApexSettingsManager,
   ReferenceContext,
@@ -24,12 +25,12 @@ import {
 } from '../../src/services/InFlightPrerequisiteRegistry';
 
 const mockMissingArtifactService = {
-  resolveBlocking: jest.fn(),
-  resolveInBackground: jest.fn(),
+  resolveBlocking: vi.fn(),
+  resolveInBackground: vi.fn(),
 };
 
-jest.mock('../../src/services/MissingArtifactResolutionService', () => ({
-  createMissingArtifactResolutionService: jest
+vi.mock('../../src/services/MissingArtifactResolutionService', () => ({
+  createMissingArtifactResolutionService: vi
     .fn()
     .mockImplementation(() => mockMissingArtifactService),
 }));
@@ -37,16 +38,16 @@ jest.mock('../../src/services/MissingArtifactResolutionService', () => ({
 describe('PrerequisiteOrchestrationService', () => {
   const uri = 'file:///workspace/classes/Demo.cls';
   const logger = {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
-    alwaysLog: jest.fn(),
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    log: vi.fn(),
+    alwaysLog: vi.fn(),
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     resetWorkspaceLoadState();
     resetInFlightPrerequisiteRegistry();
     getDocumentStateCache().clear();
@@ -99,23 +100,23 @@ describe('PrerequisiteOrchestrationService', () => {
       },
     };
     const symbolTable = {
-      getAllReferences: jest.fn().mockReturnValue([unresolvedRef]),
-      getMetadata: jest.fn().mockReturnValue({
+      getAllReferences: vi.fn().mockReturnValue([unresolvedRef]),
+      getMetadata: vi.fn().mockReturnValue({
         documentVersion: 9,
         parseCompleteness: 'complete',
       }),
     };
     const symbolManager = {
-      getDetailLevelForFile: jest.fn().mockReturnValue('full'),
-      getSymbolTableForFile: jest.fn().mockReturnValue(symbolTable),
-      resolveCrossFileReferencesForFile: jest
+      getDetailLevelForFile: vi.fn().mockReturnValue('full'),
+      getSymbolTableForFile: vi.fn().mockReturnValue(symbolTable),
+      resolveCrossFileReferencesForFile: vi
         .fn()
         .mockReturnValue(Effect.succeed(undefined)),
-      isStandardLibraryType: jest.fn().mockReturnValue(false),
-      findSymbolByName: jest.fn().mockReturnValue([{ name: 'CustomType' }]),
+      isStandardLibraryType: vi.fn().mockReturnValue(false),
+      findSymbolByName: vi.fn().mockReturnValue([{ name: 'CustomType' }]),
     };
     const layerEnrichmentService = {
-      enrichFiles: jest.fn().mockResolvedValue(undefined),
+      enrichFiles: vi.fn().mockResolvedValue(undefined),
     };
     mockMissingArtifactService.resolveBlocking.mockResolvedValue({
       status: 'resolved',
@@ -170,23 +171,23 @@ describe('PrerequisiteOrchestrationService', () => {
       },
     };
     const symbolTable = {
-      getAllReferences: jest.fn().mockReturnValue([unresolvedRef]),
-      getMetadata: jest.fn().mockReturnValue({
+      getAllReferences: vi.fn().mockReturnValue([unresolvedRef]),
+      getMetadata: vi.fn().mockReturnValue({
         documentVersion: 10,
         parseCompleteness: 'complete',
       }),
     };
     const symbolManager = {
-      getDetailLevelForFile: jest.fn().mockReturnValue('full'),
-      getSymbolTableForFile: jest.fn().mockReturnValue(symbolTable),
-      resolveCrossFileReferencesForFile: jest
+      getDetailLevelForFile: vi.fn().mockReturnValue('full'),
+      getSymbolTableForFile: vi.fn().mockReturnValue(symbolTable),
+      resolveCrossFileReferencesForFile: vi
         .fn()
         .mockReturnValue(Effect.succeed(undefined)),
-      isStandardLibraryType: jest.fn().mockReturnValue(false),
-      findSymbolByName: jest.fn().mockReturnValue([{ name: 'CustomType' }]),
+      isStandardLibraryType: vi.fn().mockReturnValue(false),
+      findSymbolByName: vi.fn().mockReturnValue([{ name: 'CustomType' }]),
     };
     const layerEnrichmentService = {
-      enrichFiles: jest.fn().mockResolvedValue(undefined),
+      enrichFiles: vi.fn().mockResolvedValue(undefined),
     };
     mockMissingArtifactService.resolveBlocking.mockResolvedValue({
       status: 'resolved',
@@ -275,15 +276,15 @@ describe('PrerequisiteOrchestrationService', () => {
       chainNodes: [receiver, member],
     };
     const symbolTable = {
-      getAllReferences: jest
+      getAllReferences: vi
         .fn()
         .mockReturnValue([typeReference, receiver, member, chain]),
-      getMetadata: jest.fn().mockReturnValue({
+      getMetadata: vi.fn().mockReturnValue({
         documentVersion: 14,
         parseCompleteness: 'complete',
       }),
     };
-    const resolveCrossFileReferencesForFile = jest.fn(() =>
+    const resolveCrossFileReferencesForFile = vi.fn(() =>
       Effect.sync(() => {
         typeReference.resolvedSymbolId = 'type:Property__c';
         receiver.resolvedTypeId = 'type:Property__c';
@@ -291,15 +292,15 @@ describe('PrerequisiteOrchestrationService', () => {
       }),
     );
     const symbolManager = {
-      getSymbolTableForFile: jest.fn().mockResolvedValue(symbolTable),
+      getSymbolTableForFile: vi.fn().mockResolvedValue(symbolTable),
       resolveCrossFileReferencesForFile,
-      isStandardLibraryType: jest.fn().mockResolvedValue(false),
-      findSymbolByName: jest.fn().mockResolvedValue([{ name: 'Property__c' }]),
+      isStandardLibraryType: vi.fn().mockResolvedValue(false),
+      findSymbolByName: vi.fn().mockResolvedValue([{ name: 'Property__c' }]),
     };
     const service = new PrerequisiteOrchestrationService(
       logger,
       symbolManager as never,
-      { enrichFiles: jest.fn() } as never,
+      { enrichFiles: vi.fn() } as never,
     );
     mockMissingArtifactService.resolveBlocking.mockResolvedValue({
       status: 'resolved',
@@ -358,34 +359,34 @@ describe('PrerequisiteOrchestrationService', () => {
       },
     };
     const consumerTable = {
-      getAllReferences: jest.fn().mockReturnValue([unresolvedRef]),
-      getMetadata: jest.fn().mockReturnValue({
+      getAllReferences: vi.fn().mockReturnValue([unresolvedRef]),
+      getMetadata: vi.fn().mockReturnValue({
         documentVersion: 1,
         parseCompleteness: 'complete',
       }),
     };
     const tables = new Map<string, any>([[uri, consumerTable]]);
     const symbolManager = {
-      getDetailLevelForFile: jest.fn().mockReturnValue('full'),
-      getSymbolTableForFile: jest.fn(async (fileUri: string) =>
+      getDetailLevelForFile: vi.fn().mockReturnValue('full'),
+      getSymbolTableForFile: vi.fn(async (fileUri: string) =>
         tables.get(fileUri),
       ),
-      addSymbolTable: jest.fn((table: any, fileUri: string) =>
+      addSymbolTable: vi.fn((table: any, fileUri: string) =>
         Effect.sync(() => {
           tables.set(fileUri, table);
         }),
       ),
-      resolveCrossFileReferencesForFile: jest
+      resolveCrossFileReferencesForFile: vi
         .fn()
         .mockReturnValue(Effect.succeed(undefined)),
-      isStandardLibraryType: jest.fn().mockReturnValue(false),
-      findSymbolByName: jest.fn(async (name: string) => {
+      isStandardLibraryType: vi.fn().mockReturnValue(false),
+      findSymbolByName: vi.fn(async (name: string) => {
         const table = tables.get(ownerUriForSObject(name));
         return table?.getRoots() ?? [];
       }),
     };
     const layerEnrichmentService = {
-      enrichFiles: jest.fn().mockResolvedValue(undefined),
+      enrichFiles: vi.fn().mockResolvedValue(undefined),
     };
     const accountArtifact = {
       identifierType: 'sobject' as const,
@@ -443,18 +444,18 @@ describe('PrerequisiteOrchestrationService', () => {
     });
 
     const symbolManager = {
-      getDetailLevelForFile: jest.fn().mockReturnValue(null),
-      getSymbolTableForFile: jest.fn().mockReturnValue({
-        getAllReferences: jest.fn().mockReturnValue([]),
+      getDetailLevelForFile: vi.fn().mockReturnValue(null),
+      getSymbolTableForFile: vi.fn().mockReturnValue({
+        getAllReferences: vi.fn().mockReturnValue([]),
       }),
-      resolveCrossFileReferencesForFile: jest
+      resolveCrossFileReferencesForFile: vi
         .fn()
         .mockReturnValue(Effect.succeed(undefined)),
-      isStandardLibraryType: jest.fn().mockReturnValue(false),
-      findSymbolByName: jest.fn().mockReturnValue([]),
+      isStandardLibraryType: vi.fn().mockReturnValue(false),
+      findSymbolByName: vi.fn().mockReturnValue([]),
     };
     const layerEnrichmentService = {
-      enrichFiles: jest.fn().mockResolvedValue(undefined),
+      enrichFiles: vi.fn().mockResolvedValue(undefined),
     };
 
     const service = new PrerequisiteOrchestrationService(
@@ -484,18 +485,18 @@ describe('PrerequisiteOrchestrationService', () => {
 
     let enrichCallCount = 0;
     const symbolManager = {
-      getDetailLevelForFile: jest.fn().mockReturnValue('private'),
-      getSymbolTableForFile: jest.fn().mockReturnValue({
-        getAllReferences: jest.fn().mockReturnValue([]),
+      getDetailLevelForFile: vi.fn().mockReturnValue('private'),
+      getSymbolTableForFile: vi.fn().mockReturnValue({
+        getAllReferences: vi.fn().mockReturnValue([]),
       }),
-      resolveCrossFileReferencesForFile: jest
+      resolveCrossFileReferencesForFile: vi
         .fn()
         .mockReturnValue(Effect.succeed(undefined)),
-      isStandardLibraryType: jest.fn().mockReturnValue(false),
-      findSymbolByName: jest.fn().mockReturnValue([]),
+      isStandardLibraryType: vi.fn().mockReturnValue(false),
+      findSymbolByName: vi.fn().mockReturnValue([]),
     };
     const layerEnrichmentService = {
-      enrichFiles: jest.fn().mockImplementation(async () => {
+      enrichFiles: vi.fn().mockImplementation(async () => {
         enrichCallCount++;
         if (enrichCallCount === 1) {
           const entry = Array.from(

@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock, Mocked } from 'vitest';
+import { vi } from 'vitest';
 import { LCSAdapter } from '../../src/server/LCSAdapter';
 import { LSPConfigurationManager } from '@salesforce/apex-lsp-shared';
 import {
@@ -14,15 +16,15 @@ import {
 } from 'vscode-languageserver-protocol';
 
 // Mock the dependencies
-jest.mock('@salesforce/apex-lsp-shared', () => ({
+vi.mock('@salesforce/apex-lsp-shared', () => ({
   LSPConfigurationManager: {
-    getInstance: jest.fn(),
+    getInstance: vi.fn(),
   },
-  getLogger: jest.fn(() => ({
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
+  getLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
   })),
   Priority: {
     Immediate: 1,
@@ -31,20 +33,20 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
     Low: 4,
     Background: 5,
   },
-  runWithSpan: jest.fn((_name: string, fn: () => any) => fn()),
+  runWithSpan: vi.fn((_name: string, fn: () => any) => fn()),
   LSP_SPAN_NAMES: {},
-  CommandPerformanceAggregator: jest.fn().mockImplementation(() => ({
-    record: jest.fn(),
-    flush: jest
+  CommandPerformanceAggregator: class {
+    record = vi.fn();
+    flush = vi
       .fn()
-      .mockReturnValue({ type: 'command_performance', commands: [] }),
-    reset: jest.fn(),
-  })),
-  collectStartupSnapshot: jest.fn().mockReturnValue({
+      .mockReturnValue({ type: 'command_performance', commands: [] });
+    reset = vi.fn();
+  },
+  collectStartupSnapshot: vi.fn().mockReturnValue({
     type: 'startup_snapshot',
     sessionId: 'mock-session',
   }),
-  getDocumentSelectorsFromSettings: jest.fn((capability: string) => {
+  getDocumentSelectorsFromSettings: vi.fn((capability: string) => {
     // Return default selectors based on capability
     if (capability === 'codeLens') {
       return [
@@ -67,39 +69,39 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
 
 // Mock the connection
 const mockConnection = {
-  sendRequest: jest.fn(),
-  onRequest: jest.fn(),
-  onNotification: jest.fn(),
-  onInitialize: jest.fn(),
-  onInitialized: jest.fn(),
-  onDidChangeConfiguration: jest.fn(),
-  onDocumentSymbol: jest.fn(),
+  sendRequest: vi.fn(),
+  onRequest: vi.fn(),
+  onNotification: vi.fn(),
+  onInitialize: vi.fn(),
+  onInitialized: vi.fn(),
+  onDidChangeConfiguration: vi.fn(),
+  onDocumentSymbol: vi.fn(),
   languages: {
     foldingRange: {
-      on: jest.fn(),
+      on: vi.fn(),
     },
   },
   workspace: {
-    onDidChangeWorkspaceFolders: jest.fn(),
+    onDidChangeWorkspaceFolders: vi.fn(),
   },
   client: {
-    register: jest.fn(),
+    register: vi.fn(),
   },
 } as any;
 
 describe('LCSAdapter Capabilities Alignment', () => {
-  let mockConfigManager: jest.Mocked<LSPConfigurationManager>;
+  let mockConfigManager: Mocked<LSPConfigurationManager>;
   let adapter: LCSAdapter;
 
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Create mock configuration manager
     mockConfigManager = {
-      getCapabilities: jest.fn(),
-      setInitialSettings: jest.fn(),
-      getSettings: jest.fn().mockReturnValue({
+      getCapabilities: vi.fn(),
+      setInitialSettings: vi.fn(),
+      getSettings: vi.fn().mockReturnValue({
         apex: {
           environment: {
             additionalDocumentSchemes: undefined,
@@ -109,7 +111,7 @@ describe('LCSAdapter Capabilities Alignment', () => {
     } as any;
 
     // Mock the getInstance method
-    (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue(
+    (LSPConfigurationManager.getInstance as Mock).mockReturnValue(
       mockConfigManager,
     );
 
@@ -122,12 +124,12 @@ describe('LCSAdapter Capabilities Alignment', () => {
     adapter = new LCSAdapter({
       connection: mockConnection,
       logger: {
-        debug: jest.fn(),
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        log: jest.fn(),
-        alwaysLog: jest.fn(),
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        log: vi.fn(),
+        alwaysLog: vi.fn(),
       },
     });
   });

@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import {
   getLogger,
   type FindMissingArtifactParams,
@@ -54,11 +55,11 @@ const artifact = {
 
 describe('MissingArtifactHandler provenance', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('rejects name-only input before the direct client path', async () => {
-    const connection = { sendRequest: jest.fn() };
+    const connection = { sendRequest: vi.fn() };
     const handler = new MissingArtifactHandler(getLogger(), connection);
 
     await expect(
@@ -76,7 +77,7 @@ describe('MissingArtifactHandler provenance', () => {
 
   it('preserves a decoded sObject artifact from the client', async () => {
     const connection: LSPConnection = {
-      sendRequest: jest.fn().mockResolvedValue({ artifacts: [artifact] }),
+      sendRequest: vi.fn().mockResolvedValue({ artifacts: [artifact] }),
     };
     const handler = new MissingArtifactHandler(getLogger(), connection);
 
@@ -87,7 +88,7 @@ describe('MissingArtifactHandler provenance', () => {
 
   it('rejects a schema-valid artifact that was not requested', async () => {
     const connection: LSPConnection = {
-      sendRequest: jest.fn().mockResolvedValue({
+      sendRequest: vi.fn().mockResolvedValue({
         artifacts: [
           {
             ...artifact,
@@ -106,7 +107,7 @@ describe('MissingArtifactHandler provenance', () => {
 
   it('rejects malformed client results', async () => {
     const connection: LSPConnection = {
-      sendRequest: jest.fn().mockResolvedValue({ opened: 'not-an-array' }),
+      sendRequest: vi.fn().mockResolvedValue({ opened: 'not-an-array' }),
     };
     const handler = new MissingArtifactHandler(getLogger(), connection);
 

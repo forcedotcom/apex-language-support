@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 /**
  * Protobuf Cache Performance Benchmarks
  *
@@ -45,85 +46,33 @@ describe('Protobuf Cache Benchmarks', () => {
       ? { maxTime: 1, minTime: 0.1, minSamples: 1, initCount: 1 }
       : { maxTime: 6, minTime: 2, minSamples: 2, initCount: 1 };
 
-  jest.setTimeout(1000 * 60 * 10);
+  vi.setConfig({ testTimeout: 1000 * 60 * 10 });
 
   beforeEach(() => {
     StandardLibraryCacheLoader.clearCache();
   });
 
-  it('benchmarks cold load from protobuf cache', (done) => {
-    if (skipIfNoCacheAvailable) {
-      console.log('Skipping: protobuf cache not available');
-      done();
-      return;
-    }
-
-    const suite = new Benchmark.Suite();
-    const results: Record<string, Benchmark.Target> = {};
-
-    suite
-      .add('Protobuf cache cold load', {
-        defer: true,
-        ...benchmarkSettings,
-        fn: (deferred: any) => {
-          StandardLibraryCacheLoader.clearCache();
-          loadStandardLibraryCache()
-            .then(() => deferred.resolve())
-            .catch((err: any) => {
-              console.error('Error in cold load:', err);
-              deferred.resolve();
-            });
-        },
-      })
-      .on('cycle', (event: any) => {
-        results[event.target.name] = event.target;
-        console.log(String(event.target));
-      })
-      .on('complete', function (this: any) {
-        const fs = require('fs');
-        const path = require('path');
-        const outputPath = path.join(
-          __dirname,
-          '../apex-parser-ast-benchmark-results.json',
-        );
-
-        let allResults = results;
-        try {
-          if (fs.existsSync(outputPath)) {
-            const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-            allResults = { ...existing, ...results };
-          }
-        } catch (error) {
-          console.warn('Could not read existing results:', error);
-        }
-
-        fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
+  it('benchmarks cold load from protobuf cache', () =>
+    new Promise<void>((done) => {
+      if (skipIfNoCacheAvailable) {
+        console.log('Skipping: protobuf cache not available');
         done();
-      })
-      .run({ async: true });
-  });
+        return;
+      }
 
-  it('benchmarks warm load from protobuf cache', (done) => {
-    if (skipIfNoCacheAvailable) {
-      console.log('Skipping: protobuf cache not available');
-      done();
-      return;
-    }
+      const suite = new Benchmark.Suite();
+      const results: Record<string, Benchmark.Target> = {};
 
-    const suite = new Benchmark.Suite();
-    const results: Record<string, Benchmark.Target> = {};
-
-    // Warm the cache first
-    loadStandardLibraryCache().then(() => {
       suite
-        .add('Protobuf cache warm load', {
+        .add('Protobuf cache cold load', {
           defer: true,
           ...benchmarkSettings,
           fn: (deferred: any) => {
+            StandardLibraryCacheLoader.clearCache();
             loadStandardLibraryCache()
               .then(() => deferred.resolve())
               .catch((err: any) => {
-                console.error('Error in warm load:', err);
+                console.error('Error in cold load:', err);
                 deferred.resolve();
               });
           },
@@ -154,74 +103,134 @@ describe('Protobuf Cache Benchmarks', () => {
           done();
         })
         .run({ async: true });
-    });
-  });
+    }));
 
-  it('benchmarks pure protobuf deserialization', (done) => {
-    if (skipIfNoCacheAvailable) {
-      console.log('Skipping: protobuf cache not available');
-      done();
-      return;
-    }
-
-    const fs = require('fs');
-    const path = require('path');
-    const { gunzipSync } = require('fflate');
-
-    const pbPath = path.resolve(__dirname, '../../resources/apex-stdlib.pb.gz');
-
-    if (!fs.existsSync(pbPath)) {
-      console.log('Skipping: protobuf cache file not found');
-      done();
-      return;
-    }
-
-    const compressedBuffer = fs.readFileSync(pbPath);
-    const pbBuffer = gunzipSync(new Uint8Array(compressedBuffer));
-    const deserializer = new StandardLibraryDeserializer();
-
-    const suite = new Benchmark.Suite();
-    const results: Record<string, Benchmark.Target> = {};
-
-    suite
-      .add('Protobuf deserialization', {
-        defer: true,
-        ...benchmarkSettings,
-        fn: (deferred: any) => {
-          try {
-            deserializer.deserializeFromBinary(pbBuffer);
-            deferred.resolve();
-          } catch (err) {
-            console.error('Error in deserialization:', err);
-            deferred.resolve();
-          }
-        },
-      })
-      .on('cycle', (event: any) => {
-        results[event.target.name] = event.target;
-        console.log(String(event.target));
-      })
-      .on('complete', function (this: any) {
-        const outputPath = path.join(
-          __dirname,
-          '../apex-parser-ast-benchmark-results.json',
-        );
-
-        let allResults = results;
-        try {
-          if (fs.existsSync(outputPath)) {
-            const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-            allResults = { ...existing, ...results };
-          }
-        } catch (error) {
-          console.warn('Could not read existing results:', error);
-        }
-
-        fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
+  it('benchmarks warm load from protobuf cache', () =>
+    new Promise<void>((done) => {
+      if (skipIfNoCacheAvailable) {
+        console.log('Skipping: protobuf cache not available');
         done();
-      })
-      .run({ async: true });
-  });
+        return;
+      }
+
+      const suite = new Benchmark.Suite();
+      const results: Record<string, Benchmark.Target> = {};
+
+      // Warm the cache first
+      loadStandardLibraryCache().then(() => {
+        suite
+          .add('Protobuf cache warm load', {
+            defer: true,
+            ...benchmarkSettings,
+            fn: (deferred: any) => {
+              loadStandardLibraryCache()
+                .then(() => deferred.resolve())
+                .catch((err: any) => {
+                  console.error('Error in warm load:', err);
+                  deferred.resolve();
+                });
+            },
+          })
+          .on('cycle', (event: any) => {
+            results[event.target.name] = event.target;
+            console.log(String(event.target));
+          })
+          .on('complete', function (this: any) {
+            const fs = require('fs');
+            const path = require('path');
+            const outputPath = path.join(
+              __dirname,
+              '../apex-parser-ast-benchmark-results.json',
+            );
+
+            let allResults = results;
+            try {
+              if (fs.existsSync(outputPath)) {
+                const existing = JSON.parse(
+                  fs.readFileSync(outputPath, 'utf8'),
+                );
+                allResults = { ...existing, ...results };
+              }
+            } catch (error) {
+              console.warn('Could not read existing results:', error);
+            }
+
+            fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
+            done();
+          })
+          .run({ async: true });
+      });
+    }));
+
+  it('benchmarks pure protobuf deserialization', () =>
+    new Promise<void>((done) => {
+      if (skipIfNoCacheAvailable) {
+        console.log('Skipping: protobuf cache not available');
+        done();
+        return;
+      }
+
+      const fs = require('fs');
+      const path = require('path');
+      const { gunzipSync } = require('fflate');
+
+      const pbPath = path.resolve(
+        __dirname,
+        '../../resources/apex-stdlib.pb.gz',
+      );
+
+      if (!fs.existsSync(pbPath)) {
+        console.log('Skipping: protobuf cache file not found');
+        done();
+        return;
+      }
+
+      const compressedBuffer = fs.readFileSync(pbPath);
+      const pbBuffer = gunzipSync(new Uint8Array(compressedBuffer));
+      const deserializer = new StandardLibraryDeserializer();
+
+      const suite = new Benchmark.Suite();
+      const results: Record<string, Benchmark.Target> = {};
+
+      suite
+        .add('Protobuf deserialization', {
+          defer: true,
+          ...benchmarkSettings,
+          fn: (deferred: any) => {
+            try {
+              deserializer.deserializeFromBinary(pbBuffer);
+              deferred.resolve();
+            } catch (err) {
+              console.error('Error in deserialization:', err);
+              deferred.resolve();
+            }
+          },
+        })
+        .on('cycle', (event: any) => {
+          results[event.target.name] = event.target;
+          console.log(String(event.target));
+        })
+        .on('complete', function (this: any) {
+          const outputPath = path.join(
+            __dirname,
+            '../apex-parser-ast-benchmark-results.json',
+          );
+
+          let allResults = results;
+          try {
+            if (fs.existsSync(outputPath)) {
+              const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+              allResults = { ...existing, ...results };
+            }
+          } catch (error) {
+            console.warn('Could not read existing results:', error);
+          }
+
+          fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
+          done();
+        })
+        .run({ async: true });
+    }));
 
   // Informational test - measures memory usage
   it('measures cache memory usage', async () => {

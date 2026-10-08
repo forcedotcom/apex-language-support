@@ -1,19 +1,12 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  describe,
-  it,
-  expect,
-  beforeEach,
-  afterEach,
-  jest,
-} from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   DEFAULT_APEX_SETTINGS,
   enableConsoleLogging,
@@ -48,7 +41,7 @@ interface ConformanceContext {
 type ConnectionProvider = () => Promise<ConformanceContext>;
 
 /**
- * Mock RpcConnection provider. Returns a jest-mocked connection that responds
+ * Mock RpcConnection provider. Returns a vi-mocked connection that responds
  * to initialize with default capabilities and accepts all other requests.
  */
 const createMockConnectionProvider = (): ConnectionProvider => async () => {
@@ -62,36 +55,36 @@ const createMockConnectionProvider = (): ConnectionProvider => async () => {
     },
   };
 
-  const sendRequest = jest.fn(
+  const sendRequest = vi.fn(
     (method: string, _params?: unknown): Promise<unknown> =>
       Promise.resolve(method === 'initialize' ? initResult : { success: true }),
   );
-  const sendNotification = jest.fn(
+  const sendNotification = vi.fn(
     (_method: string, _params?: unknown): Promise<void> => Promise.resolve(),
   );
-  const onRequest = jest.fn(
+  const onRequest = vi.fn(
     (_method: string, _handler: (params: unknown) => unknown): Disposable => ({
-      dispose: jest.fn(),
+      dispose: vi.fn(),
     }),
   );
-  const onNotification = jest.fn(
+  const onNotification = vi.fn(
     (_method: string, _handler: (params: unknown) => void): Disposable => ({
-      dispose: jest.fn(),
+      dispose: vi.fn(),
     }),
   );
-  const onError = jest.fn((_handler: (e: Error) => void): Disposable => ({
-    dispose: jest.fn(),
+  const onError = vi.fn((_handler: (e: Error) => void): Disposable => ({
+    dispose: vi.fn(),
   }));
-  const onClose = jest.fn((_handler: () => void): Disposable => ({
-    dispose: jest.fn(),
+  const onClose = vi.fn((_handler: () => void): Disposable => ({
+    dispose: vi.fn(),
   }));
-  const dispose = jest.fn((): void => undefined);
+  const dispose = vi.fn((): void => undefined);
 
   const connection: RpcConnection = {
     // The mock resolves `Promise<unknown>`; the port's `sendRequest` is generic
     // `<R>() => Promise<R>`. `unknown` isn't assignable to a caller-chosen `R`,
     // so cast this one field to the port's method type. Runtime behavior is a
-    // real jest mock, so `jest.spyOn`/`toHaveBeenCalledWith` still work.
+    // real vi mock, so `vi.spyOn`/`toHaveBeenCalledWith` still work.
     sendRequest: sendRequest as RpcConnection['sendRequest'],
     sendNotification,
     onRequest,
@@ -130,28 +123,25 @@ const createJsonRpcConnectionProvider = (): ConnectionProvider => async () => {
   };
 
   const mockMessageConnection = {
-    sendRequest: jest.fn(
-      (method: string, _params?: unknown): Promise<unknown> =>
-        Promise.resolve(
-          method === 'initialize' ? initResult : { success: true },
-        ),
+    sendRequest: vi.fn((method: string, _params?: unknown): Promise<unknown> =>
+      Promise.resolve(method === 'initialize' ? initResult : { success: true }),
     ),
-    sendNotification: jest.fn(
+    sendNotification: vi.fn(
       (_method: string, _params?: unknown): Promise<void> => Promise.resolve(),
     ),
-    onRequest: jest.fn(() => ({ dispose: jest.fn() })),
-    onNotification: jest.fn(() => ({ dispose: jest.fn() })),
-    onError: jest.fn(() => ({ dispose: jest.fn() })),
-    onClose: jest.fn(() => ({ dispose: jest.fn() })),
-    onUnhandledNotification: jest.fn(),
-    onProgress: jest.fn(),
-    sendProgress: jest.fn(),
-    onUnhandledProgress: jest.fn(),
-    trace: jest.fn(),
-    inspect: jest.fn(),
-    end: jest.fn(),
-    dispose: jest.fn(),
-    listen: jest.fn(),
+    onRequest: vi.fn(() => ({ dispose: vi.fn() })),
+    onNotification: vi.fn(() => ({ dispose: vi.fn() })),
+    onError: vi.fn(() => ({ dispose: vi.fn() })),
+    onClose: vi.fn(() => ({ dispose: vi.fn() })),
+    onUnhandledNotification: vi.fn(),
+    onProgress: vi.fn(),
+    sendProgress: vi.fn(),
+    onUnhandledProgress: vi.fn(),
+    trace: vi.fn(),
+    inspect: vi.fn(),
+    end: vi.fn(),
+    dispose: vi.fn(),
+    listen: vi.fn(),
   };
 
   const connection = new JsonRpcConnection(mockMessageConnection as any);
@@ -252,7 +242,7 @@ const runConformanceSuite = (
         expect(context.core.isDisposed()).toBe(false);
 
         // 2. We can register a custom handler without error
-        const customHandler = jest.fn(() => ({ notFound: true as const }));
+        const customHandler = vi.fn(() => ({ notFound: true as const }));
         const disposable = context.core.onFindMissingArtifact(customHandler);
         expect(disposable).toBeDefined();
         disposable.dispose();
@@ -262,7 +252,7 @@ const runConformanceSuite = (
         const provider = createProvider();
         context = await provider();
 
-        const sendRequestSpy = jest.spyOn(context.connection, 'sendRequest');
+        const sendRequestSpy = vi.spyOn(context.connection, 'sendRequest');
 
         // Initialize with settings — they should flow through to the
         // `initialize` request as `initializationOptions`.
@@ -302,8 +292,8 @@ const runConformanceSuite = (
         const provider = createProvider();
         context = await provider();
 
-        const sendRequestSpy = jest.spyOn(context.connection, 'sendRequest');
-        const sendNotificationSpy = jest.spyOn(
+        const sendRequestSpy = vi.spyOn(context.connection, 'sendRequest');
+        const sendNotificationSpy = vi.spyOn(
           context.connection,
           'sendNotification',
         );
@@ -373,7 +363,7 @@ const runConformanceSuite = (
 
         await context.core.initialize(DEFAULT_APEX_SETTINGS);
 
-        const spy = jest.spyOn(context.connection, 'sendRequest');
+        const spy = vi.spyOn(context.connection, 'sendRequest');
 
         await context.core.sendWorkspaceBatch({
           sessionId: 'test-session',
@@ -398,7 +388,7 @@ const runConformanceSuite = (
 
         await context.core.initialize(DEFAULT_APEX_SETTINGS);
 
-        const spy = jest.spyOn(context.connection, 'sendNotification');
+        const spy = vi.spyOn(context.connection, 'sendNotification');
 
         context.core.workspaceLoadComplete({ success: true });
 
@@ -414,7 +404,7 @@ const runConformanceSuite = (
 
         await context.core.initialize(DEFAULT_APEX_SETTINGS);
 
-        const handler = jest.fn(() => ({ notFound: true as const }));
+        const handler = vi.fn(() => ({ notFound: true as const }));
         const disposable = context.core.onFindMissingArtifact(handler);
 
         expect(disposable).toBeDefined();

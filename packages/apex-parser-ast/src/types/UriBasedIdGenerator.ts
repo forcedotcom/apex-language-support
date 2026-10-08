@@ -7,6 +7,7 @@
  */
 
 import { normalizeApexPath } from '../utils/PathUtils';
+import { ResourceLoader } from '../utils/resourceLoader';
 import {
   hasUriScheme,
   createApexLibUri,
@@ -40,8 +41,6 @@ const convertToUri = (fileUri: string): string => {
   if (normalizedPath.includes('/') && normalizedPath.endsWith('.cls')) {
     const namespace = normalizedPath.split('/')[0];
     try {
-      // Use dynamic require to avoid circular dependency
-      const { ResourceLoader } = require('../utils/resourceLoader');
       const resourceLoader = ResourceLoader.getInstance();
       if (resourceLoader.isStdApexNamespace(namespace)) {
         return createApexLibUri(normalizedPath);

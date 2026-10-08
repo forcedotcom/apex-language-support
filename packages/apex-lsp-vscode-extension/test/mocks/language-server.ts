@@ -6,9 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 // Mock implementations for the language server functions
-export const createAndStartClient = jest.fn().mockResolvedValue(undefined);
-export const startLanguageServer = jest.fn().mockResolvedValue(undefined);
-export const restartLanguageServer = jest.fn().mockResolvedValue(undefined);
-export const stopLanguageServer = jest.fn().mockResolvedValue(undefined);
-export const getClient = jest.fn().mockReturnValue(undefined);
+export const createAndStartClient = vi.fn().mockResolvedValue(undefined);
+export const startLanguageServer = vi.fn().mockResolvedValue(undefined);
+export const restartLanguageServer = vi.fn().mockResolvedValue(undefined);
+export const stopLanguageServer = vi.fn().mockResolvedValue(undefined);
+export const getClient = vi.fn().mockReturnValue(undefined);

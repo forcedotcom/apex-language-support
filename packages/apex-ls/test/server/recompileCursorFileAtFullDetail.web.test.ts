@@ -1,11 +1,13 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 /**
  * Web-platform mirror of recompileCursorFileAtFullDetail.node.test.ts.
  *
@@ -28,7 +30,6 @@
 } as unknown;
 
 import { Effect } from 'effect';
-import { recompileCursorFileAtFullDetail } from '../../src/worker.platform.web';
 import type { RequestServices } from '@salesforce/apex-lsp-compliant-services';
 
 const URI = 'file:///workspace/RefUtil.cls';
@@ -39,13 +40,19 @@ const CLASS_BODY = `public class RefUtil {
 }`;
 
 describe('recompileCursorFileAtFullDetail content guard (web)', () => {
-  let addSymbolTable: jest.Mock;
-  let resolveCrossFileReferencesForFile: jest.Mock;
+  let recompileCursorFileAtFullDetail: typeof import('../../src/worker.platform.web').recompileCursorFileAtFullDetail;
+  let addSymbolTable: Mock;
+  let resolveCrossFileReferencesForFile: Mock;
   let svc: RequestServices;
 
+  beforeAll(async () => {
+    ({ recompileCursorFileAtFullDetail } =
+      await import('../../src/worker.platform.web'));
+  });
+
   beforeEach(() => {
-    addSymbolTable = jest.fn(() => Effect.void);
-    resolveCrossFileReferencesForFile = jest.fn(() => Effect.void);
+    addSymbolTable = vi.fn(() => Effect.void);
+    resolveCrossFileReferencesForFile = vi.fn(() => Effect.void);
     svc = {
       symbolManager: { addSymbolTable, resolveCrossFileReferencesForFile },
     } as unknown as RequestServices;

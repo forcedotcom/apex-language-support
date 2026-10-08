@@ -6,40 +6,41 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock, Mocked, MockedFunction } from 'vitest';
+import { vi } from 'vitest';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 import { dispatch } from '../../src/utils/handlerUtil';
-import { getLogger } from '@salesforce/apex-lsp-shared';
 
-// Mock the logger before importing the handler
-const mockLogger = {
-  log: jest.fn(),
-  debug: jest.fn(),
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-} as any;
-(getLogger as jest.Mock).mockReturnValue(mockLogger);
+const { mockLogger } = vi.hoisted(() => ({
+  mockLogger: {
+    log: vi.fn(),
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 
-jest.mock('@salesforce/apex-lsp-shared', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
+vi.mock('@salesforce/apex-lsp-shared', async () => {
+  const actual = await vi.importActual('@salesforce/apex-lsp-shared');
   return {
     ...actual,
-    getLogger: jest.fn(),
+    getLogger: vi.fn(() => mockLogger),
   };
 });
 
 // Mock the parser package's ResourceLoader to prevent embedded content resolution
-jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
+vi.mock('@salesforce/apex-lsp-parser-ast', () => ({
   ResourceLoader: {
-    getInstance: jest.fn().mockReturnValue({
-      getFile: jest.fn().mockResolvedValue(null), // Return null to trigger fallback to storage
+    getInstance: vi.fn().mockReturnValue({
+      getFile: vi.fn().mockResolvedValue(null), // Return null to trigger fallback to storage
     }),
   },
 }));
 
-jest.mock('../../src/utils/handlerUtil');
-jest.mock('../../src/storage/ApexStorageManager');
+vi.mock('../../src/utils/handlerUtil');
+vi.mock('../../src/storage/ApexStorageManager');
 
 // Import the handler after the logger mock is set up
 import {
@@ -48,18 +49,16 @@ import {
 } from '../../src/handlers/ApexLibResolveHandler';
 
 describe('ApexLibResolveHandler', () => {
-  let mockDispatch: jest.MockedFunction<typeof dispatch>;
-  let mockStorage: jest.Mocked<
-    ReturnType<typeof ApexStorageManager.getInstance>
-  >;
+  let mockDispatch: MockedFunction<typeof dispatch>;
+  let mockStorage: Mocked<ReturnType<typeof ApexStorageManager.getInstance>>;
   let mockDocument: TextDocument;
-  let mockGetDocument: jest.Mock;
+  let mockGetDocument: Mock;
 
   beforeEach(() => {
     // Reset all mocks before each test
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
-    mockDispatch = dispatch as jest.MockedFunction<typeof dispatch>;
+    mockDispatch = dispatch as MockedFunction<typeof dispatch>;
 
     mockDocument = {
       uri: 'apexlib://test.cls',
@@ -69,21 +68,19 @@ describe('ApexLibResolveHandler', () => {
       positionAt: () => ({ line: 0, character: 0 }),
       offsetAt: () => 0,
       lineCount: 1,
-      getLineRange: jest.fn(),
-      getEOLCharacters: jest.fn(),
+      getLineRange: vi.fn(),
+      getEOLCharacters: vi.fn(),
     };
 
-    mockGetDocument = jest.fn().mockResolvedValue(mockDocument);
+    mockGetDocument = vi.fn().mockResolvedValue(mockDocument);
     mockStorage = {
-      getInstance: jest.fn().mockReturnThis(),
-      getStorage: jest.fn().mockReturnValue({
+      getInstance: vi.fn().mockReturnThis(),
+      getStorage: vi.fn().mockReturnValue({
         getDocument: mockGetDocument,
       }),
-    } as unknown as jest.Mocked<
-      ReturnType<typeof ApexStorageManager.getInstance>
-    >;
+    } as unknown as Mocked<ReturnType<typeof ApexStorageManager.getInstance>>;
 
-    (ApexStorageManager.getInstance as jest.Mock).mockReturnValue(mockStorage);
+    (ApexStorageManager.getInstance as Mock).mockReturnValue(mockStorage);
   });
 
   describe('processOnResolve', () => {
@@ -91,7 +88,7 @@ describe('ApexLibResolveHandler', () => {
       const params = {
         uri: 'apexlib://resources/StandardApexLibrary/System/String.cls',
       };
-      const resolveResourceFile = jest
+      const resolveResourceFile = vi
         .fn()
         .mockResolvedValue('global class String {}');
 
@@ -106,7 +103,7 @@ describe('ApexLibResolveHandler', () => {
       const params = {
         uri: 'apexlib://resources/StandardApexLibrary/System/Missing.cls',
       };
-      const resolveResourceFile = jest.fn().mockResolvedValue(undefined);
+      const resolveResourceFile = vi.fn().mockResolvedValue(undefined);
 
       await expect(
         processOnResolve(params, resolveResourceFile),

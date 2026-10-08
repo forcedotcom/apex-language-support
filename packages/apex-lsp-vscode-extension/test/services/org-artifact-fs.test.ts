@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
 import * as SubscriptionRef from 'effect/SubscriptionRef';
@@ -46,7 +47,7 @@ async function waitFor(predicate: () => boolean): Promise<void> {
 
 describe('OrgArtifactFileSystem', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('registers one read-only provider with the extension context', () => {
@@ -184,7 +185,7 @@ describe('OrgArtifactFileSystem', () => {
 
   it('clears all materialized content when the target org changes', async () => {
     const fileSystem = new OrgArtifactFileSystem();
-    const onOrgChange = jest.fn(async () => undefined);
+    const onOrgChange = vi.fn(async () => undefined);
     stageAccount(fileSystem).commit();
     const ref = Effect.runSync(SubscriptionRef.make({ orgId: 'first' }));
     const api: OrgArtifactServicesApi = {
@@ -223,7 +224,7 @@ describe('OrgArtifactFileSystem', () => {
 
   it('does not restart for repeated wrappers describing the same target org', async () => {
     const fileSystem = new OrgArtifactFileSystem();
-    const onOrgChange = jest.fn(async () => undefined);
+    const onOrgChange = vi.fn(async () => undefined);
     const ref = Effect.runSync(
       SubscriptionRef.make({
         targetOrg: { orgId: '00D-first', connectionRevision: 1 },

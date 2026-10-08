@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { DefinitionParams } from 'vscode-languageserver-protocol';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
@@ -21,7 +22,7 @@ describe('DefinitionProcessingService', () => {
 
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Setup logger
     logger = getLogger();
@@ -32,7 +33,7 @@ describe('DefinitionProcessingService', () => {
 
   describe('processDefinition', () => {
     it('honors externally prepared execution without rerunning prerequisites', async () => {
-      const prerequisiteSpy = jest
+      const prerequisiteSpy = vi
         .spyOn(
           PrerequisiteOrchestrationService.prototype,
           'runPrerequisitesForLspRequestType',
@@ -60,7 +61,7 @@ describe('DefinitionProcessingService', () => {
         },
       } as unknown as ApexSymbol;
       const symbolManager = {
-        getReferencesAtPosition: jest.fn().mockResolvedValue([
+        getReferencesAtPosition: vi.fn().mockResolvedValue([
           {
             name: 'this',
             location: {
@@ -73,10 +74,10 @@ describe('DefinitionProcessingService', () => {
             },
           },
         ]),
-        getReceiverKeywordTargetAtPosition: jest
+        getReceiverKeywordTargetAtPosition: vi
           .fn()
           .mockResolvedValue(receiverType),
-        getSymbolAtPosition: jest.fn(),
+        getSymbolAtPosition: vi.fn(),
       };
       const receiverService = new DefinitionProcessingService(
         logger,
@@ -130,12 +131,14 @@ describe('DefinitionProcessingService', () => {
           },
         },
       };
-      jest
-        .spyOn(service['symbolManager'], 'getReferencesAtPosition')
-        .mockResolvedValue([mockTypeReference] as any);
-      jest
-        .spyOn(service['symbolManager'], 'createResolutionContext')
-        .mockResolvedValue({ semanticState: 'complete' } as any);
+      vi.spyOn(
+        service['symbolManager'],
+        'getReferencesAtPosition',
+      ).mockResolvedValue([mockTypeReference] as any);
+      vi.spyOn(
+        service['symbolManager'],
+        'createResolutionContext',
+      ).mockResolvedValue({ semanticState: 'complete' } as any);
 
       // Mock symbol manager to return a symbol
       const mockSymbol = {
@@ -184,9 +187,10 @@ describe('DefinitionProcessingService', () => {
         },
         parent: null,
       };
-      jest
-        .spyOn(service['symbolManager'], 'getSymbolAtPosition')
-        .mockResolvedValue(mockSymbol as unknown as ApexSymbol);
+      vi.spyOn(
+        service['symbolManager'],
+        'getSymbolAtPosition',
+      ).mockResolvedValue(mockSymbol as unknown as ApexSymbol);
 
       // Act
       const result = await service.processDefinition(params);
@@ -222,25 +226,26 @@ describe('DefinitionProcessingService', () => {
           },
         },
       };
-      jest
-        .spyOn(service['symbolManager'], 'getReferencesAtPosition')
-        .mockResolvedValue([mockTypeReference] as any);
-      jest
-        .spyOn(service['symbolManager'], 'createResolutionContext')
-        .mockResolvedValue({ semanticState: 'complete' } as any);
+      vi.spyOn(
+        service['symbolManager'],
+        'getReferencesAtPosition',
+      ).mockResolvedValue([mockTypeReference] as any);
+      vi.spyOn(
+        service['symbolManager'],
+        'createResolutionContext',
+      ).mockResolvedValue({ semanticState: 'complete' } as any);
 
       // Mock symbol manager to return no symbol
-      jest
-        .spyOn(service['symbolManager'], 'getSymbolAtPosition')
-        .mockResolvedValue(null);
+      vi.spyOn(
+        service['symbolManager'],
+        'getSymbolAtPosition',
+      ).mockResolvedValue(null);
 
       // Mock missing artifact utils to return not-found
-      jest
-        .spyOn(
-          service['missingArtifactUtils'],
-          'tryResolveMissingArtifactBlocking',
-        )
-        .mockResolvedValue({ status: 'not-found' });
+      vi.spyOn(
+        service['missingArtifactUtils'],
+        'tryResolveMissingArtifactBlocking',
+      ).mockResolvedValue({ status: 'not-found' });
 
       // Act
       const result = await service.processDefinition(params);
@@ -268,19 +273,22 @@ describe('DefinitionProcessingService', () => {
           },
         },
       };
-      jest
-        .spyOn(service['symbolManager'], 'getReferencesAtPosition')
-        .mockResolvedValue([mockTypeReference] as any);
-      jest
-        .spyOn(service['symbolManager'], 'createResolutionContext')
-        .mockResolvedValue({ semanticState: 'complete' } as any);
+      vi.spyOn(
+        service['symbolManager'],
+        'getReferencesAtPosition',
+      ).mockResolvedValue([mockTypeReference] as any);
+      vi.spyOn(
+        service['symbolManager'],
+        'createResolutionContext',
+      ).mockResolvedValue({ semanticState: 'complete' } as any);
 
       // Mock symbol manager to throw an error
-      jest
-        .spyOn(service['symbolManager'], 'getSymbolAtPosition')
-        .mockImplementation(() => {
-          throw new Error('Symbol manager error');
-        });
+      vi.spyOn(
+        service['symbolManager'],
+        'getSymbolAtPosition',
+      ).mockImplementation(() => {
+        throw new Error('Symbol manager error');
+      });
 
       // Act
       const result = await service.processDefinition(params);
@@ -297,27 +305,27 @@ describe('DefinitionProcessingService', () => {
       };
 
       // Mock isWorkspaceLoaded to return true so missing artifact resolution is not triggered
-      jest
-        .spyOn(WorkspaceLoadCoordinator, 'isWorkspaceLoaded')
-        .mockReturnValue(true);
+      vi.spyOn(WorkspaceLoadCoordinator, 'isWorkspaceLoaded').mockReturnValue(
+        true,
+      );
 
       // Keywords don't have TypeReferences - getReferencesAtPosition returns empty array
-      jest
-        .spyOn(service['symbolManager'], 'getReferencesAtPosition')
-        .mockResolvedValue([]);
+      vi.spyOn(
+        service['symbolManager'],
+        'getReferencesAtPosition',
+      ).mockResolvedValue([]);
 
       // Spy on getSymbolAtPosition to verify it's not called
-      jest
-        .spyOn(service['symbolManager'], 'getSymbolAtPosition')
-        .mockResolvedValue(null);
+      vi.spyOn(
+        service['symbolManager'],
+        'getSymbolAtPosition',
+      ).mockResolvedValue(null);
 
       // Spy on tryResolveMissingArtifactBlocking to verify it's not called
-      jest
-        .spyOn(
-          service['missingArtifactUtils'],
-          'tryResolveMissingArtifactBlocking',
-        )
-        .mockResolvedValue({ status: 'not-found' });
+      vi.spyOn(
+        service['missingArtifactUtils'],
+        'tryResolveMissingArtifactBlocking',
+      ).mockResolvedValue({ status: 'not-found' });
 
       // Act
       const result = await service.processDefinition(params);
@@ -424,9 +432,10 @@ describe('DefinitionProcessingService', () => {
           },
         },
       };
-      jest
-        .spyOn(service['symbolManager'], 'getReferencesAtPosition')
-        .mockResolvedValue([mockTypeReference] as any);
+      vi.spyOn(
+        service['symbolManager'],
+        'getReferencesAtPosition',
+      ).mockResolvedValue([mockTypeReference] as any);
 
       // Mock symbol manager to return a symbol quickly
       const mockSymbol = {
@@ -475,9 +484,10 @@ describe('DefinitionProcessingService', () => {
         },
         parent: null,
       };
-      jest
-        .spyOn(service['symbolManager'], 'getSymbolAtPosition')
-        .mockResolvedValue(mockSymbol as unknown as ApexSymbol);
+      vi.spyOn(
+        service['symbolManager'],
+        'getSymbolAtPosition',
+      ).mockResolvedValue(mockSymbol as unknown as ApexSymbol);
 
       const startTime = Date.now();
 
@@ -567,8 +577,8 @@ describe('DefinitionProcessingService', () => {
         ),
       );
       const manager = {
-        getSymbol: jest.fn(async (id: string) => byId.get(id) ?? null),
-        findSymbolByName: jest.fn(),
+        getSymbol: vi.fn(async (id: string) => byId.get(id) ?? null),
+        findSymbolByName: vi.fn(),
       };
       const exactService = new DefinitionProcessingService(
         logger,
@@ -605,13 +615,13 @@ describe('DefinitionProcessingService', () => {
         { ...member, chainNodes: [qualifier, member] },
       ] as any;
       const manager = {
-        getSymbol: jest.fn(),
-        findSymbolByFQN: jest
+        getSymbol: vi.fn(),
+        findSymbolByFQN: vi
           .fn()
           .mockImplementation(async (fqn: string) =>
             fqn === qualifier.name ? expectedOwner : null,
           ),
-        findSymbolByName: jest.fn(),
+        findSymbolByName: vi.fn(),
       };
       const exactService = new DefinitionProcessingService(
         logger,
@@ -654,10 +664,10 @@ describe('DefinitionProcessingService', () => {
         'different-owner',
       );
       const manager = {
-        getSymbol: jest.fn(async (id: string) =>
+        getSymbol: vi.fn(async (id: string) =>
           id === owner.id ? owner : null,
         ),
-        findSymbolsInFile: jest
+        findSymbolsInFile: vi
           .fn()
           .mockResolvedValue([owner, ownerBlock, expected, unrelated]),
       };
@@ -682,11 +692,11 @@ describe('DefinitionProcessingService', () => {
         'file:///namespace-a/DuplicateName.cls',
       );
       const manager = {
-        getSymbol: jest.fn(async (id: string) =>
+        getSymbol: vi.fn(async (id: string) =>
           id === owner.id ? owner : null,
         ),
-        findSymbolsInFile: jest.fn().mockResolvedValue([owner]),
-        findSymbolByName: jest.fn(),
+        findSymbolsInFile: vi.fn().mockResolvedValue([owner]),
+        findSymbolByName: vi.fn(),
       };
       const exactService = new DefinitionProcessingService(
         logger,
@@ -717,14 +727,14 @@ describe('DefinitionProcessingService', () => {
       const references = chain(owner.id, undefined);
       references[0].chainNodes[1].resolvedTypeId = memberResultType.id;
       const manager = {
-        getSymbol: jest.fn(async (id: string) =>
+        getSymbol: vi.fn(async (id: string) =>
           id === owner.id
             ? owner
             : id === memberResultType.id
               ? memberResultType
               : null,
         ),
-        findSymbolsInFile: jest.fn().mockResolvedValue([owner]),
+        findSymbolsInFile: vi.fn().mockResolvedValue([owner]),
       };
       const exactService = new DefinitionProcessingService(
         logger,
@@ -742,7 +752,7 @@ describe('DefinitionProcessingService', () => {
 
     it('does not recover a symbol URI from a global simple-name search', async () => {
       const manager = {
-        findFilesForSymbol: jest
+        findFilesForSymbol: vi
           .fn()
           .mockResolvedValue(['file:///wrong/DuplicateName.cls']),
       };

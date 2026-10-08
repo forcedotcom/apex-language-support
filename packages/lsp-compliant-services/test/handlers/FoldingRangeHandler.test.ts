@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { MockedClass, Mocked, MockedFunction } from 'vitest';
+import { vi } from 'vitest';
 import { FoldingRangeParams, FoldingRange } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Effect } from 'effect';
@@ -16,55 +18,55 @@ import {
 } from '../../src/handlers/FoldingRangeHandler';
 import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
 import { dispatch } from '../../src/utils/handlerUtil';
+import { ApexFoldingRangeProvider } from '../../src/foldingRange/ApexFoldingRangeProvider';
 
-jest.mock('../../src/utils/handlerUtil');
+vi.mock('../../src/utils/handlerUtil');
 
 // Mock the ApexFoldingRangeProvider
-jest.mock('../../src/foldingRange/ApexFoldingRangeProvider', () => ({
-  ApexFoldingRangeProvider: jest.fn().mockImplementation(() => ({
-    getFoldingRanges: jest.fn(),
-  })),
+vi.mock('../../src/foldingRange/ApexFoldingRangeProvider', () => ({
+  ApexFoldingRangeProvider: vi.fn(function () {
+    return { getFoldingRanges: vi.fn() };
+  }),
 }));
 
 describe('FoldingRangeHandler', () => {
-  let mockStorage: jest.Mocked<ApexStorageInterface>;
-  let mockDispatch: jest.MockedFunction<typeof dispatch>;
+  let mockStorage: Mocked<ApexStorageInterface>;
+  let mockDispatch: MockedFunction<typeof dispatch>;
   let mockProvider: any;
 
   beforeEach(() => {
     mockStorage = {
-      getDocument: jest.fn(),
-      addDocument: jest.fn(),
-      removeDocument: jest.fn(),
-      hasDocument: jest.fn(),
-      getAllDocuments: jest.fn(),
-      clear: jest.fn(),
-      storeAst: jest.fn(),
-      retrieveAst: jest.fn(),
-      storeTypeInfo: jest.fn(),
-      retrieveTypeInfo: jest.fn(),
-      storeReferences: jest.fn(),
-      retrieveReferences: jest.fn(),
-      storeDefinitions: jest.fn(),
-      retrieveDefinitions: jest.fn(),
-    } as unknown as jest.Mocked<ApexStorageInterface>;
+      getDocument: vi.fn(),
+      addDocument: vi.fn(),
+      removeDocument: vi.fn(),
+      hasDocument: vi.fn(),
+      getAllDocuments: vi.fn(),
+      clear: vi.fn(),
+      storeAst: vi.fn(),
+      retrieveAst: vi.fn(),
+      storeTypeInfo: vi.fn(),
+      retrieveTypeInfo: vi.fn(),
+      storeReferences: vi.fn(),
+      retrieveReferences: vi.fn(),
+      storeDefinitions: vi.fn(),
+      retrieveDefinitions: vi.fn(),
+    } as unknown as Mocked<ApexStorageInterface>;
 
-    mockDispatch = dispatch as jest.MockedFunction<typeof dispatch>;
+    mockDispatch = dispatch as MockedFunction<typeof dispatch>;
 
     // Set up mock provider
-    const {
-      ApexFoldingRangeProvider,
-    } = require('../../src/foldingRange/ApexFoldingRangeProvider');
     mockProvider = {
-      getFoldingRanges: jest.fn(),
+      getFoldingRanges: vi.fn(),
     };
-    (ApexFoldingRangeProvider as jest.MockedClass<any>).mockImplementation(
-      () => mockProvider,
+    (ApexFoldingRangeProvider as MockedClass<any>).mockImplementation(
+      function () {
+        return mockProvider;
+      },
     );
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('processOnFoldingRange', () => {

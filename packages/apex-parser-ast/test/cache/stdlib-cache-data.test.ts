@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 /**
  * Tests for the stdlib-cache-data module.
  * This module is responsible for providing the embedded protobuf cache data URL.
@@ -15,7 +16,7 @@ describe('stdlib-cache-data module', () => {
   describe('getEmbeddedDataUrl function', () => {
     beforeEach(() => {
       // Clear the module cache before each test
-      jest.resetModules();
+      vi.resetModules();
     });
 
     it('can be imported without crashing', () => {
@@ -32,7 +33,7 @@ describe('stdlib-cache-data module', () => {
 
     it('returns undefined in unbundled environment', () => {
       // Mock the module to simulate unbundled environment
-      jest.doMock('../../resources/apex-stdlib.pb.gz', () => {
+      vi.doMock('../../resources/apex-stdlib.pb.gz', () => {
         throw new Error('Module not found');
       });
 
@@ -52,13 +53,13 @@ describe('stdlib-cache-data module', () => {
 
     it('handles string data URL format', () => {
       // Mock the module to return a data URL string
-      jest.doMock(
+      vi.doMock(
         '../../resources/apex-stdlib.pb.gz',
         () => 'data:application/x-gzip;base64,H4sIAAAAAAAA...',
         { virtual: true },
       );
 
-      jest.resetModules();
+      vi.resetModules();
 
       try {
         const {
@@ -76,7 +77,7 @@ describe('stdlib-cache-data module', () => {
 
     it('handles default export format', () => {
       // Mock the module to return an object with default property
-      jest.doMock(
+      vi.doMock(
         '../../resources/apex-stdlib.pb.gz',
         () => ({
           default: 'data:application/x-gzip;base64,H4sIAAAAAAAA...',
@@ -84,7 +85,7 @@ describe('stdlib-cache-data module', () => {
         { virtual: true },
       );
 
-      jest.resetModules();
+      vi.resetModules();
 
       try {
         const {
@@ -102,13 +103,13 @@ describe('stdlib-cache-data module', () => {
 
     it('returns undefined for non-data-URL values', () => {
       // Mock the module to return something that's not a data URL
-      jest.doMock(
+      vi.doMock(
         '../../resources/apex-stdlib.pb.gz',
         () => ({ someOtherFormat: 'not a data url' }),
         { virtual: true },
       );
 
-      jest.resetModules();
+      vi.resetModules();
 
       try {
         const {
@@ -152,14 +153,13 @@ describe('stdlib-cache-data module', () => {
 
 describe('Integration with stdlib-cache-loader', () => {
   beforeEach(() => {
-    jest.resetModules();
+    vi.resetModules();
   });
 
   it('stdlib-cache-loader handles stdlib-cache-data import failure', async () => {
     // The cache loader should gracefully handle when stdlib-cache-data fails to load
-    const {
-      StandardLibraryCacheLoader,
-    } = require('../../src/cache/stdlib-cache-loader');
+    const { StandardLibraryCacheLoader } =
+      await import('../../src/cache/stdlib-cache-loader');
 
     // Clear any cached data
     StandardLibraryCacheLoader.clearCache();
@@ -174,10 +174,9 @@ describe('Integration with stdlib-cache-loader', () => {
     expect(result.loadMethod).toBe('protobuf');
   });
 
-  it('isProtobufCacheAvailable returns boolean', () => {
-    const {
-      isProtobufCacheAvailable,
-    } = require('../../src/cache/stdlib-cache-loader');
+  it('isProtobufCacheAvailable returns boolean', async () => {
+    const { isProtobufCacheAvailable } =
+      await import('../../src/cache/stdlib-cache-loader');
 
     const result = isProtobufCacheAvailable();
 

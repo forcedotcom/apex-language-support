@@ -6,45 +6,50 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import * as vscode from 'vscode';
 import {
   handleAutoRestart,
   handleMaxRetriesExceeded,
 } from '../src/error-handling';
 import { EXTENSION_CONSTANTS } from '../src/constants';
+import * as commands from '../src/commands';
+import { logToOutputChannel } from '../src/logging';
+import { updateApexServerStatusError } from '../src/status-bar';
 
 // Mock the commands module
-jest.mock('../src/commands', () => ({
-  getServerStartRetries: jest.fn(),
-  incrementServerStartRetries: jest.fn(),
-  getLastRestartTime: jest.fn(),
-  setLastRestartTime: jest.fn(),
-  setStartingFlag: jest.fn(),
-  resetServerStartRetries: jest.fn(),
-  getGlobalContext: jest.fn(),
+vi.mock('../src/commands', () => ({
+  getServerStartRetries: vi.fn(),
+  incrementServerStartRetries: vi.fn(),
+  getLastRestartTime: vi.fn(),
+  setLastRestartTime: vi.fn(),
+  setStartingFlag: vi.fn(),
+  resetServerStartRetries: vi.fn(),
+  getGlobalContext: vi.fn(),
 }));
 
 // Mock the status bar module
-jest.mock('../src/status-bar', () => ({
-  updateApexServerStatusStopped: jest.fn(),
-  updateApexServerStatusError: jest.fn(),
+vi.mock('../src/status-bar', () => ({
+  updateApexServerStatusStopped: vi.fn(),
+  updateApexServerStatusError: vi.fn(),
 }));
 
 // Mock the logging module
-jest.mock('../src/logging', () => ({
-  logToOutputChannel: jest.fn(),
+vi.mock('../src/logging', () => ({
+  logToOutputChannel: vi.fn(),
 }));
 
 describe('Error Handling Module', () => {
   let mockContext: vscode.ExtensionContext;
-  let mockRestartHandler: jest.Mock;
+  let mockRestartHandler: Mock;
 
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Create mock restart handler
-    mockRestartHandler = jest.fn().mockResolvedValue(undefined);
+    mockRestartHandler = vi.fn().mockResolvedValue(undefined);
 
     // Create mock context
     mockContext = {
@@ -52,47 +57,38 @@ describe('Error Handling Module', () => {
     } as unknown as vscode.ExtensionContext;
 
     // Mock vscode.window.showErrorMessage
-    jest.spyOn(vscode.window, 'showErrorMessage').mockResolvedValue(undefined);
+    vi.spyOn(vscode.window, 'showErrorMessage').mockResolvedValue(undefined);
 
     // Mock setTimeout
-    jest.useFakeTimers();
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
-    jest.useRealTimers();
+    vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   describe('handleAutoRestart', () => {
     beforeEach(() => {
-      const {
-        getServerStartRetries,
-        getLastRestartTime,
-      } = require('../src/commands');
-      getServerStartRetries.mockReturnValue(0);
-      getLastRestartTime.mockReturnValue(0);
+      vi.mocked(commands.getServerStartRetries).mockReturnValue(0);
+      vi.mocked(commands.getLastRestartTime).mockReturnValue(0);
     });
 
     it('should initiate auto-restart when conditions are met', async () => {
-      const {
-        incrementServerStartRetries,
-        setLastRestartTime,
-        getServerStartRetries,
-      } = require('../src/commands');
-      const { logToOutputChannel } = require('../src/logging');
-
       // Mock increment to update the return value
       let retryCount = 0;
-      getServerStartRetries.mockImplementation(() => retryCount);
-      incrementServerStartRetries.mockImplementation(() => {
+      vi.mocked(commands.getServerStartRetries).mockImplementation(
+        () => retryCount,
+      );
+      vi.mocked(commands.incrementServerStartRetries).mockImplementation(() => {
         retryCount = 1;
       });
 
       const result = await handleAutoRestart(mockRestartHandler);
 
       expect(result).toBe(true);
-      expect(incrementServerStartRetries).toHaveBeenCalled();
-      expect(setLastRestartTime).toHaveBeenCalled();
+      expect(commands.incrementServerStartRetries).toHaveBeenCalled();
+      expect(commands.setLastRestartTime).toHaveBeenCalled();
       expect(logToOutputChannel).toHaveBeenCalledWith(
         expect.stringMatching(
           /Will retry server start \(1\/3\) after \d+ms delay\.\.\./,
@@ -102,8 +98,9 @@ describe('Error Handling Module', () => {
     });
 
     it('should not initiate auto-restart when max retries exceeded', async () => {
-      const { getServerStartRetries } = require('../src/commands');
-      getServerStartRetries.mockReturnValue(EXTENSION_CONSTANTS.MAX_RETRIES);
+      vi.mocked(commands.getServerStartRetries).mockReturnValue(
+        EXTENSION_CONSTANTS.MAX_RETRIES,
+      );
 
       const result = await handleAutoRestart(mockRestartHandler);
 
@@ -111,8 +108,7 @@ describe('Error Handling Module', () => {
     });
 
     it('should not initiate auto-restart when in cooldown period', async () => {
-      const { getLastRestartTime } = require('../src/commands');
-      getLastRestartTime.mockReturnValue(Date.now());
+      vi.mocked(commands.getLastRestartTime).mockReturnValue(Date.now());
 
       const result = await handleAutoRestart(mockRestartHandler);
 
@@ -120,25 +116,24 @@ describe('Error Handling Module', () => {
     });
 
     it('should call restart handler after delay', async () => {
-      const { getGlobalContext } = require('../src/commands');
-      getGlobalContext.mockReturnValue(mockContext);
+      vi.mocked(commands.getGlobalContext).mockReturnValue(mockContext);
 
       await handleAutoRestart(mockRestartHandler);
 
       // Fast-forward timers
-      jest.runAllTimers();
+      vi.runAllTimers();
 
       expect(mockRestartHandler).toHaveBeenCalledWith(mockContext);
     });
 
     it('should handle max retries exceeded', async () => {
-      const { getServerStartRetries } = require('../src/commands');
-      getServerStartRetries.mockReturnValue(EXTENSION_CONSTANTS.MAX_RETRIES);
+      vi.mocked(commands.getServerStartRetries).mockReturnValue(
+        EXTENSION_CONSTANTS.MAX_RETRIES,
+      );
 
       await handleAutoRestart(mockRestartHandler);
 
       // Should call handleMaxRetriesExceeded
-      const { logToOutputChannel } = require('../src/logging');
       expect(logToOutputChannel).toHaveBeenCalledWith(
         expect.stringMatching(
           /Max retries \(3\) exceeded\. Auto-restart disabled\./,
@@ -150,15 +145,11 @@ describe('Error Handling Module', () => {
 
   describe('handleMaxRetriesExceeded', () => {
     it('should show error message and handle restart option', () => {
-      const { getGlobalContext } = require('../src/commands');
-      const { updateApexServerStatusError } = require('../src/status-bar');
-      const { logToOutputChannel } = require('../src/logging');
-
       // Mock getGlobalContext to return our mock context
-      getGlobalContext.mockReturnValue(mockContext);
+      vi.mocked(commands.getGlobalContext).mockReturnValue(mockContext);
 
       // Mock user selecting 'Restart Now'
-      const mockShowErrorMessage = vscode.window.showErrorMessage as jest.Mock;
+      const mockShowErrorMessage = vscode.window.showErrorMessage as Mock;
       mockShowErrorMessage.mockResolvedValue('Restart Now');
 
       handleMaxRetriesExceeded(mockRestartHandler);
@@ -180,11 +171,10 @@ describe('Error Handling Module', () => {
     });
 
     it('should not restart when user cancels', () => {
-      const { getGlobalContext } = require('../src/commands');
-      getGlobalContext.mockReturnValue(mockContext);
+      vi.mocked(commands.getGlobalContext).mockReturnValue(mockContext);
 
       // Mock user not selecting 'Restart Now'
-      const mockShowErrorMessage = vscode.window.showErrorMessage as jest.Mock;
+      const mockShowErrorMessage = vscode.window.showErrorMessage as Mock;
       mockShowErrorMessage.mockResolvedValue(undefined);
 
       handleMaxRetriesExceeded(mockRestartHandler);

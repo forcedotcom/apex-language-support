@@ -6,18 +6,19 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { UnifiedCache } from '../../src/utils/UnifiedCache';
 
 // Mock the logger to avoid console output during tests
-jest.mock('@salesforce/apex-lsp-shared', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
+vi.mock('@salesforce/apex-lsp-shared', async () => {
+  const actual = await vi.importActual('@salesforce/apex-lsp-shared');
   return {
     ...actual,
     getLogger: () => ({
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
     }),
   };
 });

@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import * as vscode from 'vscode';
 import {
   VSCodeLanguageClientAdapter,
@@ -13,16 +15,16 @@ import {
 } from '../../src/apexlib/vscode-adapters';
 
 // Mock VS Code modules
-jest.mock('vscode', () => ({
+vi.mock('vscode', () => ({
   Uri: {
-    file: jest.fn(),
-    parse: jest.fn(),
+    file: vi.fn(),
+    parse: vi.fn(),
   },
   workspace: {
-    registerTextDocumentContentProvider: jest.fn(),
-    createFileSystemWatcher: jest.fn(),
+    registerTextDocumentContentProvider: vi.fn(),
+    createFileSystemWatcher: vi.fn(),
   },
-  ExtensionContext: jest.fn(),
+  ExtensionContext: vi.fn(),
 }));
 
 describe('VSCodeLanguageClientAdapter', () => {
@@ -30,8 +32,8 @@ describe('VSCodeLanguageClientAdapter', () => {
 
   beforeEach(() => {
     mockClient = {
-      request: jest.fn(),
-      notify: jest.fn(),
+      request: vi.fn(),
+      notify: vi.fn(),
     };
   });
 
@@ -70,7 +72,7 @@ describe('VSCodeEditorContextAdapter', () => {
 
   beforeEach(() => {
     mockDisposable = {
-      dispose: jest.fn(),
+      dispose: vi.fn(),
     } as any;
 
     mockContext = {
@@ -79,13 +81,13 @@ describe('VSCodeEditorContextAdapter', () => {
 
     // Mock VS Code workspace methods
     (
-      vscode.workspace.registerTextDocumentContentProvider as jest.Mock
+      vscode.workspace.registerTextDocumentContentProvider as Mock
     ).mockReturnValue(mockDisposable);
-    (vscode.workspace.createFileSystemWatcher as jest.Mock).mockReturnValue({
-      onDidCreate: jest.fn(),
-      onDidChange: jest.fn(),
-      onDidDelete: jest.fn(),
-      dispose: jest.fn(),
+    (vscode.workspace.createFileSystemWatcher as Mock).mockReturnValue({
+      onDidCreate: vi.fn(),
+      onDidChange: vi.fn(),
+      onDidDelete: vi.fn(),
+      dispose: vi.fn(),
     });
   });
 
@@ -97,7 +99,7 @@ describe('VSCodeEditorContextAdapter', () => {
   it('should register text document content provider', () => {
     const adapter = new VSCodeEditorContextAdapter(mockContext);
     const mockProvider = {
-      provideTextDocumentContent: jest.fn(),
+      provideTextDocumentContent: vi.fn(),
     };
 
     const result = adapter.registerTextDocumentContentProvider(

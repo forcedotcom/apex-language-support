@@ -6,21 +6,25 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { MockedClass, Mocked } from 'vitest';
+import { vi } from 'vitest';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Effect } from 'effect';
 
 import { ApexFoldingRangeProvider } from '../../src/foldingRange/ApexFoldingRangeProvider';
 import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
 import { getDocumentStateCache } from '../../src/services/DocumentStateCache';
+import { CompilerService } from '@salesforce/apex-lsp-parser-ast';
+import { ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 // Mock the dependencies
-jest.mock('@salesforce/apex-lsp-shared', () => ({
-  getLogger: jest.fn(() => ({
-    log: jest.fn(),
-    debug: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    info: jest.fn(),
+vi.mock('@salesforce/apex-lsp-shared', () => ({
+  getLogger: vi.fn(() => ({
+    log: vi.fn(),
+    debug: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
   })),
   LogMessageType: {
     Error: 1,
@@ -31,26 +35,25 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
   },
 }));
 
-jest.mock('@salesforce/apex-lsp-shared', () => ({
-  ...jest.requireActual('@salesforce/apex-lsp-shared'),
+vi.mock('@salesforce/apex-lsp-shared', async () => ({
+  ...(await vi.importActual('@salesforce/apex-lsp-shared')),
   ApexSettingsManager: {
-    getInstance: jest.fn(() => ({
-      getCompilationOptions: jest.fn(() => ({})),
+    getInstance: vi.fn(() => ({
+      getCompilationOptions: vi.fn(() => ({})),
     })),
   },
 }));
 
 // Mock the CompilerService and related classes to return empty results
-jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
-  CompilerService: jest.fn().mockImplementation(() => ({
-    compile: jest.fn().mockReturnValue({
-      errors: [],
-      comments: [],
-    }),
-  })),
-  ApexFoldingRangeListener: jest.fn().mockImplementation(() => ({
-    getResult: jest.fn().mockReturnValue([]),
-  })),
+vi.mock('@salesforce/apex-lsp-parser-ast', () => ({
+  CompilerService: vi.fn(function () {
+    return {
+      compile: vi.fn().mockReturnValue({ errors: [], comments: [] }),
+    };
+  }),
+  ApexFoldingRangeListener: vi.fn(function () {
+    return { getResult: vi.fn().mockReturnValue([]) };
+  }),
   CommentType: {
     Block: 'Block',
     Line: 'Line',
@@ -59,31 +62,31 @@ jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
 
 describe('ApexFoldingRangeProvider', () => {
   let provider: ApexFoldingRangeProvider;
-  let mockStorage: jest.Mocked<ApexStorageInterface>;
+  let mockStorage: Mocked<ApexStorageInterface>;
 
   beforeEach(() => {
     mockStorage = {
-      getDocument: jest.fn(),
-      addDocument: jest.fn(),
-      removeDocument: jest.fn(),
-      hasDocument: jest.fn(),
-      getAllDocuments: jest.fn(),
-      clear: jest.fn(),
-      storeAst: jest.fn(),
-      retrieveAst: jest.fn(),
-      storeTypeInfo: jest.fn(),
-      retrieveTypeInfo: jest.fn(),
-      storeReferences: jest.fn(),
-      retrieveReferences: jest.fn(),
-      storeDefinitions: jest.fn(),
-      retrieveDefinitions: jest.fn(),
-    } as unknown as jest.Mocked<ApexStorageInterface>;
+      getDocument: vi.fn(),
+      addDocument: vi.fn(),
+      removeDocument: vi.fn(),
+      hasDocument: vi.fn(),
+      getAllDocuments: vi.fn(),
+      clear: vi.fn(),
+      storeAst: vi.fn(),
+      retrieveAst: vi.fn(),
+      storeTypeInfo: vi.fn(),
+      retrieveTypeInfo: vi.fn(),
+      storeReferences: vi.fn(),
+      retrieveReferences: vi.fn(),
+      storeDefinitions: vi.fn(),
+      retrieveDefinitions: vi.fn(),
+    } as unknown as Mocked<ApexStorageInterface>;
 
     provider = new ApexFoldingRangeProvider(mockStorage);
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('getFoldingRanges', () => {
@@ -151,15 +154,14 @@ describe('ApexFoldingRangeProvider', () => {
       mockStorage.getDocument.mockResolvedValue(mockDocument);
 
       // Mock the CompilerService to throw an error
-      const { CompilerService } = require('@salesforce/apex-lsp-parser-ast');
       const mockCompilerService = {
-        compile: jest.fn().mockImplementation(() => {
+        compile: vi.fn().mockImplementation(() => {
           throw new Error('Compiler service error');
         }),
       };
-      (CompilerService as jest.MockedClass<any>).mockImplementation(
-        () => mockCompilerService,
-      );
+      (CompilerService as MockedClass<any>).mockImplementation(function () {
+        return mockCompilerService;
+      });
 
       // Recreate provider to use the new mock
       provider = new ApexFoldingRangeProvider(mockStorage);
@@ -327,12 +329,10 @@ describe('ApexFoldingRangeProvider', () => {
       const cache = getDocumentStateCache();
       cache.clear();
 
-      // Get the mocked ApexSettingsManager from the top-level mock
-      const ApexLspShared = require('@salesforce/apex-lsp-shared');
-      const mockGetCompilationOptions = jest.fn().mockReturnValue({});
+      const mockGetCompilationOptions = vi.fn().mockReturnValue({});
 
       // Override the mock for this test
-      ApexLspShared.ApexSettingsManager.getInstance.mockReturnValueOnce({
+      (ApexSettingsManager.getInstance as any).mockReturnValueOnce({
         getCompilationOptions: mockGetCompilationOptions,
       });
 

@@ -32,3 +32,26 @@ export default defineConfig({
     },
   },
 });
+
+export const integrationConfig = defineConfig({
+  ...{
+    root: fileURLToPath(new URL('.', import.meta.url)),
+    resolve: {
+      alias: {
+        '@salesforce/apex-lsp-shared': fromRoot('packages/apex-lsp-shared/src/index.ts'),
+        '@salesforce/apex-lsp-parser-ast': fromRoot('packages/apex-parser-ast/src/index.ts'),
+        '@salesforce/apex-lsp-compliant-services': fromRoot('packages/lsp-compliant-services/src/index.ts'),
+        '@salesforce/apex-lsp-custom-services': fromRoot('packages/custom-services/src/index.ts'),
+        '@salesforce/apex-ls': fromRoot('packages/apex-ls/src/index.ts'),
+        '@salesforce/apex-lsp-testbed': fileURLToPath(new URL('./src/index.ts', import.meta.url)),
+      },
+    },
+  },
+  test: {
+    globals: true,
+    environment: 'node',
+    include: ['test/integration/**/*.test.ts', 'test/accuracy/**/*.test.ts'],
+    globalSetup: ['./scripts/vitest-setup-windows.ts'],
+    isolate: false,
+  },
+});

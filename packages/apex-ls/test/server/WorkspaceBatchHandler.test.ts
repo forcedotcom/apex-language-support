@@ -1,11 +1,13 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import {
   handleWorkspaceBatchRequest,
   handleProcessWorkspaceBatchesRequest,
@@ -27,7 +29,7 @@ import {
 } from '@salesforce/apex-lsp-parser-ast';
 
 // Mock dependencies
-const mockGetSettings = jest.fn(() => ({
+const mockGetSettings = vi.fn(() => ({
   apex: {
     deferredReferenceProcessing: {
       enableCrossFileDeferral: false,
@@ -35,16 +37,16 @@ const mockGetSettings = jest.fn(() => ({
   },
 }));
 
-jest.mock('@salesforce/apex-lsp-shared', () => ({
-  getLogger: jest.fn(() => ({
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    alwaysLog: jest.fn(),
+vi.mock('@salesforce/apex-lsp-shared', () => ({
+  getLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    alwaysLog: vi.fn(),
   })),
   ApexSettingsManager: {
-    getInstance: jest.fn(() => ({
+    getInstance: vi.fn(() => ({
       getSettings: mockGetSettings,
     })),
   },
@@ -57,32 +59,32 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
   },
 }));
 
-jest.mock(
+vi.mock(
   '@salesforce/apex-lsp-shared/observability/coordinatorEffectTracing',
   () => ({
-    provideCoordinatorTracing: jest.fn(() => (effect: any) => effect),
+    provideCoordinatorTracing: vi.fn(() => (effect: any) => effect),
   }),
 );
 
-jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
-  createQueuedItem: jest.fn((eff: any) =>
+vi.mock('@salesforce/apex-lsp-parser-ast', () => ({
+  createQueuedItem: vi.fn((eff: any) =>
     Effect.succeed({ id: 'mock', eff, fiberDeferred: {} } as any),
   ),
-  offer: jest.fn(() => Effect.succeed({ fiber: Effect.void } as any)),
+  offer: vi.fn(() => Effect.succeed({ fiber: Effect.void } as any)),
   Priority: {
     Low: 4,
   },
   SchedulerInitializationService: {
-    getInstance: jest.fn(() => ({
-      ensureInitialized: jest.fn(() => Promise.resolve()),
-      isInitialized: jest.fn(() => true),
+    getInstance: vi.fn(() => ({
+      ensureInitialized: vi.fn(() => Promise.resolve()),
+      isInitialized: vi.fn(() => true),
     })),
   },
 }));
 
-jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
-  DocumentProcessingService: jest.fn().mockImplementation(() => ({
-    processDocumentOpenBatch: jest.fn().mockResolvedValue([]),
+vi.mock('@salesforce/apex-lsp-compliant-services', () => ({
+  DocumentProcessingService: vi.fn().mockImplementation(() => ({
+    processDocumentOpenBatch: vi.fn().mockResolvedValue([]),
   })),
 }));
 
@@ -90,7 +92,7 @@ describe('WorkspaceBatchHandler', () => {
   const TEST_SESSION_ID = 'workspace-test-session';
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     // Clear batch storage between tests
     clearBatchStorage();
     // Clear cleanup interval to prevent it from keeping process alive
@@ -334,9 +336,9 @@ describe('WorkspaceBatchHandler', () => {
       // Shrink the bootstrap-race wait so the unavailable-worker case fails
       // quickly instead of polling for the full 5s production window.
       setBatchDispatcherWaitMs(100);
-      setWorkspaceLoadSessionDispatcher(jest.fn().mockResolvedValue({}));
+      setWorkspaceLoadSessionDispatcher(vi.fn().mockResolvedValue({}));
       setDataOwnerCompileDispatcher(
-        jest
+        vi
           .fn()
           .mockImplementation(async ({ entries }: { entries: unknown[] }) => ({
             compiledCount: entries.length,
@@ -355,7 +357,7 @@ describe('WorkspaceBatchHandler', () => {
 
     it('setBatchIngestionDispatcher / getBatchIngestionDispatcher round-trip', () => {
       expect(getBatchIngestionDispatcher()).toBeNull();
-      const fn = jest.fn();
+      const fn = vi.fn();
       setBatchIngestionDispatcher(fn);
       expect(getBatchIngestionDispatcher()).toBe(fn);
       setBatchIngestionDispatcher(null);
@@ -363,7 +365,7 @@ describe('WorkspaceBatchHandler', () => {
     });
 
     it('dispatches decoded entries to data-owner when dispatcher is set', async () => {
-      const dispatcher = jest.fn().mockResolvedValue({ processedCount: 2 });
+      const dispatcher = vi.fn().mockResolvedValue({ processedCount: 2 });
       setBatchIngestionDispatcher(dispatcher);
 
       const compressedData = makeCompressedBatch([
@@ -412,9 +414,10 @@ describe('WorkspaceBatchHandler', () => {
     });
 
     it('does not fall back to local processing when no dispatcher is set', async () => {
-      const { offer } = jest.requireMock('@salesforce/apex-lsp-parser-ast') as {
-        offer: jest.Mock;
-      };
+      const { offer } =
+        (await import('@salesforce/apex-lsp-parser-ast')) as unknown as {
+          offer: Mock;
+        };
       offer.mockClear();
 
       const compressedData = makeCompressedBatch([
@@ -442,7 +445,7 @@ describe('WorkspaceBatchHandler', () => {
     });
 
     it('dispatches all decoded entries from multiple batches', async () => {
-      const dispatcher = jest.fn().mockResolvedValue({ processedCount: 1 });
+      const dispatcher = vi.fn().mockResolvedValue({ processedCount: 1 });
       setBatchIngestionDispatcher(dispatcher);
 
       for (let i = 0; i < 3; i++) {
@@ -484,14 +487,14 @@ describe('WorkspaceBatchHandler', () => {
         version: 1,
         content: `class Chunk${index} {}`,
       }));
-      const ingestionDispatcher = jest
+      const ingestionDispatcher = vi
         .fn()
         .mockImplementation(
           async (_sessionId: string, entries: typeof files) => ({
             processedCount: entries.length,
           }),
         );
-      const compileDispatcher = jest
+      const compileDispatcher = vi
         .fn()
         .mockImplementation(async ({ entries }: { entries: typeof files }) => ({
           compiledCount: entries.length,
@@ -527,13 +530,13 @@ describe('WorkspaceBatchHandler', () => {
     });
 
     it('ends the workspace session when compilation fails fatally', async () => {
-      const sessionDispatcher = jest.fn().mockResolvedValue({});
+      const sessionDispatcher = vi.fn().mockResolvedValue({});
       setWorkspaceLoadSessionDispatcher(sessionDispatcher);
       setBatchIngestionDispatcher(
-        jest.fn().mockResolvedValue({ processedCount: 1 }),
+        vi.fn().mockResolvedValue({ processedCount: 1 }),
       );
       setDataOwnerCompileDispatcher(
-        jest.fn().mockRejectedValue(new Error('compile transport failed')),
+        vi.fn().mockRejectedValue(new Error('compile transport failed')),
       );
 
       const files = [
@@ -563,12 +566,13 @@ describe('WorkspaceBatchHandler', () => {
     });
 
     it('waits for a dispatcher wired after batches start processing', async () => {
-      const { offer } = jest.requireMock('@salesforce/apex-lsp-parser-ast') as {
-        offer: jest.Mock;
-      };
+      const { offer } =
+        (await import('@salesforce/apex-lsp-parser-ast')) as unknown as {
+          offer: Mock;
+        };
       offer.mockClear();
 
-      const dispatcher = jest.fn().mockResolvedValue({ processedCount: 1 });
+      const dispatcher = vi.fn().mockResolvedValue({ processedCount: 1 });
 
       const compressedData = makeCompressedBatch([
         { uri: 'file:///Race.cls', version: 1, content: 'class Race {}' },
@@ -599,7 +603,7 @@ describe('WorkspaceBatchHandler', () => {
     });
 
     it('handles dispatcher rejection gracefully', async () => {
-      const dispatcher = jest.fn().mockRejectedValue(new Error('Worker died'));
+      const dispatcher = vi.fn().mockRejectedValue(new Error('Worker died'));
       setBatchIngestionDispatcher(dispatcher);
 
       const compressedData = makeCompressedBatch([
@@ -702,9 +706,9 @@ describe('WorkspaceBatchHandler', () => {
 
       beforeEach(() => {
         setBatchDispatcherWaitMs(100);
-        setWorkspaceLoadSessionDispatcher(jest.fn().mockResolvedValue({}));
+        setWorkspaceLoadSessionDispatcher(vi.fn().mockResolvedValue({}));
         setDataOwnerCompileDispatcher(
-          jest
+          vi
             .fn()
             .mockImplementation(
               async ({ entries }: { entries: unknown[] }) => ({
@@ -718,7 +722,7 @@ describe('WorkspaceBatchHandler', () => {
 
       it('setCrossFileEnrichmentDispatcher / getCrossFileEnrichmentDispatcher round-trip', () => {
         expect(getCrossFileEnrichmentDispatcher()).toBeNull();
-        const fn = jest.fn();
+        const fn = vi.fn();
         setCrossFileEnrichmentDispatcher(fn);
         expect(getCrossFileEnrichmentDispatcher()).toBe(fn);
         setCrossFileEnrichmentDispatcher(null);
@@ -726,12 +730,12 @@ describe('WorkspaceBatchHandler', () => {
       });
 
       it('dispatches enrichment when enableCrossFileDeferral is true', async () => {
-        const ingestionDispatcher = jest
+        const ingestionDispatcher = vi
           .fn()
           .mockResolvedValue({ processedCount: 3 });
         setBatchIngestionDispatcher(ingestionDispatcher);
 
-        const enrichmentDispatcher = jest
+        const enrichmentDispatcher = vi
           .fn()
           .mockResolvedValue({ resolved: 3, failed: 0 });
         setCrossFileEnrichmentDispatcher(enrichmentDispatcher);
@@ -757,12 +761,12 @@ describe('WorkspaceBatchHandler', () => {
       });
 
       it('does NOT dispatch enrichment when enableCrossFileDeferral is false', async () => {
-        const ingestionDispatcher = jest
+        const ingestionDispatcher = vi
           .fn()
           .mockResolvedValue({ processedCount: 3 });
         setBatchIngestionDispatcher(ingestionDispatcher);
 
-        const enrichmentDispatcher = jest
+        const enrichmentDispatcher = vi
           .fn()
           .mockResolvedValue({ resolved: 0, failed: 0 });
         setCrossFileEnrichmentDispatcher(enrichmentDispatcher);
@@ -779,7 +783,7 @@ describe('WorkspaceBatchHandler', () => {
       });
 
       it('does NOT dispatch enrichment when no enrichment dispatcher is set', async () => {
-        const ingestionDispatcher = jest
+        const ingestionDispatcher = vi
           .fn()
           .mockResolvedValue({ processedCount: 3 });
         setBatchIngestionDispatcher(ingestionDispatcher);
@@ -794,12 +798,12 @@ describe('WorkspaceBatchHandler', () => {
       });
 
       it('handles enrichment dispatcher failure gracefully', async () => {
-        const ingestionDispatcher = jest
+        const ingestionDispatcher = vi
           .fn()
           .mockResolvedValue({ processedCount: 1 });
         setBatchIngestionDispatcher(ingestionDispatcher);
 
-        const enrichmentDispatcher = jest
+        const enrichmentDispatcher = vi
           .fn()
           .mockRejectedValue(new Error('Enrichment pool crashed'));
         setCrossFileEnrichmentDispatcher(enrichmentDispatcher);
@@ -816,7 +820,7 @@ describe('WorkspaceBatchHandler', () => {
       });
 
       it('does NOT dispatch enrichment when the worker route is unavailable', async () => {
-        const enrichmentDispatcher = jest
+        const enrichmentDispatcher = vi
           .fn()
           .mockResolvedValue({ resolved: 0, failed: 0 });
         setCrossFileEnrichmentDispatcher(enrichmentDispatcher);

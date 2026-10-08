@@ -15,6 +15,7 @@ import {
   StandardLibraryCacheLoader,
   isProtobufCacheAvailable,
 } from '../../src/cache/stdlib-cache-loader';
+import { StandardLibrary } from '../../src/generated/apex-stdlib';
 import { ResourceLoader } from '../../src/utils/resourceLoader';
 import { resetResourceLoader } from '../helpers/testHelpers';
 import type { MethodSymbol, VariableSymbol } from '../../src/types/symbol';
@@ -311,8 +312,6 @@ describe('Protobuf vs ZIP equivalence', () => {
 
 describe('Corruption handling', () => {
   it('handles invalid binary data gracefully', () => {
-    const { StandardLibrary } = require('../../src/generated/apex-stdlib');
-
     // Try to parse random bytes
     const randomBytes = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
 
@@ -322,8 +321,6 @@ describe('Corruption handling', () => {
   });
 
   it('handles truncated binary data gracefully', () => {
-    const { StandardLibrary } = require('../../src/generated/apex-stdlib');
-
     // Create valid data then truncate it
     const valid = StandardLibrary.create({
       generatedAt: new Date().toISOString(),
@@ -341,8 +338,6 @@ describe('Corruption handling', () => {
   });
 
   it('handles empty binary data gracefully', () => {
-    const { StandardLibrary } = require('../../src/generated/apex-stdlib');
-
     const empty = new Uint8Array(0);
 
     // Empty data should parse to default values (not throw)

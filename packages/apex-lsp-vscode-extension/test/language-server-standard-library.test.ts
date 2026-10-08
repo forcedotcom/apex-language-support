@@ -6,18 +6,20 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import * as vscode from 'vscode';
 import { getStdApexClassesPathFromContext } from '../src/utils/serverUtils';
 
 // Mock vscode workspace.fs
-jest.mock('vscode', () => ({
+vi.mock('vscode', () => ({
   workspace: {
     fs: {
-      readFile: jest.fn(),
+      readFile: vi.fn(),
     },
   },
   Uri: {
-    joinPath: jest.fn((base: any, ...segments: string[]) => ({
+    joinPath: vi.fn((base: any, ...segments: string[]) => ({
       toString: () => `${base.toString()}/${segments.join('/')}`,
       path: `${base.toString()}/${segments.join('/')}`,
     })),
@@ -28,7 +30,7 @@ describe('Standard Apex Library Path Resolution', () => {
   let mockContext: vscode.ExtensionContext;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     mockContext = {
       extensionUri: {
@@ -48,9 +50,7 @@ describe('Standard Apex Library Path Resolution', () => {
   describe('Standard Library ZIP Loading', () => {
     it('should read StandardApexLibrary.zip from virtual file system', async () => {
       const mockZipContent = new Uint8Array([0x50, 0x4b, 0x03, 0x04]); // ZIP header
-      (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(
-        mockZipContent,
-      );
+      (vscode.workspace.fs.readFile as Mock).mockResolvedValue(mockZipContent);
 
       // Get the ZIP URI
       const zipUri = getStdApexClassesPathFromContext(mockContext);
@@ -66,9 +66,7 @@ describe('Standard Apex Library Path Resolution', () => {
 
     it('should convert Uint8Array to base64 for transmission', async () => {
       const mockZipContent = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
-      (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(
-        mockZipContent,
-      );
+      (vscode.workspace.fs.readFile as Mock).mockResolvedValue(mockZipContent);
 
       const zipUri = getStdApexClassesPathFromContext(mockContext);
       const zipBuffer = await vscode.workspace.fs.readFile(zipUri);
@@ -85,9 +83,7 @@ describe('Standard Apex Library Path Resolution', () => {
       const mockZipContent = new Uint8Array(1024); // 1KB ZIP
       mockZipContent.fill(0x50); // Fill with dummy data
 
-      (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(
-        mockZipContent,
-      );
+      (vscode.workspace.fs.readFile as Mock).mockResolvedValue(mockZipContent);
 
       const zipUri = getStdApexClassesPathFromContext(mockContext);
       const zipBuffer = await vscode.workspace.fs.readFile(zipUri);
@@ -106,7 +102,7 @@ describe('Standard Apex Library Path Resolution', () => {
     });
 
     it('should handle file read errors gracefully', async () => {
-      (vscode.workspace.fs.readFile as jest.Mock).mockRejectedValue(
+      (vscode.workspace.fs.readFile as Mock).mockRejectedValue(
         new Error('File not found'),
       );
 
@@ -121,9 +117,7 @@ describe('Standard Apex Library Path Resolution', () => {
     it('should work in both desktop and web environments', async () => {
       // This test verifies that the approach works uniformly across environments
       const mockZipContent = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
-      (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(
-        mockZipContent,
-      );
+      (vscode.workspace.fs.readFile as Mock).mockResolvedValue(mockZipContent);
 
       // Desktop environment
       const desktopContext = {
@@ -173,9 +167,7 @@ describe('Standard Apex Library Path Resolution', () => {
       const mockZipContent = new Uint8Array(2048);
       mockZipContent.fill(0x50);
 
-      (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(
-        mockZipContent,
-      );
+      (vscode.workspace.fs.readFile as Mock).mockResolvedValue(mockZipContent);
 
       // Client receives request and processes it
       const zipUri = getStdApexClassesPathFromContext(mockContext);
@@ -204,9 +196,7 @@ describe('Standard Apex Library Path Resolution', () => {
       const largeZipContent = new Uint8Array(1600000);
       largeZipContent.fill(0x50);
 
-      (vscode.workspace.fs.readFile as jest.Mock).mockResolvedValue(
-        largeZipContent,
-      );
+      (vscode.workspace.fs.readFile as Mock).mockResolvedValue(largeZipContent);
 
       const zipUri = getStdApexClassesPathFromContext(mockContext);
 
@@ -224,7 +214,7 @@ describe('Standard Apex Library Path Resolution', () => {
 
   describe('Error Handling', () => {
     it('should propagate errors when ZIP file is missing', async () => {
-      (vscode.workspace.fs.readFile as jest.Mock).mockRejectedValue(
+      (vscode.workspace.fs.readFile as Mock).mockRejectedValue(
         new Error('ENOENT: no such file or directory'),
       );
 
@@ -236,7 +226,7 @@ describe('Standard Apex Library Path Resolution', () => {
     });
 
     it('should propagate errors when ZIP file is corrupted', async () => {
-      (vscode.workspace.fs.readFile as jest.Mock).mockRejectedValue(
+      (vscode.workspace.fs.readFile as Mock).mockRejectedValue(
         new Error('Unexpected end of file'),
       );
 
@@ -248,7 +238,7 @@ describe('Standard Apex Library Path Resolution', () => {
     });
 
     it('should handle permission errors', async () => {
-      (vscode.workspace.fs.readFile as jest.Mock).mockRejectedValue(
+      (vscode.workspace.fs.readFile as Mock).mockRejectedValue(
         new Error('EACCES: permission denied'),
       );
 

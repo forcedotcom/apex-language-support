@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import * as path from 'path';
 import {
   initializeTopology,
@@ -65,7 +66,7 @@ describe('ResourceLoaderProxy (Step 9)', () => {
 
   it('reuses completed immutable stdlib loads across callers', async () => {
     const worker = topology.resourceLoader!;
-    const executeSpy = jest.spyOn(worker, 'executeEffect');
+    const executeSpy = vi.spyOn(worker, 'executeEffect');
     const proxy = new ResourceLoaderProxy(worker, logger);
 
     const first = await proxy.getSymbolTable('System/String.cls');

@@ -5,6 +5,8 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+
+import { vi } from 'vitest';
 import { TypeVisibilityValidator } from '../../../src/semantics/validation/TypeVisibilityValidator';
 import { SymbolVisibility } from '../../../src/types/symbol';
 import type {
@@ -15,8 +17,8 @@ import type {
 describe('TypeVisibilityValidator', () => {
   const createMockScope = (): ValidationScope => ({
     errors: {
-      addError: jest.fn(),
-      addWarning: jest.fn(),
+      addError: vi.fn(),
+      addWarning: vi.fn(),
     },
     settings: {
       collectMultipleErrors: true,

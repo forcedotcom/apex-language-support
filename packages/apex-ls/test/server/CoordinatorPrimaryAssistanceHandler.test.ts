@@ -1,22 +1,23 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { LSPQueueManager } from '@salesforce/apex-lsp-compliant-services';
 import type { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import { createPrimaryAssistanceHandler } from '../../src/server/CoordinatorPrimaryAssistanceHandler';
 
 const logger = {
-  info: jest.fn(),
-  debug: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  log: jest.fn(),
-  alwaysLog: jest.fn(),
+  info: vi.fn(),
+  debug: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  log: vi.fn(),
+  alwaysLog: vi.fn(),
 } as unknown as LoggerInterface;
 
 const request = {
@@ -46,8 +47,8 @@ function createHandler(
 ) {
   return createPrimaryAssistanceHandler({
     connection: {
-      sendRequest: jest.fn(),
-      sendNotification: jest.fn(),
+      sendRequest: vi.fn(),
+      sendNotification: vi.fn(),
     } as any,
     logger,
     getResourceLoaderProxy: () => undefined,
@@ -57,13 +58,14 @@ function createHandler(
 
 describe('CoordinatorPrimaryAssistanceHandler', () => {
   beforeEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('preserves validated sObject artifacts through coordinator assistance', async () => {
-    jest
-      .spyOn(LSPQueueManager.prototype, 'submitFindMissingArtifactRequest')
-      .mockResolvedValue({ artifacts: [artifact] });
+    vi.spyOn(
+      LSPQueueManager.prototype,
+      'submitFindMissingArtifactRequest',
+    ).mockResolvedValue({ artifacts: [artifact] });
 
     await expect(
       createHandler()('apex/findMissingArtifact', request),
@@ -71,10 +73,11 @@ describe('CoordinatorPrimaryAssistanceHandler', () => {
   });
 
   it('installs validated sObject artifacts before returning to the worker', async () => {
-    jest
-      .spyOn(LSPQueueManager.prototype, 'submitFindMissingArtifactRequest')
-      .mockResolvedValue({ artifacts: [artifact] });
-    const installSObjectArtifacts = jest.fn().mockResolvedValue(undefined);
+    vi.spyOn(
+      LSPQueueManager.prototype,
+      'submitFindMissingArtifactRequest',
+    ).mockResolvedValue({ artifacts: [artifact] });
+    const installSObjectArtifacts = vi.fn().mockResolvedValue(undefined);
 
     await expect(
       createHandler(installSObjectArtifacts)(
@@ -89,19 +92,20 @@ describe('CoordinatorPrimaryAssistanceHandler', () => {
   });
 
   it('rejects mismatched artifacts at the coordinator boundary', async () => {
-    jest
-      .spyOn(LSPQueueManager.prototype, 'submitFindMissingArtifactRequest')
-      .mockResolvedValue({
-        artifacts: [
-          {
-            ...artifact,
-            name: 'Other__c',
-            describe: { ...artifact.describe, name: 'Other__c' },
-          },
-        ],
-      });
+    vi.spyOn(
+      LSPQueueManager.prototype,
+      'submitFindMissingArtifactRequest',
+    ).mockResolvedValue({
+      artifacts: [
+        {
+          ...artifact,
+          name: 'Other__c',
+          describe: { ...artifact.describe, name: 'Other__c' },
+        },
+      ],
+    });
 
-    const installSObjectArtifacts = jest.fn().mockResolvedValue(undefined);
+    const installSObjectArtifacts = vi.fn().mockResolvedValue(undefined);
     await expect(
       createHandler(installSObjectArtifacts)(
         'apex/findMissingArtifact',

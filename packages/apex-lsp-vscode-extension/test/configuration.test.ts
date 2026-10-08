@@ -6,9 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 // The shared vscode mock omits env/UIKind; provide them for environment detection.
-jest.mock('vscode', () => ({
-  ...jest.requireActual('vscode'),
+vi.mock('vscode', async () => ({
+  ...(await vi.importActual('vscode')),
   env: { uiKind: 1, language: 'en' },
   UIKind: { Desktop: 1, Web: 2 },
 }));
@@ -23,8 +25,8 @@ import {
 } from '../src/configuration';
 
 // Mock vscode-languageclient
-jest.mock('vscode-languageclient/node', () => ({
-  LanguageClient: jest.fn(),
+vi.mock('vscode-languageclient/node', () => ({
+  LanguageClient: vi.fn(),
   State: {
     Stopped: 1,
     Starting: 2,
@@ -43,28 +45,28 @@ jest.mock('vscode-languageclient/node', () => ({
 }));
 
 // Mock the logging module
-jest.mock('../src/logging', () => ({
-  updateLogLevel: jest.fn(),
-  logToOutputChannel: jest.fn(),
-  alwaysLogToOutputChannel: jest.fn(),
+vi.mock('../src/logging', () => ({
+  updateLogLevel: vi.fn(),
+  logToOutputChannel: vi.fn(),
+  alwaysLogToOutputChannel: vi.fn(),
 }));
 
 describe('Configuration Module', () => {
   let mockContext: vscode.ExtensionContext;
-  let mockClient: LanguageClient & { notify: jest.Mock };
+  let mockClient: LanguageClient & { notify: Mock };
   let mockRawClient: LanguageClient;
-  let mockGetConfiguration: jest.Mock;
+  let mockGetConfiguration: Mock;
 
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Create mock client
     mockClient = {
-      sendNotification: jest.fn(),
-      notify: jest.fn(),
-    } as unknown as LanguageClient & { notify: jest.Mock };
-    mockRawClient = { setTrace: jest.fn() } as unknown as LanguageClient;
+      sendNotification: vi.fn(),
+      notify: vi.fn(),
+    } as unknown as LanguageClient & { notify: Mock };
+    mockRawClient = { setTrace: vi.fn() } as unknown as LanguageClient;
 
     // Create mock context
     mockContext = {
@@ -72,21 +74,21 @@ describe('Configuration Module', () => {
     } as unknown as vscode.ExtensionContext;
 
     // Create mock configuration
-    mockGetConfiguration = jest.fn();
+    mockGetConfiguration = vi.fn();
 
     // Mock vscode.workspace.getConfiguration
-    jest.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue({
+    vi.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue({
       get: mockGetConfiguration,
     } as unknown as vscode.WorkspaceConfiguration);
 
     // Mock vscode.workspace.onDidChangeConfiguration
-    jest.spyOn(vscode.workspace, 'onDidChangeConfiguration').mockReturnValue({
-      dispose: jest.fn(),
+    vi.spyOn(vscode.workspace, 'onDidChangeConfiguration').mockReturnValue({
+      dispose: vi.fn(),
     } as unknown as vscode.Disposable);
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('getWorkspaceSettings', () => {
@@ -399,7 +401,7 @@ describe('Configuration Module', () => {
 
       expect(vscode.workspace.onDidChangeConfiguration).toHaveBeenCalled();
       expect(listener).toBe(
-        (vscode.workspace.onDidChangeConfiguration as jest.Mock).mock.results[0]
+        (vscode.workspace.onDidChangeConfiguration as Mock).mock.results[0]
           .value,
       );
       expect(mockContext.subscriptions).toHaveLength(0);
@@ -409,8 +411,8 @@ describe('Configuration Module', () => {
       registerConfigurationChangeListener(mockClient, mockRawClient);
 
       // Get the registered listener
-      const listener = (vscode.workspace.onDidChangeConfiguration as jest.Mock)
-        .mock.calls[0][0];
+      const listener = (vscode.workspace.onDidChangeConfiguration as Mock).mock
+        .calls[0][0];
 
       // Mock getWorkspaceSettings to return test settings
       const testSettings = {
@@ -446,13 +448,13 @@ describe('Configuration Module', () => {
           },
         },
       };
-      jest
-        .spyOn(require('../src/configuration'), 'getWorkspaceSettings')
-        .mockReturnValue(testSettings);
+      mockGetConfiguration.mockImplementation((key: string) =>
+        key === 'apex' ? testSettings.apex : undefined,
+      );
 
       // Mock configuration change event
       const mockEvent = {
-        affectsConfiguration: jest.fn().mockReturnValue(true),
+        affectsConfiguration: vi.fn().mockReturnValue(true),
       };
 
       // Call the listener
@@ -460,9 +462,10 @@ describe('Configuration Module', () => {
 
       expect(mockClient.notify).toHaveBeenCalledWith(
         'workspace/didChangeConfiguration',
-        {
-          settings: testSettings,
-        },
+        expect.any(Object),
+      );
+      expect(mockClient.notify.mock.calls[0][1].settings.apex).toMatchObject(
+        testSettings.apex,
       );
     });
 
@@ -470,12 +473,12 @@ describe('Configuration Module', () => {
       registerConfigurationChangeListener(mockClient, mockRawClient);
 
       // Get the registered listener
-      const listener = (vscode.workspace.onDidChangeConfiguration as jest.Mock)
-        .mock.calls[0][0];
+      const listener = (vscode.workspace.onDidChangeConfiguration as Mock).mock
+        .calls[0][0];
 
       // Mock configuration change event
       const mockEvent = {
-        affectsConfiguration: jest.fn().mockReturnValue(false),
+        affectsConfiguration: vi.fn().mockReturnValue(false),
       };
 
       // Call the listener

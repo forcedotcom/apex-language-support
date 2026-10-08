@@ -6,9 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 // Mock vscode
-jest.mock('vscode', () => ({
-  ...jest.requireActual('vscode'),
+vi.mock('vscode', async () => ({
+  ...(await vi.importActual('vscode')),
   env: {
     uiKind: 1, // UIKind.Desktop (1), UIKind.Web (2)
     language: 'en',
@@ -37,39 +39,42 @@ import {
   getLastRestartTime,
   setLastRestartTime,
   getGlobalContext,
+  registerProfilingCommands,
 } from '../src/commands';
 import { EXTENSION_CONSTANTS } from '../src/constants';
+import { getClient } from '../src/language-server';
+import { getProfilingTag } from '../src/status-bar';
 
 // Mock the logging module
-jest.mock('../src/logging', () => ({
-  logToOutputChannel: jest.fn(),
+vi.mock('../src/logging', () => ({
+  logToOutputChannel: vi.fn(),
 }));
 
 // Mock the language-server module
-jest.mock('../src/language-server', () => ({
-  getClient: jest.fn(),
+vi.mock('../src/language-server', () => ({
+  getClient: vi.fn(),
 }));
 
 // Mock the status-bar module
-jest.mock('../src/status-bar', () => {
-  const actual = jest.requireActual('../src/status-bar');
+vi.mock('../src/status-bar', async () => {
+  const actual = await vi.importActual('../src/status-bar');
   return {
     ...actual,
-    getProfilingTag: jest.fn(),
-    updateProfilingToggleItem: jest.fn().mockResolvedValue(undefined),
+    getProfilingTag: vi.fn(),
+    updateProfilingToggleItem: vi.fn().mockResolvedValue(undefined),
   };
 });
 
 describe('Commands Module', () => {
   let mockContext: vscode.ExtensionContext;
-  let mockRestartHandler: jest.Mock;
+  let mockRestartHandler: Mock;
 
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Create mock restart handler
-    mockRestartHandler = jest.fn().mockResolvedValue(undefined);
+    mockRestartHandler = vi.fn().mockResolvedValue(undefined);
 
     // Create mock context
     mockContext = {
@@ -77,18 +82,18 @@ describe('Commands Module', () => {
     } as unknown as vscode.ExtensionContext;
 
     // Mock vscode.commands.registerCommand
-    jest.spyOn(vscode.commands, 'registerCommand').mockReturnValue({
-      dispose: jest.fn(),
+    vi.spyOn(vscode.commands, 'registerCommand').mockReturnValue({
+      dispose: vi.fn(),
     } as unknown as vscode.Disposable);
 
     // Mock vscode.window.showInformationMessage
-    jest
-      .spyOn(vscode.window, 'showInformationMessage')
-      .mockResolvedValue(undefined);
+    vi.spyOn(vscode.window, 'showInformationMessage').mockResolvedValue(
+      undefined,
+    );
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('initializeCommandState', () => {
@@ -141,13 +146,13 @@ describe('Commands Module', () => {
       registerRestartCommand(mockContext);
 
       // Get the registered command function
-      const registeredCommand = (vscode.commands.registerCommand as jest.Mock)
-        .mock.calls[0][1];
+      const registeredCommand = (vscode.commands.registerCommand as Mock).mock
+        .calls[0][1];
 
       // Mock Date.now to return a time that's outside the cooldown period
       const mockTime =
         Date.now() + EXTENSION_CONSTANTS.COOLDOWN_PERIOD_MS + 1000;
-      jest.spyOn(Date, 'now').mockReturnValue(mockTime);
+      vi.spyOn(Date, 'now').mockReturnValue(mockTime);
 
       // Execute the command
       await registeredCommand();
@@ -159,8 +164,8 @@ describe('Commands Module', () => {
       setStartingFlag(true);
       registerRestartCommand(mockContext);
 
-      const registeredCommand = (vscode.commands.registerCommand as jest.Mock)
-        .mock.calls[0][1];
+      const registeredCommand = (vscode.commands.registerCommand as Mock).mock
+        .calls[0][1];
 
       await registeredCommand();
 
@@ -172,8 +177,8 @@ describe('Commands Module', () => {
       setLastRestartTime(Date.now());
       registerRestartCommand(mockContext);
 
-      const registeredCommand = (vscode.commands.registerCommand as jest.Mock)
-        .mock.calls[0][1];
+      const registeredCommand = (vscode.commands.registerCommand as Mock).mock
+        .calls[0][1];
 
       await registeredCommand();
 
@@ -188,13 +193,13 @@ describe('Commands Module', () => {
 
       registerRestartCommand(mockContext);
 
-      const registeredCommand = (vscode.commands.registerCommand as jest.Mock)
-        .mock.calls[0][1];
+      const registeredCommand = (vscode.commands.registerCommand as Mock).mock
+        .calls[0][1];
 
       // Mock Date.now to return a time that's outside the cooldown period
       const mockTime =
         Date.now() + EXTENSION_CONSTANTS.COOLDOWN_PERIOD_MS + 1000;
-      jest.spyOn(Date, 'now').mockReturnValue(mockTime);
+      vi.spyOn(Date, 'now').mockReturnValue(mockTime);
 
       await registeredCommand();
 
@@ -266,50 +271,46 @@ describe('Commands Module', () => {
     beforeEach(() => {
       // Mock language client
       mockLanguageClient = {
-        sendRequest: jest.fn(),
+        sendRequest: vi.fn(),
       };
 
       mockClient = {
-        isDisposed: jest.fn().mockReturnValue(false),
+        isDisposed: vi.fn().mockReturnValue(false),
         languageClient: mockLanguageClient,
-        profilingStart: jest.fn((params) =>
+        profilingStart: vi.fn((params) =>
           mockLanguageClient.sendRequest('apex/profiling/start', params),
         ),
-        profilingStop: jest.fn((params) =>
+        profilingStop: vi.fn((params) =>
           mockLanguageClient.sendRequest('apex/profiling/stop', params),
         ),
-        profilingStatus: jest.fn((params) =>
+        profilingStatus: vi.fn((params) =>
           mockLanguageClient.sendRequest('apex/profiling/status', params),
         ),
       };
 
       // Mock getClient from language-server module
-      const languageServerModule = require('../src/language-server');
-      languageServerModule.getClient.mockReturnValue(mockClient);
+      vi.mocked(getClient).mockReturnValue(mockClient);
 
       // Mock workspace configuration
       mockConfig = {
-        get: jest.fn(),
+        get: vi.fn(),
       };
 
-      jest
-        .spyOn(vscode.workspace, 'getConfiguration')
-        .mockReturnValue(mockConfig as any);
+      vi.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue(
+        mockConfig as any,
+      );
 
       // Mock vscode.window methods
-      jest
-        .spyOn(vscode.window, 'showErrorMessage')
-        .mockResolvedValue(undefined);
+      vi.spyOn(vscode.window, 'showErrorMessage').mockResolvedValue(undefined);
     });
 
     describe('apex.profiling.start', () => {
       it('should start profiling with type from settings', async () => {
         mockConfig.get.mockReturnValue('cpu');
-        const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
         const startCommand = (
-          vscode.commands.registerCommand as jest.Mock
+          vscode.commands.registerCommand as Mock
         ).mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
 
         mockLanguageClient.sendRequest.mockResolvedValue({
@@ -331,11 +332,10 @@ describe('Commands Module', () => {
 
       it('should use heap type from settings', async () => {
         mockConfig.get.mockReturnValue('heap');
-        const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
         const startCommand = (
-          vscode.commands.registerCommand as jest.Mock
+          vscode.commands.registerCommand as Mock
         ).mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
 
         mockLanguageClient.sendRequest.mockResolvedValue({
@@ -352,14 +352,12 @@ describe('Commands Module', () => {
       });
 
       it('should handle client not available', async () => {
-        const languageServerModule = require('../src/language-server');
-        languageServerModule.getClient.mockReturnValue(null);
+        vi.mocked(getClient).mockReturnValue(null as never);
 
-        const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
         const startCommand = (
-          vscode.commands.registerCommand as jest.Mock
+          vscode.commands.registerCommand as Mock
         ).mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
 
         await startCommand();
@@ -376,11 +374,10 @@ describe('Commands Module', () => {
           message: 'Failed to start',
         });
 
-        const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
         const startCommand = (
-          vscode.commands.registerCommand as jest.Mock
+          vscode.commands.registerCommand as Mock
         ).mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
 
         await startCommand();
@@ -396,11 +393,10 @@ describe('Commands Module', () => {
           new Error('Network error'),
         );
 
-        const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
         const startCommand = (
-          vscode.commands.registerCommand as jest.Mock
+          vscode.commands.registerCommand as Mock
         ).mock.calls.find((call) => call[0] === 'apex.profiling.start')?.[1];
 
         await startCommand();
@@ -413,14 +409,12 @@ describe('Commands Module', () => {
 
     describe('apex.profiling.stop', () => {
       it('should stop profiling with tag from settings', async () => {
-        const { getProfilingTag } = require('../src/status-bar');
-        getProfilingTag.mockReturnValue('test-tag');
+        vi.mocked(getProfilingTag).mockReturnValue('test-tag');
 
-        const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
         const stopCommand = (
-          vscode.commands.registerCommand as jest.Mock
+          vscode.commands.registerCommand as Mock
         ).mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
 
         mockLanguageClient.sendRequest.mockResolvedValue({
@@ -442,14 +436,12 @@ describe('Commands Module', () => {
       });
 
       it('should use undefined tag when not set', async () => {
-        const { getProfilingTag } = require('../src/status-bar');
-        getProfilingTag.mockReturnValue('');
+        vi.mocked(getProfilingTag).mockReturnValue('');
 
-        const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
         const stopCommand = (
-          vscode.commands.registerCommand as jest.Mock
+          vscode.commands.registerCommand as Mock
         ).mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
 
         mockLanguageClient.sendRequest.mockResolvedValue({
@@ -466,14 +458,12 @@ describe('Commands Module', () => {
       });
 
       it('should handle client not available', async () => {
-        const languageServerModule = require('../src/language-server');
-        languageServerModule.getClient.mockReturnValue(null);
+        vi.mocked(getClient).mockReturnValue(null as never);
 
-        const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
         const stopCommand = (
-          vscode.commands.registerCommand as jest.Mock
+          vscode.commands.registerCommand as Mock
         ).mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
 
         await stopCommand();
@@ -484,19 +474,17 @@ describe('Commands Module', () => {
       });
 
       it('should handle stop failure', async () => {
-        const { getProfilingTag } = require('../src/status-bar');
-        getProfilingTag.mockReturnValue('');
+        vi.mocked(getProfilingTag).mockReturnValue('');
 
         mockLanguageClient.sendRequest.mockResolvedValue({
           success: false,
           message: 'Failed to stop',
         });
 
-        const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
         const stopCommand = (
-          vscode.commands.registerCommand as jest.Mock
+          vscode.commands.registerCommand as Mock
         ).mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
 
         await stopCommand();
@@ -507,17 +495,15 @@ describe('Commands Module', () => {
       });
 
       it('should handle stop error', async () => {
-        const { getProfilingTag } = require('../src/status-bar');
-        getProfilingTag.mockReturnValue('');
+        vi.mocked(getProfilingTag).mockReturnValue('');
         mockLanguageClient.sendRequest.mockRejectedValue(
           new Error('Network error'),
         );
 
-        const { registerProfilingCommands } = require('../src/commands');
         registerProfilingCommands(mockContext);
 
         const stopCommand = (
-          vscode.commands.registerCommand as jest.Mock
+          vscode.commands.registerCommand as Mock
         ).mock.calls.find((call) => call[0] === 'apex.profiling.stop')?.[1];
 
         await stopCommand();

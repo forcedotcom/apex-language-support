@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { ResourceLoader } from '../../src/utils/resourceLoader';
 import {
@@ -138,7 +139,7 @@ describe('ResourceLoader Integration', () => {
       const isolatedManager = new ApexSymbolManager(
         getResourceLoaderServiceShapeFromSingleton(),
       );
-      const loadSpy = jest.spyOn(resourceLoader, 'getSymbolTable');
+      const loadSpy = vi.spyOn(resourceLoader, 'getSymbolTable');
 
       const first =
         await isolatedManager['resolveStandardApexClass']('System.RestRequest');

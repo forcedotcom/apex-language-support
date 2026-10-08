@@ -1,11 +1,13 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 /**
  * Multi-File Penalty Performance Benchmarks
  *
@@ -41,12 +43,12 @@ import {
 } from '@salesforce/apex-lsp-parser-ast';
 import { cleanupTestResources } from '../helpers/test-cleanup';
 
-jest.mock('@salesforce/apex-lsp-shared', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
+vi.mock('@salesforce/apex-lsp-shared', async () => {
+  const actual = await vi.importActual('@salesforce/apex-lsp-shared');
   return {
     ...actual,
-    LSPConfigurationManager: { getInstance: jest.fn() },
-    ApexSettingsManager: { getInstance: jest.fn() },
+    LSPConfigurationManager: { getInstance: vi.fn() },
+    ApexSettingsManager: { getInstance: vi.fn() },
   };
 });
 
@@ -110,7 +112,7 @@ describe('Multi-File Penalty Benchmarks', () => {
   });
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     logger = getLogger();
 
     ApexStorageManager.reset();
@@ -121,16 +123,16 @@ describe('Multi-File Penalty Benchmarks', () => {
     await storageManager.initialize();
 
     mockConfigManager = {
-      getConnection: jest.fn().mockReturnValue({
-        sendRequest: jest.fn(),
+      getConnection: vi.fn().mockReturnValue({
+        sendRequest: vi.fn(),
       }),
     };
-    (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue(
+    (LSPConfigurationManager.getInstance as Mock).mockReturnValue(
       mockConfigManager,
     );
 
     mockSettingsManager = {
-      getSettings: jest.fn().mockReturnValue({
+      getSettings: vi.fn().mockReturnValue({
         apex: {
           findMissingArtifact: { enabled: false },
           scheduler: {
@@ -160,12 +162,12 @@ describe('Multi-File Penalty Benchmarks', () => {
           },
         },
       }),
-      getCompilationOptions: jest.fn().mockReturnValue({
+      getCompilationOptions: vi.fn().mockReturnValue({
         collectReferences: true,
         resolveReferences: true,
       }),
     };
-    (ApexSettingsManager.getInstance as jest.Mock).mockReturnValue(
+    (ApexSettingsManager.getInstance as Mock).mockReturnValue(
       mockSettingsManager,
     );
 
@@ -184,68 +186,75 @@ describe('Multi-File Penalty Benchmarks', () => {
     await cleanupTestResources();
   });
   beforeAll(() => {
-    jest.setTimeout(1000 * 60 * 10);
+    vi.setConfig({ testTimeout: 1000 * 60 * 10 });
   });
 
   afterAll(async () => {
-    jest.setTimeout(5000);
+    vi.setConfig({ testTimeout: 5000 });
     await cleanupTestResources();
   });
 
   // Benchmark each file individually
   testFiles.forEach((fileData, index) => {
-    it(`benchmarks file ${index + 1} (${fileData.name})`, (done) => {
-      const suite = new Benchmark.Suite();
-      const results: Record<string, Benchmark.Target> = {};
+    it(
+      `benchmarks file ${index + 1} (${fileData.name})`,
+      () =>
+        new Promise<void>((done) => {
+          const suite = new Benchmark.Suite();
+          const results: Record<string, Benchmark.Target> = {};
 
-      const document = TextDocument.create(
-        fileData.uri,
-        'apex',
-        1,
-        fileData.content,
-      );
-      const event: TextDocumentChangeEvent<TextDocument> = { document };
-
-      suite
-        .add(`Multi-file: ${fileData.name} (position ${index + 1})`, {
-          defer: true,
-          ...benchmarkSettings,
-          fn: (deferred: any) => {
-            service
-              .processDocumentOpenInternal(event)
-              .then(() => deferred.resolve())
-              .catch((err: any) => {
-                console.error(`Error in ${fileData.name}:`, err);
-                deferred.resolve();
-              });
-          },
-        })
-        .on('cycle', (event: any) => {
-          results[event.target.name] = event.target;
-          logger.alwaysLog(String(event.target));
-        })
-        .on('complete', function (this: any) {
-          const fs = require('fs');
-          const path = require('path');
-          const outputPath = path.join(
-            __dirname,
-            '../lsp-compliant-services-benchmark-results.json',
+          const document = TextDocument.create(
+            fileData.uri,
+            'apex',
+            1,
+            fileData.content,
           );
+          const event: TextDocumentChangeEvent<TextDocument> = { document };
 
-          let allResults = results;
-          try {
-            if (fs.existsSync(outputPath)) {
-              const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-              allResults = { ...existing, ...results };
-            }
-          } catch (error) {
-            console.warn('Could not read existing results:', error);
-          }
+          suite
+            .add(`Multi-file: ${fileData.name} (position ${index + 1})`, {
+              defer: true,
+              ...benchmarkSettings,
+              fn: (deferred: any) => {
+                service
+                  .processDocumentOpenInternal(event)
+                  .then(() => deferred.resolve())
+                  .catch((err: any) => {
+                    console.error(`Error in ${fileData.name}:`, err);
+                    deferred.resolve();
+                  });
+              },
+            })
+            .on('cycle', (event: any) => {
+              results[event.target.name] = event.target;
+              logger.alwaysLog(String(event.target));
+            })
+            .on('complete', function (this: any) {
+              const fs = require('fs');
+              const path = require('path');
+              const outputPath = path.join(
+                __dirname,
+                '../lsp-compliant-services-benchmark-results.json',
+              );
 
-          fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-          done();
-        })
-        .run({ async: true });
-    }, 120000);
+              let allResults = results;
+              try {
+                if (fs.existsSync(outputPath)) {
+                  const existing = JSON.parse(
+                    fs.readFileSync(outputPath, 'utf8'),
+                  );
+                  allResults = { ...existing, ...results };
+                }
+              } catch (error) {
+                console.warn('Could not read existing results:', error);
+              }
+
+              fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
+              done();
+            })
+            .run({ async: true });
+        }),
+      120000,
+    );
   });
 });

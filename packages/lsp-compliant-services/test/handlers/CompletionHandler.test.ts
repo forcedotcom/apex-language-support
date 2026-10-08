@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mocked } from 'vitest';
+import { vi } from 'vitest';
 import {
   CompletionParams,
   CompletionItem,
@@ -22,20 +24,20 @@ import { ICompletionProcessor } from '../../src/services/CompletionProcessingSer
 describe('CompletionHandler', () => {
   let handler: CompletionHandler;
   let mockLogger: any;
-  let mockCompletionProcessor: jest.Mocked<ICompletionProcessor>;
+  let mockCompletionProcessor: Mocked<ICompletionProcessor>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     mockLogger = {
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
     };
 
     mockCompletionProcessor = {
-      processCompletion: jest.fn(),
+      processCompletion: vi.fn(),
     };
 
     handler = new CompletionHandler(mockLogger, mockCompletionProcessor);
@@ -96,7 +98,7 @@ describe('CompletionHandler', () => {
     });
 
     it('should return {items: [], isIncomplete: true} when processor exceeds timeout on readiness path', async () => {
-      mockCompletionProcessor.processCompletionWithReadiness = jest
+      mockCompletionProcessor.processCompletionWithReadiness = vi
         .fn()
         .mockImplementation(
           () =>
@@ -162,7 +164,7 @@ describe('CompletionHandler', () => {
 
   describe('progressive refinement', () => {
     it('should use processCompletionWithReadiness when available', async () => {
-      mockCompletionProcessor.processCompletionWithReadiness = jest
+      mockCompletionProcessor.processCompletionWithReadiness = vi
         .fn()
         .mockResolvedValue({
           items: [{ label: 'method1', kind: CompletionItemKind.Method }],
@@ -192,7 +194,7 @@ describe('CompletionHandler', () => {
     });
 
     it('should return CompletionList with isIncomplete: false when fully resolved', async () => {
-      mockCompletionProcessor.processCompletionWithReadiness = jest
+      mockCompletionProcessor.processCompletionWithReadiness = vi
         .fn()
         .mockResolvedValue({
           items: [
@@ -273,7 +275,7 @@ describe('CompletionHandler', () => {
     });
 
     it('should return empty incomplete list when readiness processor throws', async () => {
-      mockCompletionProcessor.processCompletionWithReadiness = jest
+      mockCompletionProcessor.processCompletionWithReadiness = vi
         .fn()
         .mockRejectedValue(new Error('Readiness error'));
 

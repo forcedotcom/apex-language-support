@@ -5,6 +5,8 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+
+import { vi } from 'vitest';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { SymbolResolutionContext } from '../../src/types/ISymbolManager';
 import { ResolutionRequest } from '../../src/symbols/resolution/types';
@@ -158,7 +160,7 @@ describe('ApexSymbolManager - Enhanced Resolution', () => {
   const describeResolutionGroup = (
     groups: string[],
     name: string,
-    fn: jest.EmptyFunction,
+    fn: vi.EmptyFunction,
   ): void => {
     (shouldRunResolutionGroup(...groups) ? describe : describe.skip)(name, fn);
   };

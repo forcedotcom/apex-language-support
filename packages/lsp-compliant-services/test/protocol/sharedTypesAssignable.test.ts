@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -18,11 +18,11 @@
  * not allow, `tsc` fails here at typecheck time.
  *
  * The assertions are expressed as type-level `Assignable<To, From>` checks plus
- * `satisfies`/assignment helpers. The single runtime `expect` keeps jest happy;
+ * `satisfies`/assignment helpers. The single runtime `expect` keeps vi happy;
  * the real verification happens at compile time.
  */
 
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect } from 'vitest';
 import type {
   QueueStateParams as SharedQueueStateParams,
   QueueStateResult as SharedQueueStateResult,
@@ -122,7 +122,7 @@ describe('shared QueueState/GraphData protocol types', () => {
   it('keeps local queue/graph shapes assignable to the shared contract', () => {
     // The real verification is the compile-time `_AssertX` aliases above; if
     // any local shape diverges from the shared contract, `tsc` fails on its
-    // line at typecheck time. This runtime assertion just gives jest a body.
+    // line at typecheck time. This runtime assertion just gives vi a body.
     expect(true).toBe(true);
   });
 });

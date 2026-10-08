@@ -1,11 +1,13 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import { resolveDependentUris } from '../../src/symbols/ops/resolveDependentUris';
 import type { ISymbolManager } from '../../src/types/ISymbolManager';
 import type { ApexSymbol } from '../../src/types/symbol';
@@ -50,13 +52,13 @@ function makeManager(opts: {
     );
 
   return {
-    findSymbolsInFile: jest.fn(
+    findSymbolsInFile: vi.fn(
       async (uri: string) => opts.symbolsInFile[uri] ?? [],
     ),
-    findReferencesTo: jest.fn(
+    findReferencesTo: vi.fn(
       async (s: ApexSymbol) => opts.referencesTo.get(s.name) ?? [],
     ),
-    getSymbolTableForFile: jest.fn(async (uri: string) => symbolTables[uri]),
+    getSymbolTableForFile: vi.fn(async (uri: string) => symbolTables[uri]),
   } as unknown as ISymbolManager;
 }
 
@@ -94,7 +96,7 @@ describe('resolveDependentUris', () => {
     expect(Object.keys(narrowed.entries)).toEqual([FILE_B]);
     // findReferencesTo should only have been called for Foo.
     expect(manager.findReferencesTo).toHaveBeenCalledTimes(1);
-    expect((manager.findReferencesTo as jest.Mock).mock.calls[0][0].name).toBe(
+    expect((manager.findReferencesTo as Mock).mock.calls[0][0].name).toBe(
       'Foo',
     );
   });

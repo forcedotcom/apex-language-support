@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 /**
  * ApexSymbolManager Standard Library Loading Benchmarks
  *
@@ -77,122 +78,130 @@ public class TestClass {
     compilerService = new CompilerService();
   });
 
-  jest.setTimeout(1000 * 60 * 10);
+  vi.setConfig({ testTimeout: 1000 * 60 * 10 });
 
-  it('benchmarks compilation with standard library cold start', (done) => {
-    const suite = new Benchmark.Suite();
-    const results: Record<string, Benchmark.Target> = {};
+  it('benchmarks compilation with standard library cold start', () =>
+    new Promise<void>((done) => {
+      const suite = new Benchmark.Suite();
+      const results: Record<string, Benchmark.Target> = {};
 
-    suite
-      .add('Compilation with stdlib cold start', {
-        defer: true,
-        ...benchmarkSettings,
-        fn: (deferred: any) => {
-          // Create fresh compiler for each iteration to measure cold start
-          const freshCompiler = new CompilerService();
-          const listener = new ApexSymbolCollectorListener(undefined, 'full');
-          freshCompiler.compile(
-            codeWithStdLibUsage,
-            'TestClass.cls',
-            listener,
-            {
-              collectReferences: true,
-              resolveReferences: true,
-            },
+      suite
+        .add('Compilation with stdlib cold start', {
+          defer: true,
+          ...benchmarkSettings,
+          fn: (deferred: any) => {
+            // Create fresh compiler for each iteration to measure cold start
+            const freshCompiler = new CompilerService();
+            const listener = new ApexSymbolCollectorListener(undefined, 'full');
+            freshCompiler.compile(
+              codeWithStdLibUsage,
+              'TestClass.cls',
+              listener,
+              {
+                collectReferences: true,
+                resolveReferences: true,
+              },
+            );
+            deferred.resolve();
+          },
+        })
+        .on('cycle', (event: any) => {
+          results[event.target.name] = event.target;
+          console.log(String(event.target));
+        })
+        .on('complete', function (this: any) {
+          const fs = require('fs');
+          const path = require('path');
+          const outputPath = path.join(
+            __dirname,
+            '../apex-parser-ast-benchmark-results.json',
           );
-          deferred.resolve();
-        },
-      })
-      .on('cycle', (event: any) => {
-        results[event.target.name] = event.target;
-        console.log(String(event.target));
-      })
-      .on('complete', function (this: any) {
-        const fs = require('fs');
-        const path = require('path');
-        const outputPath = path.join(
-          __dirname,
-          '../apex-parser-ast-benchmark-results.json',
-        );
 
-        let allResults = results;
-        try {
-          if (fs.existsSync(outputPath)) {
-            const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-            allResults = { ...existing, ...results };
+          let allResults = results;
+          try {
+            if (fs.existsSync(outputPath)) {
+              const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+              allResults = { ...existing, ...results };
+            }
+          } catch (error) {
+            console.warn('Could not read existing results:', error);
           }
-        } catch (error) {
-          console.warn('Could not read existing results:', error);
-        }
 
-        fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-        done();
-      })
-      .run({ async: true });
-  });
+          fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
+          done();
+        })
+        .run({ async: true });
+    }));
 
-  it('benchmarks compilation with cached standard library', (done) => {
-    const suite = new Benchmark.Suite();
-    const results: Record<string, Benchmark.Target> = {};
+  it('benchmarks compilation with cached standard library', () =>
+    new Promise<void>((done) => {
+      const suite = new Benchmark.Suite();
+      const results: Record<string, Benchmark.Target> = {};
 
-    // Warm up once before benchmarking
-    const warmupListener = new ApexSymbolCollectorListener(undefined, 'full');
-    compilerService.compile(codeWithStdLibUsage, 'Warmup.cls', warmupListener, {
-      collectReferences: true,
-      resolveReferences: true,
-    });
+      // Warm up once before benchmarking
+      const warmupListener = new ApexSymbolCollectorListener(undefined, 'full');
+      compilerService.compile(
+        codeWithStdLibUsage,
+        'Warmup.cls',
+        warmupListener,
+        {
+          collectReferences: true,
+          resolveReferences: true,
+        },
+      );
 
-    suite
-      .add('Compilation with stdlib cached', {
-        defer: true,
-        ...benchmarkSettings,
-        fn: (deferred: any) => {
-          const listener = new ApexSymbolCollectorListener(undefined, 'full');
-          compilerService.compile(
-            codeWithStdLibUsage,
-            'TestClass.cls',
-            listener,
-            {
-              collectReferences: true,
-              resolveReferences: true,
-            },
+      suite
+        .add('Compilation with stdlib cached', {
+          defer: true,
+          ...benchmarkSettings,
+          fn: (deferred: any) => {
+            const listener = new ApexSymbolCollectorListener(undefined, 'full');
+            compilerService.compile(
+              codeWithStdLibUsage,
+              'TestClass.cls',
+              listener,
+              {
+                collectReferences: true,
+                resolveReferences: true,
+              },
+            );
+            deferred.resolve();
+          },
+        })
+        .on('cycle', (event: any) => {
+          results[event.target.name] = event.target;
+          console.log(String(event.target));
+        })
+        .on('complete', function (this: any) {
+          const fs = require('fs');
+          const path = require('path');
+          const outputPath = path.join(
+            __dirname,
+            '../apex-parser-ast-benchmark-results.json',
           );
-          deferred.resolve();
-        },
-      })
-      .on('cycle', (event: any) => {
-        results[event.target.name] = event.target;
-        console.log(String(event.target));
-      })
-      .on('complete', function (this: any) {
-        const fs = require('fs');
-        const path = require('path');
-        const outputPath = path.join(
-          __dirname,
-          '../apex-parser-ast-benchmark-results.json',
-        );
 
-        let allResults = results;
-        try {
-          if (fs.existsSync(outputPath)) {
-            const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-            allResults = { ...existing, ...results };
+          let allResults = results;
+          try {
+            if (fs.existsSync(outputPath)) {
+              const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+              allResults = { ...existing, ...results };
+            }
+          } catch (error) {
+            console.warn('Could not read existing results:', error);
           }
-        } catch (error) {
-          console.warn('Could not read existing results:', error);
-        }
 
-        fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-        done();
-      })
-      .run({ async: true });
-  });
+          fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
+          done();
+        })
+        .run({ async: true });
+    }));
 
-  it('benchmarks generic type resolution (List<T>)', (done) => {
-    const suite = new Benchmark.Suite();
-    const results: Record<string, Benchmark.Target> = {};
+  it('benchmarks generic type resolution (List<T>)', () =>
+    new Promise<void>((done) => {
+      const suite = new Benchmark.Suite();
+      const results: Record<string, Benchmark.Target> = {};
 
-    const listCode = `
+      const listCode = `
 public class ListTest {
     public void testGenericList() {
         List<String> strings = new List<String>();
@@ -202,52 +211,53 @@ public class ListTest {
 }
     `.trim();
 
-    suite
-      .add('Generic List<T> resolution', {
-        defer: true,
-        ...benchmarkSettings,
-        fn: (deferred: any) => {
-          const listener = new ApexSymbolCollectorListener(undefined, 'full');
-          compilerService.compile(listCode, 'ListTest.cls', listener, {
-            collectReferences: true,
-            resolveReferences: true,
-          });
-          deferred.resolve();
-        },
-      })
-      .on('cycle', (event: any) => {
-        results[event.target.name] = event.target;
-        console.log(String(event.target));
-      })
-      .on('complete', function (this: any) {
-        const fs = require('fs');
-        const path = require('path');
-        const outputPath = path.join(
-          __dirname,
-          '../apex-parser-ast-benchmark-results.json',
-        );
+      suite
+        .add('Generic List<T> resolution', {
+          defer: true,
+          ...benchmarkSettings,
+          fn: (deferred: any) => {
+            const listener = new ApexSymbolCollectorListener(undefined, 'full');
+            compilerService.compile(listCode, 'ListTest.cls', listener, {
+              collectReferences: true,
+              resolveReferences: true,
+            });
+            deferred.resolve();
+          },
+        })
+        .on('cycle', (event: any) => {
+          results[event.target.name] = event.target;
+          console.log(String(event.target));
+        })
+        .on('complete', function (this: any) {
+          const fs = require('fs');
+          const path = require('path');
+          const outputPath = path.join(
+            __dirname,
+            '../apex-parser-ast-benchmark-results.json',
+          );
 
-        let allResults = results;
-        try {
-          if (fs.existsSync(outputPath)) {
-            const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-            allResults = { ...existing, ...results };
+          let allResults = results;
+          try {
+            if (fs.existsSync(outputPath)) {
+              const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+              allResults = { ...existing, ...results };
+            }
+          } catch (error) {
+            console.warn('Could not read existing results:', error);
           }
-        } catch (error) {
-          console.warn('Could not read existing results:', error);
-        }
 
-        fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-        done();
-      })
-      .run({ async: true });
-  });
+          fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
+          done();
+        })
+        .run({ async: true });
+    }));
 
-  it('benchmarks generic type resolution (Map<K,V>)', (done) => {
-    const suite = new Benchmark.Suite();
-    const results: Record<string, Benchmark.Target> = {};
+  it('benchmarks generic type resolution (Map<K,V>)', () =>
+    new Promise<void>((done) => {
+      const suite = new Benchmark.Suite();
+      const results: Record<string, Benchmark.Target> = {};
 
-    const mapCode = `
+      const mapCode = `
 public class MapTest {
     public void testGenericMap() {
         Map<String, Integer> counts = new Map<String, Integer>();
@@ -256,44 +266,44 @@ public class MapTest {
 }
     `.trim();
 
-    suite
-      .add('Generic Map<K,V> resolution', {
-        defer: true,
-        ...benchmarkSettings,
-        fn: (deferred: any) => {
-          const listener = new ApexSymbolCollectorListener(undefined, 'full');
-          compilerService.compile(mapCode, 'MapTest.cls', listener, {
-            collectReferences: true,
-            resolveReferences: true,
-          });
-          deferred.resolve();
-        },
-      })
-      .on('cycle', (event: any) => {
-        results[event.target.name] = event.target;
-        console.log(String(event.target));
-      })
-      .on('complete', function (this: any) {
-        const fs = require('fs');
-        const path = require('path');
-        const outputPath = path.join(
-          __dirname,
-          '../apex-parser-ast-benchmark-results.json',
-        );
+      suite
+        .add('Generic Map<K,V> resolution', {
+          defer: true,
+          ...benchmarkSettings,
+          fn: (deferred: any) => {
+            const listener = new ApexSymbolCollectorListener(undefined, 'full');
+            compilerService.compile(mapCode, 'MapTest.cls', listener, {
+              collectReferences: true,
+              resolveReferences: true,
+            });
+            deferred.resolve();
+          },
+        })
+        .on('cycle', (event: any) => {
+          results[event.target.name] = event.target;
+          console.log(String(event.target));
+        })
+        .on('complete', function (this: any) {
+          const fs = require('fs');
+          const path = require('path');
+          const outputPath = path.join(
+            __dirname,
+            '../apex-parser-ast-benchmark-results.json',
+          );
 
-        let allResults = results;
-        try {
-          if (fs.existsSync(outputPath)) {
-            const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-            allResults = { ...existing, ...results };
+          let allResults = results;
+          try {
+            if (fs.existsSync(outputPath)) {
+              const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
+              allResults = { ...existing, ...results };
+            }
+          } catch (error) {
+            console.warn('Could not read existing results:', error);
           }
-        } catch (error) {
-          console.warn('Could not read existing results:', error);
-        }
 
-        fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-        done();
-      })
-      .run({ async: true });
-  });
+          fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
+          done();
+        })
+        .run({ async: true });
+    }));
 });

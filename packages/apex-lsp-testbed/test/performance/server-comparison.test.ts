@@ -5,6 +5,8 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+
+import { vi } from 'vitest';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
@@ -24,7 +26,7 @@ const logData: Record<string, any> = JSON.parse(rawData);
 // Normalize the trace data for portability
 const normalizedLogData = normalizeTraceData(logData);
 
-jest.setTimeout(1000 * 60 * 15); // 15 minutes timeout
+vi.setConfig({ testTimeout: 1000 * 60 * 15 }); // 15 minutes timeout
 
 // Extract relevant request/response pairs
 const testData: [string, any][] = Object.values(normalizedLogData)

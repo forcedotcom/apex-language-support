@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock, Mocked } from 'vitest';
+import { vi } from 'vitest';
 import {
   DocumentChangeProcessingService,
   IDocumentChangeProcessor,
@@ -17,30 +19,30 @@ import { DocumentProcessingService } from '../../src/services/DocumentProcessing
 import { DocumentSymbolResultStore } from '../../src/services/DocumentSymbolResultStore';
 
 // Only mock storage - use real implementations for everything else
-jest.mock('../../src/storage/ApexStorageManager');
+vi.mock('../../src/storage/ApexStorageManager');
 
 describe('DocumentChangeProcessingService', () => {
   let service: DocumentChangeProcessingService;
   let logger: ReturnType<typeof getLogger>;
-  let mockDocumentProcessingService: jest.Mocked<
+  let mockDocumentProcessingService: Mocked<
     Pick<DocumentProcessingService, 'processDocumentOpenInternal'>
   >;
-  let mockDocumentSymbolCache: { invalidate: jest.Mock };
+  let mockDocumentSymbolCache: { invalidate: Mock };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     logger = getLogger();
 
     mockDocumentProcessingService = {
-      processDocumentOpenInternal: jest.fn().mockResolvedValue([]),
+      processDocumentOpenInternal: vi.fn().mockResolvedValue([]),
     };
     mockDocumentSymbolCache = {
-      invalidate: jest.fn(),
+      invalidate: vi.fn(),
     };
-    jest
-      .spyOn(DocumentSymbolResultStore, 'getInstance')
-      .mockReturnValue(mockDocumentSymbolCache as any);
+    vi.spyOn(DocumentSymbolResultStore, 'getInstance').mockReturnValue(
+      mockDocumentSymbolCache as any,
+    );
 
     service = new DocumentChangeProcessingService(
       logger,
@@ -71,11 +73,11 @@ describe('DocumentChangeProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -99,11 +101,11 @@ describe('DocumentChangeProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -129,11 +131,11 @@ describe('DocumentChangeProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => '',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 0,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -155,11 +157,11 @@ describe('DocumentChangeProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => largeContent,
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1001,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -198,11 +200,11 @@ describe('DocumentChangeProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -221,11 +223,11 @@ describe('DocumentChangeProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -248,11 +250,11 @@ describe('DocumentChangeProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 

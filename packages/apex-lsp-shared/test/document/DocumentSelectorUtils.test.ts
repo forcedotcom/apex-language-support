@@ -106,7 +106,7 @@ describe('DocumentSelectorUtils', () => {
 
     it('should warn and skip immutable schemes when added as additional', () => {
       const logger = getLogger();
-      const warnSpy = jest.spyOn(logger, 'warn');
+      const warnSpy = vi.spyOn(logger, 'warn');
 
       const selectors = getDocumentSelectorsForCapability('documentSymbol', [
         { scheme: 'file' }, // immutable scheme
@@ -121,7 +121,7 @@ describe('DocumentSelectorUtils', () => {
 
     it('should warn when trying to exclude immutable scheme', () => {
       const logger = getLogger();
-      const warnSpy = jest.spyOn(logger, 'warn');
+      const warnSpy = vi.spyOn(logger, 'warn');
 
       const selectors = getDocumentSelectorsForCapability('documentSymbol', [
         { scheme: 'file', excludeCapabilities: ['documentSymbol'] },
@@ -154,7 +154,7 @@ describe('DocumentSelectorUtils', () => {
 
     it('should warn when trying to add immutable scheme', () => {
       const logger = getLogger();
-      const warnSpy = jest.spyOn(logger, 'warn');
+      const warnSpy = vi.spyOn(logger, 'warn');
 
       const result = validateAdditionalDocumentSchemes([{ scheme: 'file' }]);
 
@@ -166,7 +166,7 @@ describe('DocumentSelectorUtils', () => {
 
     it('should warn when trying to exclude immutable scheme', () => {
       const logger = getLogger();
-      const warnSpy = jest.spyOn(logger, 'warn');
+      const warnSpy = vi.spyOn(logger, 'warn');
 
       const result = validateAdditionalDocumentSchemes([
         { scheme: 'apexlib', excludeCapabilities: ['codeLens'] },

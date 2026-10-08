@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { Effect, Layer } from 'effect';
 import type { SymbolTable } from '../../src/types/symbol';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../src/types/ISymbolManager';
@@ -25,53 +26,53 @@ export function createMockSymbolManager(
   overrides: MockSymbolManagerOverrides = {},
 ): ISymbolManagerInterface {
   return {
-    addSymbol: jest.fn().mockResolvedValue(undefined),
-    getSymbol: jest.fn().mockResolvedValue(null),
-    findSymbolByName: jest.fn().mockResolvedValue([]),
-    findSymbolByFQN: jest.fn().mockResolvedValue(null),
-    findFQNForStandardClass: jest.fn().mockResolvedValue(null),
-    findSymbolsInFile: jest.fn().mockResolvedValue([]),
-    findFilesForSymbol: jest.fn().mockResolvedValue([]),
-    resolveCrossFileReferencesForFile: jest.fn().mockReturnValue(Effect.void),
-    resolveSymbol: jest.fn().mockResolvedValue({
+    addSymbol: vi.fn().mockResolvedValue(undefined),
+    getSymbol: vi.fn().mockResolvedValue(null),
+    findSymbolByName: vi.fn().mockResolvedValue([]),
+    findSymbolByFQN: vi.fn().mockResolvedValue(null),
+    findFQNForStandardClass: vi.fn().mockResolvedValue(null),
+    findSymbolsInFile: vi.fn().mockResolvedValue([]),
+    findFilesForSymbol: vi.fn().mockResolvedValue([]),
+    resolveCrossFileReferencesForFile: vi.fn().mockReturnValue(Effect.void),
+    resolveSymbol: vi.fn().mockResolvedValue({
       symbol: null,
       fileUri: '',
       confidence: 0,
       isAmbiguous: false,
     }),
-    getAllReferencesInFile: jest.fn().mockResolvedValue([]),
-    getAllSymbolsForCompletion: jest.fn().mockResolvedValue([]),
-    getVisibleSymbolsAtPosition: jest.fn().mockResolvedValue([]),
-    findReferencesTo: jest.fn().mockResolvedValue([]),
-    findReferencesFrom: jest.fn().mockResolvedValue([]),
-    findRelatedSymbols: jest.fn().mockResolvedValue([]),
-    analyzeDependencies: jest.fn().mockResolvedValue({
+    getAllReferencesInFile: vi.fn().mockResolvedValue([]),
+    getAllSymbolsForCompletion: vi.fn().mockResolvedValue([]),
+    getVisibleSymbolsAtPosition: vi.fn().mockResolvedValue([]),
+    findReferencesTo: vi.fn().mockResolvedValue([]),
+    findReferencesFrom: vi.fn().mockResolvedValue([]),
+    findRelatedSymbols: vi.fn().mockResolvedValue([]),
+    analyzeDependencies: vi.fn().mockResolvedValue({
       dependencies: [],
       dependents: [],
       impactScore: 0,
       circularDependencies: [],
     }),
-    detectCircularDependencies: jest.fn().mockResolvedValue([]),
-    getStats: jest.fn().mockResolvedValue({
+    detectCircularDependencies: vi.fn().mockResolvedValue([]),
+    getStats: vi.fn().mockResolvedValue({
       totalSymbols: 0,
       totalFiles: 0,
       totalReferences: 0,
       circularDependencies: 0,
       cacheHitRate: 0,
     }),
-    clear: jest.fn().mockResolvedValue(undefined),
-    removeFile: jest.fn().mockResolvedValue(undefined),
-    addSymbolTable: jest.fn().mockReturnValue(Effect.void),
-    registerSymbolTableForFile: jest.fn().mockReturnValue(
+    clear: vi.fn().mockResolvedValue(undefined),
+    removeFile: vi.fn().mockResolvedValue(undefined),
+    addSymbolTable: vi.fn().mockReturnValue(Effect.void),
+    registerSymbolTableForFile: vi.fn().mockReturnValue(
       Effect.succeed({
         decision: 'accepted-replace',
         fileUri: '',
         canonicalTable: {} as SymbolTable,
       } satisfies SymbolTableRegistrationResult),
     ),
-    getSymbolTableForFile: jest.fn().mockResolvedValue(undefined),
-    optimizeMemory: jest.fn().mockResolvedValue(undefined),
-    createResolutionContext: jest.fn().mockResolvedValue({
+    getSymbolTableForFile: vi.fn().mockResolvedValue(undefined),
+    optimizeMemory: vi.fn().mockResolvedValue(undefined),
+    createResolutionContext: vi.fn().mockResolvedValue({
       sourceFile: '',
       importStatements: [],
       namespaceContext: '',
@@ -83,16 +84,16 @@ export function createMockSymbolManager(
       inheritanceChain: [],
       interfaceImplementations: [],
     }),
-    constructFQN: jest.fn().mockResolvedValue(''),
-    getContainingType: jest.fn().mockResolvedValue(null),
-    getAncestorChain: jest.fn().mockResolvedValue([]),
-    setCommentAssociations: jest.fn().mockResolvedValue(undefined),
-    getBlockCommentsForSymbol: jest.fn().mockResolvedValue([]),
-    getReferencesAtPosition: jest.fn().mockResolvedValue([]),
-    getIncompleteMemberAccessAtPosition: jest.fn().mockResolvedValue(null),
-    getSymbolAtPosition: jest.fn().mockResolvedValue(null),
-    getSymbolAtPositionWithinScope: jest.fn().mockResolvedValue(null),
-    createResolutionContextWithRequestType: jest.fn().mockResolvedValue({
+    constructFQN: vi.fn().mockResolvedValue(''),
+    getContainingType: vi.fn().mockResolvedValue(null),
+    getAncestorChain: vi.fn().mockResolvedValue([]),
+    setCommentAssociations: vi.fn().mockResolvedValue(undefined),
+    getBlockCommentsForSymbol: vi.fn().mockResolvedValue([]),
+    getReferencesAtPosition: vi.fn().mockResolvedValue([]),
+    getIncompleteMemberAccessAtPosition: vi.fn().mockResolvedValue(null),
+    getSymbolAtPosition: vi.fn().mockResolvedValue(null),
+    getSymbolAtPositionWithinScope: vi.fn().mockResolvedValue(null),
+    createResolutionContextWithRequestType: vi.fn().mockResolvedValue({
       sourceFile: '',
       importStatements: [],
       namespaceContext: '',
@@ -104,24 +105,24 @@ export function createMockSymbolManager(
       inheritanceChain: [],
       interfaceImplementations: [],
     }),
-    getGraphData: jest.fn().mockResolvedValue({ nodes: [], edges: [] }),
-    getGraphDataForFile: jest.fn().mockResolvedValue({ nodes: [], edges: [] }),
-    getGraphDataByType: jest.fn().mockResolvedValue({ nodes: [], edges: [] }),
-    getDetailLevelForFile: jest.fn().mockResolvedValue(null),
-    enrichToLevel: jest.fn().mockReturnValue(Effect.void),
-    resolveWithEnrichment: jest.fn().mockReturnValue(Effect.succeed(null)),
-    isStandardLibraryType: jest.fn().mockResolvedValue(false),
+    getGraphData: vi.fn().mockResolvedValue({ nodes: [], edges: [] }),
+    getGraphDataForFile: vi.fn().mockResolvedValue({ nodes: [], edges: [] }),
+    getGraphDataByType: vi.fn().mockResolvedValue({ nodes: [], edges: [] }),
+    getDetailLevelForFile: vi.fn().mockResolvedValue(null),
+    enrichToLevel: vi.fn().mockReturnValue(Effect.void),
+    resolveWithEnrichment: vi.fn().mockReturnValue(Effect.succeed(null)),
+    isStandardLibraryType: vi.fn().mockResolvedValue(false),
 
     // SymbolProvider methods
-    find: jest.fn().mockResolvedValue(null),
-    findScalarKeywordType: jest.fn().mockResolvedValue(null),
-    findSObjectType: jest.fn().mockResolvedValue(null),
-    findExternalType: jest.fn().mockResolvedValue(null),
-    findInDefaultNamespaceOrder: jest.fn().mockResolvedValue(null),
-    findInImplicitFileNamespaceSlot: jest.fn().mockResolvedValue(null),
-    findInExplicitNamespace: jest.fn().mockResolvedValue(null),
-    isBuiltInNamespace: jest.fn().mockResolvedValue(false),
-    isSObjectContainerNamespace: jest.fn().mockResolvedValue(false),
+    find: vi.fn().mockResolvedValue(null),
+    findScalarKeywordType: vi.fn().mockResolvedValue(null),
+    findSObjectType: vi.fn().mockResolvedValue(null),
+    findExternalType: vi.fn().mockResolvedValue(null),
+    findInDefaultNamespaceOrder: vi.fn().mockResolvedValue(null),
+    findInImplicitFileNamespaceSlot: vi.fn().mockResolvedValue(null),
+    findInExplicitNamespace: vi.fn().mockResolvedValue(null),
+    isBuiltInNamespace: vi.fn().mockResolvedValue(false),
+    isSObjectContainerNamespace: vi.fn().mockResolvedValue(false),
 
     ...overrides,
   };

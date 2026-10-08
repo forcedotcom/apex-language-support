@@ -6,5 +6,5 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-/** Prevents LCSAdapter worker-topology init failures from terminating the Jest process. */
+/** Prevents LCSAdapter worker-topology init failures from terminating the test process. */
 process.env.APEX_LS_DISABLE_WORKER_TOPOLOGY_EXIT = '1';

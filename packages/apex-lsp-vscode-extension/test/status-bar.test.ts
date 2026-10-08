@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 // Remove all tests and imports related to the old status bar item API.
 
 import * as vscode from 'vscode';
@@ -22,7 +23,7 @@ describe('Apex Server Status LanguageStatusItem', () => {
   let mockStatusItem: any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockStatusItem = {
       name: '',
       text: '',
@@ -30,13 +31,13 @@ describe('Apex Server Status LanguageStatusItem', () => {
       severity: vscode.LanguageStatusSeverity.Information,
       command: undefined,
       busy: false,
-      show: jest.fn(),
-      hide: jest.fn(),
-      dispose: jest.fn(),
+      show: vi.fn(),
+      hide: vi.fn(),
+      dispose: vi.fn(),
     };
-    jest
-      .spyOn(vscode.languages, 'createLanguageStatusItem')
-      .mockReturnValue(mockStatusItem);
+    vi.spyOn(vscode.languages, 'createLanguageStatusItem').mockReturnValue(
+      mockStatusItem,
+    );
     mockContext = { subscriptions: [] } as unknown as vscode.ExtensionContext;
   });
 

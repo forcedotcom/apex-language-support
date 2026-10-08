@@ -16,23 +16,23 @@ import {
 } from '../src';
 
 describe('apex-lsp-shared', () => {
-  let mockLogger: jest.Mocked<LoggerInterface>;
-  let mockLogNotificationHandler: jest.Mocked<LogNotificationHandler>;
+  let mockLogger: LoggerInterface;
+  let mockLogNotificationHandler: LogNotificationHandler;
 
   beforeEach(() => {
     mockLogger = {
-      log: jest.fn(
+      log: vi.fn(
         (messageType: LogMessageType, message: string | (() => string)) => {
           if (typeof message === 'function') {
             message();
           }
         },
       ),
-    } as unknown as jest.Mocked<LoggerInterface>;
+    } as unknown as LoggerInterface;
 
     mockLogNotificationHandler = {
-      sendLogMessage: jest.fn(),
-    } as unknown as jest.Mocked<LogNotificationHandler>;
+      sendLogMessage: vi.fn(),
+    } as unknown as LogNotificationHandler;
 
     // Reset the global state
     setLogNotificationHandler(mockLogNotificationHandler);
@@ -42,7 +42,7 @@ describe('apex-lsp-shared', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('getLogger', () => {
@@ -101,7 +101,7 @@ describe('apex-lsp-shared', () => {
 
     describe('lazy evaluation', () => {
       it('should evaluate message provider for error messages', () => {
-        const messageProvider = jest.fn(() => 'Test error message');
+        const messageProvider = vi.fn(() => 'Test error message');
 
         logger.log('error', messageProvider);
 
@@ -110,7 +110,7 @@ describe('apex-lsp-shared', () => {
       });
 
       it('should evaluate message provider for warning messages', () => {
-        const messageProvider = jest.fn(() => 'Test warning message');
+        const messageProvider = vi.fn(() => 'Test warning message');
 
         logger.log('warning', messageProvider);
 
@@ -119,7 +119,7 @@ describe('apex-lsp-shared', () => {
       });
 
       it('should evaluate message provider for info messages', () => {
-        const messageProvider = jest.fn(() => 'Test info message');
+        const messageProvider = vi.fn(() => 'Test info message');
 
         logger.log('info', messageProvider);
 
@@ -128,7 +128,7 @@ describe('apex-lsp-shared', () => {
       });
 
       it('should evaluate message provider for debug messages', () => {
-        const messageProvider = jest.fn(() => 'Test debug message');
+        const messageProvider = vi.fn(() => 'Test debug message');
 
         logger.log('debug', messageProvider);
 
@@ -137,7 +137,7 @@ describe('apex-lsp-shared', () => {
       });
 
       it('should evaluate message provider for log messages', () => {
-        const messageProvider = jest.fn(() => 'Test log message');
+        const messageProvider = vi.fn(() => 'Test log message');
 
         logger.log('log', messageProvider);
 

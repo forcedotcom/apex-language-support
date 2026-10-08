@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -122,9 +122,8 @@ describe('SwitchStatementValidator', () => {
   });
 
   it('should detect when type variable already matching switch expression type', async () => {
-    jest
-      .spyOn(symbolManager, 'findSObjectType')
-      .mockImplementation(async (name) =>
+    vi.spyOn(symbolManager, 'findSObjectType').mockImplementation(
+      async (name) =>
         name.toLowerCase() === 'account'
           ? ({
               kind: SymbolKind.Class,
@@ -132,7 +131,7 @@ describe('SwitchStatementValidator', () => {
               namespace: 'SObject',
             } as unknown as ApexSymbol)
           : null,
-      );
+    );
 
     const { symbolTable, options } = await compileFixtureWithOptions(
       VALIDATOR_CATEGORY,

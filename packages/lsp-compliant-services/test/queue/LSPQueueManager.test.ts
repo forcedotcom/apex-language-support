@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock, Mocked } from 'vitest';
+import { vi } from 'vitest';
 import {
   getLogger,
   ApexSettingsManager,
@@ -25,160 +27,155 @@ import { ServiceRegistry } from '../../src/registry';
 import { BackgroundProcessingInitializationService } from '../../src/services/BackgroundProcessingInitializationService'; // eslint-disable-line max-len
 
 // Mock the logger and settings manager, but keep Priority from actual module
-jest.mock('@salesforce/apex-lsp-shared', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
+vi.mock('@salesforce/apex-lsp-shared', async () => {
+  const actual = await vi.importActual('@salesforce/apex-lsp-shared');
   return {
     ...actual,
-    getLogger: jest.fn(),
+    getLogger: vi.fn(),
     ApexSettingsManager: {
-      getInstance: jest.fn(),
+      getInstance: vi.fn(),
     },
   };
 });
 
 // Mock BackgroundProcessingInitializationService
-jest.mock(
-  '../../src/services/BackgroundProcessingInitializationService',
-  () => ({
-    BackgroundProcessingInitializationService: {
-      getInstance: jest.fn(),
-      reset: jest.fn(),
-    },
-  }),
-);
+vi.mock('../../src/services/BackgroundProcessingInitializationService', () => ({
+  BackgroundProcessingInitializationService: {
+    getInstance: vi.fn(),
+    reset: vi.fn(),
+  },
+}));
 
 // Mock ApexSymbolProcessingManager (but not LSPQueueManager - we want to test the real one)
-jest.mock('@salesforce/apex-lsp-parser-ast', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-parser-ast');
+vi.mock('@salesforce/apex-lsp-parser-ast', async () => {
+  const actual = await vi.importActual('@salesforce/apex-lsp-parser-ast');
   return {
     ...actual,
     ISymbolManager: {},
     ApexSymbolProcessingManager: {
-      getInstance: jest.fn(),
+      getInstance: vi.fn(),
     },
   };
 });
 
 // Mock ServiceFactory and related dependencies
-jest.mock('../../src/factories/ServiceFactory', () => ({
-  ServiceFactory: jest.fn().mockImplementation(() => ({
-    createHoverService: jest.fn(),
-    createCompletionService: jest.fn(),
-    createDefinitionService: jest.fn(),
-    createDocumentSymbolService: jest.fn(),
-    createWorkspaceSymbolService: jest.fn(),
-    createDiagnosticService: jest.fn(),
-    createCodeActionService: jest.fn(),
-    createSignatureHelpService: jest.fn(),
-    createRenameService: jest.fn(),
-    createDocumentProcessingService: jest.fn(),
-    createMissingArtifactService: jest.fn(),
+vi.mock('../../src/factories/ServiceFactory', () => ({
+  ServiceFactory: vi.fn().mockImplementation(() => ({
+    createHoverService: vi.fn(),
+    createCompletionService: vi.fn(),
+    createDefinitionService: vi.fn(),
+    createDocumentSymbolService: vi.fn(),
+    createWorkspaceSymbolService: vi.fn(),
+    createDiagnosticService: vi.fn(),
+    createCodeActionService: vi.fn(),
+    createSignatureHelpService: vi.fn(),
+    createRenameService: vi.fn(),
+    createDocumentProcessingService: vi.fn(),
+    createMissingArtifactService: vi.fn(),
   })),
 }));
 
-jest.mock('../../src/storage/ApexStorageManager', () => ({
+vi.mock('../../src/storage/ApexStorageManager', () => ({
   ApexStorageManager: {
-    getInstance: jest.fn().mockReturnValue({
-      getStorage: jest.fn(),
+    getInstance: vi.fn().mockReturnValue({
+      getStorage: vi.fn(),
     }),
   },
 }));
 
-jest.mock('../../src/config/ServiceConfiguration', () => ({
+vi.mock('../../src/config/ServiceConfiguration', () => ({
   DEFAULT_SERVICE_CONFIG: [],
 }));
 
 describe('LSPQueueManager - New Effect-TS Implementation', () => {
   let mockLogger: any;
-  let mockSymbolManager: jest.Mocked<ISymbolManager>;
-  let mockSettingsManager: jest.Mocked<typeof ApexSettingsManager>;
-  let mockSymbolProcessingManager: jest.Mocked<
-    typeof ApexSymbolProcessingManager
-  >;
-  let mockBackgroundService: jest.Mocked<
+  let mockSymbolManager: Mocked<ISymbolManager>;
+  let mockSettingsManager: Mocked<typeof ApexSettingsManager>;
+  let mockSymbolProcessingManager: Mocked<typeof ApexSymbolProcessingManager>;
+  let mockBackgroundService: Mocked<
     typeof BackgroundProcessingInitializationService
   >;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     mockLogger = {
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      log: jest.fn(),
-      alwaysLog: jest.fn(),
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      log: vi.fn(),
+      alwaysLog: vi.fn(),
     };
-    (getLogger as jest.Mock).mockReturnValue(mockLogger);
+    (getLogger as Mock).mockReturnValue(mockLogger);
 
     mockSymbolManager = {
-      addSymbol: jest.fn(),
-      getSymbol: jest.fn(),
-      findSymbolByName: jest.fn(),
-      findSymbolByFQN: jest.fn(),
-      findSymbolsByPrefix: jest.fn(),
-      find: jest.fn(),
-      findScalarKeywordType: jest.fn(),
-      findSObjectType: jest.fn(),
-      findExternalType: jest.fn(),
-      findInDefaultNamespaceOrder: jest.fn(),
-      findInImplicitFileNamespaceSlot: jest.fn(),
-      findInExplicitNamespace: jest.fn(),
-      isBuiltInNamespace: jest.fn(),
-      isSObjectContainerNamespace: jest.fn(),
-      findSymbolsInFile: jest.fn(),
-      getVisibleSymbolsAtPosition: jest.fn(),
-      getIncompleteMemberAccessAtPosition: jest.fn(),
-      findFilesForSymbol: jest.fn(),
-      resolveCrossFileReferencesForFile: jest.fn(),
-      resolveSymbol: jest.fn(),
-      getAllReferencesInFile: jest.fn(),
-      getAllSymbolsForCompletion: jest.fn(),
-      findReferencesTo: jest.fn(),
-      findReferencesFrom: jest.fn(),
-      findRelatedSymbols: jest.fn(),
-      analyzeDependencies: jest.fn(),
-      detectCircularDependencies: jest.fn(),
-      getStats: jest.fn(),
-      clear: jest.fn(),
-      removeFile: jest.fn(),
-      addSymbolTable: jest.fn(),
-      registerSymbolTableForFile: jest.fn(),
-      getSymbolTableForFile: jest.fn(),
-      optimizeMemory: jest.fn(),
-      createResolutionContext: jest.fn(),
-      constructFQN: jest.fn(),
-      getContainingType: jest.fn(),
-      getAncestorChain: jest.fn(),
-      setCommentAssociations: jest.fn(),
-      getBlockCommentsForSymbol: jest.fn(),
-      getReferencesAtPosition: jest.fn(),
-      getSymbolAtPosition: jest.fn(),
-      getSymbolAtPositionWithinScope: jest.fn(),
-      createResolutionContextWithRequestType: jest.fn(),
-      getGraphData: jest.fn(),
-      getGraphDataForFile: jest.fn(),
-      getGraphDataByType: jest.fn(),
-      findFQNForStandardClass: jest.fn(),
-      getDetailLevelForFile: jest.fn(),
-      enrichToLevel: jest.fn(),
-      resolveWithEnrichment: jest.fn(),
-      isStandardLibraryType: jest.fn(),
-      drainAllDeferredReferences: jest.fn(),
-      findSubtypes: jest.fn(),
-      findSupertypes: jest.fn(),
-      beginWorkspaceLoadSession: jest.fn(),
-      endWorkspaceLoadSession: jest.fn(),
-      isWorkspaceLoadSessionActive: jest.fn(),
-    };
+      addSymbol: vi.fn(),
+      getSymbol: vi.fn(),
+      findSymbolByName: vi.fn(),
+      findSymbolByFQN: vi.fn(),
+      findSymbolsByPrefix: vi.fn(),
+      find: vi.fn(),
+      findScalarKeywordType: vi.fn(),
+      findSObjectType: vi.fn(),
+      findExternalType: vi.fn(),
+      findInDefaultNamespaceOrder: vi.fn(),
+      findInImplicitFileNamespaceSlot: vi.fn(),
+      findInExplicitNamespace: vi.fn(),
+      isBuiltInNamespace: vi.fn(),
+      isSObjectContainerNamespace: vi.fn(),
+      findSymbolsInFile: vi.fn(),
+      getVisibleSymbolsAtPosition: vi.fn(),
+      getIncompleteMemberAccessAtPosition: vi.fn(),
+      findFilesForSymbol: vi.fn(),
+      resolveCrossFileReferencesForFile: vi.fn(),
+      resolveSymbol: vi.fn(),
+      getAllReferencesInFile: vi.fn(),
+      getAllSymbolsForCompletion: vi.fn(),
+      findReferencesTo: vi.fn(),
+      findReferencesFrom: vi.fn(),
+      findRelatedSymbols: vi.fn(),
+      analyzeDependencies: vi.fn(),
+      detectCircularDependencies: vi.fn(),
+      getStats: vi.fn(),
+      clear: vi.fn(),
+      removeFile: vi.fn(),
+      addSymbolTable: vi.fn(),
+      registerSymbolTableForFile: vi.fn(),
+      getSymbolTableForFile: vi.fn(),
+      optimizeMemory: vi.fn(),
+      createResolutionContext: vi.fn(),
+      constructFQN: vi.fn(),
+      getContainingType: vi.fn(),
+      getAncestorChain: vi.fn(),
+      setCommentAssociations: vi.fn(),
+      getBlockCommentsForSymbol: vi.fn(),
+      getReferencesAtPosition: vi.fn(),
+      getSymbolAtPosition: vi.fn(),
+      getSymbolAtPositionWithinScope: vi.fn(),
+      createResolutionContextWithRequestType: vi.fn(),
+      getGraphData: vi.fn(),
+      getGraphDataForFile: vi.fn(),
+      getGraphDataByType: vi.fn(),
+      findFQNForStandardClass: vi.fn(),
+      getDetailLevelForFile: vi.fn(),
+      enrichToLevel: vi.fn(),
+      resolveWithEnrichment: vi.fn(),
+      isStandardLibraryType: vi.fn(),
+      drainAllDeferredReferences: vi.fn(),
+      findSubtypes: vi.fn(),
+      findSupertypes: vi.fn(),
+      beginWorkspaceLoadSession: vi.fn(),
+      endWorkspaceLoadSession: vi.fn(),
+      isWorkspaceLoadSessionActive: vi.fn(),
+    } as unknown as Mocked<ISymbolManager>;
 
     // Mock ApexSettingsManager
-    mockSettingsManager = ApexSettingsManager as jest.Mocked<
+    mockSettingsManager = ApexSettingsManager as Mocked<
       typeof ApexSettingsManager
     >;
     mockSettingsManager.getInstance.mockReturnValue({
-      getSettings: jest.fn().mockReturnValue({
+      getSettings: vi.fn().mockReturnValue({
         apex: {
           queueProcessing: {
             maxConcurrency: {
@@ -200,20 +197,19 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
     } as any);
 
     // Mock ApexSymbolProcessingManager
-    mockSymbolProcessingManager = ApexSymbolProcessingManager as jest.Mocked<
+    mockSymbolProcessingManager = ApexSymbolProcessingManager as Mocked<
       typeof ApexSymbolProcessingManager
     >;
     mockSymbolProcessingManager.getInstance.mockReturnValue({
-      getSymbolManager: jest.fn().mockReturnValue(mockSymbolManager),
+      getSymbolManager: vi.fn().mockReturnValue(mockSymbolManager),
     } as any);
 
     // Mock BackgroundProcessingInitializationService
-    mockBackgroundService =
-      BackgroundProcessingInitializationService as jest.Mocked<
-        typeof BackgroundProcessingInitializationService
-      >;
+    mockBackgroundService = BackgroundProcessingInitializationService as Mocked<
+      typeof BackgroundProcessingInitializationService
+    >;
     mockBackgroundService.getInstance.mockReturnValue({
-      isBackgroundProcessingInitialized: jest.fn().mockReturnValue(true),
+      isBackgroundProcessingInitialized: vi.fn().mockReturnValue(true),
     } as any);
 
     // Reset singleton instances
@@ -271,7 +267,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         priority: Priority.Immediate,
         timeout: 100,
         maxRetries: 0,
-        process: jest.fn().mockResolvedValue({ result: 'test' }),
+        process: vi.fn().mockResolvedValue({ result: 'test' }),
       };
 
       // Register handlers for all request types
@@ -369,7 +365,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         const manager = LSPQueueManager.getInstance();
         const serviceRegistry = (manager as any)
           .serviceRegistry as ServiceRegistry;
-        const process = jest.fn().mockResolvedValue([]);
+        const process = vi.fn().mockResolvedValue([]);
         serviceRegistry.register({
           requestType: 'references' as LSPRequestType,
           priority: Priority.Normal,
@@ -398,7 +394,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         const manager = LSPQueueManager.getInstance();
         const serviceRegistry = (manager as any)
           .serviceRegistry as ServiceRegistry;
-        const process = jest.fn().mockResolvedValue(null);
+        const process = vi.fn().mockResolvedValue(null);
         serviceRegistry.register({
           requestType: 'hover' as LSPRequestType,
           priority: Priority.Immediate,
@@ -499,7 +495,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         const manager = LSPQueueManager.getInstance();
         const serviceRegistry = (manager as any)
           .serviceRegistry as ServiceRegistry;
-        const process = jest.fn().mockResolvedValue([]);
+        const process = vi.fn().mockResolvedValue([]);
         serviceRegistry.register({
           requestType: 'implementation' as LSPRequestType,
           priority: Priority.High,
@@ -594,7 +590,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         const manager = LSPQueueManager.getInstance();
         const serviceRegistry = (manager as any)
           .serviceRegistry as ServiceRegistry;
-        const process = jest.fn().mockResolvedValue([]);
+        const process = vi.fn().mockResolvedValue([]);
         serviceRegistry.register({
           requestType: 'codeAction' as LSPRequestType,
           priority: Priority.Low,
@@ -702,7 +698,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
 
       it('dispatches to the worker when available and the type routes to the pool', async () => {
         const manager = LSPQueueManager.getInstance();
-        const dispatch = jest.fn().mockResolvedValue({ result: 'from-worker' });
+        const dispatch = vi.fn().mockResolvedValue({ result: 'from-worker' });
         manager.setWorkerDispatcher({
           isAvailable: () => true,
           canDispatch: () => true,
@@ -724,7 +720,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
 
       it('falls through to the local handler when the type does not route to the pool', async () => {
         const manager = LSPQueueManager.getInstance();
-        const dispatch = jest.fn();
+        const dispatch = vi.fn();
         manager.setWorkerDispatcher({
           isAvailable: () => true,
           canDispatch: () => true,
@@ -743,7 +739,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
 
       it('falls through to the local handler when the dispatcher is unavailable', async () => {
         const manager = LSPQueueManager.getInstance();
-        const dispatch = jest.fn();
+        const dispatch = vi.fn();
         manager.setWorkerDispatcher({
           isAvailable: () => false,
           canDispatch: () => true,
@@ -765,7 +761,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         // retried on the coordinator-local handler rather than surfaced as a
         // rejection, so a flaky worker degrades gracefully.
         const manager = LSPQueueManager.getInstance();
-        const dispatch = jest
+        const dispatch = vi
           .fn()
           .mockRejectedValue(new Error('Worker dispatch failed'));
         manager.setWorkerDispatcher({
@@ -798,10 +794,8 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
 
       it('dispatches once symbols are reported ready', async () => {
         const manager = LSPQueueManager.getInstance();
-        const dispatch = jest.fn().mockResolvedValue({ result: 'warm' });
-        const awaitSymbolDataReady = jest
-          .fn()
-          .mockResolvedValue({ ready: true });
+        const dispatch = vi.fn().mockResolvedValue({ result: 'warm' });
+        const awaitSymbolDataReady = vi.fn().mockResolvedValue({ ready: true });
         manager.setWorkerDispatcher({
           isAvailable: () => true,
           canDispatch: () => true,
@@ -829,8 +823,8 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
 
       it('skips the gate when the file is not open (no compile coming)', async () => {
         const manager = LSPQueueManager.getInstance();
-        const dispatch = jest.fn().mockResolvedValue({ result: 'unopened' });
-        const awaitSymbolDataReady = jest
+        const dispatch = vi.fn().mockResolvedValue({ result: 'unopened' });
+        const awaitSymbolDataReady = vi
           .fn()
           .mockResolvedValue({ ready: false, reason: 'no-compile-pending' });
         manager.setWorkerDispatcher({
@@ -863,8 +857,8 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         // startup was never replayed to the dataOwner, so no write-back is ever
         // coming.)
         const manager = LSPQueueManager.getInstance();
-        const dispatch = jest.fn().mockResolvedValue({ result: 'from-worker' });
-        const awaitSymbolDataReady = jest
+        const dispatch = vi.fn().mockResolvedValue({ result: 'from-worker' });
+        const awaitSymbolDataReady = vi
           .fn()
           .mockResolvedValue({ ready: false, reason: 'timeout' });
         manager.setWorkerDispatcher({
@@ -890,8 +884,8 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
 
       it('falls back to the local handler when no compile is pending', async () => {
         const manager = LSPQueueManager.getInstance();
-        const dispatch = jest.fn().mockResolvedValue({ result: 'from-worker' });
-        const awaitSymbolDataReady = jest
+        const dispatch = vi.fn().mockResolvedValue({ result: 'from-worker' });
+        const awaitSymbolDataReady = vi
           .fn()
           .mockResolvedValue({ ready: false, reason: 'no-compile-pending' });
         manager.setWorkerDispatcher({
@@ -919,8 +913,8 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         // for an open file. (References stands in for any such type here; the
         // dispatch branch still fires via dispatchesToDataOwner.)
         const manager = LSPQueueManager.getInstance();
-        const dispatch = jest.fn().mockResolvedValue({ result: 'data-owner' });
-        const awaitSymbolDataReady = jest
+        const dispatch = vi.fn().mockResolvedValue({ result: 'data-owner' });
+        const awaitSymbolDataReady = vi
           .fn()
           .mockResolvedValue({ ready: false });
         manager.setWorkerDispatcher({
@@ -945,9 +939,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
 
       it('skips the gate when the dispatcher does not expose the readiness predicates', async () => {
         const manager = LSPQueueManager.getInstance();
-        const dispatch = jest
-          .fn()
-          .mockResolvedValue({ result: 'no-predicates' });
+        const dispatch = vi.fn().mockResolvedValue({ result: 'no-predicates' });
         // No isFileOpen / awaitSymbolDataReady — optional, so the gate is
         // skipped.
         manager.setWorkerDispatcher({
@@ -980,10 +972,10 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         // not-ready scenario does the opposite (awaits, then falls back), so this
         // pins the self-loading classification specifically.
         const manager = LSPQueueManager.getInstance();
-        const dispatch = jest
+        const dispatch = vi
           .fn()
           .mockResolvedValue({ changes: { 'file:///R.cls': [] } });
-        const awaitSymbolDataReady = jest
+        const awaitSymbolDataReady = vi
           .fn()
           .mockResolvedValue({ ready: false, reason: 'timeout' });
         manager.setWorkerDispatcher({
@@ -1026,10 +1018,10 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         // awaitSymbolDataReady is NEVER awaited and the worker IS dispatched,
         // even though it reports not-ready.
         const manager = LSPQueueManager.getInstance();
-        const dispatch = jest
+        const dispatch = vi
           .fn()
           .mockResolvedValue({ range: {}, placeholder: 'total' });
-        const awaitSymbolDataReady = jest
+        const awaitSymbolDataReady = vi
           .fn()
           .mockResolvedValue({ ready: false, reason: 'timeout' });
         manager.setWorkerDispatcher({
@@ -1186,7 +1178,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         priority: Priority.High,
         timeout: 1_000,
         maxRetries: 0,
-        process: jest.fn().mockImplementation(async () => {
+        process: vi.fn().mockImplementation(async () => {
           markStarted();
           await processingGate;
           return undefined;
@@ -1246,7 +1238,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       expect(manager.getWorkerDispatcher()).toBeNull();
 
       const mockDispatcher = {
-        dispatch: jest.fn(),
+        dispatch: vi.fn(),
         isAvailable: () => true,
         canDispatch: () => true,
       };
@@ -1260,12 +1252,12 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
 
   describe('Worker dispatch routing', () => {
     let serviceRegistry: ServiceRegistry;
-    let localProcess: jest.Mock;
+    let localProcess: Mock;
 
     beforeEach(() => {
       serviceRegistry = (LSPQueueManager.getInstance() as any)
         .serviceRegistry as ServiceRegistry;
-      localProcess = jest.fn().mockResolvedValue({ from: 'local' });
+      localProcess = vi.fn().mockResolvedValue({ from: 'local' });
       serviceRegistry.register({
         requestType: 'implementation' as LSPRequestType,
         priority: Priority.High,
@@ -1281,7 +1273,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
 
     it('dispatches pool-routed requests to the worker, not the local handler', async () => {
       const manager = LSPQueueManager.getInstance();
-      const dispatch = jest.fn().mockResolvedValue({ from: 'worker' });
+      const dispatch = vi.fn().mockResolvedValue({ from: 'worker' });
       manager.setWorkerDispatcher({
         isAvailable: () => true,
         canDispatch: () => true,
@@ -1305,7 +1297,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
 
     it('uses the local handler when the type is not pool-routed', async () => {
       const manager = LSPQueueManager.getInstance();
-      const dispatch = jest.fn().mockResolvedValue({ from: 'worker' });
+      const dispatch = vi.fn().mockResolvedValue({ from: 'worker' });
       manager.setWorkerDispatcher({
         isAvailable: () => true,
         canDispatch: () => true,
@@ -1325,7 +1317,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
 
     it('falls back to the local handler when worker dispatch throws', async () => {
       const manager = LSPQueueManager.getInstance();
-      const dispatch = jest.fn().mockRejectedValue(new Error('worker down'));
+      const dispatch = vi.fn().mockRejectedValue(new Error('worker down'));
       manager.setWorkerDispatcher({
         isAvailable: () => true,
         canDispatch: () => true,
@@ -1345,7 +1337,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
 
     it('uses the local handler when the dispatcher is unavailable', async () => {
       const manager = LSPQueueManager.getInstance();
-      const dispatch = jest.fn().mockResolvedValue({ from: 'worker' });
+      const dispatch = vi.fn().mockResolvedValue({ from: 'worker' });
       manager.setWorkerDispatcher({
         isAvailable: () => false,
         canDispatch: () => true,
@@ -1391,8 +1383,8 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       const manager = LSPQueueManager.getInstance();
       // The Phase-0 DispatchRename handler is a no-op returning null; model it
       // as the dispatcher resolving null for a pool-routed rename.
-      const dispatch = jest.fn().mockResolvedValue(null);
-      const localProcess = jest.fn().mockResolvedValue({ from: 'local' });
+      const dispatch = vi.fn().mockResolvedValue(null);
+      const localProcess = vi.fn().mockResolvedValue({ from: 'local' });
       const serviceRegistry = (manager as any)
         .serviceRegistry as ServiceRegistry;
       serviceRegistry.register({
@@ -1425,7 +1417,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       const manager = LSPQueueManager.getInstance();
       // No worker dispatcher → submitRequest falls through to the registered
       // local handler, which stands in for the RenameProcessingService stub.
-      const localProcess = jest.fn().mockResolvedValue(null);
+      const localProcess = vi.fn().mockResolvedValue(null);
       const serviceRegistry = (manager as any)
         .serviceRegistry as ServiceRegistry;
       serviceRegistry.register({
@@ -1487,7 +1479,7 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         priority: Priority.Immediate,
         timeout: 100,
         maxRetries: 0,
-        process: jest.fn().mockRejectedValue(new Error('Handler error')),
+        process: vi.fn().mockRejectedValue(new Error('Handler error')),
       };
 
       serviceRegistry.register(errorHandler);

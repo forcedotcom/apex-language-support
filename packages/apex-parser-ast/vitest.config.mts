@@ -7,18 +7,22 @@ const fromRoot = (path: string) => fileURLToPath(new URL(`../../${path}`, import
 export default defineConfig({
   root: fileURLToPath(new URL('.', import.meta.url)),
   resolve: {
-    alias: {
-      '\\.zip$': fromRoot('packages/apex-parser-ast/test/__mocks__/zipMock.cjs'),
-      '@salesforce/apex-lsp-shared': fromRoot('packages/apex-lsp-shared/src/index.ts'),
-      '@salesforce/apex-lsp-parser-ast': fileURLToPath(new URL('./src/index.ts', import.meta.url)),
-      '@salesforce/apex-lsp-compliant-services': fromRoot('packages/lsp-compliant-services/src/index.ts'),
-      '@salesforce/apex-lsp-custom-services': fromRoot('packages/custom-services/src/index.ts'),
-      '@salesforce/apex-lsp-testbed': fromRoot('packages/apex-lsp-testbed/src/index.ts'),
-    },
+    alias: [
+      {
+        find: /\.zip$/,
+        replacement: fromRoot('packages/apex-parser-ast/test/__mocks__/zipMock.cjs'),
+      },
+      { find: '@salesforce/apex-lsp-shared', replacement: fromRoot('packages/apex-lsp-shared/src/index.ts') },
+      { find: '@salesforce/apex-lsp-parser-ast', replacement: fileURLToPath(new URL('./src/index.ts', import.meta.url)) },
+      { find: '@salesforce/apex-lsp-compliant-services', replacement: fromRoot('packages/lsp-compliant-services/src/index.ts') },
+      { find: '@salesforce/apex-lsp-custom-services', replacement: fromRoot('packages/custom-services/src/index.ts') },
+      { find: '@salesforce/apex-lsp-testbed', replacement: fromRoot('packages/apex-lsp-testbed/src/index.ts') },
+    ],
   },
   test: {
     globals: true,
     environment: 'node',
+    setupFiles: ['./test/vitest-setup.ts'],
     include: ['test/**/*.test.ts', 'test/**/generate-Standard-Apex-Library.ts'],
     exclude: ['dist/**', '.wireit/**'],
     testTimeout: 120_000,

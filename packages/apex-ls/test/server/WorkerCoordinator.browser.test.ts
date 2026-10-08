@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { makeBrowserWorkerLayerFactory } from '../../src/server/WorkerCoordinator';
 import { Effect, Layer } from 'effect';
 
@@ -19,15 +20,15 @@ describe('browser worker layer factory', () => {
     globalThis.fetch = originalFetch;
     URL.createObjectURL = originalCreateObjectUrl;
     URL.revokeObjectURL = originalRevokeObjectUrl;
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('loads one common bundle before exposing role-specific layers', async () => {
-    globalThis.fetch = jest.fn().mockResolvedValueOnce({
+    globalThis.fetch = vi.fn().mockResolvedValueOnce({
       ok: true,
       text: async () => '/* worker */',
     }) as typeof fetch;
-    URL.createObjectURL = jest.fn().mockReturnValueOnce('blob:worker');
+    URL.createObjectURL = vi.fn().mockReturnValueOnce('blob:worker');
 
     const factory = await makeBrowserWorkerLayerFactory(workerUrl, {
       compilationPoolSize: 3,
@@ -41,12 +42,12 @@ describe('browser worker layer factory', () => {
   });
 
   it('revokes the common worker blob when the worker layer scope closes', async () => {
-    globalThis.fetch = jest.fn().mockResolvedValueOnce({
+    globalThis.fetch = vi.fn().mockResolvedValueOnce({
       ok: true,
       text: async () => '/* worker */',
     }) as typeof fetch;
-    URL.createObjectURL = jest.fn().mockReturnValueOnce('blob:worker');
-    URL.revokeObjectURL = jest.fn();
+    URL.createObjectURL = vi.fn().mockReturnValueOnce('blob:worker');
+    URL.revokeObjectURL = vi.fn();
 
     const factory = await makeBrowserWorkerLayerFactory(workerUrl, {
       compilationPoolSize: 1,
@@ -59,7 +60,7 @@ describe('browser worker layer factory', () => {
   });
 
   it('fails topology preparation when the common bundle is unavailable', async () => {
-    globalThis.fetch = jest.fn().mockResolvedValueOnce({
+    globalThis.fetch = vi.fn().mockResolvedValueOnce({
       ok: false,
       status: 404,
       statusText: 'Not Found',

@@ -534,7 +534,12 @@ const workerProgram = WorkerRunner.launch(
 void Effect.runPromiseExit(workerProgram).then((exit) => {
   if (exit._tag === 'Failure' && !Cause.isInterruptedOnly(exit.cause)) {
     console.error(`Apex worker runner failed: ${Cause.pretty(exit.cause)}`);
-    process.exit(1);
+    if (process.env.APEX_LS_DISABLE_WORKER_TOPOLOGY_EXIT !== '1') {
+      process.exit(1);
+    }
+    return;
   }
-  process.exit(0);
+  if (process.env.APEX_LS_DISABLE_WORKER_TOPOLOGY_EXIT !== '1') {
+    process.exit(0);
+  }
 });
