@@ -59,6 +59,9 @@ export * from './client/ApexClientCapabilities';
 // Export canonical apex/* method registry
 export * from './methods/ApexCustomMethods';
 
+// Standard LSP command contracts used by Apex debugger clients.
+export * from './commands/ApexDebuggerCommands';
+
 // Export priority types
 export * from './types/priority';
 
@@ -291,35 +294,6 @@ export type FindMissingArtifactResult =
   | { notFound: true }
   | { accepted: true };
 
-/**
- * Result type for findApexTests command
- */
-export interface FindApexTestsResult {
-  testClasses: Array<{
-    class: {
-      name: string;
-      fileUri: string;
-      location: {
-        uri: string;
-        range: {
-          start: { line: number; character: number };
-          end: { line: number; character: number };
-        };
-      };
-    };
-    methods: Array<{
-      name: string;
-      location: {
-        uri: string;
-        range: {
-          start: { line: number; character: number };
-          end: { line: number; character: number };
-        };
-      };
-    }>;
-  }>;
-}
-
 export type ProgressToken = number | string;
 
 /**
@@ -400,6 +374,8 @@ export interface WorkspaceLoadCompleteParams {
 export interface WorkspaceFileMetadata {
   readonly uri: string;
   readonly version: number;
+  /** Namespace declared by the file's workspace project manifest. */
+  readonly namespace?: string;
 }
 
 /**
@@ -414,6 +390,7 @@ export interface WorkspaceFileBatch {
     readonly uri: string;
     readonly version: number;
     readonly content: string;
+    readonly namespace?: string;
   }>;
 }
 
@@ -576,6 +553,7 @@ export {
   BeginWorkspaceLoadSession,
   DrainDeferredReferences,
   QueryGraphData,
+  QueryDebuggerMetadata,
   DataOwnerQuerySymbolByName,
   DataOwnerTags,
   LspRequestTags,

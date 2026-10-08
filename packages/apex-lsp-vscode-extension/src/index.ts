@@ -8,6 +8,7 @@
 
 // Export main extension functions
 export { activate, deactivate } from './extension';
+export type { ApexExtensionApi } from './extension';
 
 // Export types
 export type { ExtensionState, WorkspaceSettings, DebugConfig } from './types';

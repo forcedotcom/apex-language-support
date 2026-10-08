@@ -1102,16 +1102,6 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
       expect(result).toEqual({ result: 'test' });
     });
 
-    it('should submit signature help request', async () => {
-      const manager = LSPQueueManager.getInstance();
-      const result = await manager.submitSignatureHelpRequest({
-        textDocument: { uri: 'test' },
-        position: { line: 0, character: 0 },
-      });
-
-      expect(result).toEqual({ result: 'test' });
-    });
-
     it('should submit rename request', async () => {
       const manager = LSPQueueManager.getInstance();
       const result = await manager.submitRenameRequest({

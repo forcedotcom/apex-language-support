@@ -69,11 +69,6 @@ import {
   GraphDataProcessingService,
   IGraphDataProcessor,
 } from '../services/GraphDataProcessingService';
-import { ExecuteCommandHandler } from '../handlers/ExecuteCommandHandler';
-import {
-  ExecuteCommandProcessingService,
-  IExecuteCommandProcessor,
-} from '../services/ExecuteCommandProcessingService';
 import { LayerEnrichmentService } from '../services/LayerEnrichmentService';
 import { ApexSymbolProcessingManager } from '@salesforce/apex-lsp-parser-ast';
 
@@ -395,29 +390,5 @@ export class HandlerFactory {
       graphDataProcessor,
       capabilitiesManager,
     );
-  }
-
-  /**
-   * Create an ExecuteCommandHandler with default dependencies
-   * @returns A configured ExecuteCommandHandler instance
-   */
-  static createExecuteCommandHandler(): ExecuteCommandHandler {
-    const logger = getLogger();
-    const executeCommandProcessor = new ExecuteCommandProcessingService(logger);
-
-    return new ExecuteCommandHandler(logger, executeCommandProcessor);
-  }
-
-  /**
-   * Create an ExecuteCommandHandler with custom dependencies (for testing)
-   * @param logger Custom logger implementation
-   * @param executeCommandProcessor Custom execute command processor implementation
-   * @returns A configured ExecuteCommandHandler instance
-   */
-  static createExecuteCommandHandlerWithDependencies(
-    logger: LoggerInterface,
-    executeCommandProcessor: IExecuteCommandProcessor,
-  ): ExecuteCommandHandler {
-    return new ExecuteCommandHandler(logger, executeCommandProcessor);
   }
 }

@@ -703,15 +703,6 @@ export class LSPQueueManager {
   }
 
   /**
-   * Submit a signature help request
-   */
-  async submitSignatureHelpRequest(params: any): Promise<any> {
-    return this.submitRequest('signatureHelp', params, {
-      priority: Priority.Immediate,
-    });
-  }
-
-  /**
    * Submit a rename request
    */
   async submitRenameRequest(
@@ -734,15 +725,6 @@ export class LSPQueueManager {
     return this.submitRequest('prepareRename', params, {
       priority: Priority.Low,
       token,
-    });
-  }
-
-  /**
-   * Submit an execute command request
-   */
-  async submitExecuteCommandRequest(params: any): Promise<any> {
-    return this.submitRequest('executeCommand', params, {
-      priority: Priority.Normal,
     });
   }
 
@@ -854,16 +836,6 @@ export class LSPQueueManager {
   submitDocumentCloseNotification(params: any): Promise<void> {
     return this.submitNotification('documentClose', params, {
       priority: Priority.Immediate,
-    });
-  }
-
-  /**
-   * Submit a document load request
-   * Requests the client to load a document via window/showDocument
-   */
-  async submitDocumentLoadRequest(params: any): Promise<any> {
-    return this.submitRequest('documentLoad', params, {
-      priority: Priority.High,
     });
   }
 

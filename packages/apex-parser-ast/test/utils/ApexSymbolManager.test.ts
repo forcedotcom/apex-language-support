@@ -1363,5 +1363,34 @@ describe('ApexSymbolManager', () => {
         expect(Array.isArray(triggerReferences)).toBe(true);
       }
     });
+
+    it('should insert a trigger with a nested class without duplicating the trigger', async () => {
+      const { result } = await compileAndGetSymbols(
+        [
+          'trigger NestedTrigger on Account (before insert) {',
+          '  class InnerClass {',
+          '    void run() {',
+          "      System.debug('inner');",
+          '    }',
+          '  }',
+          '}',
+        ].join('\n'),
+        'NestedTrigger.trigger',
+      );
+
+      expect(result.errors).toEqual([]);
+      await Effect.runPromise(
+        manager.addSymbolTable(result.result!, 'NestedTrigger.trigger'),
+      );
+
+      const triggers = (await manager.findSymbolByName('NestedTrigger')).filter(
+        (symbol) => symbol.kind === SymbolKind.Trigger,
+      );
+      const innerClasses = (
+        await manager.findSymbolByName('InnerClass')
+      ).filter((symbol) => symbol.kind === SymbolKind.Class);
+      expect(triggers).toHaveLength(1);
+      expect(innerClasses).toHaveLength(1);
+    });
   });
 });

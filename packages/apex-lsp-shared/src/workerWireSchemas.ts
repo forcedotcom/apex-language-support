@@ -302,6 +302,7 @@ export class WorkspaceBatchIngest extends Schema.TaggedRequest<WorkspaceBatchIng
           content: Schema.String,
           languageId: Schema.String,
           version: Schema.Number,
+          namespace: Schema.optional(Schema.String),
         }),
       ),
       /** W3C traceparent for distributed tracing (optional) */
@@ -1247,6 +1248,22 @@ export class QueryGraphData extends Schema.TaggedRequest<QueryGraphData>()(
   },
 ) {}
 
+/** Coordinator request for parser-backed debugger metadata owned by one document. */
+export class QueryDebuggerMetadata extends Schema.TaggedRequest<QueryDebuggerMetadata>()(
+  'QueryDebuggerMetadata',
+  {
+    success: Schema.Unknown,
+    failure: Schema.TaggedStruct('QueryDebuggerMetadataError', {
+      message: Schema.String,
+    }),
+    payload: {
+      uri: Schema.String,
+      kind: Schema.Literal('lineBreakpoints', 'exceptionBreakpoints'),
+      traceContext: Schema.optional(Schema.String),
+    },
+  },
+) {}
+
 // ---------------------------------------------------------------------------
 // DataOwnerQuerySymbolByName — enrichment worker asks the data-owner (which
 // holds ALL workspace symbols) to resolve one or more symbols by name when its
@@ -1330,6 +1347,7 @@ export const DataOwnerTags = [
   'BeginWorkspaceLoadSession',
   'DrainDeferredReferences',
   'QueryGraphData',
+  'QueryDebuggerMetadata',
   'DataOwnerQuerySymbolByName',
   'DispatchDocumentOpen',
   'DispatchDocumentChange',
@@ -1416,6 +1434,7 @@ export type DataOwnerRequest =
   | BeginWorkspaceLoadSession
   | DrainDeferredReferences
   | QueryGraphData
+  | QueryDebuggerMetadata
   | DataOwnerQuerySymbolByName
   | DispatchDocumentOpen
   | DispatchDocumentChange

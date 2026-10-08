@@ -876,6 +876,40 @@ describe('ApexSymbolCollectorListener', () => {
       );
     });
 
+    it('should collect a nested trigger class beneath one trigger declaration', () => {
+      const result: CompilationResult<SymbolTable> = compilerService.compile(
+        [
+          'trigger TestTrigger on Account (before insert) {',
+          '  class InnerClass {',
+          '    void run() {',
+          "      System.debug('inner');",
+          '    }',
+          '  }',
+          '}',
+        ].join('\n'),
+        'TestTrigger.trigger',
+        listener,
+      );
+
+      expect(result.errors).toEqual([]);
+      expect(result.result).not.toBeNull();
+      const symbols = result.result!.getAllSymbols();
+      const triggers = symbols.filter(
+        (symbol) => symbol.kind === SymbolKind.Trigger,
+      );
+      const innerClass = symbols.find(
+        (symbol) =>
+          symbol.kind === SymbolKind.Class && symbol.name === 'InnerClass',
+      );
+
+      expect(triggers).toHaveLength(1);
+      expect(innerClass).toBeDefined();
+      const triggerScope = symbols.find(
+        (symbol) => isBlockSymbol(symbol) && symbol.parentId === triggers[0].id,
+      );
+      expect(innerClass?.parentId).toBe(triggerScope?.id);
+    });
+
     it('should collect nested class symbols', () => {
       logger.debug('Starting test: collect nested class symbols');
       const fileContent = `

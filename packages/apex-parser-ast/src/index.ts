@@ -33,6 +33,7 @@ export * from './parser/listeners/ApexErrorListener';
 
 // Export folding range listener
 export * from './parser/listeners/ApexFoldingRangeListener';
+export * from './parser/listeners/ApexBreakpointListener';
 
 // Export comment collection and association
 export * from './parser/listeners/ApexCommentCollectorListener';

@@ -32,6 +32,42 @@ A Visual Studio Code extension providing comprehensive Apex language support pow
 2. Open a workspace containing Apex files (`.cls`, `.trigger`, `.apex`)
 3. The language server starts automatically
 
+## Extension API
+
+Debugger extensions can consume the activated language-server extension rather
+than issue LSP requests themselves. Declare the extension dependency, retrieve
+its exported `ApexExtensionApi`, and call its materialized `client`:
+
+```json
+{
+  "extensionDependencies": ["salesforce.apex-language-server-extension"]
+}
+```
+
+```typescript
+import * as vscode from 'vscode';
+import type { ApexExtensionApi } from 'apex-language-server-extension';
+
+const apexExtension = vscode.extensions.getExtension<ApexExtensionApi>(
+  'salesforce.apex-language-server-extension',
+);
+if (!apexExtension) {
+  throw new Error('Salesforce Apex Language Server extension is unavailable');
+}
+
+const apex = await apexExtension.activate();
+const uri = 'file:///workspace/force-app/main/default/classes/Example.cls';
+
+const lineBreakpoints = await apex.client.getLineBreakpointInfo(uri);
+const exceptionBreakpoints = await apex.client.getExceptionBreakpointInfo(uri);
+```
+
+The URI must identify a document loaded by the language server. Line results use
+1-based source lines and opaque debugger `typeref` values; exception results add
+a display label and optional source URI. Treat `typeref` as opaque and pass it
+through unchanged. The client translates these calls to the language server's
+standard command transport, so consumers should not send LSP commands directly.
+
 ## Configuration
 
 All settings use the `apex.*` prefix. Configure in VS Code Settings (UI or JSON).

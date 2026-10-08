@@ -24,7 +24,6 @@ import {
   ElementValueContext,
   EnumConstantsContext,
   ClassBodyDeclarationContext,
-  TriggerMemberDeclarationContext,
   TriggerUnitContext,
   PropertyDeclarationContext,
   // Add specific contexts for type reference capture
@@ -3139,81 +3138,6 @@ export class ApexSymbolCollectorListener
    */
   exitTryStatement(): void {
     this.exitScope('try');
-  }
-
-  /**
-   * Called when entering a trigger declaration
-   */
-  enterTriggerMemberDeclaration(ctx: TriggerMemberDeclarationContext): void {
-    try {
-      // Get the trigger name from the parent context
-      // TriggerMemberDeclaration -> TriggerBlockMember -> TriggerBlock -> TriggerUnit
-      const triggerUnit = ctx.parentCtx?.parentCtx
-        ?.parentCtx as TriggerUnitContext;
-      const name = triggerUnit?.id?.(0)?.getText();
-      if (!name) {
-        this.enterUnresolvedTypeDeclaration(ctx);
-        return;
-      }
-      const modifiers = this.getCurrentModifiers();
-
-      // Create trigger symbol
-      const triggerSymbol = this.createTypeSymbol(
-        ctx,
-        name,
-        SymbolKind.Trigger,
-        modifiers,
-      );
-
-      // Set detail level on symbol before adding
-      triggerSymbol._detailLevel = this.detailLevel;
-
-      // Add symbol to current scope (null when stack is empty = file level)
-      this.symbolTable.addSymbol(triggerSymbol, this.getCurrentScopeSymbol());
-
-      // Create trigger block symbol directly (stack-only scope tracking)
-      const location = this.getLocation(ctx);
-      const blockName = this.generateBlockName('class');
-      const blockSymbol = this.createBlockSymbol(
-        blockName,
-        'class',
-        location,
-        this.getCurrentScopeSymbol(),
-        name, // Pass the trigger name so createBlockSymbol can find the trigger symbol
-      );
-
-      // Push block symbol onto stack
-      if (blockSymbol) {
-        this.scopeStack.push(blockSymbol);
-      }
-
-      // Reset annotations for the next symbol
-      this.resetAnnotations();
-    } catch (e) {
-      const errorMessage = e instanceof Error ? e.message : String(e);
-      this.addError(`Error in trigger declaration: ${errorMessage}`, ctx);
-    }
-  }
-
-  /**
-   * Called when exiting a trigger declaration
-   */
-  exitTriggerMemberDeclaration(ctx: TriggerMemberDeclarationContext): void {
-    // No-op - stack handles scope exit
-    // this.symbolTable.exitScope(); // Removed - stack handles scope exit
-
-    // Pop from stack and validate it's a class scope
-    if (this.exitUnresolvedTypeDeclaration(ctx)) {
-      return;
-    }
-    const popped = this.scopeStack.pop();
-    if (isBlockSymbol(popped)) {
-      if (popped.scopeType !== 'class') {
-        this.logger.warn(
-          `Expected class scope on exitTriggerMemberDeclaration, but got ${popped.scopeType}`,
-        );
-      }
-    }
   }
 
   /**

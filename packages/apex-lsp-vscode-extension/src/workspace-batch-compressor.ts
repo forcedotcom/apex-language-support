@@ -7,7 +7,7 @@
  */
 
 import * as vscode from 'vscode';
-import { Effect } from 'effect';
+import { Array as EffectArray, Effect } from 'effect';
 import { zipSync } from 'fflate';
 import type {
   WorkspaceFileBatch,
@@ -21,6 +21,7 @@ export interface FileData {
   readonly uri: vscode.Uri;
   readonly version: number;
   readonly content: string;
+  readonly namespace?: string;
 }
 
 /**
@@ -36,20 +37,19 @@ export function createFileBatches(
   batchSize: number,
 ): Effect.Effect<readonly WorkspaceFileBatch[], never, never> {
   return Effect.sync(() => {
-    const batches: WorkspaceFileBatch[] = [];
-    const totalBatches = Math.ceil(files.length / batchSize);
+    const chunks = EffectArray.chunksOf(files, batchSize);
+    const totalBatches = chunks.length;
 
-    for (let i = 0; i < files.length; i += batchSize) {
-      const batchFiles = files.slice(i, i + batchSize);
-      const batchIndex = Math.floor(i / batchSize);
+    return chunks.map((batchFiles, batchIndex): WorkspaceFileBatch => {
       const isLastBatch = batchIndex === totalBatches - 1;
 
       const fileMetadata: WorkspaceFileMetadata[] = batchFiles.map((file) => ({
         uri: file.uri.toString(),
         version: file.version,
+        namespace: file.namespace,
       }));
 
-      batches.push({
+      return {
         batchIndex,
         totalBatches,
         isLastBatch,
@@ -58,11 +58,10 @@ export function createFileBatches(
           uri: file.uri.toString(),
           version: file.version,
           content: file.content,
+          namespace: file.namespace,
         })),
-      });
-    }
-
-    return batches;
+      };
+    });
   });
 }
 

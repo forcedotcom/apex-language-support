@@ -234,16 +234,6 @@ export function getPrerequisitesForLspRequestType(
         skipDuringWorkspaceLoad: false,
       };
 
-    case 'executeCommand':
-      return {
-        requiredDetailLevel: null, // Commands vary, no default prerequisites
-        requiresReferences: false,
-        requiresReferenceResolution: false,
-        requiresCrossFileResolution: false,
-        executionMode: 'blocking',
-        skipDuringWorkspaceLoad: true,
-      };
-
     default:
       return {
         requiredDetailLevel: null,

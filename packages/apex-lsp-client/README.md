@@ -92,11 +92,17 @@ const result = await core.initialize(mySettings);
 For Node stdio transports, `createNodeStdioConnection` handles spawning:
 
 ```typescript
-import { createNodeStdioConnection, ApexClientCore } from '@salesforce/apex-lsp-client';
+import {
+  createNodeStdioConnection,
+  ApexClientCore,
+} from '@salesforce/apex-lsp-client';
 
-const { connection, process } = createNodeStdioConnection('/path/to/server.js', {
-  serverArgs: ['--stdio'],
-});
+const { connection, process } = createNodeStdioConnection(
+  '/path/to/server.js',
+  {
+    serverArgs: ['--stdio'],
+  },
+);
 
 const core = await ApexClientCore.create(connection);
 connection.listen();
@@ -107,7 +113,10 @@ For VS Code extensions, `LanguageClientConnection` wraps an existing
 
 ```typescript
 import { LanguageClient } from 'vscode-languageclient/node';
-import { LanguageClientConnection, ApexClientCore } from '@salesforce/apex-lsp-client';
+import {
+  LanguageClientConnection,
+  ApexClientCore,
+} from '@salesforce/apex-lsp-client';
 
 const client = new LanguageClient('apex', 'Apex', serverOptions, clientOptions);
 const connection = new LanguageClientConnection(client);
@@ -135,7 +144,10 @@ The `RpcConnection` you pass MUST NOT be started/listening yet — start it
 only after the core is built.
 
 ```typescript
-import { ApexClientCore, type RpcConnection } from '@salesforce/apex-lsp-client';
+import {
+  ApexClientCore,
+  type RpcConnection,
+} from '@salesforce/apex-lsp-client';
 
 // `connection` is your RpcConnection implementation
 // (JsonRpcConnection or LanguageClientConnection adapter), not yet started.
@@ -199,6 +211,38 @@ core.notify('custom/didChange', { uri: 'file:///Foo.cls' });
 ```
 
 All pass-through methods reject with `ApexClientDisposedError` after `dispose()`.
+
+### Debugger breakpoint metadata
+
+`ApexClient` exposes document-scoped debugger metadata without requiring callers
+to construct LSP commands or interpret their payloads. Pass the canonical URI of
+the Apex class or trigger after its document has been loaded by the language
+server:
+
+```typescript
+import type {
+  ApexClient,
+  ExceptionBreakpointInfo,
+  LineBreakpointInfo,
+} from '@salesforce/apex-lsp-client';
+
+declare const client: ApexClient;
+const uri = 'file:///workspace/force-app/main/default/classes/Example.cls';
+
+const lineBreakpoints: LineBreakpointInfo[] =
+  await client.getLineBreakpointInfo(uri);
+const exceptionBreakpoints: ExceptionBreakpointInfo[] =
+  await client.getExceptionBreakpointInfo(uri);
+```
+
+`LineBreakpointInfo.lines` contains sorted, unique, 1-based executable source
+lines for one declared type. `typeref` is an opaque debugger bytecode identity;
+pass it through unchanged. Exception results provide the debugger `typeref`, a
+display `label`, and an optional source `uri` for user-defined exceptions.
+
+Both methods reject when the client is disposed or the server rejects the URI.
+The typed calls use standard LSP `workspace/executeCommand` internally; consumers
+should use these methods rather than sending the command directly.
 
 ### Register middleware
 
@@ -286,6 +330,10 @@ All typed senders reject with `ApexClientDisposedError` after `dispose()`. All
     chain.
   - `documentSymbol(params)` — send `textDocument/documentSymbol` through the
     middleware chain.
+  - `getLineBreakpointInfo(uri)` — return executable lines and debugger type
+    identities for the classes or triggers declared in a document.
+  - `getExceptionBreakpointInfo(uri)` — return user-defined and system exception
+    breakpoint metadata relevant to a document.
   - `sendWorkspaceBatch(params)` — send `apex/sendWorkspaceBatch` request.
   - `processWorkspaceBatches(params)` — send `apex/processWorkspaceBatches`
     request.

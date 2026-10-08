@@ -33,7 +33,6 @@ export type LSPRequestType =
   | 'documentClose'
   | 'documentLoad'
   | 'findMissingArtifact'
-  | 'executeCommand'
   | 'prerequisiteEnrichment';
 
 /**
@@ -51,17 +50,6 @@ export interface LSPRequestTask {
   readonly maxRetries: number;
   readonly callback?: (result: any) => void;
   readonly errorCallback?: (error: Error) => void;
-}
-
-/**
- * LSP request result
- */
-export interface LSPRequestResult<T = any> {
-  readonly taskId: string;
-  readonly type: LSPRequestType;
-  readonly result: T;
-  readonly processingTime: number;
-  readonly timestamp: number;
 }
 
 /**
