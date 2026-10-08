@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { ExceptionValidator } from '../../../../src/semantics/validation/validators';
+import { ExceptionValidator } from '../../../../src/semantics/validation/validators/ExceptionValidator';
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';

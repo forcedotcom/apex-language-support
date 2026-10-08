@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { TestMethodValidator } from '../../../../src/semantics/validation/validators';
+import { TestMethodValidator } from '../../../../src/semantics/validation/validators/TestMethodValidator';
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';

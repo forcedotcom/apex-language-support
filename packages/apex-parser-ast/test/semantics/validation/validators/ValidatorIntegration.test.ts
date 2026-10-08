@@ -14,22 +14,24 @@ import {
   type ValidationError,
 } from '../../../../src/semantics/validation/ValidatorRegistry';
 import { EffectTestLoggerLive } from '../../../../src/utils/EffectLspLoggerLayer';
-import {
-  ParameterLimitValidator,
-  EnumLimitValidator,
-  EnumConstantNamingValidator,
-  DuplicateMethodValidator,
-  ConstructorNamingValidator,
-  TypeSelfReferenceValidator,
-  AbstractMethodBodyValidator,
-  VariableShadowingValidator,
-  ForwardReferenceValidator,
-  FinalAssignmentValidator,
-  MethodSignatureEquivalenceValidator,
-  InterfaceHierarchyValidator,
-  ClassHierarchyValidator,
-  TypeAssignmentValidator,
-} from '../../../../src/semantics/validation/validators';
+// eslint-disable-next-line max-len
+import { AbstractMethodBodyValidator } from '../../../../src/semantics/validation/validators/AbstractMethodBodyValidator';
+import { ClassHierarchyValidator } from '../../../../src/semantics/validation/validators/ClassHierarchyValidator';
+import { ConstructorNamingValidator } from '../../../../src/semantics/validation/validators/ConstructorNamingValidator';
+import { DuplicateMethodValidator } from '../../../../src/semantics/validation/validators/DuplicateMethodValidator';
+// eslint-disable-next-line max-len
+import { EnumConstantNamingValidator } from '../../../../src/semantics/validation/validators/EnumConstantNamingValidator';
+import { EnumLimitValidator } from '../../../../src/semantics/validation/validators/EnumLimitValidator';
+import { FinalAssignmentValidator } from '../../../../src/semantics/validation/validators/FinalAssignmentValidator';
+import { ForwardReferenceValidator } from '../../../../src/semantics/validation/validators/ForwardReferenceValidator';
+// eslint-disable-next-line max-len
+import { InterfaceHierarchyValidator } from '../../../../src/semantics/validation/validators/InterfaceHierarchyValidator';
+// eslint-disable-next-line max-len
+import { MethodSignatureEquivalenceValidator } from '../../../../src/semantics/validation/validators/MethodSignatureEquivalenceValidator';
+import { ParameterLimitValidator } from '../../../../src/semantics/validation/validators/ParameterLimitValidator';
+import { TypeAssignmentValidator } from '../../../../src/semantics/validation/validators/TypeAssignmentValidator';
+import { TypeSelfReferenceValidator } from '../../../../src/semantics/validation/validators/TypeSelfReferenceValidator';
+import { VariableShadowingValidator } from '../../../../src/semantics/validation/validators/VariableShadowingValidator';
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';

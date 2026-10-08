@@ -5,13 +5,12 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
-import {
-  DuplicateMethodValidator,
-  DuplicateSymbolValidator,
-  DuplicateTypeNameValidator,
-  InterfaceHierarchyValidator,
-  MethodResolutionValidator,
-} from '../../../../src/semantics/validation/validators';
+import { DuplicateMethodValidator } from '../../../../src/semantics/validation/validators/DuplicateMethodValidator';
+import { DuplicateSymbolValidator } from '../../../../src/semantics/validation/validators/DuplicateSymbolValidator';
+import { DuplicateTypeNameValidator } from '../../../../src/semantics/validation/validators/DuplicateTypeNameValidator';
+// eslint-disable-next-line max-len
+import { InterfaceHierarchyValidator } from '../../../../src/semantics/validation/validators/InterfaceHierarchyValidator';
+import { MethodResolutionValidator } from '../../../../src/semantics/validation/validators/MethodResolutionValidator';
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';

@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { AuraEnabledValidator } from '../../../../src/semantics/validation/validators';
+import { AuraEnabledValidator } from '../../../../src/semantics/validation/validators/AuraEnabledValidator';
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';

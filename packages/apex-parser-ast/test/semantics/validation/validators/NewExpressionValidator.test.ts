@@ -7,7 +7,7 @@
  */
 
 import { Effect } from 'effect';
-import { NewExpressionValidator } from '../../../../src/semantics/validation/validators';
+import { NewExpressionValidator } from '../../../../src/semantics/validation/validators/NewExpressionValidator';
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';

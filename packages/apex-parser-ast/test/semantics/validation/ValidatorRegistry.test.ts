@@ -13,7 +13,7 @@ import {
   runValidatorsForTier,
 } from '../../../src/semantics/validation/ValidatorRegistry';
 import { EffectTestLoggerLive } from '../../../src/utils/EffectLspLoggerLayer';
-import { AbstractMethodBodyValidator } from '../../../src/semantics/validation/validators';
+import { AbstractMethodBodyValidator } from '../../../src/semantics/validation/validators/AbstractMethodBodyValidator';
 import { ValidationTier } from '../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../src/parser/compilerService';

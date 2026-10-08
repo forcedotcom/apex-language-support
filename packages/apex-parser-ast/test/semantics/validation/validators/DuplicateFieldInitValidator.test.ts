@@ -6,7 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { DuplicateFieldInitValidator } from '../../../../src/semantics/validation/validators';
+// eslint-disable-next-line max-len
+import { DuplicateFieldInitValidator } from '../../../../src/semantics/validation/validators/DuplicateFieldInitValidator';
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
