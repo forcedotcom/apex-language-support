@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { expect, describe, it } from '@jest/globals';
+import { describe, expect, it } from 'vitest';
 import { getDebuggerCommandUri } from '../../src/commands/ApexDebuggerCommands';
 
 describe('getDebuggerCommandUri', () => {

@@ -9,6 +9,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { pathToFileURL } from 'url';
+import { vi } from 'vitest';
 import {
   createHeadlessClient,
   type ApexClientCore,
@@ -54,7 +55,7 @@ describe('Debugger Commands Integration', () => {
   let core: ApexClientCore;
   let client: ApexLspTestClient;
 
-  jest.setTimeout(60_000);
+  vi.setConfig({ testTimeout: 60_000 });
 
   beforeAll(async () => {
     const result = await createHeadlessClient(SERVER_PATH, {

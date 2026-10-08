@@ -103,7 +103,7 @@ describe('ApexMethods typed surface', () => {
 
       await core.getLineBreakpointInfo(uri);
 
-      const sendReq = connection.sendRequest as jest.Mock;
+      const sendReq = connection.sendRequest as Mock;
       expect(sendReq).toHaveBeenCalledWith('workspace/executeCommand', {
         command: APEX_DEBUGGER_COMMANDS.lineBreakpoints,
         arguments: [uri],
@@ -119,7 +119,7 @@ describe('ApexMethods typed surface', () => {
 
       await core.getExceptionBreakpointInfo(uri);
 
-      const sendReq = connection.sendRequest as jest.Mock;
+      const sendReq = connection.sendRequest as Mock;
       expect(sendReq).toHaveBeenCalledWith('workspace/executeCommand', {
         command: APEX_DEBUGGER_COMMANDS.exceptionBreakpoints,
         arguments: [uri],

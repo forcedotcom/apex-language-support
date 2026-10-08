@@ -6,21 +6,24 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
+
+vi.mock('@salesforce/apex-lsp-shared', async () => {
+  const actual = await vi.importActual('@salesforce/apex-lsp-shared');
+  return {
+    ...actual,
+    LSPConfigurationManager: {
+      getInstance: vi.fn(),
+    },
+  };
+});
+
 import { LCSAdapter } from '../../src/server/LCSAdapter';
 import {
   APEX_DEBUGGER_COMMANDS,
   LSPConfigurationManager,
 } from '@salesforce/apex-lsp-shared';
-
-jest.mock('@salesforce/apex-lsp-shared', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
-  return {
-    ...actual,
-    LSPConfigurationManager: {
-      getInstance: jest.fn(),
-    },
-  };
-});
 
 const makeMockConnection = (): any => {
   const cache = new Map<string, any>();
@@ -40,14 +43,14 @@ const makeMockConnection = (): any => {
           } else if (prop === 'createWorkDoneProgress') {
             cache.set(
               prop,
-              jest.fn().mockResolvedValue({
-                begin: jest.fn(),
-                report: jest.fn(),
-                done: jest.fn(),
+              vi.fn().mockResolvedValue({
+                begin: vi.fn(),
+                report: vi.fn(),
+                done: vi.fn(),
               }),
             );
           } else {
-            cache.set(prop, jest.fn());
+            cache.set(prop, vi.fn());
           }
         }
         return cache.get(prop);
@@ -58,24 +61,24 @@ const makeMockConnection = (): any => {
 
 function configureExecuteCommandRegistration(): any {
   const connection = makeMockConnection();
-  (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue({
-    getCapabilities: jest.fn().mockReturnValue({
+  (LSPConfigurationManager.getInstance as Mock).mockReturnValue({
+    getCapabilities: vi.fn().mockReturnValue({
       executeCommandProvider: { commands: [] },
     }),
-    getSettings: jest.fn().mockReturnValue({
+    getSettings: vi.fn().mockReturnValue({
       apex: { environment: { additionalDocumentSchemes: undefined } },
     }),
-    getCapabilitiesManager: jest.fn().mockReturnValue({
-      getMode: jest.fn().mockReturnValue('production'),
+    getCapabilitiesManager: vi.fn().mockReturnValue({
+      getMode: vi.fn().mockReturnValue('production'),
     }),
-    getExtendedServerCapabilities: jest.fn().mockReturnValue({}),
+    getExtendedServerCapabilities: vi.fn().mockReturnValue({}),
   });
   return connection;
 }
 
 describe('LCSAdapter debugger command routing', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('registers and invokes debugger commands through workspace/executeCommand', async () => {
@@ -84,17 +87,17 @@ describe('LCSAdapter debugger command routing', () => {
     const adapter = new LCSAdapter({
       connection,
       logger: {
-        debug: jest.fn(),
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        log: jest.fn(),
-        alwaysLog: jest.fn(),
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        log: vi.fn(),
+        alwaysLog: vi.fn(),
       },
     });
-    const processDebuggerCommand = jest.fn().mockResolvedValue([]);
+    const processDebuggerCommand = vi.fn().mockResolvedValue([]);
     (adapter as any).processDebuggerCommand = processDebuggerCommand;
-    (adapter as any).runWithSpanAndRecord = jest.fn(
+    (adapter as any).runWithSpanAndRecord = vi.fn(
       (_spanName: string, fn: () => Promise<unknown>) => fn(),
     );
 
@@ -119,15 +122,15 @@ describe('LCSAdapter debugger command routing', () => {
     const adapter = new LCSAdapter({
       connection,
       logger: {
-        debug: jest.fn(),
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        log: jest.fn(),
-        alwaysLog: jest.fn(),
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        log: vi.fn(),
+        alwaysLog: vi.fn(),
       },
     });
-    (adapter as any).runWithSpanAndRecord = jest.fn(
+    (adapter as any).runWithSpanAndRecord = vi.fn(
       (_spanName: string, fn: () => Promise<unknown>) => fn(),
     );
 
@@ -148,15 +151,15 @@ describe('LCSAdapter debugger command routing', () => {
     const adapter = new LCSAdapter({
       connection,
       logger: {
-        debug: jest.fn(),
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        log: jest.fn(),
-        alwaysLog: jest.fn(),
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        log: vi.fn(),
+        alwaysLog: vi.fn(),
       },
     });
-    (adapter as any).runWithSpanAndRecord = jest.fn(
+    (adapter as any).runWithSpanAndRecord = vi.fn(
       (_spanName: string, fn: () => Promise<unknown>) => fn(),
     );
 
@@ -169,7 +172,7 @@ describe('LCSAdapter debugger command routing', () => {
   });
 
   it('routes line breakpoint metadata to the data owner', async () => {
-    const queryDebuggerMetadata = jest.fn().mockResolvedValue([]);
+    const queryDebuggerMetadata = vi.fn().mockResolvedValue([]);
     const adapter = Object.create(LCSAdapter.prototype) as {
       workerDispatcher?: {
         isAvailable(): boolean;
@@ -208,7 +211,7 @@ describe('LCSAdapter debugger command routing', () => {
       }): Promise<unknown>;
     };
     adapter.documents = {
-      get: jest
+      get: vi
         .fn()
         .mockReturnValue({ getText: () => 'public class Example {}' }),
     };
