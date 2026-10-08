@@ -78,7 +78,6 @@
         "src/semantics/sourceFile.ts",
         "src/semantics/validation/index.ts",
         "src/semantics/versions.ts",
-        "src/symbols/BackgroundProcessingManager.ts",
         "src/symbols/resolution/index.ts",
         "src/cache/**/*.ts",
         "src/utils/resourceLoader.ts",
