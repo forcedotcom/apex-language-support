@@ -1,11 +1,13 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { MockedFunction } from 'vitest';
+import { vi } from 'vitest';
 import type { TextDocumentChangeEvent } from 'vscode-languageserver';
 import type { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -15,25 +17,25 @@ import {
 
 describe('DocumentChangeBatcher', () => {
   let mockLogger: any;
-  let processor: jest.MockedFunction<ChangeProcessor>;
+  let processor: MockedFunction<ChangeProcessor>;
   let batcher: DocumentChangeBatcher;
 
   beforeEach(() => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
 
     mockLogger = {
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
     };
 
-    processor = jest.fn().mockResolvedValue(undefined);
+    processor = vi.fn().mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     batcher?.dispose();
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   const createMockEvent = (
@@ -46,9 +48,9 @@ describe('DocumentChangeBatcher', () => {
         languageId: 'apex',
         version,
         lineCount: 10,
-        getText: jest.fn().mockReturnValue(''),
-        positionAt: jest.fn(),
-        offsetAt: jest.fn(),
+        getText: vi.fn().mockReturnValue(''),
+        positionAt: vi.fn(),
+        offsetAt: vi.fn(),
       } as unknown as TextDocument,
     }) as TextDocumentChangeEvent<TextDocument>;
 
@@ -64,7 +66,7 @@ describe('DocumentChangeBatcher', () => {
       }
 
       // Advance past debounce window
-      jest.advanceTimersByTime(150);
+      vi.advanceTimersByTime(150);
 
       expect(processor).toHaveBeenCalledTimes(1);
       expect(processor.mock.calls[0][0].document.version).toBe(5);
@@ -95,7 +97,7 @@ describe('DocumentChangeBatcher', () => {
       expect(firstSettled).toBe(true);
       expect(secondSettled).toBe(false);
 
-      jest.advanceTimersByTime(150);
+      vi.advanceTimersByTime(150);
       await Promise.resolve();
       expect(processor).toHaveBeenCalledTimes(1);
       expect(secondSettled).toBe(false);
@@ -116,7 +118,7 @@ describe('DocumentChangeBatcher', () => {
       batcher.enqueue(createMockEvent('file:///test.cls', 3));
       batcher.enqueue(createMockEvent('file:///test.cls', 2));
 
-      jest.advanceTimersByTime(150);
+      vi.advanceTimersByTime(150);
 
       expect(processor).toHaveBeenCalledTimes(1);
       // Only v3 should be processed (v2 was stale)
@@ -133,7 +135,7 @@ describe('DocumentChangeBatcher', () => {
       batcher.enqueue(createMockEvent('file:///a.cls', 1));
       batcher.enqueue(createMockEvent('file:///b.cls', 1));
 
-      jest.advanceTimersByTime(150);
+      vi.advanceTimersByTime(150);
 
       expect(processor).toHaveBeenCalledTimes(2);
 
@@ -160,7 +162,7 @@ describe('DocumentChangeBatcher', () => {
       expect(processor).toHaveBeenCalledTimes(2);
 
       // Advancing timers should NOT cause additional calls (timers were cleared)
-      jest.advanceTimersByTime(200);
+      vi.advanceTimersByTime(200);
       expect(processor).toHaveBeenCalledTimes(2);
     });
   });
@@ -177,7 +179,7 @@ describe('DocumentChangeBatcher', () => {
       batcher.dispose();
 
       // Advancing timers should NOT process anything
-      jest.advanceTimersByTime(200);
+      vi.advanceTimersByTime(200);
       expect(processor).not.toHaveBeenCalled();
     });
   });
@@ -192,7 +194,7 @@ describe('DocumentChangeBatcher', () => {
 
       batcher.enqueue(createMockEvent('file:///test.cls', 1));
 
-      jest.advanceTimersByTime(150);
+      vi.advanceTimersByTime(150);
 
       expect(processor).toHaveBeenCalledTimes(1);
       // Error is logged but doesn't propagate
@@ -206,7 +208,7 @@ describe('DocumentChangeBatcher', () => {
       const resolvers: Array<() => void> = [];
 
       // Create a processor that blocks until manually resolved
-      const blockingProcessor: ChangeProcessor = jest.fn(() => {
+      const blockingProcessor: ChangeProcessor = vi.fn(() => {
         concurrentCount++;
         if (concurrentCount > maxObservedConcurrent) {
           maxObservedConcurrent = concurrentCount;
@@ -230,7 +232,7 @@ describe('DocumentChangeBatcher', () => {
       }
 
       // Advance past debounce (0ms) and flush microtasks
-      jest.advanceTimersByTime(1);
+      vi.advanceTimersByTime(1);
       await Promise.resolve();
 
       // Only maxConcurrentParses (2) should be running
@@ -267,7 +269,7 @@ describe('DocumentChangeBatcher', () => {
         batcher.enqueue(createMockEvent(`file:///test${i}.cls`, 1));
       }
 
-      jest.advanceTimersByTime(150);
+      vi.advanceTimersByTime(150);
 
       // All 3 should be processed immediately (no queuing)
       expect(processor).toHaveBeenCalledTimes(3);

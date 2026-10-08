@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import type { Mock, Mocked } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { MessageConnection } from 'vscode-jsonrpc';
 import type { Disposable } from '@salesforce/apex-lsp-shared';
 import { JsonRpcConnection } from '../../src/transports/jsonRpcConnection';
@@ -16,29 +17,29 @@ import { JsonRpcConnection } from '../../src/transports/jsonRpcConnection';
  * underlying `MessageConnection` mock, including the `onError` tuple-flattening.
  */
 describe('JsonRpcConnection', () => {
-  let mockConn: jest.Mocked<MessageConnection>;
+  let mockConn: Mocked<MessageConnection>;
   let adapter: JsonRpcConnection;
 
   beforeEach(() => {
-    const disposable: Disposable = { dispose: jest.fn() };
+    const disposable: Disposable = { dispose: vi.fn() };
 
     mockConn = {
-      sendRequest: jest.fn<MessageConnection['sendRequest']>(),
-      sendNotification: jest.fn<MessageConnection['sendNotification']>(),
-      onRequest: jest.fn().mockReturnValue(disposable),
-      onNotification: jest.fn().mockReturnValue(disposable),
-      onError: jest.fn().mockReturnValue(disposable),
-      onClose: jest.fn().mockReturnValue(disposable),
-      onUnhandledNotification: jest.fn(),
-      onProgress: jest.fn(),
-      sendProgress: jest.fn(),
-      onUnhandledProgress: jest.fn(),
-      trace: jest.fn(),
-      inspect: jest.fn(),
-      end: jest.fn(),
-      dispose: jest.fn(),
-      listen: jest.fn(),
-    } as unknown as jest.Mocked<MessageConnection>;
+      sendRequest: vi.fn<MessageConnection['sendRequest']>(),
+      sendNotification: vi.fn<MessageConnection['sendNotification']>(),
+      onRequest: vi.fn().mockReturnValue(disposable),
+      onNotification: vi.fn().mockReturnValue(disposable),
+      onError: vi.fn().mockReturnValue(disposable),
+      onClose: vi.fn().mockReturnValue(disposable),
+      onUnhandledNotification: vi.fn(),
+      onProgress: vi.fn(),
+      sendProgress: vi.fn(),
+      onUnhandledProgress: vi.fn(),
+      trace: vi.fn(),
+      inspect: vi.fn(),
+      end: vi.fn(),
+      dispose: vi.fn(),
+      listen: vi.fn(),
+    } as unknown as Mocked<MessageConnection>;
 
     adapter = new JsonRpcConnection(mockConn);
   });
@@ -47,7 +48,7 @@ describe('JsonRpcConnection', () => {
     it('delegates to the underlying connection', async () => {
       const expected = { capabilities: {} };
       (
-        mockConn.sendRequest as jest.Mock<() => Promise<typeof expected>>
+        mockConn.sendRequest as Mock<() => Promise<typeof expected>>
       ).mockResolvedValue(expected);
 
       const result = await adapter.sendRequest('initialize', { processId: 1 });
@@ -62,7 +63,7 @@ describe('JsonRpcConnection', () => {
   describe('sendNotification', () => {
     it('delegates to the underlying connection', async () => {
       (
-        mockConn.sendNotification as jest.Mock<() => Promise<void>>
+        mockConn.sendNotification as Mock<() => Promise<void>>
       ).mockResolvedValue(undefined);
 
       await adapter.sendNotification('initialized', {});
@@ -73,7 +74,7 @@ describe('JsonRpcConnection', () => {
 
   describe('onRequest', () => {
     it('registers a handler and returns a Disposable', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       const disposable = adapter.onRequest('apex/findMissingArtifact', handler);
 
       expect(mockConn.onRequest).toHaveBeenCalledWith(
@@ -87,7 +88,7 @@ describe('JsonRpcConnection', () => {
 
   describe('onNotification', () => {
     it('registers a handler and returns a Disposable', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       const disposable = adapter.onNotification('window/logMessage', handler);
 
       expect(mockConn.onNotification).toHaveBeenCalledWith(
@@ -103,14 +104,16 @@ describe('JsonRpcConnection', () => {
     it('flattens the tuple and passes only the Error to the handler', () => {
       // Capture the listener callback that the adapter passes to mockConn.onError
       let capturedListener: (e: [Error, unknown, unknown]) => void = () => {};
-      (mockConn.onError as jest.Mock<any>).mockImplementation(
-        (listener: (e: [Error, unknown, unknown]) => void) => {
-          capturedListener = listener;
-          return { dispose: jest.fn() };
-        },
-      );
+      (mockConn.onError as Mock).mockImplementation((listener: unknown) => {
+        if (typeof listener !== 'function') return { dispose: vi.fn() };
+        const typedListener = listener as (
+          e: [Error, unknown, unknown],
+        ) => void;
+        capturedListener = typedListener;
+        return { dispose: vi.fn() };
+      });
 
-      const handler = jest.fn();
+      const handler = vi.fn();
       adapter.onError(handler);
 
       // Simulate the underlying connection emitting an error tuple.
@@ -122,7 +125,7 @@ describe('JsonRpcConnection', () => {
     });
 
     it('returns a Disposable', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       const disposable = adapter.onError(handler);
 
       expect(disposable).toBeDefined();
@@ -132,7 +135,7 @@ describe('JsonRpcConnection', () => {
 
   describe('onClose', () => {
     it('delegates to the underlying connection', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       const disposable = adapter.onClose(handler);
 
       expect(mockConn.onClose).toHaveBeenCalledWith(handler);

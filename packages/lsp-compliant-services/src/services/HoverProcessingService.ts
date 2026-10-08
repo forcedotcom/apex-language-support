@@ -1127,7 +1127,7 @@ export class HoverProcessingService implements IHoverProcessor {
 
     // Add modifiers
     if (symbol.modifiers && !isLocalValue) {
-      const modifiers = [];
+      const modifiers: string[] = [];
       if (symbol.modifiers.isStatic) modifiers.push('static');
       if (
         symbol.modifiers.visibility &&

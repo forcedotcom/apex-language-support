@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import {
   InitializeParams,
   InitializeResult,
@@ -72,104 +74,104 @@ const mockHandlers: MockHandlerStore = {
 
 // Set up the mock connection with proper type safety
 const mockConsole = {
-  info: jest.fn(),
-  warn: jest.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
 };
 
 // Define the mock connection type to avoid circular references
 interface MockConnection {
-  onInitialize: jest.Mock;
-  onInitialized: jest.Mock;
-  onShutdown: jest.Mock;
-  onExit: jest.Mock;
-  onCompletion: jest.Mock;
-  onDefinition: jest.Mock;
-  onImplementation: jest.Mock;
-  onReferences: jest.Mock;
-  onHover: jest.Mock;
-  onDocumentSymbol: jest.Mock;
-  onFoldingRanges: jest.Mock;
-  onRequest: jest.Mock;
-  listen: jest.Mock;
+  onInitialize: Mock;
+  onInitialized: Mock;
+  onShutdown: Mock;
+  onExit: Mock;
+  onCompletion: Mock;
+  onDefinition: Mock;
+  onImplementation: Mock;
+  onReferences: Mock;
+  onHover: Mock;
+  onDocumentSymbol: Mock;
+  onFoldingRanges: Mock;
+  onRequest: Mock;
+  listen: Mock;
   console: typeof mockConsole;
-  sendNotification: jest.Mock;
-  sendDiagnostic: jest.Mock;
-  sendDiagnostics: jest.Mock;
+  sendNotification: Mock;
+  sendDiagnostic: Mock;
+  sendDiagnostics: Mock;
 }
 
 // Pre-create the mock connection with minimal properties
 const mockConnection: MockConnection & {
   languages?: {
-    documentSymbol?: { on: jest.Mock };
-    foldingRange?: { on: jest.Mock };
-    diagnostics?: { on: jest.Mock };
-    hover?: { on: jest.Mock };
-    completion?: { on: jest.Mock };
+    documentSymbol?: { on: Mock };
+    foldingRange?: { on: Mock };
+    diagnostics?: { on: Mock };
+    hover?: { on: Mock };
+    completion?: { on: Mock };
   };
   workspace?: {
-    onDidChangeWorkspaceFolders?: jest.Mock;
-    onDidDeleteFiles?: jest.Mock;
+    onDidChangeWorkspaceFolders?: Mock;
+    onDidDeleteFiles?: Mock;
   };
   client?: {
-    register?: jest.Mock;
+    register?: Mock;
   };
-  sendRequest?: jest.Mock;
-  onNotification?: jest.Mock;
-  onDidChangeConfiguration?: jest.Mock;
+  sendRequest?: Mock;
+  onNotification?: Mock;
+  onDidChangeConfiguration?: Mock;
   telemetry?: {
-    logEvent?: jest.Mock;
+    logEvent?: Mock;
   };
 } = {
-  onInitialize: jest.fn(),
-  onInitialized: jest.fn(),
-  onShutdown: jest.fn(),
-  onExit: jest.fn(),
-  onCompletion: jest.fn(),
-  onDefinition: jest.fn(),
-  onImplementation: jest.fn(),
-  onReferences: jest.fn(),
-  onHover: jest.fn(),
-  onDocumentSymbol: jest.fn(),
-  onFoldingRanges: jest.fn(),
-  onRequest: jest.fn(),
-  onNotification: jest.fn(),
-  onDidChangeConfiguration: jest.fn(),
-  listen: jest.fn(),
+  onInitialize: vi.fn(),
+  onInitialized: vi.fn(),
+  onShutdown: vi.fn(),
+  onExit: vi.fn(),
+  onCompletion: vi.fn(),
+  onDefinition: vi.fn(),
+  onImplementation: vi.fn(),
+  onReferences: vi.fn(),
+  onHover: vi.fn(),
+  onDocumentSymbol: vi.fn(),
+  onFoldingRanges: vi.fn(),
+  onRequest: vi.fn(),
+  onNotification: vi.fn(),
+  onDidChangeConfiguration: vi.fn(),
+  listen: vi.fn(),
   console: mockConsole,
-  sendNotification: jest.fn(),
-  sendDiagnostic: jest.fn(),
-  sendDiagnostics: jest.fn(),
-  sendRequest: jest.fn(),
+  sendNotification: vi.fn(),
+  sendDiagnostic: vi.fn(),
+  sendDiagnostics: vi.fn(),
+  sendRequest: vi.fn(),
   languages: {
-    documentSymbol: { on: jest.fn() },
-    foldingRange: { on: jest.fn() },
-    diagnostics: { on: jest.fn() },
-    hover: { on: jest.fn() },
-    completion: { on: jest.fn() },
+    documentSymbol: { on: vi.fn() },
+    foldingRange: { on: vi.fn() },
+    diagnostics: { on: vi.fn() },
+    hover: { on: vi.fn() },
+    completion: { on: vi.fn() },
   },
   workspace: {
-    onDidChangeWorkspaceFolders: jest.fn(),
-    onDidDeleteFiles: jest.fn(),
+    onDidChangeWorkspaceFolders: vi.fn(),
+    onDidDeleteFiles: vi.fn(),
   },
   client: {
-    register: jest.fn(),
+    register: vi.fn(),
   },
   telemetry: {
-    logEvent: jest.fn(),
+    logEvent: vi.fn(),
   },
 };
 
 // Mock TextDocuments
 const mockDocuments = {
-  listen: jest.fn(),
-  get: jest.fn(),
-  set: jest.fn(),
-  delete: jest.fn(),
-  all: jest.fn(),
-  onDidChangeContent: jest.fn(),
-  onDidClose: jest.fn(),
-  onDidOpen: jest.fn(),
-  onDidSave: jest.fn(),
+  listen: vi.fn(),
+  get: vi.fn(),
+  set: vi.fn(),
+  delete: vi.fn(),
+  all: vi.fn(),
+  onDidChangeContent: vi.fn(),
+  onDidClose: vi.fn(),
+  onDidOpen: vi.fn(),
+  onDidSave: vi.fn(),
 };
 
 // Then set up the handler-capturing logic
@@ -243,24 +245,24 @@ mockDocuments.onDidSave.mockImplementation((handler: OnDidSaveHandler) => {
 // Mock browser-specific objects that don't exist in Node.js
 // Use type assertion to bypass type checking since we're just mocking
 (global as any).self = {
-  postMessage: jest.fn(),
-  addEventListener: jest.fn(),
-  removeEventListener: jest.fn(),
+  postMessage: vi.fn(),
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
 };
 
 // Mock the LSP module
-jest.mock('vscode-languageserver/browser', () => {
-  const actual = jest.requireActual('vscode-languageserver');
+vi.mock('vscode-languageserver/browser', async () => {
+  const actual = await vi.importActual('vscode-languageserver/browser');
   return {
     ...actual,
-    createConnection: jest.fn(() => mockConnection),
-    BrowserMessageReader: jest.fn(() => ({
-      listen: jest.fn(),
-      dispose: jest.fn(),
+    createConnection: vi.fn(() => mockConnection),
+    BrowserMessageReader: vi.fn(() => ({
+      listen: vi.fn(),
+      dispose: vi.fn(),
     })),
-    BrowserMessageWriter: jest.fn(() => ({
-      write: jest.fn(),
-      dispose: jest.fn(),
+    BrowserMessageWriter: vi.fn(() => ({
+      write: vi.fn(),
+      dispose: vi.fn(),
     })),
     LogMessageNotification: { type: 'logMessage' },
     InitializedNotification: { type: 'initialized' },
@@ -272,28 +274,43 @@ jest.mock('vscode-languageserver/browser', () => {
       Warning: 2,
       Error: 1,
     },
-    TextDocuments: jest.fn().mockImplementation(() => mockDocuments),
-    TextDocument: jest.fn(),
+    TextDocuments: class {
+      constructor() {
+        return mockDocuments;
+      }
+    },
+    TextDocument: vi.fn(),
   };
 });
 
 // Mock TextDocument
-jest.mock('vscode-languageserver-textdocument', () => ({
-  TextDocument: jest.fn(),
+vi.mock('vscode-languageserver-textdocument', () => ({
+  TextDocument: vi.fn(),
 }));
 
 // Mock the document processing functions
-const mockCreateDidOpenDocumentHandler = jest.fn();
-const mockDispatchProcessOnOpenDocument = jest.fn().mockResolvedValue([]);
-const mockDispatchProcessOnChangeDocument = jest.fn().mockResolvedValue([]);
-const mockDispatchProcessOnCloseDocument = jest.fn().mockResolvedValue([]);
-const mockDispatchProcessOnSaveDocument = jest.fn().mockResolvedValue([]);
-const mockDispatchProcessOnDocumentSymbol = jest.fn().mockResolvedValue([]);
-const mockDispatchProcessOnFoldingRange = jest.fn().mockResolvedValue([]);
-const mockDispatchProcessOnDiagnostic = jest.fn().mockResolvedValue([]);
+const {
+  mockCreateDidOpenDocumentHandler,
+  mockDispatchProcessOnOpenDocument,
+  mockDispatchProcessOnChangeDocument,
+  mockDispatchProcessOnCloseDocument,
+  mockDispatchProcessOnSaveDocument,
+  mockDispatchProcessOnDocumentSymbol,
+  mockDispatchProcessOnFoldingRange,
+  mockDispatchProcessOnDiagnostic,
+} = vi.hoisted(() => ({
+  mockCreateDidOpenDocumentHandler: vi.fn(),
+  mockDispatchProcessOnOpenDocument: vi.fn().mockResolvedValue([]),
+  mockDispatchProcessOnChangeDocument: vi.fn().mockResolvedValue([]),
+  mockDispatchProcessOnCloseDocument: vi.fn().mockResolvedValue([]),
+  mockDispatchProcessOnSaveDocument: vi.fn().mockResolvedValue([]),
+  mockDispatchProcessOnDocumentSymbol: vi.fn().mockResolvedValue([]),
+  mockDispatchProcessOnFoldingRange: vi.fn().mockResolvedValue([]),
+  mockDispatchProcessOnDiagnostic: vi.fn().mockResolvedValue([]),
+}));
 
-jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
-  ...jest.requireActual('@salesforce/apex-lsp-compliant-services'),
+vi.mock('@salesforce/apex-lsp-compliant-services', async () => ({
+  ...(await vi.importActual('@salesforce/apex-lsp-compliant-services')),
   dispatchProcessOnOpenDocument: mockDispatchProcessOnOpenDocument,
   dispatchProcessOnChangeDocument: mockDispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument: mockDispatchProcessOnCloseDocument,
@@ -302,35 +319,35 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
   dispatchProcessOnFoldingRange: mockDispatchProcessOnFoldingRange,
   dispatchProcessOnDiagnostic: mockDispatchProcessOnDiagnostic,
   HandlerFactory: {
-    createDidOpenDocumentHandler: jest.fn(() =>
+    createDidOpenDocumentHandler: vi.fn(() =>
       mockCreateDidOpenDocumentHandler(),
     ),
   },
   ApexStorageManager: {
-    getInstance: jest.fn().mockReturnValue({
-      getStorage: jest.fn(),
-      initialize: jest.fn().mockResolvedValue(undefined),
+    getInstance: vi.fn().mockReturnValue({
+      getStorage: vi.fn(),
+      initialize: vi.fn().mockResolvedValue(undefined),
     }),
   },
   ApexStorage: {
-    getInstance: jest.fn().mockReturnValue({
-      setDocument: jest.fn(),
-      getDocument: jest.fn(),
-      deleteDocument: jest.fn(),
+    getInstance: vi.fn().mockReturnValue({
+      setDocument: vi.fn(),
+      getDocument: vi.fn(),
+      deleteDocument: vi.fn(),
     }),
   },
   BackgroundProcessingInitializationService: {
-    getInstance: jest.fn().mockReturnValue({
-      initialize: jest.fn(),
+    getInstance: vi.fn().mockReturnValue({
+      initialize: vi.fn(),
     }),
   },
-  initializeLSPQueueManager: jest.fn(),
-  DiagnosticProcessingService: jest.fn().mockImplementation(() => ({
-    processDiagnostic: jest.fn(),
+  initializeLSPQueueManager: vi.fn(),
+  DiagnosticProcessingService: vi.fn().mockImplementation(() => ({
+    processDiagnostic: vi.fn(),
   })),
   ApexCapabilitiesManager: {
-    getInstance: jest.fn().mockReturnValue({
-      getCapabilitiesForMode: jest.fn().mockReturnValue({
+    getInstance: vi.fn().mockReturnValue({
+      getCapabilitiesForMode: vi.fn().mockReturnValue({
         publishDiagnostics: true,
         textDocumentSync: {
           openClose: true,
@@ -353,7 +370,7 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
           },
         },
       }),
-      getCapabilities: jest.fn().mockReturnValue({
+      getCapabilities: vi.fn().mockReturnValue({
         publishDiagnostics: true,
         textDocumentSync: {
           openClose: true,
@@ -378,8 +395,8 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
       }),
     }),
   },
-  LSPConfigurationManager: jest.fn().mockImplementation(() => ({
-    getCapabilitiesForMode: jest.fn().mockReturnValue({
+  LSPConfigurationManager: vi.fn().mockImplementation(() => ({
+    getCapabilitiesForMode: vi.fn().mockReturnValue({
       publishDiagnostics: true,
       textDocumentSync: {
         openClose: true,
@@ -402,7 +419,7 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
         },
       },
     }),
-    getExtendedServerCapabilities: jest.fn().mockReturnValue({
+    getExtendedServerCapabilities: vi.fn().mockReturnValue({
       publishDiagnostics: true,
       textDocumentSync: {
         openClose: true,
@@ -429,36 +446,38 @@ jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
 }));
 
 // Mock the logger abstraction
-const mockLogger = {
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  debug: jest.fn(),
-  log: jest.fn(),
-};
+const { mockLogger } = vi.hoisted(() => ({
+  mockLogger: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    log: vi.fn(),
+  },
+}));
 
-jest.mock('@salesforce/apex-lsp-shared', () => ({
-  formattedError: jest.fn((error: unknown) => String(error)),
+vi.mock('@salesforce/apex-lsp-shared', () => ({
+  formattedError: vi.fn((error: unknown) => String(error)),
   LogMessageType: {
     Error: 1,
     Warning: 2,
     Info: 3,
     Log: 4,
   },
-  LogMessageParams: jest.fn(),
-  LogNotificationHandler: jest.fn(),
-  setLogNotificationHandler: jest.fn(),
-  setLoggerFactory: jest.fn(),
+  LogMessageParams: vi.fn(),
+  LogNotificationHandler: vi.fn(),
+  setLogNotificationHandler: vi.fn(),
+  setLoggerFactory: vi.fn(),
   getLogger: () => mockLogger,
-  setLogLevel: jest.fn(),
+  setLogLevel: vi.fn(),
   LogLevel: {
     Error: 'error',
     Warn: 'warn',
     Info: 'info',
     Debug: 'debug',
   },
-  Logger: jest.fn(),
-  LogMessage: jest.fn(),
+  Logger: vi.fn(),
+  LogMessage: vi.fn(),
   Priority: {
     Immediate: 1,
     High: 2,
@@ -467,47 +486,47 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
     Background: 5,
   },
   UniversalLoggerFactory: {
-    getInstance: jest.fn().mockReturnValue({
-      createLogger: jest.fn().mockReturnValue(mockLogger),
+    getInstance: vi.fn().mockReturnValue({
+      createLogger: vi.fn().mockReturnValue(mockLogger),
     }),
   },
   LSPConfigurationManager: {
-    getInstance: jest.fn(),
+    getInstance: vi.fn(),
   },
-  runWithSpan: jest.fn((_name: string, fn: () => any) => fn()),
+  runWithSpan: vi.fn((_name: string, fn: () => any) => fn()),
   LSP_SPAN_NAMES: {},
-  CommandPerformanceAggregator: jest.fn().mockImplementation(() => ({
-    record: jest.fn(),
-    flush: jest
+  CommandPerformanceAggregator: class {
+    record = vi.fn();
+    flush = vi
       .fn()
-      .mockReturnValue({ type: 'command_performance', commands: [] }),
-    reset: jest.fn(),
-  })),
-  collectStartupSnapshot: jest.fn().mockReturnValue({
+      .mockReturnValue({ type: 'command_performance', commands: [] });
+    reset = vi.fn();
+  },
+  collectStartupSnapshot: vi.fn().mockReturnValue({
     type: 'startup_snapshot',
     sessionId: 'mock-session',
   }),
 }));
 
-jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
+vi.mock('@salesforce/apex-lsp-parser-ast', () => ({
   ResourceLoader: {
-    getInstance: jest.fn().mockReturnValue({
-      loadStandardLibrary: jest.fn().mockResolvedValue(undefined),
+    getInstance: vi.fn().mockReturnValue({
+      loadStandardLibrary: vi.fn().mockResolvedValue(undefined),
     }),
   },
   ApexSymbolProcessingManager: {
-    getInstance: jest.fn().mockReturnValue({
-      getSymbolManager: jest.fn().mockReturnValue({
-        findSymbolsInFile: jest.fn().mockReturnValue([]),
-        addSymbolTable: jest.fn(),
+    getInstance: vi.fn().mockReturnValue({
+      getSymbolManager: vi.fn().mockReturnValue({
+        findSymbolsInFile: vi.fn().mockReturnValue([]),
+        addSymbolTable: vi.fn(),
       }),
     }),
   },
-  ApexSymbolManager: jest.fn().mockImplementation(() => ({
-    findSymbolsInFile: jest.fn().mockReturnValue([]),
-    addSymbolTable: jest.fn(),
+  ApexSymbolManager: vi.fn().mockImplementation(() => ({
+    findSymbolsInFile: vi.fn().mockReturnValue([]),
+    addSymbolTable: vi.fn(),
   })),
-  setQueueStateChangeCallback: jest.fn(),
+  setQueueStateChangeCallback: vi.fn(),
 }));
 
 import { LCSAdapter } from '../src/server/LCSAdapter';
@@ -518,7 +537,7 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
 
   beforeEach(async () => {
     // Reset all mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Reset mock handlers
     Object.keys(mockHandlers).forEach((key) => {
@@ -528,13 +547,13 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
     // Reset mock connection
     Object.keys(mockConnection).forEach((key) => {
       if (typeof mockConnection[key as keyof MockConnection] === 'function') {
-        (mockConnection[key as keyof MockConnection] as jest.Mock).mockClear();
+        (mockConnection[key as keyof MockConnection] as Mock).mockClear();
       }
     });
 
     // Setup mock configuration manager
     mockConfigManager = {
-      getCapabilities: jest.fn().mockReturnValue({
+      getCapabilities: vi.fn().mockReturnValue({
         documentSymbolProvider: { resolveProvider: false },
         hoverProvider: true,
         definitionProvider: true,
@@ -559,7 +578,7 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           willSaveWaitUntil: false,
         },
       }),
-      getExtendedServerCapabilities: jest.fn().mockReturnValue({
+      getExtendedServerCapabilities: vi.fn().mockReturnValue({
         documentSymbolProvider: { resolveProvider: false },
         hoverProvider: true,
         definitionProvider: true,
@@ -587,17 +606,17 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           profilingProvider: { enabled: false },
         },
       }),
-      setInitialSettings: jest.fn(),
-      setClientCapabilities: jest.fn(),
-      getClientCapabilities: jest.fn().mockReturnValue(undefined),
-      setConnection: jest.fn(),
-      syncCapabilitiesWithSettings: jest.fn(),
-      getSettingsManager: jest.fn().mockReturnValue({}),
-      getCapabilitiesManager: jest.fn().mockReturnValue({
-        getMode: jest.fn().mockReturnValue('production'),
+      setInitialSettings: vi.fn(),
+      setClientCapabilities: vi.fn(),
+      getClientCapabilities: vi.fn().mockReturnValue(undefined),
+      setConnection: vi.fn(),
+      syncCapabilitiesWithSettings: vi.fn(),
+      getSettingsManager: vi.fn().mockReturnValue({}),
+      getCapabilitiesManager: vi.fn().mockReturnValue({
+        getMode: vi.fn().mockReturnValue('production'),
       }),
-      getRuntimePlatform: jest.fn().mockReturnValue('desktop'),
-      getSettings: jest.fn().mockReturnValue({
+      getRuntimePlatform: vi.fn().mockReturnValue('desktop'),
+      getSettings: vi.fn().mockReturnValue({
         apex: {
           environment: {
             profilingMode: 'none',
@@ -608,7 +627,7 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
     };
 
     // Mock LSPConfigurationManager
-    (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue(
+    (LSPConfigurationManager.getInstance as Mock).mockReturnValue(
       mockConfigManager,
     );
 
@@ -643,7 +662,7 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
 
   afterEach(() => {
     // Clean up after each test
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should register all lifecycle handlers', () => {
@@ -765,7 +784,7 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
 
     // Mock process.exit to avoid actually exiting
     const originalExit = process.exit;
-    const mockExit = jest.fn();
+    const mockExit = vi.fn();
     process.exit = mockExit as any;
 
     try {
@@ -825,8 +844,8 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           positionAt: () => ({ line: 0, character: 0 }),
           offsetAt: () => 0,
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -851,8 +870,8 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           positionAt: () => ({ line: 0, character: 0 }),
           offsetAt: () => 0,
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -874,8 +893,8 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           positionAt: () => ({ line: 0, character: 0 }),
           offsetAt: () => 0,
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -901,8 +920,8 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           positionAt: () => ({ line: 0, character: 0 }),
           offsetAt: () => 0,
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -925,8 +944,8 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           positionAt: () => ({ line: 0, character: 0 }),
           offsetAt: () => 0,
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -948,8 +967,8 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           positionAt: () => ({ line: 0, character: 0 }),
           offsetAt: () => 0,
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -973,8 +992,8 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           positionAt: () => ({ line: 0, character: 0 }),
           offsetAt: () => 0,
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -996,8 +1015,8 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           positionAt: () => ({ line: 0, character: 0 }),
           offsetAt: () => 0,
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -1030,19 +1049,18 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
     });
 
     it('returns an incomplete completion list when queue dispatch fails', async () => {
-      const { LSPQueueManager } = jest.requireMock(
-        '@salesforce/apex-lsp-compliant-services',
-      ) as {
-        LSPQueueManager: {
-          getInstance: () => {
-            submitCompletionRequest: (params: unknown) => Promise<unknown>;
+      const { LSPQueueManager } =
+        (await import('@salesforce/apex-lsp-compliant-services')) as {
+          LSPQueueManager: {
+            getInstance: () => {
+              submitCompletionRequest: (params: unknown) => Promise<unknown>;
+            };
           };
         };
-      };
-      const getInstance = jest
+      const getInstance = vi
         .spyOn(LSPQueueManager, 'getInstance')
         .mockReturnValue({
-          submitCompletionRequest: jest
+          submitCompletionRequest: vi
             .fn()
             .mockRejectedValue(new Error('completion timeout')),
         });

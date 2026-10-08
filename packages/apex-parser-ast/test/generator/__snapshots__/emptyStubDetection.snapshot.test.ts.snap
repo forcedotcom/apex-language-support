@@ -1,4 +1,25 @@
-// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Empty stub snapshot — known stubs with no members > matches the accepted list of empty stubs across all namespaces 1`] = `
+[
+  {
+    "className": "PageReference",
+    "namespace": "ApexPages",
+  },
+  {
+    "className": "SelectOption",
+    "namespace": "ApexPages",
+  },
+  {
+    "className": "CartStatusEnum",
+    "namespace": "ConnectApi",
+  },
+  {
+    "className": "CdpIdentityResolutionConfigurationType",
+    "namespace": "ConnectApi",
+  },
+]
+`;
 
 exports[`Empty stub snapshot — known stubs with no members matches the accepted list of empty stubs across all namespaces 1`] = `
 [

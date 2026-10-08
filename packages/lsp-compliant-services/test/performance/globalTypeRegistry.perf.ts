@@ -55,124 +55,138 @@ describe('GlobalTypeRegistry Benchmarks', () => {
     await cleanupTestResources();
   });
 
-  it('benchmarks GlobalTypeRegistry initialization from cache', (done) => {
-    const suite = new Benchmark.Suite();
-    const results: Record<string, Benchmark.Target> = {};
+  it(
+    'benchmarks GlobalTypeRegistry initialization from cache',
+    () =>
+      new Promise<void>((done) => {
+        const suite = new Benchmark.Suite();
+        const results: Record<string, Benchmark.Target> = {};
 
-    suite
-      .add('GlobalTypeRegistry initialization', {
-        defer: true,
-        ...benchmarkSettings,
-        fn: async (deferred: any) => {
-          try {
-            // Reinitialize the same singleton to avoid per-iteration state growth.
-            await resourceLoader.initialize();
-            deferred.resolve();
-          } catch (err) {
-            console.error('Error in initialization benchmark:', err);
-            deferred.resolve();
-          }
-        },
-      })
-      .on('cycle', (event: any) => {
-        results[event.target.name] = event.target;
-        logger.alwaysLog(String(event.target));
-      })
-      .on('complete', function (this: any) {
-        const fs = require('fs');
-        const path = require('path');
-        const outputPath = path.join(
-          __dirname,
-          '../lsp-compliant-services-benchmark-results.json',
-        );
-
-        // Merge with existing results
-        let allResults = results;
-        try {
-          if (fs.existsSync(outputPath)) {
-            const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-            allResults = { ...existing, ...results };
-          }
-        } catch (error) {
-          console.warn('Could not read existing results:', error);
-        }
-
-        fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-        done();
-      })
-      .run({ async: true });
-  }, 120000);
-
-  it('benchmarks GlobalTypeRegistry O(1) type lookups', (done) => {
-    const suite = new Benchmark.Suite();
-    const results: Record<string, Benchmark.Target> = {};
-
-    // Test type names
-    const lookupTests = [
-      'Exception',
-      'String',
-      'Database.QueryLocator',
-      'System.Exception',
-      'ApexPages.StandardController',
-      'ConnectApi.FeedItem',
-    ];
-
-    suite
-      .add('GlobalTypeRegistry type lookup (O(1))', {
-        defer: true,
-        ...benchmarkSettings,
-        fn: async (deferred: any) => {
-          try {
-            const { Effect } = await import('effect');
-            const { GlobalTypeRegistry, GlobalTypeRegistryLive } =
-              await import('@salesforce/apex-lsp-parser-ast');
-
-            // Lookup a random type from our test set
-            const typeName =
-              lookupTests[Math.floor(Math.random() * lookupTests.length)];
-
-            await Effect.runPromise(
-              Effect.gen(function* () {
-                const registry = yield* GlobalTypeRegistry;
-                return yield* registry.resolveType(typeName);
-              }).pipe(Effect.provide(GlobalTypeRegistryLive)),
+        suite
+          .add('GlobalTypeRegistry initialization', {
+            defer: true,
+            ...benchmarkSettings,
+            fn: async (deferred: any) => {
+              try {
+                // Reinitialize the same singleton to avoid per-iteration state growth.
+                await resourceLoader.initialize();
+                deferred.resolve();
+              } catch (err) {
+                console.error('Error in initialization benchmark:', err);
+                deferred.resolve();
+              }
+            },
+          })
+          .on('cycle', (event: any) => {
+            results[event.target.name] = event.target;
+            logger.alwaysLog(String(event.target));
+          })
+          .on('complete', function (this: any) {
+            const fs = require('fs');
+            const path = require('path');
+            const outputPath = path.join(
+              __dirname,
+              '../lsp-compliant-services-benchmark-results.json',
             );
 
-            deferred.resolve();
-          } catch (err) {
-            console.error('Error in lookup benchmark:', err);
-            deferred.resolve();
-          }
-        },
-      })
-      .on('cycle', (event: any) => {
-        results[event.target.name] = event.target;
-        logger.alwaysLog(String(event.target));
-      })
-      .on('complete', function (this: any) {
-        const fs = require('fs');
-        const path = require('path');
-        const outputPath = path.join(
-          __dirname,
-          '../lsp-compliant-services-benchmark-results.json',
-        );
+            // Merge with existing results
+            let allResults = results;
+            try {
+              if (fs.existsSync(outputPath)) {
+                const existing = JSON.parse(
+                  fs.readFileSync(outputPath, 'utf8'),
+                );
+                allResults = { ...existing, ...results };
+              }
+            } catch (error) {
+              console.warn('Could not read existing results:', error);
+            }
 
-        // Merge with existing results
-        let allResults = results;
-        try {
-          if (fs.existsSync(outputPath)) {
-            const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-            allResults = { ...existing, ...results };
-          }
-        } catch (error) {
-          console.warn('Could not read existing results:', error);
-        }
+            fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
+            done();
+          })
+          .run({ async: true });
+      }),
+    120000,
+  );
 
-        fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-        done();
-      })
-      .run({ async: true });
-  }, 120000);
+  it(
+    'benchmarks GlobalTypeRegistry O(1) type lookups',
+    () =>
+      new Promise<void>((done) => {
+        const suite = new Benchmark.Suite();
+        const results: Record<string, Benchmark.Target> = {};
+
+        // Test type names
+        const lookupTests = [
+          'Exception',
+          'String',
+          'Database.QueryLocator',
+          'System.Exception',
+          'ApexPages.StandardController',
+          'ConnectApi.FeedItem',
+        ];
+
+        suite
+          .add('GlobalTypeRegistry type lookup (O(1))', {
+            defer: true,
+            ...benchmarkSettings,
+            fn: async (deferred: any) => {
+              try {
+                const { Effect } = await import('effect');
+                const { GlobalTypeRegistry, GlobalTypeRegistryLive } =
+                  await import('@salesforce/apex-lsp-parser-ast');
+
+                // Lookup a random type from our test set
+                const typeName =
+                  lookupTests[Math.floor(Math.random() * lookupTests.length)];
+
+                await Effect.runPromise(
+                  Effect.gen(function* () {
+                    const registry = yield* GlobalTypeRegistry;
+                    return yield* registry.resolveType(typeName);
+                  }).pipe(Effect.provide(GlobalTypeRegistryLive)),
+                );
+
+                deferred.resolve();
+              } catch (err) {
+                console.error('Error in lookup benchmark:', err);
+                deferred.resolve();
+              }
+            },
+          })
+          .on('cycle', (event: any) => {
+            results[event.target.name] = event.target;
+            logger.alwaysLog(String(event.target));
+          })
+          .on('complete', function (this: any) {
+            const fs = require('fs');
+            const path = require('path');
+            const outputPath = path.join(
+              __dirname,
+              '../lsp-compliant-services-benchmark-results.json',
+            );
+
+            // Merge with existing results
+            let allResults = results;
+            try {
+              if (fs.existsSync(outputPath)) {
+                const existing = JSON.parse(
+                  fs.readFileSync(outputPath, 'utf8'),
+                );
+                allResults = { ...existing, ...results };
+              }
+            } catch (error) {
+              console.warn('Could not read existing results:', error);
+            }
+
+            fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
+            done();
+          })
+          .run({ async: true });
+      }),
+    120000,
+  );
 
   // Informational test to show registry statistics
   it('displays GlobalTypeRegistry statistics', async () => {

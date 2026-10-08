@@ -141,14 +141,14 @@
       ]
     },
     "test:perf": {
-      "command": "vitest run --include=\"test/**/*.perf.ts\" --pool=forks --poolOptions.forks.singleFork",
+      "command": "vitest run --config vitest.config.perf.mts",
       "dependencies": [
         "compile"
       ],
       "files": [
         "src/**/*.ts",
         "test/**/*.perf.ts",
-        "vitest.config.mts"
+        "vitest.config.perf.mts"
       ]
     }
   },

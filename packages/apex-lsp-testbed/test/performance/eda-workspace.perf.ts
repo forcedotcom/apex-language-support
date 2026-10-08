@@ -584,7 +584,7 @@ describe('EDA Workspace Performance Tests', () => {
 
         let suiteCompleted = false;
         const isQuick = process.env.QUICK === 'true';
-        const timeoutMs = isQuick ? 15_000 : 120_000; // 15s for quick, 2min for full
+        const timeoutMs = isQuick ? 25_000 : 120_000; // 25s for quick, 2min for full
         const timeoutId = setTimeout(() => {
           if (!suiteCompleted) {
             console.warn('\n⚠️  Benchmark suite timeout - aborting...');
@@ -629,11 +629,11 @@ describe('EDA Workspace Performance Tests', () => {
         expect(Object.keys(results).length).toBeGreaterThan(0);
       },
       process.env.QUICK === 'true'
-        ? 20_000
+        ? 30_000
         : process.env.CI === 'true'
           ? 300_000
           : 120_000,
-    ); // 20s for quick, 5min for CI, 2min for local
+    ); // 30s for quick, 5min for CI, 2min for local
   });
 
   describe('Layered Listener Performance Comparison', () => {

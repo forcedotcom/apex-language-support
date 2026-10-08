@@ -14,10 +14,10 @@ import {
 
 // Mock Worker
 class MockWorker {
-  postMessage = jest.fn();
-  terminate = jest.fn();
-  addEventListener = jest.fn();
-  removeEventListener = jest.fn();
+  postMessage = vi.fn();
+  terminate = vi.fn();
+  addEventListener = vi.fn();
+  removeEventListener = vi.fn();
   onmessage: ((event: MessageEvent) => void) | null = null;
   onerror: ((event: ErrorEvent) => void) | null = null;
 }
@@ -29,12 +29,12 @@ describe('BrowserUtils', () => {
   const originalSelf = (global as any).self;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Setup browser-like environment
-    (global as any).Worker = jest
-      .fn()
-      .mockImplementation(() => new MockWorker());
+    (global as any).Worker = vi.fn().mockImplementation(function () {
+      return new MockWorker();
+    });
     (global as any).window = {
       location: { origin: 'https://example.com' },
     };
@@ -96,7 +96,7 @@ describe('BrowserUtils', () => {
     });
 
     it('should handle worker creation errors', () => {
-      (global as any).Worker = jest.fn().mockImplementationOnce(() => {
+      (global as any).Worker = vi.fn().mockImplementationOnce(() => {
         throw new Error('Worker creation failed');
       });
 
@@ -109,7 +109,7 @@ describe('BrowserUtils', () => {
 
   describe('getWorkerGlobalScope', () => {
     it('should return self in worker environment', () => {
-      const mockSelf = { postMessage: jest.fn() };
+      const mockSelf = { postMessage: vi.fn() };
       (global as any).self = mockSelf;
       delete (global as any).window;
 
@@ -118,7 +118,7 @@ describe('BrowserUtils', () => {
 
     it('should return null in browser environment', () => {
       (global as any).window = {};
-      (global as any).self = { postMessage: jest.fn() };
+      (global as any).self = { postMessage: vi.fn() };
 
       expect(getWorkerGlobalScope()).toBeNull();
     });

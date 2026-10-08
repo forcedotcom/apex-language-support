@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 /**
  * Unit tests for the enrichment-worker cross-worker fallback helper
  * `resolveMissingNamesViaDataOwner` (W-22692427 / 6.12).
@@ -91,14 +92,14 @@ describe('resolveMissingNamesViaDataOwner — ingestion contract', () => {
     const ingested: string[] = [];
     const svc = {
       symbolManager: {
-        findSymbolByName: jest.fn(async () => [
+        findSymbolByName: vi.fn(async () => [
           {
             name: 'Property__c',
             kind: 'sobject',
             fileUri: placeholderUri,
           },
         ]),
-        getSymbolTableForFile: jest.fn(async () => ({
+        getSymbolTableForFile: vi.fn(async () => ({
           getMetadata: () => ({ parseCompleteness: 'incomplete' }),
         })),
         addSymbolTable: (_table: unknown, fileUri: string) =>
@@ -107,7 +108,7 @@ describe('resolveMissingNamesViaDataOwner — ingestion contract', () => {
           }),
       },
     } as never;
-    const queryByName = jest.fn(async () => ({
+    const queryByName = vi.fn(async () => ({
       matches: [{ name: 'Property__c', fileUri: placeholderUri }],
       entries: {
         [placeholderUri]: {
@@ -142,15 +143,15 @@ describe('resolveMissingNamesViaDataOwner — ingestion contract', () => {
     const classUri = 'file:///workspace/classes/LocalClass.cls';
     const svc = {
       symbolManager: {
-        findSymbolByName: jest.fn(async () => [
+        findSymbolByName: vi.fn(async () => [
           { name: 'LocalClass', kind: 'class', fileUri: classUri },
         ]),
-        getSymbolTableForFile: jest.fn(async () => ({
+        getSymbolTableForFile: vi.fn(async () => ({
           getMetadata: () => ({ parseCompleteness: 'incomplete' }),
         })),
       },
     } as never;
-    const queryByName = jest.fn(async () => ({ matches: [], entries: {} }));
+    const queryByName = vi.fn(async () => ({ matches: [], entries: {} }));
 
     const count = await resolveMissingNamesViaDataOwner(
       svc,

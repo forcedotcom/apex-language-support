@@ -1,6 +1,6 @@
-// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`Capabilities Alignment Tests Capabilities Manager Integration should return development capabilities in development mode: capabilities-manager-development 1`] = `
+exports[`Capabilities Alignment Tests > Capabilities Manager Integration > should return development capabilities in development mode > capabilities-manager-development 1`] = `
 {
   "callHierarchyProvider": undefined,
   "codeActionProvider": {
@@ -98,7 +98,7 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
 }
 `;
 
-exports[`Capabilities Alignment Tests Capabilities Manager Integration should return production capabilities in production mode: capabilities-manager-production 1`] = `
+exports[`Capabilities Alignment Tests > Capabilities Manager Integration > should return production capabilities in production mode > capabilities-manager-production 1`] = `
 {
   "callHierarchyProvider": undefined,
   "codeActionProvider": undefined,
@@ -173,7 +173,7 @@ exports[`Capabilities Alignment Tests Capabilities Manager Integration should re
 }
 `;
 
-exports[`Capabilities Alignment Tests Capability Feature Alignment should have consistent provider capabilities: provider-capabilities-comparison 1`] = `
+exports[`Capabilities Alignment Tests > Capability Feature Alignment > should have consistent provider capabilities > provider-capabilities-comparison 1`] = `
 {
   "development": {
     "codeActionProvider": {
@@ -210,7 +210,7 @@ exports[`Capabilities Alignment Tests Capability Feature Alignment should have c
 }
 `;
 
-exports[`Capabilities Alignment Tests Capability Feature Alignment should have consistent text document sync capabilities: development-text-document-sync 1`] = `
+exports[`Capabilities Alignment Tests > Capability Feature Alignment > should have consistent text document sync capabilities > development-text-document-sync 1`] = `
 {
   "change": 1,
   "openClose": true,
@@ -220,7 +220,7 @@ exports[`Capabilities Alignment Tests Capability Feature Alignment should have c
 }
 `;
 
-exports[`Capabilities Alignment Tests Capability Feature Alignment should have consistent text document sync capabilities: production-text-document-sync 1`] = `
+exports[`Capabilities Alignment Tests > Capability Feature Alignment > should have consistent text document sync capabilities > production-text-document-sync 1`] = `
 {
   "change": 1,
   "openClose": true,
@@ -230,7 +230,7 @@ exports[`Capabilities Alignment Tests Capability Feature Alignment should have c
 }
 `;
 
-exports[`Capabilities Alignment Tests Capability Feature Alignment should have consistent workspace capabilities: development-workspace-capabilities 1`] = `
+exports[`Capabilities Alignment Tests > Capability Feature Alignment > should have consistent workspace capabilities > development-workspace-capabilities 1`] = `
 {
   "workspaceFolders": {
     "changeNotifications": true,
@@ -239,7 +239,7 @@ exports[`Capabilities Alignment Tests Capability Feature Alignment should have c
 }
 `;
 
-exports[`Capabilities Alignment Tests Capability Feature Alignment should have consistent workspace capabilities: production-workspace-capabilities 1`] = `
+exports[`Capabilities Alignment Tests > Capability Feature Alignment > should have consistent workspace capabilities > production-workspace-capabilities 1`] = `
 {
   "workspaceFolders": {
     "changeNotifications": true,
@@ -248,7 +248,7 @@ exports[`Capabilities Alignment Tests Capability Feature Alignment should have c
 }
 `;
 
-exports[`Capabilities Alignment Tests Client Capabilities Configuration should have consistent client capabilities configuration: client-capabilities-configuration 1`] = `
+exports[`Capabilities Alignment Tests > Client Capabilities Configuration > should have consistent client capabilities configuration > client-capabilities-configuration 1`] = `
 {
   "development": {
     "experimental": {
@@ -596,7 +596,7 @@ exports[`Capabilities Alignment Tests Client Capabilities Configuration should h
 }
 `;
 
-exports[`Capabilities Alignment Tests Client Capabilities Configuration should have consistent development client capabilities: development-client-capabilities 1`] = `
+exports[`Capabilities Alignment Tests > Client Capabilities Configuration > should have consistent development client capabilities > development-client-capabilities 1`] = `
 {
   "experimental": {
     "findMissingArtifactProvider": {
@@ -801,7 +801,7 @@ exports[`Capabilities Alignment Tests Client Capabilities Configuration should h
 }
 `;
 
-exports[`Capabilities Alignment Tests Client Capabilities Configuration should have consistent production client capabilities: production-client-capabilities 1`] = `
+exports[`Capabilities Alignment Tests > Client Capabilities Configuration > should have consistent production client capabilities > production-client-capabilities 1`] = `
 {
   "experimental": {
     "findMissingArtifactProvider": {
@@ -945,7 +945,7 @@ exports[`Capabilities Alignment Tests Client Capabilities Configuration should h
 }
 `;
 
-exports[`Capabilities Alignment Tests Client Capabilities Configuration should return correct capabilities for development mode: development-client-capabilities-via-function 1`] = `
+exports[`Capabilities Alignment Tests > Client Capabilities Configuration > should return correct capabilities for development mode > development-client-capabilities-via-function 1`] = `
 {
   "experimental": {
     "findMissingArtifactProvider": {
@@ -1150,7 +1150,7 @@ exports[`Capabilities Alignment Tests Client Capabilities Configuration should r
 }
 `;
 
-exports[`Capabilities Alignment Tests Client Capabilities Configuration should return correct capabilities for production mode: production-client-capabilities-via-function 1`] = `
+exports[`Capabilities Alignment Tests > Client Capabilities Configuration > should return correct capabilities for production mode > production-client-capabilities-via-function 1`] = `
 {
   "experimental": {
     "findMissingArtifactProvider": {
@@ -1294,7 +1294,7 @@ exports[`Capabilities Alignment Tests Client Capabilities Configuration should r
 }
 `;
 
-exports[`Capabilities Alignment Tests Configuration Consistency should have consistent mode detection: mode-detection-consistency 1`] = `
+exports[`Capabilities Alignment Tests > Configuration Consistency > should have consistent mode detection > mode-detection-consistency 1`] = `
 [
   {
     "expectedClient": {
@@ -1815,7 +1815,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should have cons
 ]
 `;
 
-exports[`Capabilities Alignment Tests Configuration Consistency should maintain consistent configuration structure: full-configuration-comparison 1`] = `
+exports[`Capabilities Alignment Tests > Configuration Consistency > should maintain consistent configuration structure > full-configuration-comparison 1`] = `
 {
   "clientCapabilities": {
     "development": {
@@ -2867,7 +2867,7 @@ exports[`Capabilities Alignment Tests Configuration Consistency should maintain 
 }
 `;
 
-exports[`Capabilities Alignment Tests Dynamic Registration Alignment should have consistent document selectors between client and server: document-selectors-alignment 1`] = `
+exports[`Capabilities Alignment Tests > Dynamic Registration Alignment > should have consistent document selectors between client and server > document-selectors-alignment 1`] = `
 [
   {
     "language": "apex",
@@ -2880,7 +2880,7 @@ exports[`Capabilities Alignment Tests Dynamic Registration Alignment should have
 ]
 `;
 
-exports[`Capabilities Alignment Tests Dynamic Registration Alignment should have consistent dynamic registration support: dynamic-registration-alignment 1`] = `
+exports[`Capabilities Alignment Tests > Dynamic Registration Alignment > should have consistent dynamic registration support > dynamic-registration-alignment 1`] = `
 {
   "development": {
     "dynamicRegistration": {
@@ -2919,7 +2919,7 @@ exports[`Capabilities Alignment Tests Dynamic Registration Alignment should have
 }
 `;
 
-exports[`Capabilities Alignment Tests Server Capabilities Configuration should have consistent capabilities configuration: server-capabilities-configuration 1`] = `
+exports[`Capabilities Alignment Tests > Server Capabilities Configuration > should have consistent capabilities configuration > server-capabilities-configuration 1`] = `
 {
   "development": {
     "callHierarchyProvider": undefined,
@@ -3108,7 +3108,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
 }
 `;
 
-exports[`Capabilities Alignment Tests Server Capabilities Configuration should have consistent development capabilities: development-server-capabilities 1`] = `
+exports[`Capabilities Alignment Tests > Server Capabilities Configuration > should have consistent development capabilities > development-server-capabilities 1`] = `
 {
   "callHierarchyProvider": undefined,
   "codeActionProvider": {
@@ -3206,7 +3206,7 @@ exports[`Capabilities Alignment Tests Server Capabilities Configuration should h
 }
 `;
 
-exports[`Capabilities Alignment Tests Server Capabilities Configuration should have consistent production capabilities: production-server-capabilities 1`] = `
+exports[`Capabilities Alignment Tests > Server Capabilities Configuration > should have consistent production capabilities > production-server-capabilities 1`] = `
 {
   "callHierarchyProvider": undefined,
   "codeActionProvider": undefined,

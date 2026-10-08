@@ -1,11 +1,13 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import { Effect } from 'effect';
 import {
   DiagnosticRefreshService,
@@ -13,15 +15,15 @@ import {
 } from '../../src/services/DiagnosticRefreshService';
 
 describe('DiagnosticRefreshService', () => {
-  let refreshMock: jest.Mock;
+  let refreshMock: Mock;
   let mockConnection: any;
 
   beforeEach(() => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     // Reset singleton between tests
     DiagnosticRefreshService.reset();
 
-    refreshMock = jest.fn();
+    refreshMock = vi.fn();
     mockConnection = {
       languages: {
         diagnostics: {
@@ -32,8 +34,8 @@ describe('DiagnosticRefreshService', () => {
   });
 
   afterEach(() => {
-    jest.clearAllTimers();
-    jest.useRealTimers();
+    vi.clearAllTimers();
+    vi.useRealTimers();
     DiagnosticRefreshService.reset();
   });
 
@@ -45,7 +47,7 @@ describe('DiagnosticRefreshService', () => {
       // connection NOT set
 
       await Effect.runPromise(service.signalEnrichmentComplete());
-      jest.runAllTimers();
+      vi.runAllTimers();
 
       expect(refreshMock).not.toHaveBeenCalled();
     });
@@ -57,7 +59,7 @@ describe('DiagnosticRefreshService', () => {
       service.setClientSupportsRefresh(true);
 
       await Effect.runPromise(service.signalEnrichmentComplete());
-      jest.runAllTimers();
+      vi.runAllTimers();
 
       expect(refreshMock).not.toHaveBeenCalled();
     });
@@ -69,7 +71,7 @@ describe('DiagnosticRefreshService', () => {
       service.setClientSupportsRefresh(false);
 
       await Effect.runPromise(service.signalEnrichmentComplete());
-      jest.runAllTimers();
+      vi.runAllTimers();
 
       expect(refreshMock).not.toHaveBeenCalled();
     });
@@ -92,7 +94,7 @@ describe('DiagnosticRefreshService', () => {
       expect(refreshMock).not.toHaveBeenCalled();
 
       // Advance past the debounce window (default 250ms)
-      jest.advanceTimersByTime(300);
+      vi.advanceTimersByTime(300);
       // Allow microtasks to drain
       await Promise.resolve();
 
@@ -112,7 +114,7 @@ describe('DiagnosticRefreshService', () => {
       expect(refreshMock).not.toHaveBeenCalled();
 
       // Advance past the debounce window
-      jest.advanceTimersByTime(300);
+      vi.advanceTimersByTime(300);
       await Promise.resolve();
 
       // Only one refresh should have been sent
@@ -126,7 +128,7 @@ describe('DiagnosticRefreshService', () => {
       await Effect.runPromise(service.signalEnrichmentComplete());
 
       // Advance partway through the window — timer should reset on next call
-      jest.advanceTimersByTime(150);
+      vi.advanceTimersByTime(150);
       await Promise.resolve();
       expect(refreshMock).not.toHaveBeenCalled();
 
@@ -134,13 +136,13 @@ describe('DiagnosticRefreshService', () => {
       await Effect.runPromise(service.signalEnrichmentComplete());
 
       // Advance to just past where the first timer would have fired
-      jest.advanceTimersByTime(150);
+      vi.advanceTimersByTime(150);
       await Promise.resolve();
       // Still should not have fired (timer was reset)
       expect(refreshMock).not.toHaveBeenCalled();
 
       // Advance past the full window from the second signal
-      jest.advanceTimersByTime(150);
+      vi.advanceTimersByTime(150);
       await Promise.resolve();
       expect(refreshMock).toHaveBeenCalledTimes(1);
     });

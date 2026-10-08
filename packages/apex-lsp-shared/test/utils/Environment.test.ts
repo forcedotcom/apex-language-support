@@ -46,8 +46,8 @@ describe('Environment Detection', () => {
     it('should return true in Node.js environment', () => {
       (global as any).process = {
         versions: { node: '16.0.0' },
-        exit: jest.fn(),
-        cwd: jest.fn(),
+        exit: vi.fn(),
+        cwd: vi.fn(),
       };
 
       expect(isNodeEnvironment()).toBe(true);
@@ -92,7 +92,7 @@ describe('Environment Detection', () => {
   describe('isWorkerEnvironment', () => {
     it('should return true in web worker environment', () => {
       (global as any).self = {
-        importScripts: jest.fn(),
+        importScripts: vi.fn(),
       };
       delete (global as any).window; // Ensure no window object
 
@@ -101,7 +101,7 @@ describe('Environment Detection', () => {
 
     it('should return false without self object', () => {
       delete (global as any).self;
-      (global as any).importScripts = jest.fn();
+      (global as any).importScripts = vi.fn();
       expect(isWorkerEnvironment()).toBe(false);
     });
 
@@ -119,8 +119,8 @@ describe('Environment Detection', () => {
     it('should detect node environment', () => {
       (global as any).process = {
         versions: { node: '16.0.0' },
-        exit: jest.fn(),
-        cwd: jest.fn(),
+        exit: vi.fn(),
+        cwd: vi.fn(),
       };
 
       expect(detectEnvironment()).toBe('node');
@@ -138,8 +138,8 @@ describe('Environment Detection', () => {
 
     it('should detect worker environment', () => {
       (global as any).self = {
-        importScripts: jest.fn(),
-        postMessage: jest.fn(),
+        importScripts: vi.fn(),
+        postMessage: vi.fn(),
         constructor: { name: 'DedicatedWorkerGlobalScope' },
       };
 
@@ -155,8 +155,8 @@ describe('Environment Detection', () => {
     it('should prioritize node over browser detection', () => {
       (global as any).process = {
         versions: { node: '16.0.0' },
-        exit: jest.fn(),
-        cwd: jest.fn(),
+        exit: vi.fn(),
+        cwd: vi.fn(),
       };
       (global as any).window = {
         document: {},
@@ -196,7 +196,7 @@ describe('Environment Detection', () => {
         document: {},
         location: {},
         navigator: {},
-        Worker: jest.fn(),
+        Worker: vi.fn(),
       };
 
       expect(supportsFeature('worker')).toBe(true);
@@ -214,8 +214,8 @@ describe('Environment Detection', () => {
     it('should return globalThis for node environment', () => {
       (global as any).process = {
         versions: { node: '16.0.0' },
-        exit: jest.fn(),
-        cwd: jest.fn(),
+        exit: vi.fn(),
+        cwd: vi.fn(),
       };
 
       expect(getGlobal()).toBe(globalThis);
@@ -251,8 +251,8 @@ describe('Environment Detection', () => {
         navigator: {},
       };
       (global as any).self = {
-        importScripts: jest.fn(),
-        postMessage: jest.fn(),
+        importScripts: vi.fn(),
+        postMessage: vi.fn(),
         constructor: { name: 'DedicatedWorkerGlobalScope' },
       };
 

@@ -1,20 +1,23 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { DeleteFilesParams } from 'vscode-languageserver';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import {
   DocumentDeleteProcessingService,
   IDocumentDeleteProcessor,
 } from '../../src/services/DocumentDeleteProcessingService';
+import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
+import { getDocumentStateCache } from '../../src/services/DocumentStateCache';
 
 // Mock storage
-jest.mock('../../src/storage/ApexStorageManager');
+vi.mock('../../src/storage/ApexStorageManager');
 
 describe('DocumentDeleteProcessingService', () => {
   let service: DocumentDeleteProcessingService;
@@ -23,28 +26,25 @@ describe('DocumentDeleteProcessingService', () => {
   let mockSymbolManager: any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     logger = getLogger();
 
     mockStorage = {
-      setDocument: jest.fn(),
-      getDocument: jest.fn(),
-      deleteDocument: jest.fn(),
-      getAllDocuments: jest.fn(),
+      setDocument: vi.fn(),
+      getDocument: vi.fn(),
+      deleteDocument: vi.fn(),
+      getAllDocuments: vi.fn(),
     };
 
-    const {
-      ApexStorageManager,
-    } = require('../../src/storage/ApexStorageManager');
-    ApexStorageManager.getInstance.mockReturnValue({
-      getStorage: jest.fn(() => mockStorage),
+    (ApexStorageManager.getInstance as any).mockReturnValue({
+      getStorage: vi.fn(() => mockStorage),
     });
 
     mockSymbolManager = {
-      removeFile: jest.fn(),
-      findSymbolsInFile: jest.fn().mockReturnValue([]),
-      addSymbolTable: jest.fn(),
+      removeFile: vi.fn(),
+      findSymbolsInFile: vi.fn().mockReturnValue([]),
+      addSymbolTable: vi.fn(),
     };
 
     service = new DocumentDeleteProcessingService(logger, mockSymbolManager);
@@ -64,9 +64,6 @@ describe('DocumentDeleteProcessingService', () => {
     });
 
     it('should invalidate document state cache on delete', async () => {
-      const {
-        getDocumentStateCache,
-      } = require('../../src/services/DocumentStateCache');
       const cache = getDocumentStateCache();
       const testUri = 'file:///deletecache.cls';
 

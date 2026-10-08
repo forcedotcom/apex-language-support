@@ -1,61 +1,64 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import type { Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // --- Mocks ---
 
-const mockKill = jest.fn();
-const mockStdout = { on: jest.fn(), readable: true };
-const mockStdin = { on: jest.fn(), writable: true };
-const mockStderr = { on: jest.fn() };
+const mocks = vi.hoisted(() => {
+  const mockKill = vi.fn();
+  const mockStdout = { on: vi.fn(), readable: true };
+  const mockStdin = { on: vi.fn(), writable: true };
+  const mockStderr = { on: vi.fn() };
+  const mockOn = vi.fn();
+  const mockEmit = vi.fn();
+  const mockChildProcess = {
+    stdout: mockStdout,
+    stdin: mockStdin,
+    stderr: mockStderr,
+    killed: false,
+    exitCode: null,
+    signalCode: null,
+    kill: mockKill,
+    pid: 12345,
+    on: mockOn,
+    once: vi.fn(),
+    emit: mockEmit,
+  };
+  const mockDispose = vi.fn();
+  const mockListen = vi.fn();
+  const mockMessageConnection = {
+    sendRequest: vi.fn(),
+    sendNotification: vi.fn(),
+    onRequest: vi.fn().mockReturnValue({ dispose: vi.fn() }),
+    onNotification: vi.fn().mockReturnValue({ dispose: vi.fn() }),
+    onError: vi.fn().mockReturnValue({ dispose: vi.fn() }),
+    onClose: vi.fn().mockReturnValue({ dispose: vi.fn() }),
+    dispose: mockDispose,
+    listen: mockListen,
+  };
+  return { mockChildProcess, mockDispose, mockListen, mockMessageConnection };
+});
+const { mockChildProcess, mockDispose, mockListen } = mocks;
+const { kill: mockKill, stderr: mockStderr } = mockChildProcess;
 
-const mockOn = jest.fn();
-const mockEmit = jest.fn();
-
-const mockChildProcess = {
-  stdout: mockStdout,
-  stdin: mockStdin,
-  stderr: mockStderr,
-  killed: false,
-  exitCode: null,
-  signalCode: null,
-  kill: mockKill,
-  pid: 12345,
-  on: mockOn,
-  once: jest.fn(),
-  emit: mockEmit,
-};
-
-jest.mock('child_process', () => ({
-  spawn: jest.fn().mockReturnValue(mockChildProcess),
+vi.mock('child_process', () => ({
+  spawn: vi.fn().mockReturnValue(mocks.mockChildProcess),
 }));
 
-const mockDispose = jest.fn();
-const mockListen = jest.fn();
-const mockMessageConnection = {
-  sendRequest: jest.fn(),
-  sendNotification: jest.fn(),
-  onRequest: jest.fn().mockReturnValue({ dispose: jest.fn() }),
-  onNotification: jest.fn().mockReturnValue({ dispose: jest.fn() }),
-  onError: jest.fn().mockReturnValue({ dispose: jest.fn() }),
-  onClose: jest.fn().mockReturnValue({ dispose: jest.fn() }),
-  dispose: mockDispose,
-  listen: mockListen,
-};
-
-jest.mock('vscode-jsonrpc', () => ({
-  createMessageConnection: jest.fn().mockReturnValue(mockMessageConnection),
+vi.mock('vscode-jsonrpc', () => ({
+  createMessageConnection: vi.fn().mockReturnValue(mocks.mockMessageConnection),
 }));
 
-jest.mock('vscode-jsonrpc/node', () => ({
-  StreamMessageReader: jest.fn(),
-  StreamMessageWriter: jest.fn(),
+vi.mock('vscode-jsonrpc/node', () => ({
+  StreamMessageReader: vi.fn(),
+  StreamMessageWriter: vi.fn(),
 }));
 
 import { spawn } from 'child_process';
@@ -63,13 +66,13 @@ import { createNodeStdioConnection } from '../../src/transports/createNodeStdioC
 
 describe('createNodeStdioConnection', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    Object.defineProperty(mockChildProcess, 'killed', {
+    vi.clearAllMocks();
+    Object.defineProperty(mocks.mockChildProcess, 'killed', {
       value: false,
       writable: true,
       configurable: true,
     });
-    Object.defineProperty(mockChildProcess, 'exitCode', {
+    Object.defineProperty(mocks.mockChildProcess, 'exitCode', {
       value: null,
       writable: true,
       configurable: true,
@@ -100,7 +103,7 @@ describe('createNodeStdioConnection', () => {
     );
 
     // Env should merge process.env with custom env.
-    const spawnCall = (spawn as jest.Mock).mock.calls[0] as any[];
+    const spawnCall = (spawn as Mock).mock.calls[0] as any[];
     expect(spawnCall[2].env.FOO).toBe('bar');
   });
 
@@ -122,14 +125,12 @@ describe('createNodeStdioConnection', () => {
     const result = createNodeStdioConnection('/path/to/server.js');
 
     // Mock 'once' to immediately call the callback (simulating immediate exit).
-    (mockChildProcess.once as jest.Mock).mockImplementation(
-      (...args: unknown[]) => {
-        const [event, callback] = args as [string, () => void];
-        if (event === 'exit') {
-          callback();
-        }
-      },
-    );
+    (mockChildProcess.once as Mock).mockImplementation((...args: unknown[]) => {
+      const [event, callback] = args as [string, () => void];
+      if (event === 'exit') {
+        callback();
+      }
+    });
 
     await result.connection.dispose();
 
@@ -158,7 +159,7 @@ describe('createNodeStdioConnection', () => {
   it('uses process.execPath when nodePath is not provided', () => {
     createNodeStdioConnection('/path/to/server.js');
 
-    const spawnCall = (spawn as jest.Mock).mock.calls[0] as any[];
+    const spawnCall = (spawn as Mock).mock.calls[0] as any[];
     expect(spawnCall[0]).toBe(process.execPath);
   });
 
@@ -167,7 +168,7 @@ describe('createNodeStdioConnection', () => {
       env: { NODE_OPTIONS: '--inspect=9229 --max-old-space-size=4096' },
     });
 
-    const spawnCall = (spawn as jest.Mock).mock.calls[0] as any[];
+    const spawnCall = (spawn as Mock).mock.calls[0] as any[];
     // --inspect should be filtered out, but --max-old-space-size preserved.
     expect(spawnCall[2].env.NODE_OPTIONS).toBe('--max-old-space-size=4096');
   });
@@ -177,7 +178,7 @@ describe('createNodeStdioConnection', () => {
       env: { NODE_OPTIONS: '--inspect-brk=9229' },
     });
 
-    const spawnCall = (spawn as jest.Mock).mock.calls[0] as any[];
+    const spawnCall = (spawn as Mock).mock.calls[0] as any[];
     // NODE_OPTIONS should be deleted entirely when only inspect flags present.
     expect(spawnCall[2].env.NODE_OPTIONS).toBeUndefined();
   });

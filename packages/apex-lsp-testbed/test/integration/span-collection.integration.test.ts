@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { pathToFileURL } from 'url';
@@ -41,7 +42,7 @@ describe('Span Collection Integration', () => {
   const workspaceUri = pathToFileURL(join(__dirname, '../fixtures')).href;
 
   // Increase timeout for integration test
-  jest.setTimeout(60000); // 60 seconds for workspace load + span collection
+  vi.setConfig({ testTimeout: 60000 }); // 60 seconds for workspace load + span collection
 
   beforeAll(async () => {
     // Start simple HTTP server to receive OTLP spans

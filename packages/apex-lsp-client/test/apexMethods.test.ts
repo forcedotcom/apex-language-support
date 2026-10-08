@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import type { Mock } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   APEX_METHODS,
   APEX_DEBUGGER_COMMANDS,
@@ -35,16 +36,16 @@ const makeMockConnection = (): MockConnection => {
   const requestHandlers = new Map<string, (params: unknown) => unknown>();
   const notificationHandlers = new Map<string, (params: unknown) => void>();
 
-  const sendRequest = jest.fn(
+  const sendRequest = vi.fn(
     (method: string, _params?: unknown): Promise<unknown> =>
       Promise.resolve(
         method === 'initialize' ? { capabilities: {} } : { success: true },
       ),
   );
-  const sendNotification = jest.fn(
+  const sendNotification = vi.fn(
     (_method: string, _params?: unknown): Promise<void> => Promise.resolve(),
   );
-  const onRequest = jest.fn(
+  const onRequest = vi.fn(
     (method: string, handler: (params: unknown) => unknown): Disposable => {
       requestHandlers.set(method, handler);
       return {
@@ -54,7 +55,7 @@ const makeMockConnection = (): MockConnection => {
       };
     },
   );
-  const onNotification = jest.fn(
+  const onNotification = vi.fn(
     (method: string, handler: (params: unknown) => void): Disposable => {
       notificationHandlers.set(method, handler);
       return {
@@ -64,13 +65,13 @@ const makeMockConnection = (): MockConnection => {
       };
     },
   );
-  const onError = jest.fn((_handler: (e: Error) => void): Disposable => ({
-    dispose: jest.fn(),
+  const onError = vi.fn((_handler: (e: Error) => void): Disposable => ({
+    dispose: vi.fn(),
   }));
-  const onClose = jest.fn((_handler: () => void): Disposable => ({
-    dispose: jest.fn(),
+  const onClose = vi.fn((_handler: () => void): Disposable => ({
+    dispose: vi.fn(),
   }));
-  const dispose = jest.fn((): void => undefined);
+  const dispose = vi.fn((): void => undefined);
 
   return {
     sendRequest,
@@ -140,7 +141,7 @@ describe('ApexMethods typed surface', () => {
 
       await core.sendWorkspaceBatch(params);
 
-      const sendReq = connection.sendRequest as jest.Mock;
+      const sendReq = connection.sendRequest as Mock;
       expect(sendReq).toHaveBeenCalledWith(
         APEX_METHODS.sendWorkspaceBatch.method,
         params,
@@ -155,7 +156,7 @@ describe('ApexMethods typed surface', () => {
 
       await core.processWorkspaceBatches(params);
 
-      const sendReq = connection.sendRequest as jest.Mock;
+      const sendReq = connection.sendRequest as Mock;
       expect(sendReq).toHaveBeenCalledWith(
         APEX_METHODS.processWorkspaceBatches.method,
         params,
@@ -170,7 +171,7 @@ describe('ApexMethods typed surface', () => {
 
       core.workspaceLoadComplete(params);
 
-      const sendNotif = connection.sendNotification as jest.Mock;
+      const sendNotif = connection.sendNotification as Mock;
       expect(sendNotif).toHaveBeenCalledWith(
         APEX_METHODS.workspaceLoadComplete.method,
         params,
@@ -185,7 +186,7 @@ describe('ApexMethods typed surface', () => {
 
       core.workspaceLoadFailed(params);
 
-      const sendNotif = connection.sendNotification as jest.Mock;
+      const sendNotif = connection.sendNotification as Mock;
       expect(sendNotif).toHaveBeenCalledWith(
         APEX_METHODS.workspaceLoadFailed.method,
         params,
@@ -200,7 +201,7 @@ describe('ApexMethods typed surface', () => {
 
       await core.profilingStart(params);
 
-      const sendReq = connection.sendRequest as jest.Mock;
+      const sendReq = connection.sendRequest as Mock;
       expect(sendReq).toHaveBeenCalledWith(
         APEX_METHODS.profilingStart.method,
         params,
@@ -215,7 +216,7 @@ describe('ApexMethods typed surface', () => {
 
       await core.profilingStop(params);
 
-      const sendReq = connection.sendRequest as jest.Mock;
+      const sendReq = connection.sendRequest as Mock;
       expect(sendReq).toHaveBeenCalledWith(
         APEX_METHODS.profilingStop.method,
         params,
@@ -230,7 +231,7 @@ describe('ApexMethods typed surface', () => {
 
       await core.profilingStatus(params);
 
-      const sendReq = connection.sendRequest as jest.Mock;
+      const sendReq = connection.sendRequest as Mock;
       expect(sendReq).toHaveBeenCalledWith(
         APEX_METHODS.profilingStatus.method,
         params,
@@ -244,7 +245,7 @@ describe('ApexMethods typed surface', () => {
     it('registered handler receives params and returns result', async () => {
       const core = await ApexClientCore.create(connection);
 
-      const handler = jest.fn(
+      const handler = vi.fn(
         (_params: FindMissingArtifactParams): FindMissingArtifactResult => ({
           opened: ['file:///Found.cls'],
         }),
@@ -308,10 +309,10 @@ describe('ApexMethods typed surface', () => {
     it('re-registration disposes old handler and installs new', async () => {
       const core = await ApexClientCore.create(connection);
 
-      const handler1 = jest.fn((): FindMissingArtifactResult => ({
+      const handler1 = vi.fn((): FindMissingArtifactResult => ({
         opened: ['file:///A.cls'],
       }));
-      const handler2 = jest.fn((): FindMissingArtifactResult => ({
+      const handler2 = vi.fn((): FindMissingArtifactResult => ({
         opened: ['file:///B.cls'],
       }));
 
@@ -331,7 +332,7 @@ describe('ApexMethods typed surface', () => {
     it('disposing the registration reverts to the default fallback', async () => {
       const core = await ApexClientCore.create(connection);
 
-      const handler = jest.fn((): FindMissingArtifactResult => ({
+      const handler = vi.fn((): FindMissingArtifactResult => ({
         opened: ['file:///X.cls'],
       }));
       const disposable = core.onFindMissingArtifact(handler);

@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import { SignatureHelpParams } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -16,9 +18,9 @@ import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 // Logger is handled by the shared library's global logging system
 
 // Mock ApexStorageManager
-jest.mock('../../src/storage/ApexStorageManager', () => ({
+vi.mock('../../src/storage/ApexStorageManager', () => ({
   ApexStorageManager: {
-    getInstance: jest.fn(),
+    getInstance: vi.fn(),
   },
 }));
 
@@ -31,24 +33,24 @@ describe('SignatureHelpProcessingService', () => {
 
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Setup logger
     logger = getLogger();
 
     // Setup mock storage
     mockStorage = {
-      getDocument: jest.fn(),
+      getDocument: vi.fn(),
     };
 
-    (ApexStorageManager.getInstance as jest.Mock).mockReturnValue({
-      getStorage: jest.fn().mockReturnValue(mockStorage),
+    (ApexStorageManager.getInstance as Mock).mockReturnValue({
+      getStorage: vi.fn().mockReturnValue(mockStorage),
     });
 
     // Setup mock document
     mockDocument = {
       uri: 'file:///test/TestClass.cls',
-      getText: jest.fn().mockReturnValue(`
+      getText: vi.fn().mockReturnValue(`
         public class TestClass {
           public void doSomething(String param1, Integer param2) {
             // Method body
@@ -59,16 +61,16 @@ describe('SignatureHelpProcessingService', () => {
           }
         }
       `),
-      offsetAt: jest.fn().mockReturnValue(100),
-      positionAt: jest.fn(),
-      lineCount: jest.fn().mockReturnValue(10),
+      offsetAt: vi.fn().mockReturnValue(100),
+      positionAt: vi.fn(),
+      lineCount: vi.fn().mockReturnValue(10),
     } as any;
 
     mockSymbolManager = {
-      getInvocationAtPosition: jest.fn().mockResolvedValue(null),
-      findSymbolByName: jest.fn().mockResolvedValue([]),
-      findSymbolsInFile: jest.fn().mockResolvedValue([]),
-      findRelatedSymbols: jest.fn().mockResolvedValue([]),
+      getInvocationAtPosition: vi.fn().mockResolvedValue(null),
+      findSymbolByName: vi.fn().mockResolvedValue([]),
+      findSymbolsInFile: vi.fn().mockResolvedValue([]),
+      findRelatedSymbols: vi.fn().mockResolvedValue([]),
     };
 
     service = new SignatureHelpProcessingService(logger, mockSymbolManager);

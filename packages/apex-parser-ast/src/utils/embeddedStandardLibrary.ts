@@ -33,12 +33,16 @@ let cachedZipBuffer: Uint8Array | null = null;
  * This is set by esbuild at bundle time.
  */
 let embeddedZipDataUrl: string | undefined;
+const nodeRequire =
+  typeof require === 'function'
+    ? require
+    : (globalThis as typeof globalThis & { require?: NodeRequire }).require;
 
 // Try to import the ZIP file - this will be transformed by esbuild in bundled builds
 // In unbundled builds, this will fail and we'll fall back to fs.readFileSync
 try {
   // Dynamic require to prevent TypeScript from complaining
-  const imported = require('../../resources/StandardApexLibrary.zip');
+  const imported = nodeRequire?.('../../resources/StandardApexLibrary.zip');
   // In bundled builds, this will be a data URL string
   if (typeof imported === 'string' && imported.startsWith('data:')) {
     embeddedZipDataUrl = imported;
@@ -65,19 +69,24 @@ function loadZipFromDisk():
   | undefined {
   try {
     // Only available in Node.js environments
-    if (typeof process === 'undefined' || typeof require === 'undefined') {
+    if (typeof process === 'undefined' || !nodeRequire) {
       return undefined;
     }
 
-    const fs = require('fs');
-    const path = require('path');
-    const {
-      ChecksumFileMissingError,
-      ChecksumValidationError,
-    } = require('./checksum-validator');
+    const fs = nodeRequire('fs');
+    const path = nodeRequire('path');
+    const { ChecksumFileMissingError, ChecksumValidationError } = nodeRequire(
+      './checksum-validator',
+    );
 
     // Try multiple possible locations for the ZIP file
     const possiblePaths = [
+      // Vitest executes source modules as ESM, where __dirname is unavailable.
+      path.resolve(process.cwd(), 'resources/StandardApexLibrary.zip'),
+      path.resolve(
+        process.cwd(),
+        'packages/apex-parser-ast/resources/StandardApexLibrary.zip',
+      ),
       // From out/utils/ -> resources/
       path.resolve(__dirname, '../../resources/StandardApexLibrary.zip'),
       // From src/utils/ -> resources/
@@ -190,7 +199,8 @@ export function getEmbeddedStandardLibraryZip(): Uint8Array | undefined {
   if (diskResult) {
     try {
       // Validate checksum
-      const { validateMD5Checksum } = require('./checksum-validator');
+      const { validateMD5Checksum } =
+        nodeRequire?.('./checksum-validator') ?? {};
       validateMD5Checksum(
         'StandardApexLibrary.zip',
         diskResult.data,

@@ -6,31 +6,34 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import { ApexLibProtocolHandler } from '../../src/apexlib/protocol-handler';
 import { getLogger } from '@salesforce/apex-lsp-shared';
+import { ResourceLoader } from '@salesforce/apex-lsp-parser-ast';
 
 // Mock the logger
 const mockLogger = {
-  debug: jest.fn(),
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
 } as any;
-(getLogger as jest.Mock).mockReturnValue(mockLogger);
+(getLogger as Mock).mockReturnValue(mockLogger);
 
-jest.mock('@salesforce/apex-lsp-shared', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
+vi.mock('@salesforce/apex-lsp-shared', async () => {
+  const actual = await vi.importActual('@salesforce/apex-lsp-shared');
   return {
     ...actual,
-    getLogger: jest.fn(),
+    getLogger: vi.fn(),
   };
 });
 
 // Mock the parser package's ResourceLoader
-jest.mock('@salesforce/apex-lsp-parser-ast', () => ({
+vi.mock('@salesforce/apex-lsp-parser-ast', () => ({
   ResourceLoader: {
-    getInstance: jest.fn().mockReturnValue({
-      getFile: jest.fn(),
+    getInstance: vi.fn().mockReturnValue({
+      getFile: vi.fn(),
     }),
   },
 }));
@@ -41,11 +44,11 @@ describe('ApexLibProtocolHandler', () => {
   let handler: ApexLibProtocolHandler;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     mockClient = {
-      sendRequest: jest.fn(),
-      sendNotification: jest.fn(),
+      sendRequest: vi.fn(),
+      sendNotification: vi.fn(),
     };
 
     mockConfig = {
@@ -63,9 +66,8 @@ describe('ApexLibProtocolHandler', () => {
       const expectedContent = 'global class System { }';
 
       // Mock ResourceLoader to return content
-      const { ResourceLoader } = require('@salesforce/apex-lsp-parser-ast');
-      ResourceLoader.getInstance.mockReturnValue({
-        getFile: jest.fn().mockResolvedValue(expectedContent),
+      (ResourceLoader.getInstance as Mock).mockReturnValue({
+        getFile: vi.fn().mockResolvedValue(expectedContent),
       });
 
       const result = await handler.provideTextDocumentContent(uri);
@@ -89,9 +91,8 @@ describe('ApexLibProtocolHandler', () => {
       const expectedContent = 'global class System { }';
 
       // Mock ResourceLoader to return null
-      const { ResourceLoader } = require('@salesforce/apex-lsp-parser-ast');
-      ResourceLoader.getInstance.mockReturnValue({
-        getFile: jest.fn().mockResolvedValue(null),
+      (ResourceLoader.getInstance as Mock).mockReturnValue({
+        getFile: vi.fn().mockResolvedValue(null),
       });
 
       // Mock LSP resolve request
@@ -110,9 +111,8 @@ describe('ApexLibProtocolHandler', () => {
       const uri = 'apexlib://resources/StandardApexLibrary/System/System.cls';
 
       // Mock ResourceLoader to return null
-      const { ResourceLoader } = require('@salesforce/apex-lsp-parser-ast');
-      ResourceLoader.getInstance.mockReturnValue({
-        getFile: jest.fn().mockResolvedValue(null),
+      (ResourceLoader.getInstance as Mock).mockReturnValue({
+        getFile: vi.fn().mockResolvedValue(null),
       });
 
       // Mock LSP resolve request to throw error
@@ -134,9 +134,8 @@ describe('ApexLibProtocolHandler', () => {
         'apexlib://resources/StandardApexLibrary/System/Debug.cls',
       ];
 
-      const { ResourceLoader } = require('@salesforce/apex-lsp-parser-ast');
-      ResourceLoader.getInstance.mockReturnValue({
-        getFile: jest.fn().mockResolvedValue('global class TestClass { }'),
+      (ResourceLoader.getInstance as Mock).mockReturnValue({
+        getFile: vi.fn().mockResolvedValue('global class TestClass { }'),
       });
 
       for (const uri of standardApexUris) {

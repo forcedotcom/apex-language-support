@@ -6,29 +6,24 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mocked } from 'vitest';
+import { vi } from 'vitest';
 import { DidChangeDocumentHandler } from '../../src/handlers/DidChangeDocumentHandler';
 import { IDocumentChangeProcessor } from '../../src/services/DocumentChangeProcessingService';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import { createMockLogger, type MockLogger } from '../utils/mockLogger';
 
 describe('DidChangeDocumentHandler', () => {
   let handler: DidChangeDocumentHandler;
-  let mockLogger: jest.Mocked<LoggerInterface>;
-  let mockProcessor: jest.Mocked<IDocumentChangeProcessor>;
+  let mockLogger: MockLogger;
+  let mockProcessor: Mocked<IDocumentChangeProcessor>;
 
   beforeEach(() => {
-    mockLogger = {
-      log: jest.fn(),
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      alwaysLog: jest.fn(),
-    };
+    mockLogger = createMockLogger();
 
     mockProcessor = {
-      processDocumentChange: jest.fn(),
+      processDocumentChange: vi.fn(),
     };
 
     handler = new DidChangeDocumentHandler(mockLogger, mockProcessor);
@@ -49,11 +44,11 @@ describe('DidChangeDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -74,11 +69,11 @@ describe('DidChangeDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -104,11 +99,11 @@ describe('DidChangeDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => '',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 0,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -129,11 +124,11 @@ describe('DidChangeDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => largeContent,
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1001,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -153,11 +148,11 @@ describe('DidChangeDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -177,11 +172,11 @@ describe('DidChangeDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -203,11 +198,11 @@ describe('DidChangeDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -232,11 +227,11 @@ describe('DidChangeDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -258,11 +253,11 @@ describe('DidChangeDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -286,11 +281,11 @@ describe('DidChangeDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => `public class TestClass${index} {}`,
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       }));
 
@@ -314,11 +309,11 @@ describe('DidChangeDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -332,7 +327,10 @@ describe('DidChangeDocumentHandler', () => {
 
       // Verify the log message contains the URI
       const debugCall = mockLogger.debug.mock.calls[0][0];
-      expect(debugCall()).toContain('test.cls');
+      expect(typeof debugCall).toBe('function');
+      if (typeof debugCall === 'function') {
+        expect(debugCall()).toContain('test.cls');
+      }
     });
 
     it('should log error message with document URI when processing fails', async () => {
@@ -342,11 +340,11 @@ describe('DidChangeDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -366,7 +364,10 @@ describe('DidChangeDocumentHandler', () => {
 
       // Verify the error message contains the URI
       const errorCall = mockLogger.error.mock.calls[0][0];
-      expect(errorCall()).toContain('test.cls');
+      expect(typeof errorCall).toBe('function');
+      if (typeof errorCall === 'function') {
+        expect(errorCall()).toContain('test.cls');
+      }
     });
   });
 });

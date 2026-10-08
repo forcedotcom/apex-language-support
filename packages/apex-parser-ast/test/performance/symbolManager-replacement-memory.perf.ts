@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import Benchmark from 'benchmark';
 import { Effect } from 'effect';
 import {
@@ -130,64 +131,65 @@ describe('ApexSymbolManager replacement memory pressure benchmarks', () => {
     compilerService = new CompilerService();
   });
 
-  jest.setTimeout(1000 * 60 * 10);
+  vi.setConfig({ testTimeout: 1000 * 60 * 10 });
 
-  it('benchmarks repeated cross-file semantic-equivalent replacement cycles', (done) => {
-    const providerCompactTable = compile(providerCompact, providerFile);
-    const providerVariantTable = compile(providerVariant, providerFile);
-    const consumerCompactTable = compile(consumerCompact, consumerFile);
-    const consumerVariantTable = compile(consumerVariant, consumerFile);
+  it('benchmarks repeated cross-file semantic-equivalent replacement cycles', () =>
+    new Promise<void>((done) => {
+      const providerCompactTable = compile(providerCompact, providerFile);
+      const providerVariantTable = compile(providerVariant, providerFile);
+      const consumerCompactTable = compile(consumerCompact, consumerFile);
+      const consumerVariantTable = compile(consumerVariant, consumerFile);
 
-    const suite = new Benchmark.Suite();
-    const results: Record<string, Benchmark.Target> = {};
+      const suite = new Benchmark.Suite();
+      const results: Record<string, Benchmark.Target> = {};
 
-    suite
-      .add('ApexSymbolManager cross-file replacement cycle (100 cycles)', {
-        defer: true,
-        ...benchmarkSettings,
-        fn: (deferred: any) => {
-          const manager = new ApexSymbolManager();
-          const cycleCount = 100;
-          const run = async () => {
-            try {
-              await Effect.runPromise(
-                manager.addSymbolTable(providerCompactTable, providerFile),
-              );
-              await Effect.runPromise(
-                manager.addSymbolTable(consumerCompactTable, consumerFile),
-              );
-              for (let i = 0; i < cycleCount; i++) {
-                await Effect.runPromise(
-                  manager.addSymbolTable(providerVariantTable, providerFile),
-                );
-                await Effect.runPromise(
-                  manager.addSymbolTable(consumerVariantTable, consumerFile),
-                );
+      suite
+        .add('ApexSymbolManager cross-file replacement cycle (100 cycles)', {
+          defer: true,
+          ...benchmarkSettings,
+          fn: (deferred: any) => {
+            const manager = new ApexSymbolManager();
+            const cycleCount = 100;
+            const run = async () => {
+              try {
                 await Effect.runPromise(
                   manager.addSymbolTable(providerCompactTable, providerFile),
                 );
                 await Effect.runPromise(
                   manager.addSymbolTable(consumerCompactTable, consumerFile),
                 );
+                for (let i = 0; i < cycleCount; i++) {
+                  await Effect.runPromise(
+                    manager.addSymbolTable(providerVariantTable, providerFile),
+                  );
+                  await Effect.runPromise(
+                    manager.addSymbolTable(consumerVariantTable, consumerFile),
+                  );
+                  await Effect.runPromise(
+                    manager.addSymbolTable(providerCompactTable, providerFile),
+                  );
+                  await Effect.runPromise(
+                    manager.addSymbolTable(consumerCompactTable, consumerFile),
+                  );
+                }
+              } finally {
+                manager.clear();
+                deferred.resolve();
               }
-            } finally {
-              manager.clear();
-              deferred.resolve();
-            }
-          };
-          void run();
-        },
-      })
-      .on('cycle', (event: any) => {
-        results[event.target.name] = event.target;
-        console.log(String(event.target));
-      })
-      .on('complete', () => {
-        appendBenchmarkResults(results);
-        done();
-      })
-      .run({ async: true });
-  });
+            };
+            void run();
+          },
+        })
+        .on('cycle', (event: any) => {
+          results[event.target.name] = event.target;
+          console.log(String(event.target));
+        })
+        .on('complete', () => {
+          appendBenchmarkResults(results);
+          done();
+        })
+        .run({ async: true });
+    }));
 
   it('measures memory and object-count stability under repeated replacements', async () => {
     const providerCompactTable = compile(providerCompact, providerFile);
@@ -206,7 +208,7 @@ describe('ApexSymbolManager replacement memory pressure benchmarks', () => {
       await Effect.runPromise(
         manager.addSymbolTable(consumerCompactTable, consumerFile),
       );
-      const baselineStats = manager.getStats();
+      const baselineStats = await manager.getStats();
 
       for (let i = 0; i < cycleCount; i++) {
         await Effect.runPromise(
@@ -229,7 +231,7 @@ describe('ApexSymbolManager replacement memory pressure benchmarks', () => {
 
       const heapAfter = process.memoryUsage().heapUsed;
       const heapDeltaMb = (heapAfter - heapBefore) / (1024 * 1024);
-      const finalStats = manager.getStats();
+      const finalStats = await manager.getStats();
 
       console.log('\n=== Replacement memory pressure ===');
       console.log(`Cycles: ${cycleCount}`);

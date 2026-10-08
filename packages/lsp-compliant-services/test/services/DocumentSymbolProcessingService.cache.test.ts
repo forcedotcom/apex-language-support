@@ -1,50 +1,50 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 import { DocumentSymbolProcessingService } from '../../src/services/DocumentSymbolProcessingService';
 import { DocumentSymbolResultStore } from '../../src/services/DocumentSymbolResultStore';
+import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 
-const mockProvideDocumentSymbols = jest.fn();
+const mockProvideDocumentSymbols = vi.fn();
 
-jest.mock('../../src/storage/ApexStorageManager', () => ({
+vi.mock('../../src/storage/ApexStorageManager', () => ({
   ApexStorageManager: {
-    getInstance: jest.fn(),
+    getInstance: vi.fn(),
   },
 }));
 
-jest.mock('../../src/documentSymbol/ApexDocumentSymbolProvider', () => ({
-  DefaultApexDocumentSymbolProvider: jest.fn().mockImplementation(() => ({
-    provideDocumentSymbols: mockProvideDocumentSymbols,
-  })),
+vi.mock('../../src/documentSymbol/ApexDocumentSymbolProvider', () => ({
+  DefaultApexDocumentSymbolProvider: class {
+    provideDocumentSymbols = mockProvideDocumentSymbols;
+  },
 }));
 
 describe('DocumentSymbolProcessingService cache behavior', () => {
   let service: DocumentSymbolProcessingService;
-  let mockStorage: { getDocument: jest.Mock };
+  let mockStorage: { getDocument: Mock };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     DocumentSymbolResultStore.getInstance().clear();
 
     mockStorage = {
-      getDocument: jest.fn(),
+      getDocument: vi.fn(),
     };
-    const {
-      ApexStorageManager,
-    } = require('../../src/storage/ApexStorageManager');
-    ApexStorageManager.getInstance.mockReturnValue({
+    (ApexStorageManager.getInstance as Mock).mockReturnValue({
       getStorage: () => mockStorage,
     });
 
     service = new DocumentSymbolProcessingService(getLogger(), {
-      findSymbolsInFile: jest.fn(() => []),
+      findSymbolsInFile: vi.fn(() => []),
     } as any);
   });
 

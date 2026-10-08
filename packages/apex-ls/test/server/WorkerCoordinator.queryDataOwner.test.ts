@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { Effect } from 'effect';
 import {
   ResolveDependentUris,
@@ -24,13 +25,11 @@ import { makeWorkerDispatcher } from '../../src/server/WorkerCoordinator';
 import type { WorkerTopology } from '../../src/server/WorkerCoordinator';
 import type { LoggerInterface } from '@salesforce/apex-lsp-shared';
 
-jest.mock('../../src/server/traceContextInjection', () => ({
-  injectTraceContextFromOtelSpan: jest.fn(
-    (payload: Record<string, unknown>) => ({
-      ...payload,
-      traceContext: '00-0123456789abcdef0123456789abcdef-0123456789abcdef-01',
-    }),
-  ),
+vi.mock('../../src/server/traceContextInjection', () => ({
+  injectTraceContextFromOtelSpan: vi.fn((payload: Record<string, unknown>) => ({
+    ...payload,
+    traceContext: '00-0123456789abcdef0123456789abcdef-0123456789abcdef-01',
+  })),
 }));
 
 function createSpyLogger(): LoggerInterface {

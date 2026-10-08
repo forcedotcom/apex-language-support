@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { describe, it, expect, jest } from '@jest/globals';
+import { describe, it, expect, vi } from 'vitest';
 import type { ApexClientMiddleware } from '../src/apexClientMiddleware';
 import {
   composeRequestChain,
@@ -15,7 +15,7 @@ import {
 
 describe('composeRequestChain', () => {
   it('empty middleware array = direct passthrough', async () => {
-    const sendFn = jest.fn((p: unknown) => Promise.resolve(p));
+    const sendFn = vi.fn((p: unknown) => Promise.resolve(p));
     const result = await composeRequestChain(
       [],
       sendFn,
@@ -47,7 +47,7 @@ describe('composeRequestChain', () => {
       },
     };
 
-    const sendFn = jest.fn((p: unknown) => {
+    const sendFn = vi.fn((p: unknown) => {
       order.push('terminal');
       return Promise.resolve(p);
     });
@@ -75,7 +75,7 @@ describe('composeRequestChain', () => {
         next({ ...(params as object), added: true } as typeof params),
     };
 
-    const sendFn = jest.fn((p: unknown) => Promise.resolve(p));
+    const sendFn = vi.fn((p: unknown) => Promise.resolve(p));
     const result = await composeRequestChain(
       [mw],
       sendFn,
@@ -94,7 +94,7 @@ describe('composeRequestChain', () => {
         Promise.resolve({ shortCircuited: true }) as Promise<never>,
     };
 
-    const sendFn = jest.fn((p: unknown) => Promise.resolve(p));
+    const sendFn = vi.fn((p: unknown) => Promise.resolve(p));
     const result = await composeRequestChain(
       [mw],
       sendFn,
@@ -117,7 +117,7 @@ describe('composeRequestChain', () => {
       },
     };
 
-    const rawHandler = jest.fn((p: unknown) => {
+    const rawHandler = vi.fn((p: unknown) => {
       order.push('handler');
       return Promise.resolve({ handled: true, params: p });
     });
@@ -143,7 +143,7 @@ describe('composeRequestChain', () => {
       sendRequest: () => Promise.resolve({ wrong: true }) as Promise<never>,
     };
 
-    const sendFn = jest.fn((p: unknown) => Promise.resolve(p));
+    const sendFn = vi.fn((p: unknown) => Promise.resolve(p));
     const result = await composeRequestChain(
       [mw],
       sendFn,
@@ -159,7 +159,7 @@ describe('composeRequestChain', () => {
 
 describe('composeNotificationChain', () => {
   it('empty middleware array = direct passthrough', () => {
-    const sendFn = jest.fn((_p: unknown) => undefined);
+    const sendFn = vi.fn((_p: unknown) => undefined);
     composeNotificationChain([], sendFn, 'outgoing', 'test/notif', {
       key: 'value',
     });
@@ -182,7 +182,7 @@ describe('composeNotificationChain', () => {
       },
     };
 
-    const sendFn = jest.fn((_p: unknown) => {
+    const sendFn = vi.fn((_p: unknown) => {
       order.push('terminal');
     });
 
@@ -197,7 +197,7 @@ describe('composeNotificationChain', () => {
       },
     };
 
-    const sendFn = jest.fn((_p: unknown) => undefined);
+    const sendFn = vi.fn((_p: unknown) => undefined);
     composeNotificationChain([mw], sendFn, 'outgoing', 'test/notif', {
       original: true,
     });
@@ -212,7 +212,7 @@ describe('composeNotificationChain', () => {
       },
     };
 
-    const sendFn = jest.fn((_p: unknown) => undefined);
+    const sendFn = vi.fn((_p: unknown) => undefined);
     composeNotificationChain([mw], sendFn, 'outgoing', 'test/notif', {});
     expect(sendFn).not.toHaveBeenCalled();
   });
@@ -227,7 +227,7 @@ describe('composeNotificationChain', () => {
       },
     };
 
-    const rawHandler = jest.fn((_p: unknown) => {
+    const rawHandler = vi.fn((_p: unknown) => {
       order.push('handler');
     });
 
@@ -254,7 +254,7 @@ describe('composeNotificationChain', () => {
       },
     };
 
-    const sendFn = jest.fn((_p: unknown) => undefined);
+    const sendFn = vi.fn((_p: unknown) => undefined);
     composeNotificationChain([mw], sendFn, 'outgoing', 'test/notif', {
       original: true,
     });

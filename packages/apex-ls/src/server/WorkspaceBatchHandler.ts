@@ -175,11 +175,11 @@ function initializeCleanupInterval(): void {
   }
 
   // Only create interval in production (not in test environment)
-  // Check for test environment by looking at NODE_ENV or JEST_WORKER_ID
+  // Check for test environment by looking at NODE_ENV or runner worker IDs.
   const isTestEnvironment =
     typeof process !== 'undefined' &&
     (process.env.NODE_ENV === 'test' ||
-      process.env.JEST_WORKER_ID !== undefined);
+      process.env.VITEST_WORKER_ID !== undefined);
 
   if (!isTestEnvironment && typeof setInterval !== 'undefined') {
     cleanupIntervalId = setInterval(() => {
@@ -205,7 +205,7 @@ export function clearCleanupInterval(): void {
 if (
   typeof process !== 'undefined' &&
   process.env.NODE_ENV !== 'test' &&
-  process.env.JEST_WORKER_ID === undefined
+  process.env.VITEST_WORKER_ID === undefined
 ) {
   // Use setTimeout to defer initialization, allowing tests to run first
   if (typeof setTimeout !== 'undefined') {

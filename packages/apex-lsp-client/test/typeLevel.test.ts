@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -17,7 +17,7 @@
  * at build time, preventing Effect types from appearing in the public API.
  */
 
-import { describe, it } from '@jest/globals';
+import { describe, it } from 'vitest';
 import type { Effect } from 'effect';
 import type * as PublicAPI from '../src/index';
 

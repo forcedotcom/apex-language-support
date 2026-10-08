@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import {
   dispatch,
   getDiagnosticsFromErrors,
@@ -19,24 +21,24 @@ import {
   ErrorSeverity,
 } from '@salesforce/apex-lsp-parser-ast';
 
-jest.mock('@salesforce/apex-lsp-shared');
+vi.mock('@salesforce/apex-lsp-shared');
 
 describe('handlerUtil', () => {
   let mockLogger: any;
 
   beforeEach(() => {
     mockLogger = {
-      log: jest.fn(),
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
+      log: vi.fn(),
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
     };
-    (getLogger as jest.Mock).mockReturnValue(mockLogger);
+    (getLogger as Mock).mockReturnValue(mockLogger);
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('dispatch', () => {

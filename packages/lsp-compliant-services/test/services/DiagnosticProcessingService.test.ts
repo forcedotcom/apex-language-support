@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import { DocumentDiagnosticParams } from 'vscode-languageserver';
 import {
   LoggerInterface,
@@ -30,9 +32,10 @@ import {
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 import { cleanupTestResources } from '../helpers/test-cleanup';
+import { getDocumentStateCache } from '../../src/services/DocumentStateCache';
 
 // Only mock storage - use real implementations for everything else
-jest.mock('../../src/storage/ApexStorageManager');
+vi.mock('../../src/storage/ApexStorageManager');
 
 describe('DiagnosticProcessingService', () => {
   let logger: LoggerInterface;
@@ -56,11 +59,11 @@ describe('DiagnosticProcessingService', () => {
     logger = getLogger();
 
     mockStorage = {
-      getDocument: jest.fn(),
+      getDocument: vi.fn(),
     };
 
-    (ApexStorageManager.getInstance as jest.Mock).mockReturnValue({
-      getStorage: jest.fn().mockReturnValue(mockStorage),
+    (ApexStorageManager.getInstance as Mock).mockReturnValue({
+      getStorage: vi.fn().mockReturnValue(mockStorage),
     });
 
     // Use real symbol manager
@@ -94,9 +97,6 @@ describe('DiagnosticProcessingService', () => {
     );
 
     // Clear the document state cache to avoid test interference
-    const {
-      getDocumentStateCache,
-    } = require('../../src/services/DocumentStateCache');
     const cache = getDocumentStateCache();
     cache.clear();
 

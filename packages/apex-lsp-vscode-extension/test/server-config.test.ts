@@ -6,17 +6,20 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { createServerOptions, createClientOptions } from '../src/server-config';
 import { determineServerMode } from '../src/utils/serverUtils';
+import * as configuration from '../src/configuration';
+import { logToOutputChannel } from '../src/logging';
 
 // Mock vscode.Uri.joinPath
-jest.mock('vscode', () => ({
-  ...jest.requireActual('vscode'),
+vi.mock('vscode', async () => ({
+  ...(await vi.importActual('vscode')),
   Uri: {
-    ...jest.requireActual('vscode').Uri,
-    joinPath: jest.fn((baseUri: any, ...pathSegments: string[]) => {
+    ...(await vi.importActual('vscode').Uri),
+    joinPath: vi.fn((baseUri: any, ...pathSegments: string[]) => {
       const basePath = baseUri.fsPath || baseUri.path;
       const joinedPath = [basePath, ...pathSegments].join('/');
       return { fsPath: joinedPath, path: joinedPath };
@@ -32,10 +35,10 @@ jest.mock('vscode', () => ({
 }));
 
 // Mock the configuration module
-jest.mock('../src/configuration', () => ({
-  getDebugConfig: jest.fn().mockReturnValue({ mode: 'off', port: 6009 }),
-  getTraceServerConfig: jest.fn().mockReturnValue('off'),
-  getWorkspaceSettings: jest.fn().mockReturnValue({
+vi.mock('../src/configuration', () => ({
+  getDebugConfig: vi.fn().mockReturnValue({ mode: 'off', port: 6009 }),
+  getTraceServerConfig: vi.fn().mockReturnValue('off'),
+  getWorkspaceSettings: vi.fn().mockReturnValue({
     apex: {
       test: 'settings',
       ls: {
@@ -46,30 +49,30 @@ jest.mock('../src/configuration', () => ({
 }));
 
 // Mock the logging module
-jest.mock('../src/logging', () => ({
-  logToOutputChannel: jest.fn(),
-  logServerMessage: jest.fn(),
-  getWorkerServerOutputChannel: jest.fn().mockReturnValue({
-    appendLine: jest.fn(),
+vi.mock('../src/logging', () => ({
+  logToOutputChannel: vi.fn(),
+  logServerMessage: vi.fn(),
+  getWorkerServerOutputChannel: vi.fn().mockReturnValue({
+    appendLine: vi.fn(),
   }),
-  createSafeOutputChannel: jest.fn().mockImplementation((ch: any) => ch),
-  getOutputChannel: jest.fn().mockReturnValue({
-    appendLine: jest.fn(),
+  createSafeOutputChannel: vi.fn().mockImplementation((ch: any) => ch),
+  getOutputChannel: vi.fn().mockReturnValue({
+    appendLine: vi.fn(),
   }),
-  createFormattedOutputChannel: jest.fn().mockReturnValue({
-    appendLine: jest.fn(),
-    replace: jest.fn(),
-    clear: jest.fn(),
-    show: jest.fn(),
-    hide: jest.fn(),
-    dispose: jest.fn(),
+  createFormattedOutputChannel: vi.fn().mockReturnValue({
+    appendLine: vi.fn(),
+    replace: vi.fn(),
+    clear: vi.fn(),
+    show: vi.fn(),
+    hide: vi.fn(),
+    dispose: vi.fn(),
   }),
 }));
 
 // Mock vscode-languageclient types
-jest.mock('vscode-languageclient/lib/node/main', () => ({
-  LanguageClientOptions: jest.fn(),
-  ServerOptions: jest.fn(),
+vi.mock('vscode-languageclient/lib/node/main', () => ({
+  LanguageClientOptions: vi.fn(),
+  ServerOptions: vi.fn(),
   TransportKind: {
     ipc: 'ipc',
     pipe: 'pipe',
@@ -152,10 +155,9 @@ describe('Server Config Module', () => {
 
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     // Reset workspace settings mock to default
-    const { getWorkspaceSettings } = require('../src/configuration');
-    getWorkspaceSettings.mockReturnValue({
+    vi.mocked(configuration.getWorkspaceSettings).mockReturnValue({
       apex: {
         test: 'settings',
         ls: {
@@ -167,7 +169,7 @@ describe('Server Config Module', () => {
     mockContext = {
       subscriptions: [],
       extensionPath: '/mock/path',
-      asAbsolutePath: jest.fn((p: string) => `/mock/path/${p}`),
+      asAbsolutePath: vi.fn((p: string) => `/mock/path/${p}`),
       extensionMode: vscode.ExtensionMode.Development,
       extension: {
         packageJSON: {
@@ -180,13 +182,13 @@ describe('Server Config Module', () => {
     } as unknown as vscode.ExtensionContext;
 
     // Mock workspace configuration
-    jest.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue({
-      get: jest.fn().mockReturnValue('off'),
+    vi.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue({
+      get: vi.fn().mockReturnValue('off'),
     } as unknown as vscode.WorkspaceConfiguration);
 
     // Mock vscode.workspace.createFileSystemWatcher
-    jest.spyOn(vscode.workspace, 'createFileSystemWatcher').mockReturnValue({
-      dispose: jest.fn(),
+    vi.spyOn(vscode.workspace, 'createFileSystemWatcher').mockReturnValue({
+      dispose: vi.fn(),
     } as unknown as vscode.FileSystemWatcher);
 
     // Mock vscode.workspace.workspaceFolders
@@ -197,7 +199,7 @@ describe('Server Config Module', () => {
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   describe('createServerOptions', () => {
@@ -259,8 +261,10 @@ describe('Server Config Module', () => {
     });
 
     it('should include debug options when debug is enabled', () => {
-      const { getDebugConfig } = require('../src/configuration');
-      getDebugConfig.mockReturnValue({ mode: 'inspect', port: 6009 });
+      vi.mocked(configuration.getDebugConfig).mockReturnValue({
+        mode: 'inspect',
+        port: 6009,
+      });
 
       const serverOptions = createServerOptions(mockContext, 'development');
 
@@ -321,8 +325,7 @@ describe('Server Config Module', () => {
     });
 
     it('should add heap size flag when jsHeapSizeGB is set', () => {
-      const { getWorkspaceSettings } = require('../src/configuration');
-      getWorkspaceSettings.mockReturnValue({
+      vi.mocked(configuration.getWorkspaceSettings).mockReturnValue({
         apex: {
           environment: {
             jsHeapSizeGB: 4,
@@ -341,8 +344,7 @@ describe('Server Config Module', () => {
     });
 
     it('should not add heap size flag when jsHeapSizeGB is not set', () => {
-      const { getWorkspaceSettings } = require('../src/configuration');
-      getWorkspaceSettings.mockReturnValue({
+      vi.mocked(configuration.getWorkspaceSettings).mockReturnValue({
         apex: {
           environment: {},
         },
@@ -363,8 +365,7 @@ describe('Server Config Module', () => {
     });
 
     it('should not add heap size flag when jsHeapSizeGB is 0', () => {
-      const { getWorkspaceSettings } = require('../src/configuration');
-      getWorkspaceSettings.mockReturnValue({
+      vi.mocked(configuration.getWorkspaceSettings).mockReturnValue({
         apex: {
           environment: {
             jsHeapSizeGB: 0,
@@ -382,8 +383,7 @@ describe('Server Config Module', () => {
     });
 
     it('should not add heap size flag when jsHeapSizeGB is negative', () => {
-      const { getWorkspaceSettings } = require('../src/configuration');
-      getWorkspaceSettings.mockReturnValue({
+      vi.mocked(configuration.getWorkspaceSettings).mockReturnValue({
         apex: {
           environment: {
             jsHeapSizeGB: -1,
@@ -401,8 +401,7 @@ describe('Server Config Module', () => {
     });
 
     it('should convert GB to MB correctly (rounding)', () => {
-      const { getWorkspaceSettings } = require('../src/configuration');
-      getWorkspaceSettings.mockReturnValue({
+      vi.mocked(configuration.getWorkspaceSettings).mockReturnValue({
         apex: {
           environment: {
             jsHeapSizeGB: 2.5, // 2.5 GB = 2560 MB
@@ -424,8 +423,7 @@ describe('Server Config Module', () => {
         writable: true,
       });
 
-      const { getWorkspaceSettings } = require('../src/configuration');
-      getWorkspaceSettings.mockReturnValue({
+      vi.mocked(configuration.getWorkspaceSettings).mockReturnValue({
         apex: {
           environment: {
             jsHeapSizeGB: 4,
@@ -449,8 +447,7 @@ describe('Server Config Module', () => {
     });
 
     it('should enforce maximum heap size of 32GB', () => {
-      const { getWorkspaceSettings } = require('../src/configuration');
-      getWorkspaceSettings.mockReturnValue({
+      vi.mocked(configuration.getWorkspaceSettings).mockReturnValue({
         apex: {
           environment: {
             jsHeapSizeGB: 64, // Exceeds maximum of 32GB
@@ -458,7 +455,6 @@ describe('Server Config Module', () => {
         },
       });
 
-      const { logToOutputChannel } = require('../src/logging');
       const serverOptions = createServerOptions(mockContext, 'development');
 
       // Should use 32GB (32768 MB) instead of 64GB
@@ -477,8 +473,7 @@ describe('Server Config Module', () => {
     });
 
     it('should accept maximum heap size of 32GB', () => {
-      const { getWorkspaceSettings } = require('../src/configuration');
-      getWorkspaceSettings.mockReturnValue({
+      vi.mocked(configuration.getWorkspaceSettings).mockReturnValue({
         apex: {
           environment: {
             jsHeapSizeGB: 32, // Exactly at maximum
@@ -508,8 +503,8 @@ describe('Server Config Module', () => {
         } as vscode.ExtensionContext;
 
         // Mock workspace configuration to return development mode
-        jest.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue({
-          get: jest.fn((key: string) => {
+        vi.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue({
+          get: vi.fn((key: string) => {
             if (key === 'environment.serverMode') {
               return 'development';
             }
@@ -538,8 +533,8 @@ describe('Server Config Module', () => {
         process.env.APEX_LS_MODE = 'production';
 
         // Mock workspace configuration to return development mode
-        jest.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue({
-          get: jest.fn((key: string) => {
+        vi.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue({
+          get: vi.fn((key: string) => {
             if (key === 'environment.serverMode') {
               return 'development';
             }
@@ -706,7 +701,7 @@ describe('Server Config Module', () => {
         const provideHover = createMiddleware();
         const token = {
           isCancellationRequested: true,
-          onCancellationRequested: jest.fn(),
+          onCancellationRequested: vi.fn(),
         };
 
         const result = await provideHover(
@@ -723,7 +718,7 @@ describe('Server Config Module', () => {
         const provideHover = createMiddleware();
         const token = {
           isCancellationRequested: false,
-          onCancellationRequested: jest.fn(),
+          onCancellationRequested: vi.fn(),
         };
 
         const slow = provideHover(doc, pos, token, () => new Promise(() => {}));
@@ -743,7 +738,7 @@ describe('Server Config Module', () => {
           extensionMode: 'development',
         } as any);
         const sendRequest = clientOptions.middleware!.sendRequest!;
-        const next = jest.fn().mockRejectedValue(new Error('hover failed'));
+        const next = vi.fn().mockRejectedValue(new Error('hover failed'));
 
         await expect(
           sendRequest(
@@ -757,7 +752,7 @@ describe('Server Config Module', () => {
           ),
         ).rejects.toThrow('hover failed');
 
-        const { logToOutputChannel } = jest.requireMock('../src/logging');
+        const { logToOutputChannel } = await vi.importMock('../src/logging');
         expect(logToOutputChannel).toHaveBeenCalledWith(
           expect.stringContaining(
             'Hover request initiated: file:///Test.cls at 2:4',

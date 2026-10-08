@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mocked } from 'vitest';
+import { vi } from 'vitest';
 import {
   SignatureHelpParams,
   SignatureHelp,
@@ -16,8 +18,8 @@ import { SignatureHelpHandler } from '../../src/handlers/SignatureHelpHandler';
 import { ISignatureHelpProcessor } from '../../src/services/SignatureHelpProcessingService';
 
 // Mock the signature help processor
-const mockSignatureHelpProcessor: jest.Mocked<ISignatureHelpProcessor> = {
-  processSignatureHelp: jest.fn(),
+const mockSignatureHelpProcessor: Mocked<ISignatureHelpProcessor> = {
+  processSignatureHelp: vi.fn(),
 };
 
 describe('SignatureHelpHandler', () => {
@@ -26,7 +28,7 @@ describe('SignatureHelpHandler', () => {
 
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Setup logger
     logger = getLogger();

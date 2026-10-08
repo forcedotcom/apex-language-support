@@ -6,29 +6,24 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mocked } from 'vitest';
+import { vi } from 'vitest';
 import { DidCloseDocumentHandler } from '../../src/handlers/DidCloseDocumentHandler';
 import { IDocumentCloseProcessor } from '../../src/services/DocumentCloseProcessingService';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import { createMockLogger, type MockLogger } from '../utils/mockLogger';
 
 describe('DidCloseDocumentHandler', () => {
   let handler: DidCloseDocumentHandler;
-  let mockLogger: jest.Mocked<LoggerInterface>;
-  let mockProcessor: jest.Mocked<IDocumentCloseProcessor>;
+  let mockLogger: MockLogger;
+  let mockProcessor: Mocked<IDocumentCloseProcessor>;
 
   beforeEach(() => {
-    mockLogger = {
-      log: jest.fn(),
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      alwaysLog: jest.fn(),
-    };
+    mockLogger = createMockLogger();
 
     mockProcessor = {
-      processDocumentClose: jest.fn(),
+      processDocumentClose: vi.fn(),
     };
 
     handler = new DidCloseDocumentHandler(mockLogger, mockProcessor);
@@ -49,11 +44,11 @@ describe('DidCloseDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -74,11 +69,11 @@ describe('DidCloseDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -104,11 +99,11 @@ describe('DidCloseDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => '',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 0,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -129,11 +124,11 @@ describe('DidCloseDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => largeContent,
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1001,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -153,11 +148,11 @@ describe('DidCloseDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -179,11 +174,11 @@ describe('DidCloseDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -208,11 +203,11 @@ describe('DidCloseDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -234,11 +229,11 @@ describe('DidCloseDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -268,11 +263,11 @@ describe('DidCloseDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => `public class TestClass${index} {}`,
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       }));
 
@@ -296,11 +291,11 @@ describe('DidCloseDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -314,7 +309,10 @@ describe('DidCloseDocumentHandler', () => {
 
       // Verify the log message contains the URI
       const debugCall = mockLogger.debug.mock.calls[0][0];
-      expect(debugCall()).toContain('test.cls');
+      expect(typeof debugCall).toBe('function');
+      if (typeof debugCall === 'function') {
+        expect(debugCall()).toContain('test.cls');
+      }
     });
 
     it('should log error message with document URI when processing fails', async () => {
@@ -324,11 +322,11 @@ describe('DidCloseDocumentHandler', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -348,7 +346,10 @@ describe('DidCloseDocumentHandler', () => {
 
       // Verify the error message contains the URI
       const errorCall = mockLogger.error.mock.calls[0][0];
-      expect(errorCall()).toContain('test.cls');
+      expect(typeof errorCall).toBe('function');
+      if (typeof errorCall === 'function') {
+        expect(errorCall()).toContain('test.cls');
+      }
     });
   });
 });

@@ -6,25 +6,26 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { LSPQueueManager } from '@salesforce/apex-lsp-compliant-services';
 import { Diagnostic, TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 // Mock the LSPQueueManager
-jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
+vi.mock('@salesforce/apex-lsp-compliant-services', () => ({
   LSPQueueManager: {
-    getInstance: jest.fn(() => ({
-      submitDocumentOpenRequest: jest.fn(),
-      submitDocumentSaveRequest: jest.fn(),
-      submitDocumentChangeRequest: jest.fn(),
-      submitDocumentCloseRequest: jest.fn(),
-      submitHoverRequest: jest.fn(),
-      submitCompletionRequest: jest.fn(),
-      submitDefinitionRequest: jest.fn(),
-      submitImplementationRequest: jest.fn(),
-      submitReferencesRequest: jest.fn(),
-      getStats: jest.fn(),
-      shutdown: jest.fn(),
+    getInstance: vi.fn(() => ({
+      submitDocumentOpenRequest: vi.fn(),
+      submitDocumentSaveRequest: vi.fn(),
+      submitDocumentChangeRequest: vi.fn(),
+      submitDocumentCloseRequest: vi.fn(),
+      submitHoverRequest: vi.fn(),
+      submitCompletionRequest: vi.fn(),
+      submitDefinitionRequest: vi.fn(),
+      submitImplementationRequest: vi.fn(),
+      submitReferencesRequest: vi.fn(),
+      getStats: vi.fn(),
+      shutdown: vi.fn(),
     })),
   },
 }));
@@ -33,7 +34,7 @@ describe('Queue Integration in apex-ls', () => {
   let mockQueueManager: any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockQueueManager = LSPQueueManager.getInstance();
   });
 
@@ -52,11 +53,11 @@ describe('Queue Integration in apex-ls', () => {
           languageId: 'apex',
           version: 1,
           getText: () => largeContent,
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1001,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -86,11 +87,11 @@ describe('Queue Integration in apex-ls', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class SmallClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -111,11 +112,11 @@ describe('Queue Integration in apex-ls', () => {
           languageId: 'apex',
           version: 1,
           getText: () => largeContent,
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1001,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -140,11 +141,11 @@ describe('Queue Integration in apex-ls', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -164,11 +165,11 @@ describe('Queue Integration in apex-ls', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -192,11 +193,11 @@ describe('Queue Integration in apex-ls', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -216,11 +217,11 @@ describe('Queue Integration in apex-ls', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -337,11 +338,11 @@ describe('Queue Integration in apex-ls', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -366,11 +367,11 @@ describe('Queue Integration in apex-ls', () => {
           languageId: 'apex',
           version: 1,
           getText: () => `public class TestClass${index} {}`,
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       }));
 

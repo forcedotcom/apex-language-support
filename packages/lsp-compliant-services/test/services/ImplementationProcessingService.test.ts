@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { ImplementationParams } from 'vscode-languageserver-protocol';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import {
@@ -25,21 +26,21 @@ describe('ImplementationProcessingService', () => {
 
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Setup logger
     logger = getLogger();
 
     // Create mock symbol manager
     mockSymbolManager = {
-      getReferencesAtPosition: jest.fn().mockReturnValue([]),
-      getSymbolAtPosition: jest.fn().mockResolvedValue(null),
+      getReferencesAtPosition: vi.fn().mockReturnValue([]),
+      getSymbolAtPosition: vi.fn().mockResolvedValue(null),
       // findSubtypes is the canonical inheritance query the service now uses for
       // both implementor (interface) and subclass (abstract/virtual) discovery.
-      findSubtypes: jest.fn().mockResolvedValue([]),
-      getContainingType: jest.fn().mockReturnValue(null),
-      findSymbolsInFile: jest.fn().mockReturnValue([]),
-      findFilesForSymbol: jest.fn().mockReturnValue([]),
+      findSubtypes: vi.fn().mockResolvedValue([]),
+      getContainingType: vi.fn().mockReturnValue(null),
+      findSymbolsInFile: vi.fn().mockReturnValue([]),
+      findFilesForSymbol: vi.fn().mockReturnValue([]),
     };
 
     // Create service instance with mock symbol manager

@@ -1,12 +1,13 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import type { Mock } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   DEFAULT_APEX_SETTINGS,
   enableConsoleLogging,
@@ -25,49 +26,49 @@ const INIT_RESULT: InitializeResult = {
 };
 
 /**
- * Hand-rolled `RpcConnection` mock. Each method is a `jest.fn` so call order can
+ * Hand-rolled `RpcConnection` mock. Each method is a `vi.fn` so call order can
  * be asserted via `mock.invocationCallOrder`. `onRequest` records the registered
  * handler so the test can invoke it directly (simulating a server→client
  * request) and returns a spy-tracked `Disposable`.
  */
 interface MockConnection extends RpcConnection {
   readonly requestHandlers: Map<string, (params: unknown) => unknown>;
-  readonly onRequestDisposeSpy: jest.Mock<() => void>;
+  readonly onRequestDisposeSpy: Mock<() => void>;
 }
 
 const makeMockConnection = (
   sendRequestImpl?: (method: string, params?: unknown) => Promise<unknown>,
 ): MockConnection => {
   const requestHandlers = new Map<string, (params: unknown) => unknown>();
-  const onRequestDisposeSpy = jest.fn<() => void>();
+  const onRequestDisposeSpy = vi.fn<() => void>();
 
-  const sendRequest = jest.fn(
+  const sendRequest = vi.fn(
     (method: string, params?: unknown): Promise<unknown> =>
       sendRequestImpl
         ? sendRequestImpl(method, params)
         : Promise.resolve(method === 'initialize' ? INIT_RESULT : undefined),
   );
-  const sendNotification = jest.fn(
+  const sendNotification = vi.fn(
     (_method: string, _params?: unknown): Promise<void> => Promise.resolve(),
   );
-  const onRequest = jest.fn(
+  const onRequest = vi.fn(
     (method: string, handler: (params: unknown) => unknown): Disposable => {
       requestHandlers.set(method, handler);
       return { dispose: onRequestDisposeSpy };
     },
   );
-  const onNotification = jest.fn(
+  const onNotification = vi.fn(
     (_method: string, _handler: (params: unknown) => void): Disposable => ({
-      dispose: jest.fn(),
+      dispose: vi.fn(),
     }),
   );
-  const onError = jest.fn((_handler: (e: Error) => void): Disposable => ({
-    dispose: jest.fn(),
+  const onError = vi.fn((_handler: (e: Error) => void): Disposable => ({
+    dispose: vi.fn(),
   }));
-  const onClose = jest.fn((_handler: () => void): Disposable => ({
-    dispose: jest.fn(),
+  const onClose = vi.fn((_handler: () => void): Disposable => ({
+    dispose: vi.fn(),
   }));
-  const dispose = jest.fn((): void => undefined);
+  const dispose = vi.fn((): void => undefined);
 
   return {
     sendRequest,
@@ -95,14 +96,14 @@ describe('ApexClientCore', () => {
     it('registers the findMissingArtifact responder before any traffic', async () => {
       const core = await ApexClientCore.create(connection);
 
-      const onReqSpy = connection.onRequest as jest.Mock;
+      const onReqSpy = connection.onRequest as Mock;
       // onRequest('apex/findMissingArtifact', ...) was called during create().
       expect(onReqSpy).toHaveBeenCalledWith(
         FIND_MISSING_ARTIFACT_METHOD,
         expect.any(Function),
       );
       // No request has flowed yet — sendRequest must not have run.
-      expect(connection.sendRequest as jest.Mock).not.toHaveBeenCalled();
+      expect(connection.sendRequest as Mock).not.toHaveBeenCalled();
 
       await core.dispose();
     });
@@ -111,9 +112,9 @@ describe('ApexClientCore', () => {
       const core = await ApexClientCore.create(connection);
       await core.initialize();
 
-      const onReqOrder = (connection.onRequest as jest.Mock).mock
+      const onReqOrder = (connection.onRequest as Mock).mock
         .invocationCallOrder[0];
-      const sendReqOrder = (connection.sendRequest as jest.Mock).mock
+      const sendReqOrder = (connection.sendRequest as Mock).mock
         .invocationCallOrder[0];
       expect(onReqOrder).toBeLessThan(sendReqOrder);
 
@@ -142,8 +143,8 @@ describe('ApexClientCore', () => {
 
       expect(result).toEqual(INIT_RESULT);
 
-      const sendReq = connection.sendRequest as jest.Mock;
-      const sendNotif = connection.sendNotification as jest.Mock;
+      const sendReq = connection.sendRequest as Mock;
+      const sendNotif = connection.sendNotification as Mock;
 
       expect(sendReq).toHaveBeenCalledWith('initialize', expect.any(Object));
       expect(sendNotif).toHaveBeenCalledWith('initialized', {});
@@ -160,7 +161,7 @@ describe('ApexClientCore', () => {
       const core = await ApexClientCore.create(connection);
       await core.initialize();
 
-      const sendReq = connection.sendRequest as jest.Mock;
+      const sendReq = connection.sendRequest as Mock;
       const [, params] = sendReq.mock.calls[0] as [
         string,
         { initializationOptions: unknown },
@@ -180,7 +181,7 @@ describe('ApexClientCore', () => {
 
       await expect(core.initialize()).rejects.toThrow('initialize failed');
 
-      const sendNotif = failing.sendNotification as jest.Mock;
+      const sendNotif = failing.sendNotification as Mock;
       expect(sendNotif).not.toHaveBeenCalledWith('initialized', {});
 
       await core.dispose();
@@ -193,11 +194,11 @@ describe('ApexClientCore', () => {
 
       expect(second).toEqual(first);
 
-      const sendReq = connection.sendRequest as jest.Mock;
+      const sendReq = connection.sendRequest as Mock;
       const initCalls = sendReq.mock.calls.filter(([m]) => m === 'initialize');
       expect(initCalls).toHaveLength(1);
 
-      const sendNotif = connection.sendNotification as jest.Mock;
+      const sendNotif = connection.sendNotification as Mock;
       const initializedCalls = sendNotif.mock.calls.filter(
         ([m]) => m === 'initialized',
       );
@@ -212,8 +213,8 @@ describe('ApexClientCore', () => {
       const core = await ApexClientCore.create(connection);
       await core.shutdown();
 
-      const sendReq = connection.sendRequest as jest.Mock;
-      const sendNotif = connection.sendNotification as jest.Mock;
+      const sendReq = connection.sendRequest as Mock;
+      const sendNotif = connection.sendNotification as Mock;
 
       expect(sendReq).toHaveBeenCalledWith('shutdown');
       expect(sendNotif).toHaveBeenCalledWith('exit');
@@ -230,13 +231,13 @@ describe('ApexClientCore', () => {
       await core.shutdown();
       await core.shutdown();
 
-      const sendReq = connection.sendRequest as jest.Mock;
+      const sendReq = connection.sendRequest as Mock;
       const shutdownCalls = sendReq.mock.calls.filter(
         ([m]) => m === 'shutdown',
       );
       expect(shutdownCalls).toHaveLength(1);
 
-      const sendNotif = connection.sendNotification as jest.Mock;
+      const sendNotif = connection.sendNotification as Mock;
       const exitCalls = sendNotif.mock.calls.filter(([m]) => m === 'exit');
       expect(exitCalls).toHaveLength(1);
 
@@ -251,7 +252,7 @@ describe('ApexClientCore', () => {
 
       const handlerDisposeOrder =
         connection.onRequestDisposeSpy.mock.invocationCallOrder[0];
-      const connectionDisposeOrder = (connection.dispose as jest.Mock).mock
+      const connectionDisposeOrder = (connection.dispose as Mock).mock
         .invocationCallOrder[0];
 
       expect(handlerDisposeOrder).toBeDefined();
@@ -272,7 +273,7 @@ describe('ApexClientCore', () => {
       await core.dispose();
       await core.dispose();
 
-      expect((connection.dispose as jest.Mock).mock.calls).toHaveLength(1);
+      expect((connection.dispose as Mock).mock.calls).toHaveLength(1);
     });
   });
 

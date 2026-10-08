@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import type { SalesforceVSCodeServicesApi } from '@salesforce/vscode-services';
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
@@ -32,12 +33,12 @@ function createHarness(
     maxConcurrentSearches?: number;
   } = {},
 ) {
-  const describe = jest.fn(
+  const describe = vi.fn(
     options.describe ??
       ((name: string) =>
         Effect.succeed({ name, custom: name.endsWith('__c'), fields: [] })),
   );
-  const query = jest.fn(
+  const query = vi.fn(
     options.query ??
       (async () => ({
         records: [
@@ -49,7 +50,7 @@ function createHarness(
         ],
       })),
   );
-  const getConnection = jest.fn(() => Effect.succeed({ tooling: { query } }));
+  const getConnection = vi.fn(() => Effect.succeed({ tooling: { query } }));
   const api: OrgArtifactServicesApi = {
     services: {
       prebuiltServicesDependencies: Context.empty(),
@@ -57,7 +58,7 @@ function createHarness(
       ConnectionService: { getConnection },
     },
   };
-  const getServicesApi = jest.fn(() =>
+  const getServicesApi = vi.fn(() =>
     options.providerFailure
       ? Effect.fail(options.providerFailure)
       : Effect.succeed(api),
