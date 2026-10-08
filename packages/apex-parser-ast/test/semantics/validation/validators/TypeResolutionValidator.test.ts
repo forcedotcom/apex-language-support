@@ -7,7 +7,7 @@
  */
 
 import { Effect } from 'effect';
-import { TypeResolutionValidator } from '../../../../src/semantics/validation/validators';
+import { TypeResolutionValidator } from '../../../../src/semantics/validation/validators/TypeResolutionValidator';
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';

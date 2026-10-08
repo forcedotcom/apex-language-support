@@ -7,7 +7,7 @@
  */
 
 import { Effect } from 'effect';
-import { StaticContextValidator } from '../../../../src/semantics/validation/validators';
+import { StaticContextValidator } from '../../../../src/semantics/validation/validators/StaticContextValidator';
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';

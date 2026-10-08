@@ -10,7 +10,7 @@ import {
   LiteralValidator,
   validateStringLiteral,
   validateDoubleLiteral,
-} from '../../../../src/semantics/validation/validators';
+} from '../../../../src/semantics/validation/validators/LiteralValidator';
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';

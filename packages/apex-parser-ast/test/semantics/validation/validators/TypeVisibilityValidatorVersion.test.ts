@@ -7,7 +7,7 @@
  */
 
 import { Effect } from 'effect';
-import { TypeVisibilityValidator } from '../../../../src/semantics/validation/validators';
+import { TypeVisibilityValidator } from '../../../../src/semantics/validation/validators/TypeVisibilityValidator';
 import { ValidationTier } from '../../../../src/semantics/validation/ValidationTier';
 import { ApexSymbolManager } from '../../../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../../../src/parser/compilerService';
