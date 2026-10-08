@@ -41,8 +41,8 @@ const nodeRequire =
 // Try to import the ZIP file - this will be transformed by esbuild in bundled builds
 // In unbundled builds, this will fail and we'll fall back to fs.readFileSync
 try {
-  // Dynamic require to prevent TypeScript from complaining
-  const imported = nodeRequire?.('../../resources/StandardApexLibrary.zip');
+  // The literal require lets esbuild embed the ZIP in browser bundles.
+  const imported = require('../../resources/StandardApexLibrary.zip');
   // In bundled builds, this will be a data URL string
   if (typeof imported === 'string' && imported.startsWith('data:')) {
     embeddedZipDataUrl = imported;
