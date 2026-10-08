@@ -20,6 +20,7 @@
 
 import * as WorkerRunner from '@effect/platform/WorkerRunner';
 import type { WorkspaceEdit } from 'vscode-languageserver';
+import type { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   Cause,
   Effect,
@@ -83,6 +84,8 @@ import {
   ApexSettingsManager,
   type WorkerRole,
   type WorkerLogLevel,
+  type LineBreakpointInfo,
+  type ExceptionBreakpointInfo,
 } from '@salesforce/apex-lsp-shared';
 import {
   getDocumentStateCache,
@@ -189,15 +192,11 @@ export const AllWorkerRequests = Schema.Union(
 // vscode-languageserver-textdocument package in worker context.
 // ---------------------------------------------------------------------------
 
-export interface WorkerDocument {
-  readonly uri: string;
-  readonly languageId: string;
-  readonly version: number;
+export interface WorkerDocument
+  extends
+    Pick<TextDocument, 'uri' | 'languageId' | 'version' | 'getText'>,
+    Partial<Pick<TextDocument, 'offsetAt' | 'positionAt'>> {
   readonly namespace?: string;
-  getText(range?: {
-    start: { line: number; character: number };
-    end: { line: number; character: number };
-  }): string;
   // Position/offset helpers. Completion (analyzeCompletionContext,
   // GeneralCompletionStrategy.getWordAtPosition) calls document.offsetAt(); a
   // bare object without it throws "offsetAt is not a function" and the request
@@ -7921,51 +7920,82 @@ const untracedHandlers: SerializedWorkerHandlers = {
         dataOwnerRead(
           Effect.gen(function* () {
             const svc = yield* ensureDataOwnerServices;
-            const document = yield* Effect.promise(() =>
-              svc.storageManager.getStorage().getDocument(req.uri),
-            );
+            const onError = (cause: unknown) => ({
+              _tag: 'QueryDebuggerMetadataError' as const,
+              message: cause instanceof Error ? cause.message : String(cause),
+            });
+            const document = yield* Effect.tryPromise({
+              try: () => svc.storageManager.getStorage().getDocument(req.uri),
+              catch: onError,
+            });
             if (!document) {
               return yield* Effect.fail({
                 _tag: 'QueryDebuggerMetadataError' as const,
                 message: `No document state is available for ${req.uri}`,
               });
             }
-            const { DebuggerMetadataService } = yield* Effect.promise(
-              () => import('@salesforce/apex-lsp-compliant-services'),
-            );
-            const standardNamespaces = (yield* Effect.promise(async () => {
-              const raw = await requestCoordinatorAssistancePromiseShared(
-                'resourceLoader:getStandardNamespaces',
-                {},
-                true,
-              );
-              return new Map(
-                Object.entries(
-                  raw && typeof raw === 'object'
-                    ? (raw as Record<string, string[]>)
-                    : {},
-                ),
-              );
-            })) as ReadonlyMap<string, readonly string[]>;
-            const service = new DebuggerMetadataService(
-              svc.symbolManager,
-              () => standardNamespaces,
-            );
-            const result =
-              req.kind === 'lineBreakpoints'
-                ? yield* Effect.promise(() =>
-                    service.lineBreakpoints(
-                      req.uri,
-                      document.getText(),
-                      (document as WorkerDocument).namespace,
-                    ),
-                  )
-                : yield* Effect.promise(() =>
-                    service.exceptionBreakpoints(
-                      req.uri,
-                      (document as WorkerDocument).namespace,
-                    ),
+            const { getLineBreakpointInfo, getExceptionBreakpointInfo } =
+              yield* Effect.tryPromise({
+                try: () => import('@salesforce/apex-lsp-compliant-services'),
+                catch: onError,
+              });
+            const namespace =
+              'namespace' in document && typeof document.namespace === 'string'
+                ? document.namespace
+                : undefined;
+            let result:
+              | readonly LineBreakpointInfo[]
+              | readonly ExceptionBreakpointInfo[];
+            if (req.kind === 'lineBreakpoints') {
+              result = yield* Effect.tryPromise({
+                try: () =>
+                  getLineBreakpointInfo(
+                    svc.symbolManager,
+                    req.uri,
+                    document.getText(),
+                    namespace,
+                  ),
+                catch: onError,
+              });
+            } else {
+              const standardNamespaces = yield* Effect.tryPromise({
+                try: async (): Promise<
+                  ReadonlyMap<string, readonly string[]>
+                > => {
+                  const raw = await requestCoordinatorAssistancePromiseShared(
+                    'resourceLoader:getStandardNamespaces',
+                    {},
+                    true,
                   );
+                  const isStandardNamespaces = (
+                    value: unknown,
+                  ): value is Record<string, string[]> =>
+                    !!value &&
+                    typeof value === 'object' &&
+                    !Array.isArray(value) &&
+                    Object.values(value).every(
+                      (entries) =>
+                        Array.isArray(entries) &&
+                        entries.every((item) => typeof item === 'string'),
+                    );
+                  if (!isStandardNamespaces(raw)) {
+                    throw new Error('Invalid standard namespace response');
+                  }
+                  return new Map(Object.entries(raw));
+                },
+                catch: onError,
+              });
+              result = yield* Effect.tryPromise({
+                try: () =>
+                  getExceptionBreakpointInfo(
+                    svc.symbolManager,
+                    req.uri,
+                    standardNamespaces,
+                    namespace,
+                  ),
+                catch: onError,
+              });
+            }
             return cloneForWire(result);
           }),
         ),

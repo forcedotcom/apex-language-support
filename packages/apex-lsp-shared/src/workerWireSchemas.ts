@@ -1253,8 +1253,7 @@ export class QueryDebuggerMetadata extends Schema.TaggedRequest<QueryDebuggerMet
   'QueryDebuggerMetadata',
   {
     success: Schema.Unknown,
-    failure: Schema.Struct({
-      _tag: Schema.Literal('QueryDebuggerMetadataError'),
+    failure: Schema.TaggedStruct('QueryDebuggerMetadataError', {
       message: Schema.String,
     }),
     payload: {

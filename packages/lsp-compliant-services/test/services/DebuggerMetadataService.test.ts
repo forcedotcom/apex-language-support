@@ -15,12 +15,14 @@ import {
   FullSymbolCollectorListener,
   SymbolTable,
 } from '@salesforce/apex-lsp-parser-ast';
-import { DebuggerMetadataService } from '../../src/services/DebuggerMetadataService';
+import {
+  getLineBreakpointInfo,
+  getExceptionBreakpointInfo,
+} from '../../src/services/DebuggerMetadataService';
 
 const fixturesDir = join(__dirname, '../fixtures/debugger');
 
 type CompiledFixture = {
-  readonly service: DebuggerMetadataService;
   readonly symbolManager: ApexSymbolManager;
   readonly source: string;
   readonly uri: string;
@@ -41,14 +43,13 @@ async function compileFixture(
   );
   await Effect.runPromise(symbolManager.addSymbolTable(symbolTable, uri));
   return {
-    service: new DebuggerMetadataService(symbolManager),
     symbolManager,
     source,
     uri,
   };
 }
 
-describe('DebuggerMetadataService', () => {
+describe('debugger metadata functions', () => {
   it('returns parser-derived statement lines for a compiled class fixture', async () => {
     const fixture = await compileFixture(
       'Example.cls',
@@ -56,7 +57,7 @@ describe('DebuggerMetadataService', () => {
     );
 
     await expect(
-      fixture.service.lineBreakpoints(fixture.uri, fixture.source),
+      getLineBreakpointInfo(fixture.symbolManager, fixture.uri, fixture.source),
     ).resolves.toEqual([
       {
         uri: fixture.uri,
@@ -73,7 +74,7 @@ describe('DebuggerMetadataService', () => {
     );
 
     await expect(
-      fixture.service.exceptionBreakpoints(fixture.uri),
+      getExceptionBreakpointInfo(fixture.symbolManager, fixture.uri, new Map()),
     ).resolves.toEqual([
       {
         uri: fixture.uri,
@@ -95,7 +96,12 @@ describe('DebuggerMetadataService', () => {
     );
 
     await expect(
-      fixture.service.lineBreakpoints(fixture.uri, fixture.source, 'managed'),
+      getLineBreakpointInfo(
+        fixture.symbolManager,
+        fixture.uri,
+        fixture.source,
+        'managed',
+      ),
     ).resolves.toEqual([
       {
         uri: fixture.uri,
@@ -112,7 +118,7 @@ describe('DebuggerMetadataService', () => {
     );
 
     await expect(
-      fixture.service.lineBreakpoints(fixture.uri, fixture.source),
+      getLineBreakpointInfo(fixture.symbolManager, fixture.uri, fixture.source),
     ).resolves.toEqual([
       {
         uri: fixture.uri,
@@ -134,7 +140,12 @@ describe('DebuggerMetadataService', () => {
     );
 
     await expect(
-      fixture.service.lineBreakpoints(fixture.uri, fixture.source, 'managed'),
+      getLineBreakpointInfo(
+        fixture.symbolManager,
+        fixture.uri,
+        fixture.source,
+        'managed',
+      ),
     ).resolves.toEqual([
       {
         uri: fixture.uri,
@@ -156,7 +167,12 @@ describe('DebuggerMetadataService', () => {
     );
 
     await expect(
-      fixture.service.lineBreakpoints(fixture.uri, fixture.source, 'managed'),
+      getLineBreakpointInfo(
+        fixture.symbolManager,
+        fixture.uri,
+        fixture.source,
+        'managed',
+      ),
     ).resolves.toEqual([
       {
         uri: fixture.uri,
@@ -173,7 +189,7 @@ describe('DebuggerMetadataService', () => {
     );
 
     await expect(
-      fixture.service.lineBreakpoints(fixture.uri, fixture.source),
+      getLineBreakpointInfo(fixture.symbolManager, fixture.uri, fixture.source),
     ).resolves.toEqual([
       {
         uri: fixture.uri,
@@ -195,7 +211,7 @@ describe('DebuggerMetadataService', () => {
     );
 
     await expect(
-      fixture.service.exceptionBreakpoints(fixture.uri),
+      getExceptionBreakpointInfo(fixture.symbolManager, fixture.uri, new Map()),
     ).resolves.toEqual([
       {
         uri: fixture.uri,
@@ -217,7 +233,12 @@ describe('DebuggerMetadataService', () => {
     );
 
     await expect(
-      fixture.service.exceptionBreakpoints(fixture.uri, 'managed'),
+      getExceptionBreakpointInfo(
+        fixture.symbolManager,
+        fixture.uri,
+        new Map(),
+        'managed',
+      ),
     ).resolves.toEqual([
       {
         uri: fixture.uri,
@@ -239,7 +260,7 @@ describe('DebuggerMetadataService', () => {
     );
 
     await expect(
-      fixture.service.exceptionBreakpoints(fixture.uri),
+      getExceptionBreakpointInfo(fixture.symbolManager, fixture.uri, new Map()),
     ).resolves.toEqual([
       {
         uri: fixture.uri,
@@ -256,7 +277,7 @@ describe('DebuggerMetadataService', () => {
     );
 
     await expect(
-      fixture.service.exceptionBreakpoints(fixture.uri),
+      getExceptionBreakpointInfo(fixture.symbolManager, fixture.uri, new Map()),
     ).resolves.toEqual([
       {
         uri: fixture.uri,
@@ -271,12 +292,13 @@ describe('DebuggerMetadataService', () => {
       'Example.cls',
       'file:///workspace/force-app/main/default/classes/Example.cls',
     );
-    const service = new DebuggerMetadataService(
-      fixture.symbolManager,
-      () => new Map([['System', ['DmlException.cls', 'String.cls']]]),
-    );
-
-    await expect(service.exceptionBreakpoints(fixture.uri)).resolves.toEqual([
+    await expect(
+      getExceptionBreakpointInfo(
+        fixture.symbolManager,
+        fixture.uri,
+        new Map([['System', ['DmlException.cls', 'String.cls']]]),
+      ),
+    ).resolves.toEqual([
       {
         uri: null,
         typeref: 'com/salesforce/api/exception/DmlException',

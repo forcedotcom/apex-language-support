@@ -122,6 +122,14 @@ describe('debugger metadata through the worker topology', () => {
         const exceptions = yield* Effect.promise(() =>
           dispatcher.queryDebuggerMetadata(URI, 'exceptionBreakpoints'),
         );
+        yield* Effect.promise(() =>
+          expect(
+            dispatcher.queryDebuggerMetadata(
+              'file:///workspace/Missing.cls',
+              'lineBreakpoints',
+            ),
+          ).rejects.toThrow('No document state is available'),
+        );
         return { lines, exceptions };
       }).pipe(Effect.scoped),
     );

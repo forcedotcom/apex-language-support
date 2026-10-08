@@ -53,17 +53,6 @@ export interface LSPRequestTask {
 }
 
 /**
- * LSP request result
- */
-export interface LSPRequestResult<T = any> {
-  readonly taskId: string;
-  readonly type: LSPRequestType;
-  readonly result: T;
-  readonly processingTime: number;
-  readonly timestamp: number;
-}
-
-/**
  * Queue statistics
  */
 export interface LSPQueueStats {

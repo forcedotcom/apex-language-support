@@ -648,28 +648,24 @@ export class LCSAdapter {
     if (!document) {
       throw new Error(`No document state is available for ${uri}`);
     }
-    const { DebuggerMetadataService } =
+    const { getLineBreakpointInfo, getExceptionBreakpointInfo } =
       await import('@salesforce/apex-lsp-compliant-services');
-    const resourceLoader = ResourceLoader.getInstance();
-    const service = new DebuggerMetadataService(
-      ApexSymbolProcessingManager.getInstance().getSymbolManager(),
-      () => {
-        const namespaces = new Map<string, string[]>();
-        for (const [
-          namespace,
-          classes,
-        ] of resourceLoader.getStandardNamespaces()) {
-          namespaces.set(
-            namespace,
-            classes.map((className) => className.value),
-          );
-        }
-        return namespaces;
-      },
-    );
-    return kind === 'lineBreakpoints'
-      ? service.lineBreakpoints(uri, document.getText())
-      : service.exceptionBreakpoints(uri);
+    const symbolManager =
+      ApexSymbolProcessingManager.getInstance().getSymbolManager();
+    if (kind === 'lineBreakpoints') {
+      return getLineBreakpointInfo(symbolManager, uri, document.getText());
+    }
+    const namespaces = new Map<string, string[]>();
+    for (const [
+      namespace,
+      classes,
+    ] of ResourceLoader.getInstance().getStandardNamespaces()) {
+      namespaces.set(
+        namespace,
+        classes.map((className) => className.value),
+      );
+    }
+    return getExceptionBreakpointInfo(symbolManager, uri, namespaces);
   }
 
   /**
