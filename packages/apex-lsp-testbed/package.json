@@ -81,7 +81,7 @@
       ]
     },
     "test": {
-      "command": "jest --testMatch \"**/test/**/*.test.ts\" --testPathIgnorePatterns=\"integration|accuracy/semantic-errors\" --json --outputFile=.wireit/test-results.json",
+      "command": "vitest run --reporter=json --outputFile=.wireit/test-results.json",
       "dependencies": [
         "compile",
         "../apex-ls:bundle",
@@ -93,11 +93,11 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs"
+        "vitest.config.mts"
       ]
     },
     "test:integration": {
-      "command": "jest --testMatch \"**/test/(integration|accuracy)/**/*.test.ts\" --testPathIgnorePatterns=\"/node_modules/\" --json --outputFile=.wireit/test-results-integration.json",
+      "command": "vitest run --include=\"test/{integration,accuracy}/**/*.test.ts\" --reporter=json --outputFile=.wireit/test-results-integration.json",
       "dependencies": [
         "compile",
         "../apex-ls:bundle",
@@ -110,11 +110,11 @@
         "src/**/*.ts",
         "test/integration/**/*.ts",
         "test/accuracy/**/*.test.ts",
-        "**/jest.config.cjs"
+        "vitest.config.mts"
       ]
     },
     "test:quality": {
-      "command": "jest --testMatch \"**/test/**/*.quality.ts\"",
+      "command": "vitest run --include=\"test/**/*.quality.ts\"",
       "dependencies": [
         "compile",
         "../apex-ls:bundle"
@@ -122,11 +122,11 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.quality.ts",
-        "**/jest.config.cjs"
+        "vitest.config.mts"
       ]
     },
     "test:coverage": {
-      "command": "jest --coverage --coverageDirectory=./coverage --testPathIgnorePatterns=\"integration|accuracy/semantic-errors\"",
+      "command": "vitest run --coverage --coverage.reportsDirectory=./coverage",
       "dependencies": [
         "compile",
         "sync:fixtures"
@@ -137,40 +137,40 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs"
+        "vitest.config.mts"
       ]
     },
     "test:perf": {
-      "command": "jest --testMatch \"**/test/**/*.perf.ts\"",
+      "command": "vitest run --include=\"test/**/*.perf.ts\"",
       "dependencies": [
         "compile"
       ],
       "files": [
         "src/**/*.ts",
         "test/**/*.perf.ts",
-        "**/jest.config.cjs"
+        "vitest.config.mts"
       ]
     },
     "test:perf:eda": {
-      "command": "jest --testMatch \"**/test/**/*.perf.ts\" --testPathPattern=eda-workspace",
+      "command": "vitest run --include=\"test/**/*.perf.ts\" eda-workspace",
       "dependencies": [
         "compile"
       ],
       "files": [
         "src/**/*.ts",
         "test/**/*.perf.ts",
-        "**/jest.config.cjs"
+        "vitest.config.mts"
       ]
     },
     "test:perf:lsp": {
-      "command": "jest --testMatch \"**/test/**/*.perf.ts\" --testPathPattern=lsp-benchmarks",
+      "command": "vitest run --include=\"test/**/*.perf.ts\" lsp-benchmarks",
       "dependencies": [
         "compile"
       ],
       "files": [
         "src/**/*.ts",
         "test/**/*.perf.ts",
-        "**/jest.config.cjs"
+        "vitest.config.mts"
       ]
     },
     "lint": {
@@ -204,6 +204,7 @@
   },
   "devDependencies": {
     "@salesforce/apex-lsp-parser-ast": "workspace:*",
-    "@salesforce/apex-lsp-shared": "workspace:*"
+    "@salesforce/apex-lsp-shared": "workspace:*",
+    "vitest": "5.0.1"
   }
 }

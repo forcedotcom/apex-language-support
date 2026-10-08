@@ -81,7 +81,7 @@
       ]
     },
     "test": {
-      "command": "jest --passWithNoTests --json --outputFile=.wireit/test-results.json",
+      "command": "vitest run --reporter=json --outputFile=.wireit/test-results.json",
       "dependencies": [
         "compile"
       ],
@@ -91,11 +91,11 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs"
+        "vitest.config.mts"
       ]
     },
     "test:coverage": {
-      "command": "jest --passWithNoTests --coverage --coverageDirectory=./coverage",
+      "command": "vitest run --coverage --coverage.reportsDirectory=./coverage",
       "dependencies": [
         "compile"
       ],
@@ -105,7 +105,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs"
+        "vitest.config.mts"
       ]
     },
     "lint": {
@@ -140,7 +140,8 @@
     "vscode-languageserver-protocol": "^3.17.5"
   },
   "peerDependencies": {
-    "vscode-languageclient": "^9.0.1"
+    "vscode-languageclient": "^9.0.1",
+    "vitest": "5.0.1"
   },
   "peerDependenciesMeta": {
     "vscode-languageclient": {
@@ -148,7 +149,6 @@
     }
   },
   "devDependencies": {
-    "@jest/globals": "^30.5.1",
     "@salesforce/esbuild-presets": "workspace:*",
     "vscode-languageclient": "^9.0.1"
   }

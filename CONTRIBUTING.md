@@ -74,7 +74,7 @@ packages/
 - **`package.json`**: Monorepo configuration, workspace definitions, root scripts, and Wireit task configuration
 - **`tsconfig.json`**: TypeScript project references and path mappings
 - **`tsconfig.base.json`**: Shared TypeScript compiler options
-- **`jest.config.cjs`**: Root Jest configuration for testing
+- **`vitest.config.mts`**: Root Vitest configuration for testing
 - **`eslint.config.mjs`**: ESLint configuration for code quality
 - **`.prettierrc`**: Code formatting rules
 
@@ -250,7 +250,7 @@ The root `tsconfig.json` defines path mappings for cross-package imports:
 
 - **wireit**: Build orchestration
 - **typescript**: Type checking and compilation
-- **jest**: Testing framework
+- **vitest**: Testing framework
 - **eslint**: Code linting
 - **prettier**: Code formatting
 

@@ -15,7 +15,7 @@ The testing strategy consists of multiple layers to ensure reliability:
 
 Before testing, ensure you have:
 
-- Node.js 20.x or later
+- Node.js 22.12.0 or later (Node 22.12+ and supported newer releases)
 - npm 9.x or later
 - Git with access to the repository
 - GitHub repository with Actions enabled

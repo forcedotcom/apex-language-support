@@ -44,17 +44,16 @@
       ]
     },
     {
-      "name": "Debug Jest Test (Prompt for Name)",
+      "name": "Debug Vitest Test (Prompt for Name)",
       "type": "node",
       "request": "launch",
-      "program": "${workspaceFolder}/node_modules/jest/bin/jest.js",
+      "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
       "args": [
         "${file}",
-        "--testNamePattern=${input:testName}",
-        "--runInBand",
-        "--no-cache",
-        "--no-coverage",
-        "--verbose"
+        "run",
+        "-t=${input:testName}",
+        "--pool=forks",
+        "--poolOptions.forks.singleFork"
       ],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
@@ -68,17 +67,16 @@
       ]
     },
     {
-      "name": "Debug Jest Test (Selected Text)",
+      "name": "Debug Vitest Test (Selected Text)",
       "type": "node",
       "request": "launch",
-      "program": "${workspaceFolder}/node_modules/jest/bin/jest.js",
+      "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
       "args": [
         "${file}",
-        "--testNamePattern=${selectedText}",
-        "--runInBand",
-        "--no-cache",
-        "--no-coverage",
-        "--verbose"
+        "run",
+        "-t=${selectedText}",
+        "--pool=forks",
+        "--poolOptions.forks.singleFork"
       ],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
@@ -92,16 +90,15 @@
       ]
     },
     {
-      "name": "Debug Jest Test File",
+      "name": "Debug Vitest Test File",
       "type": "node",
       "request": "launch",
-      "program": "${workspaceFolder}/node_modules/jest/bin/jest.js",
+      "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
       "args": [
         "${file}",
-        "--runInBand",
-        "--no-cache",
-        "--no-coverage",
-        "--verbose"
+        "run",
+        "--pool=forks",
+        "--poolOptions.forks.singleFork"
       ],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
@@ -185,20 +182,22 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "Debug Current Jest Test",
-      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/jest",
+      "name": "Debug Current Vitest Test",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/vitest",
       "args": [
         "${relativeFile}",
+        "run",
         "-c",
-        "${workspaceFolder}/packages/apex-parser-ast/jest.config.cjs",
+        "${workspaceFolder}/packages/apex-parser-ast/vitest.config.mts",
         "-t",
         "${selectedText}",
-        "--runInBand"
+        "--pool=forks",
+        "--poolOptions.forks.singleFork"
       ],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "windows": {
-        "runtimeExecutable": "${workspaceFolder}/node_modules/jest/bin/jest"
+        "runtimeExecutable": "${workspaceFolder}/node_modules/vitest/vitest.mjs"
       },
       "sourceMaps": true,
       "smartStep": true,
@@ -215,18 +214,20 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "Run All Jest Tests in File",
-      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/jest",
+      "name": "Run All Vitest Tests in File",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/vitest",
       "args": [
         "${relativeFile}",
+        "run",
         "-c",
-        "${workspaceFolder}/packages/apex-parser-ast/jest.config.cjs",
-        "--runInBand"
+        "${workspaceFolder}/packages/apex-parser-ast/vitest.config.mts",
+        "--pool=forks",
+        "--poolOptions.forks.singleFork"
       ],
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "windows": {
-        "runtimeExecutable": "${workspaceFolder}/node_modules/jest/bin/jest"
+        "runtimeExecutable": "${workspaceFolder}/node_modules/vitest/vitest.mjs"
       },
       "sourceMaps": true,
       "smartStep": true,
