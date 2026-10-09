@@ -13,3 +13,7 @@ vi.hoisted(() => {
 });
 
 import './ApexSymbolManager.resolution.test?group=declarations';
+
+afterAll(() => {
+  delete process.env.APEX_RESOLUTION_GROUP;
+});

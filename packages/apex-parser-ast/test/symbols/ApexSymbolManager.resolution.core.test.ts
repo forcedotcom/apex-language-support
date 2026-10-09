@@ -13,3 +13,7 @@ vi.hoisted(() => {
 });
 
 import './ApexSymbolManager.resolution.test?group=core';
+
+afterAll(() => {
+  delete process.env.APEX_RESOLUTION_GROUP;
+});
