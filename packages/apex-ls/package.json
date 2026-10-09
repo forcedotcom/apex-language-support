@@ -25,6 +25,7 @@
     "compile:node": "tsc --build tsconfig.node.json",
     "bundle": "wireit",
     "test": "wireit",
+    "test:verbose": "wireit",
     "test:web": "wireit",
     "test:browser-compilation": "wireit",
     "test:coverage": "wireit",
@@ -99,6 +100,21 @@
       "output": [
         ".wireit/test-results.json"
       ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "vitest.config.mts"
+      ]
+    },
+    "test:verbose": {
+      "command": "vitest run --reporter=verbose --reporter=json --outputFile.json=.wireit/test-results-verbose.json",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        ".wireit/test-results-verbose.json"
+      ],
+      "cache": false,
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",

@@ -46,11 +46,11 @@ import {
   LoggerInterface,
   type WorkerRole,
 } from '@salesforce/apex-lsp-shared';
-import { Effect } from 'effect';
+import { Effect, Exit, Scope } from 'effect';
 
 const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
 const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
-const LOG_LEVEL = 'debug';
+const LOG_LEVEL = 'error';
 const COMPILATION_POOL_SIZE = 2;
 const workerLayerFactory = (role: WorkerRole) =>
   makeNodeWorkerLayer(WORKER_TS_ENTRY, {
@@ -120,8 +120,66 @@ function wireProductionMediator(
   return mediator;
 }
 
+// Share one topology only where every test reads the same stored documents.
+// Cases that depend on an empty, partial, or different document store stay scoped
+// to their individual tests below.
+async function startSharedServer(
+  logger: LoggerInterface,
+  sources: Record<string, string>,
+): Promise<{
+  scope: Scope.CloseableScope;
+  dispatcher: ReturnType<typeof makeWorkerDispatcher>;
+}> {
+  const scope = Effect.runSync(Scope.make());
+  try {
+    const setup = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        (uri) => sources[uri],
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      for (const [uri, source] of Object.entries(sources)) {
+        yield* Effect.promise(() =>
+          dispatcher.dispatch('documentOpen', {
+            document: {
+              uri,
+              languageId: 'apex',
+              version: 1,
+              getText: () => source,
+            },
+            textDocument: { uri },
+            text: source,
+          }),
+        );
+      }
+      return dispatcher;
+    });
+    const dispatcher = await Effect.runPromise(
+      Effect.provideService(setup, Scope.Scope, scope),
+    );
+    return { scope, dispatcher };
+  } catch (error) {
+    await Effect.runPromise(Scope.close(scope, Exit.void));
+    clearRawWorkers();
+    throw error;
+  }
+}
+
 describe('rename through the worker topology (Phase 0 no-op)', () => {
   let logger: LoggerInterface;
+  let activeSharedScope: Scope.CloseableScope | undefined;
 
   beforeAll(() => {
     enableConsoleLogging();
@@ -130,431 +188,239 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
   });
 
   afterEach(() => {
-    clearRawWorkers();
+    if (!activeSharedScope) {
+      clearRawWorkers();
+    }
   });
 
-  it('routes rename to the request pool and settles with null (Phase 0)', async () => {
-    const program = Effect.gen(function* () {
-      const topology = yield* initializeTopology({
-        poolSize: 1,
-        enableResourceLoader: true,
-        logger,
-        logLevel: LOG_LEVEL,
-        compilationPoolSize: COMPILATION_POOL_SIZE,
-        compilationConcurrency: 1,
-        workerLayerFactory,
-      });
-      const dispatcher = makeWorkerDispatcher(
-        topology,
-        logger,
-        (uri) => SOURCES[uri],
-      );
-      wireProductionMediator(topology, dispatcher, logger);
-      yield* runRemoteStdlibWarmupPhase(topology, 1);
+  describe('local rename on one shared server', () => {
+    let dispatcher: ReturnType<typeof makeWorkerDispatcher>;
 
-      // rename must NOT be coordinator-only anymore — it dispatches to the pool.
-      const canDispatch = dispatcher.canDispatch('rename');
+    beforeAll(async () => {
+      const fixture = await startSharedServer(logger, SOURCES);
+      activeSharedScope = fixture.scope;
+      dispatcher = fixture.dispatcher;
+    }, 120_000);
 
-      yield* Effect.promise(() =>
-        dispatcher.dispatch('documentOpen', {
-          document: {
-            uri: UTIL_URI,
-            languageId: 'apex',
-            version: 1,
-            getText: () => UTIL_SRC,
-          },
-          textDocument: { uri: UTIL_URI },
-          text: UTIL_SRC,
-        }),
-      );
+    afterAll(async () => {
+      if (activeSharedScope) {
+        await Effect.runPromise(Scope.close(activeSharedScope, Exit.void));
+        activeSharedScope = undefined;
+      }
+      clearRawWorkers();
+    }, 30_000);
 
-      // Dispatch rename on the TYPE name `RenameTarget` — an unsupported rename
-      // kind (renameType is TBD), so every resolver returns null. We're proving
-      // the request crosses the worker boundary and settles, not the edit. (A
-      // method/field cursor now produces a real WorkspaceEdit, so this uses a
-      // type cursor to keep asserting the null-settles path.)
-      const result = yield* Effect.promise(() =>
-        dispatcher.dispatch('rename', {
-          textDocument: { uri: UTIL_URI },
-          position: { line: 0, character: 18 }, // on `RenameTarget`
-          newName: 'Renamed',
-        }),
+    it('routes rename to the request pool and settles with null (Phase 0)', async () => {
+      const program = Effect.gen(function* () {
+        const canDispatch = dispatcher.canDispatch('rename');
+        // Dispatch rename on the TYPE name `RenameTarget` — an unsupported rename
+        // kind (renameType is TBD), so every resolver returns null. We're proving
+        // the request crosses the worker boundary and settles, not the edit. (A
+        // method/field cursor now produces a real WorkspaceEdit, so this uses a
+        // type cursor to keep asserting the null-settles path.)
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: UTIL_URI },
+            position: { line: 0, character: 18 }, // on `RenameTarget`
+            newName: 'Renamed',
+          }),
+        );
+
+        return { canDispatch, result };
+      }).pipe(Effect.scoped);
+
+      const { canDispatch, result } = await Effect.runPromise(program);
+      logger.debug(
+        `[rename-topology] canDispatch=${canDispatch} result=${JSON.stringify(result)}`,
       );
 
-      return { canDispatch, result };
-    }).pipe(Effect.scoped);
+      // The pipe is live (rename is pool-dispatchable) and a type cursor (not yet
+      // a supported rename kind) returns null across the boundary — no throw, no
+      // hang.
+      expect(canDispatch).toBe(true);
+      expect(result).toBeNull();
+    }, 120_000);
 
-    const { canDispatch, result } = await Effect.runPromise(program);
-    logger.debug(
-      `[rename-topology] canDispatch=${canDispatch} result=${JSON.stringify(result)}`,
-    );
+    it('renames a local to a WorkspaceEdit, leaving a sibling-scope local untouched (W-23631077)', async () => {
+      const program = Effect.gen(function* () {
+        // Cursor on compute()'s `total` usage in `return total;` (LSP line 4,
+        // char 15). compute()'s `total` is declared line 2 and used on lines 3-4;
+        // other()'s unrelated `total` lives on lines 7-8 and must NOT be renamed.
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: LOCAL_URI },
+            position: { line: 4, character: 15 },
+            newName: 'renamed',
+          }),
+        );
 
-    // The pipe is live (rename is pool-dispatchable) and a type cursor (not yet
-    // a supported rename kind) returns null across the boundary — no throw, no
-    // hang.
-    expect(canDispatch).toBe(true);
-    expect(result).toBeNull();
-  }, 120_000);
+        return { result };
+      }).pipe(Effect.scoped);
 
-  it('renames a local to a WorkspaceEdit, leaving a sibling-scope local untouched (W-23631077)', async () => {
-    const program = Effect.gen(function* () {
-      const topology = yield* initializeTopology({
-        poolSize: 1,
-        enableResourceLoader: true,
-        logger,
-        logLevel: LOG_LEVEL,
-        compilationPoolSize: COMPILATION_POOL_SIZE,
-        compilationConcurrency: 1,
-        workerLayerFactory,
-      });
-      const dispatcher = makeWorkerDispatcher(
-        topology,
-        logger,
-        (uri) => SOURCES[uri],
-      );
-      wireProductionMediator(topology, dispatcher, logger);
-      yield* runRemoteStdlibWarmupPhase(topology, 1);
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[rename-topology:local] ${JSON.stringify(result)}`);
 
-      yield* Effect.promise(() =>
-        dispatcher.dispatch('documentOpen', {
-          document: {
-            uri: LOCAL_URI,
-            languageId: 'apex',
-            version: 1,
-            getText: () => LOCAL_SRC,
-          },
-          textDocument: { uri: LOCAL_URI },
-          text: LOCAL_SRC,
-        }),
-      );
+      // A real WorkspaceEdit came back, scoped to the one file.
+      const edit = result as {
+        changes?: Record<
+          string,
+          Array<{
+            range: { start: { line: number; character: number } };
+            newText: string;
+          }>
+        >;
+      } | null;
+      expect(edit?.changes).toBeDefined();
+      expect(Object.keys(edit!.changes!)).toEqual([LOCAL_URI]);
 
-      // Cursor on compute()'s `total` usage in `return total;` (LSP line 4,
-      // char 15). compute()'s `total` is declared line 2 and used on lines 3-4;
-      // other()'s unrelated `total` lives on lines 7-8 and must NOT be renamed.
-      const result = yield* Effect.promise(() =>
-        dispatcher.dispatch('rename', {
-          textDocument: { uri: LOCAL_URI },
-          position: { line: 4, character: 15 },
-          newName: 'renamed',
-        }),
-      );
+      const edits = edit!.changes![LOCAL_URI];
+      // Declaration (line 2) + three usage tokens (line 3 twice, line 4 once).
+      expect(edits.length).toBe(4);
+      edits.forEach((e) => expect(e.newText).toBe('renamed'));
 
-      return { result };
-    }).pipe(Effect.scoped);
+      const lines = edits.map((e) => e.range.start.line).sort((a, b) => a - b);
+      expect(lines).toEqual([2, 3, 3, 4]);
+      // The crux: other()'s same-named `total` (lines 7-8) is never touched.
+      expect(edits.some((e) => e.range.start.line >= 7)).toBe(false);
+    }, 120_000);
 
-    const { result } = await Effect.runPromise(program);
-    logger.debug(`[rename-topology:local] ${JSON.stringify(result)}`);
+    it('rejects an invalid newName with an error result (W-23631080 validation)', async () => {
+      const program = Effect.gen(function* () {
+        // Cursor on compute()'s `total` usage (line 4, char 15), but try to rename
+        // to a reserved word. The worker should return an error result, not null.
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('rename', {
+            textDocument: { uri: LOCAL_URI },
+            position: { line: 4, character: 15 },
+            newName: 'class', // reserved keyword
+          }),
+        );
 
-    // A real WorkspaceEdit came back, scoped to the one file.
-    const edit = result as {
-      changes?: Record<
-        string,
-        Array<{
-          range: { start: { line: number; character: number } };
-          newText: string;
-        }>
-      >;
-    } | null;
-    expect(edit?.changes).toBeDefined();
-    expect(Object.keys(edit!.changes!)).toEqual([LOCAL_URI]);
+        return { result };
+      }).pipe(Effect.scoped);
 
-    const edits = edit!.changes![LOCAL_URI];
-    // Declaration (line 2) + three usage tokens (line 3 twice, line 4 once).
-    expect(edits.length).toBe(4);
-    edits.forEach((e) => expect(e.newText).toBe('renamed'));
+      const { result } = await Effect.runPromise(program);
 
-    const lines = edits.map((e) => e.range.start.line).sort((a, b) => a - b);
-    expect(lines).toEqual([2, 3, 3, 4]);
-    // The crux: other()'s same-named `total` (lines 7-8) is never touched.
-    expect(edits.some((e) => e.range.start.line >= 7)).toBe(false);
-  }, 120_000);
+      // W-23631080: invalid newName produces a RenameErrorResult shape, not null.
+      // The LCSAdapter handler converts this to a ResponseError at the connection
+      // layer, but in this direct dispatcher test we see the raw error shape.
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('error');
+      const errResult = result as { error: { code: number; message: string } };
+      expect(errResult.error).toHaveProperty('code');
+      expect(errResult.error).toHaveProperty('message');
+      expect(errResult.error.message).toContain('keyword');
+    }, 120_000);
 
-  it('rejects an invalid newName with an error result (W-23631080 validation)', async () => {
-    const program = Effect.gen(function* () {
-      const topology = yield* initializeTopology({
-        poolSize: 1,
-        enableResourceLoader: true,
-        logger,
-        logLevel: LOG_LEVEL,
-        compilationPoolSize: COMPILATION_POOL_SIZE,
-        compilationConcurrency: 1,
-        workerLayerFactory,
-      });
-      const dispatcher = makeWorkerDispatcher(
-        topology,
-        logger,
-        (uri) => SOURCES[uri],
-      );
-      wireProductionMediator(topology, dispatcher, logger);
-      yield* runRemoteStdlibWarmupPhase(topology, 1);
+    it('returns prepareRename info for a local variable (W-23631080)', async () => {
+      const program = Effect.gen(function* () {
+        // Cursor on compute()'s `total` USAGE (line 4, char 15). prepareRename
+        // MUST return the range containing the cursor (the usage on line 4), NOT
+        // the declaration — VS Code requires the returned range to contain the
+        // cursor position or it rejects prepareRename.
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('prepareRename', {
+            textDocument: { uri: LOCAL_URI },
+            position: { line: 4, character: 15 },
+          }),
+        );
 
-      yield* Effect.promise(() =>
-        dispatcher.dispatch('documentOpen', {
-          document: {
-            uri: LOCAL_URI,
-            languageId: 'apex',
-            version: 1,
-            getText: () => LOCAL_SRC,
-          },
-          textDocument: { uri: LOCAL_URI },
-          text: LOCAL_SRC,
-        }),
-      );
+        return { result };
+      }).pipe(Effect.scoped);
 
-      // Cursor on compute()'s `total` usage (line 4, char 15), but try to rename
-      // to a reserved word. The worker should return an error result, not null.
-      const result = yield* Effect.promise(() =>
-        dispatcher.dispatch('rename', {
-          textDocument: { uri: LOCAL_URI },
-          position: { line: 4, character: 15 },
-          newName: 'class', // reserved keyword
-        }),
-      );
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[prepare-rename:local-usage] ${JSON.stringify(result)}`);
 
-      return { result };
-    }).pipe(Effect.scoped);
+      // W-23631080 review fix: prepareRename returns the range that CONTAINS
+      // THE CURSOR, not necessarily the declaration. Cursor is on line 4 usage,
+      // so the range must be on line 4.
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('range');
+      expect(result).toHaveProperty('placeholder');
+      const prepareInfo = result as {
+        range: { start: { line: number; character: number } };
+        placeholder: string;
+      };
+      expect(prepareInfo.range.start.line).toBe(4); // cursor-containing range
+      expect(prepareInfo.placeholder).toBe('total');
+    }, 120_000);
 
-    const { result } = await Effect.runPromise(program);
+    it('returns cursor-containing range from prepareRename when cursor on declaration (W-23631080)', async () => {
+      const program = Effect.gen(function* () {
+        // Cursor on compute()'s `total` DECLARATION (line 2, char 16). prepareRename
+        // should return the declaration range (which contains the cursor).
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('prepareRename', {
+            textDocument: { uri: LOCAL_URI },
+            position: { line: 2, character: 16 },
+          }),
+        );
 
-    // W-23631080: invalid newName produces a RenameErrorResult shape, not null.
-    // The LCSAdapter handler converts this to a ResponseError at the connection
-    // layer, but in this direct dispatcher test we see the raw error shape.
-    expect(result).not.toBeNull();
-    expect(result).toHaveProperty('error');
-    const errResult = result as { error: { code: number; message: string } };
-    expect(errResult.error).toHaveProperty('code');
-    expect(errResult.error).toHaveProperty('message');
-    expect(errResult.error.message).toContain('keyword');
-  }, 120_000);
+        return { result };
+      }).pipe(Effect.scoped);
 
-  it('returns prepareRename info for a local variable (W-23631080)', async () => {
-    const program = Effect.gen(function* () {
-      const topology = yield* initializeTopology({
-        poolSize: 1,
-        enableResourceLoader: true,
-        logger,
-        logLevel: LOG_LEVEL,
-        compilationPoolSize: COMPILATION_POOL_SIZE,
-        compilationConcurrency: 1,
-        workerLayerFactory,
-      });
-      const dispatcher = makeWorkerDispatcher(
-        topology,
-        logger,
-        (uri) => SOURCES[uri],
-      );
-      wireProductionMediator(topology, dispatcher, logger);
-      yield* runRemoteStdlibWarmupPhase(topology, 1);
-
-      yield* Effect.promise(() =>
-        dispatcher.dispatch('documentOpen', {
-          document: {
-            uri: LOCAL_URI,
-            languageId: 'apex',
-            version: 1,
-            getText: () => LOCAL_SRC,
-          },
-          textDocument: { uri: LOCAL_URI },
-          text: LOCAL_SRC,
-        }),
+      const { result } = await Effect.runPromise(program);
+      logger.debug(
+        `[prepare-rename:local-declaration] ${JSON.stringify(result)}`,
       );
 
-      // Cursor on compute()'s `total` USAGE (line 4, char 15). prepareRename
-      // MUST return the range containing the cursor (the usage on line 4), NOT
-      // the declaration — VS Code requires the returned range to contain the
-      // cursor position or it rejects prepareRename.
-      const result = yield* Effect.promise(() =>
-        dispatcher.dispatch('prepareRename', {
-          textDocument: { uri: LOCAL_URI },
-          position: { line: 4, character: 15 },
-        }),
-      );
+      // Cursor on declaration → range should be the declaration's range (line 2).
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('range');
+      const prepareInfo = result as {
+        range: { start: { line: number; character: number } };
+        placeholder: string;
+      };
+      expect(prepareInfo.range.start.line).toBe(2);
+      expect(prepareInfo.placeholder).toBe('total');
+    }, 120_000);
 
-      return { result };
-    }).pipe(Effect.scoped);
+    it('returns null from prepareRename for a non-local cursor (W-23631080)', async () => {
+      const program = Effect.gen(function* () {
+        // Cursor on the TYPE name `RenameLocal` (line 0, char 15). A type is not a
+        // local, field, or method, so it falls through the whole dispatch chain
+        // (local → field → method) and prepareRename returns null. (Before
+        // W-23631152 this used the method name `compute`, but a method cursor now
+        // resolves via resolvePrepareRenameForMethod, so the class name is the
+        // stable "no kind services this cursor" probe — renameType is Group 6.)
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('prepareRename', {
+            textDocument: { uri: LOCAL_URI },
+            position: { line: 0, character: 15 },
+          }),
+        );
 
-    const { result } = await Effect.runPromise(program);
-    logger.debug(`[prepare-rename:local-usage] ${JSON.stringify(result)}`);
+        return { result };
+      }).pipe(Effect.scoped);
 
-    // W-23631080 review fix: prepareRename returns the range that CONTAINS
-    // THE CURSOR, not necessarily the declaration. Cursor is on line 4 usage,
-    // so the range must be on line 4.
-    expect(result).not.toBeNull();
-    expect(result).toHaveProperty('range');
-    expect(result).toHaveProperty('placeholder');
-    const prepareInfo = result as {
-      range: { start: { line: number; character: number } };
-      placeholder: string;
-    };
-    expect(prepareInfo.range.start.line).toBe(4); // cursor-containing range
-    expect(prepareInfo.placeholder).toBe('total');
-  }, 120_000);
+      const { result } = await Effect.runPromise(program);
 
-  it('returns cursor-containing range from prepareRename when cursor on declaration (W-23631080)', async () => {
-    const program = Effect.gen(function* () {
-      const topology = yield* initializeTopology({
-        poolSize: 1,
-        enableResourceLoader: true,
-        logger,
-        logLevel: LOG_LEVEL,
-        compilationPoolSize: COMPILATION_POOL_SIZE,
-        compilationConcurrency: 1,
-        workerLayerFactory,
-      });
-      const dispatcher = makeWorkerDispatcher(
-        topology,
-        logger,
-        (uri) => SOURCES[uri],
-      );
-      wireProductionMediator(topology, dispatcher, logger);
-      yield* runRemoteStdlibWarmupPhase(topology, 1);
+      // prepareRename returns null when no rename kind services the cursor.
+      expect(result).toBeNull();
+    }, 120_000);
 
-      yield* Effect.promise(() =>
-        dispatcher.dispatch('documentOpen', {
-          document: {
-            uri: LOCAL_URI,
-            languageId: 'apex',
-            version: 1,
-            getText: () => LOCAL_SRC,
-          },
-          textDocument: { uri: LOCAL_URI },
-          text: LOCAL_SRC,
-        }),
-      );
+    it('returns null from prepareRename when the cursor is one past the identifier end', async () => {
+      const program = Effect.gen(function* () {
+        // Declaration line `        Integer total = 0;` (LSP line 2): `total`
+        // occupies chars 16-20, so the half-open identifier range ends at
+        // exclusive column 21 (the space before `=`). A cursor at char 21 sits
+        // AFTER the identifier and must NOT resolve — this is the off-by-one the
+        // `endColumn > cursorChar` (not `>=`) fix guards against.
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('prepareRename', {
+            textDocument: { uri: LOCAL_URI },
+            position: { line: 2, character: 21 },
+          }),
+        );
 
-      // Cursor on compute()'s `total` DECLARATION (line 2, char 16). prepareRename
-      // should return the declaration range (which contains the cursor).
-      const result = yield* Effect.promise(() =>
-        dispatcher.dispatch('prepareRename', {
-          textDocument: { uri: LOCAL_URI },
-          position: { line: 2, character: 16 },
-        }),
-      );
+        return { result };
+      }).pipe(Effect.scoped);
 
-      return { result };
-    }).pipe(Effect.scoped);
+      const { result } = await Effect.runPromise(program);
 
-    const { result } = await Effect.runPromise(program);
-    logger.debug(
-      `[prepare-rename:local-declaration] ${JSON.stringify(result)}`,
-    );
-
-    // Cursor on declaration → range should be the declaration's range (line 2).
-    expect(result).not.toBeNull();
-    expect(result).toHaveProperty('range');
-    const prepareInfo = result as {
-      range: { start: { line: number; character: number } };
-      placeholder: string;
-    };
-    expect(prepareInfo.range.start.line).toBe(2);
-    expect(prepareInfo.placeholder).toBe('total');
-  }, 120_000);
-
-  it('returns null from prepareRename for a non-local cursor (W-23631080)', async () => {
-    const program = Effect.gen(function* () {
-      const topology = yield* initializeTopology({
-        poolSize: 1,
-        enableResourceLoader: true,
-        logger,
-        logLevel: LOG_LEVEL,
-        compilationPoolSize: COMPILATION_POOL_SIZE,
-        compilationConcurrency: 1,
-        workerLayerFactory,
-      });
-      const dispatcher = makeWorkerDispatcher(
-        topology,
-        logger,
-        (uri) => SOURCES[uri],
-      );
-      wireProductionMediator(topology, dispatcher, logger);
-      yield* runRemoteStdlibWarmupPhase(topology, 1);
-
-      yield* Effect.promise(() =>
-        dispatcher.dispatch('documentOpen', {
-          document: {
-            uri: LOCAL_URI,
-            languageId: 'apex',
-            version: 1,
-            getText: () => LOCAL_SRC,
-          },
-          textDocument: { uri: LOCAL_URI },
-          text: LOCAL_SRC,
-        }),
-      );
-
-      // Cursor on the TYPE name `RenameLocal` (line 0, char 15). A type is not a
-      // local, field, or method, so it falls through the whole dispatch chain
-      // (local → field → method) and prepareRename returns null. (Before
-      // W-23631152 this used the method name `compute`, but a method cursor now
-      // resolves via resolvePrepareRenameForMethod, so the class name is the
-      // stable "no kind services this cursor" probe — renameType is Group 6.)
-      const result = yield* Effect.promise(() =>
-        dispatcher.dispatch('prepareRename', {
-          textDocument: { uri: LOCAL_URI },
-          position: { line: 0, character: 15 },
-        }),
-      );
-
-      return { result };
-    }).pipe(Effect.scoped);
-
-    const { result } = await Effect.runPromise(program);
-
-    // prepareRename returns null when no rename kind services the cursor.
-    expect(result).toBeNull();
-  }, 120_000);
-
-  it('returns null from prepareRename when the cursor is one past the identifier end', async () => {
-    const program = Effect.gen(function* () {
-      const topology = yield* initializeTopology({
-        poolSize: 1,
-        enableResourceLoader: true,
-        logger,
-        logLevel: LOG_LEVEL,
-        compilationPoolSize: COMPILATION_POOL_SIZE,
-        compilationConcurrency: 1,
-        workerLayerFactory,
-      });
-      const dispatcher = makeWorkerDispatcher(
-        topology,
-        logger,
-        (uri) => SOURCES[uri],
-      );
-      wireProductionMediator(topology, dispatcher, logger);
-      yield* runRemoteStdlibWarmupPhase(topology, 1);
-
-      yield* Effect.promise(() =>
-        dispatcher.dispatch('documentOpen', {
-          document: {
-            uri: LOCAL_URI,
-            languageId: 'apex',
-            version: 1,
-            getText: () => LOCAL_SRC,
-          },
-          textDocument: { uri: LOCAL_URI },
-          text: LOCAL_SRC,
-        }),
-      );
-
-      // Declaration line `        Integer total = 0;` (LSP line 2): `total`
-      // occupies chars 16-20, so the half-open identifier range ends at
-      // exclusive column 21 (the space before `=`). A cursor at char 21 sits
-      // AFTER the identifier and must NOT resolve — this is the off-by-one the
-      // `endColumn > cursorChar` (not `>=`) fix guards against.
-      const result = yield* Effect.promise(() =>
-        dispatcher.dispatch('prepareRename', {
-          textDocument: { uri: LOCAL_URI },
-          position: { line: 2, character: 21 },
-        }),
-      );
-
-      return { result };
-    }).pipe(Effect.scoped);
-
-    const { result } = await Effect.runPromise(program);
-
-    expect(result).toBeNull();
-  }, 120_000);
+      expect(result).toBeNull();
+    }, 120_000);
+  });
 
   // W-23631087: prepareRename must recognize FIELDS, not just locals (else F2 on
   // a field won't open the box). Covers a declaration cursor AND a usage cursor.
@@ -568,183 +434,119 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
     }
 }`;
 
-  it('returns prepareRename range for a field DECLARATION cursor (W-23631087)', async () => {
-    const program = Effect.gen(function* () {
-      const topology = yield* initializeTopology({
-        poolSize: 1,
-        enableResourceLoader: true,
-        logger,
-        logLevel: LOG_LEVEL,
-        compilationPoolSize: COMPILATION_POOL_SIZE,
-        compilationConcurrency: 1,
-        workerLayerFactory,
+  describe('field prepareRename on one shared server', () => {
+    let dispatcher: ReturnType<typeof makeWorkerDispatcher>;
+
+    beforeAll(async () => {
+      const fixture = await startSharedServer(logger, {
+        [PREP_FIELD_URI]: PREP_FIELD_SRC,
       });
-      const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
-        uri === PREP_FIELD_URI ? PREP_FIELD_SRC : undefined,
+      activeSharedScope = fixture.scope;
+      dispatcher = fixture.dispatcher;
+    }, 120_000);
+
+    afterAll(async () => {
+      if (activeSharedScope) {
+        await Effect.runPromise(Scope.close(activeSharedScope, Exit.void));
+        activeSharedScope = undefined;
+      }
+      clearRawWorkers();
+    }, 30_000);
+
+    it('returns prepareRename range for a field DECLARATION cursor (W-23631087)', async () => {
+      const program = Effect.gen(function* () {
+        // `value` DECLARATION (LSP line 1, char 23) — exercises getSymbolAtPosition.
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('prepareRename', {
+            textDocument: { uri: PREP_FIELD_URI },
+            position: { line: 1, character: 23 },
+            content: PREP_FIELD_SRC,
+          }),
+        );
+
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(
+        `[prepare-rename:field-declaration] ${JSON.stringify(result)}`,
       );
-      wireProductionMediator(topology, dispatcher, logger);
-      yield* runRemoteStdlibWarmupPhase(topology, 1);
 
-      yield* Effect.promise(() =>
-        dispatcher.dispatch('documentOpen', {
-          document: {
-            uri: PREP_FIELD_URI,
-            languageId: 'apex',
-            version: 1,
-            getText: () => PREP_FIELD_SRC,
-          },
-          textDocument: { uri: PREP_FIELD_URI },
-          text: PREP_FIELD_SRC,
-        }),
-      );
-
-      // `value` DECLARATION (LSP line 1, char 23) — exercises getSymbolAtPosition.
-      const result = yield* Effect.promise(() =>
-        dispatcher.dispatch('prepareRename', {
-          textDocument: { uri: PREP_FIELD_URI },
-          position: { line: 1, character: 23 },
-          content: PREP_FIELD_SRC,
-        }),
-      );
-
-      return { result };
-    }).pipe(Effect.scoped);
-
-    const { result } = await Effect.runPromise(program);
-    logger.debug(
-      `[prepare-rename:field-declaration] ${JSON.stringify(result)}`,
-    );
-
-    expect(result).not.toBeNull();
-    expect(result).toHaveProperty('range');
-    const prepareInfo = result as {
-      range: {
-        start: { line: number; character: number };
-        end: { line: number; character: number };
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('range');
+      const prepareInfo = result as {
+        range: {
+          start: { line: number; character: number };
+          end: { line: number; character: number };
+        };
+        placeholder: string;
       };
-      placeholder: string;
-    };
-    // On LSP line 1, and the range must contain the cursor (char 23).
-    expect(prepareInfo.range.start.line).toBe(1);
-    expect(prepareInfo.range.end.line).toBe(1);
-    expect(prepareInfo.range.start.character).toBeLessThanOrEqual(23);
-    expect(prepareInfo.range.end.character).toBeGreaterThan(23);
-    expect(prepareInfo.placeholder).toBe('value');
-  }, 120_000);
+      // On LSP line 1, and the range must contain the cursor (char 23).
+      expect(prepareInfo.range.start.line).toBe(1);
+      expect(prepareInfo.range.end.line).toBe(1);
+      expect(prepareInfo.range.start.character).toBeLessThanOrEqual(23);
+      expect(prepareInfo.range.end.character).toBeGreaterThan(23);
+      expect(prepareInfo.placeholder).toBe('value');
+    }, 120_000);
 
-  it('returns null from field prepareRename at the identifier-end boundary (W-23631087 review)', async () => {
-    // `value` on LSP line 1 occupies chars 19-24; the identifier range is half-open
-    // [19, 24), so a cursor at char 24 sits one past the last char and must be
-    // REJECTED (mirrors resolvePrepareRenameForLocal). Guards against the inclusive
-    // positionInRange end check accepting a cursor immediately after the identifier.
-    const program = Effect.gen(function* () {
-      const topology = yield* initializeTopology({
-        poolSize: 1,
-        enableResourceLoader: true,
-        logger,
-        logLevel: LOG_LEVEL,
-        compilationPoolSize: COMPILATION_POOL_SIZE,
-        compilationConcurrency: 1,
-        workerLayerFactory,
-      });
-      const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
-        uri === PREP_FIELD_URI ? PREP_FIELD_SRC : undefined,
-      );
-      wireProductionMediator(topology, dispatcher, logger);
-      yield* runRemoteStdlibWarmupPhase(topology, 1);
+    it('returns null from field prepareRename at the identifier-end boundary (W-23631087 review)', async () => {
+      // `value` on LSP line 1 occupies chars 19-24; the identifier range is half-open
+      // [19, 24), so a cursor at char 24 sits one past the last char and must be
+      // REJECTED (mirrors resolvePrepareRenameForLocal). Guards against the inclusive
+      // positionInRange end check accepting a cursor immediately after the identifier.
+      const program = Effect.gen(function* () {
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('prepareRename', {
+            textDocument: { uri: PREP_FIELD_URI },
+            position: { line: 1, character: 24 }, // one past `value`
+            content: PREP_FIELD_SRC,
+          }),
+        );
 
-      yield* Effect.promise(() =>
-        dispatcher.dispatch('documentOpen', {
-          document: {
-            uri: PREP_FIELD_URI,
-            languageId: 'apex',
-            version: 1,
-            getText: () => PREP_FIELD_SRC,
-          },
-          textDocument: { uri: PREP_FIELD_URI },
-          text: PREP_FIELD_SRC,
-        }),
-      );
+        return { result };
+      }).pipe(Effect.scoped);
 
-      const result = yield* Effect.promise(() =>
-        dispatcher.dispatch('prepareRename', {
-          textDocument: { uri: PREP_FIELD_URI },
-          position: { line: 1, character: 24 }, // one past `value`
-          content: PREP_FIELD_SRC,
-        }),
-      );
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[prepare-rename:field-boundary] ${JSON.stringify(result)}`);
 
-      return { result };
-    }).pipe(Effect.scoped);
+      expect(result).toBeNull();
+    }, 120_000);
 
-    const { result } = await Effect.runPromise(program);
-    logger.debug(`[prepare-rename:field-boundary] ${JSON.stringify(result)}`);
+    it('returns prepareRename range for a field USAGE cursor (W-23631087)', async () => {
+      const program = Effect.gen(function* () {
+        // `value` USAGE (LSP line 4, char 10) — must return the usage range, not the
+        // declaration's (exercises exactCursorReference).
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('prepareRename', {
+            textDocument: { uri: PREP_FIELD_URI },
+            position: { line: 4, character: 10 },
+            content: PREP_FIELD_SRC,
+          }),
+        );
 
-    expect(result).toBeNull();
-  }, 120_000);
+        return { result };
+      }).pipe(Effect.scoped);
 
-  it('returns prepareRename range for a field USAGE cursor (W-23631087)', async () => {
-    const program = Effect.gen(function* () {
-      const topology = yield* initializeTopology({
-        poolSize: 1,
-        enableResourceLoader: true,
-        logger,
-        logLevel: LOG_LEVEL,
-        compilationPoolSize: COMPILATION_POOL_SIZE,
-        compilationConcurrency: 1,
-        workerLayerFactory,
-      });
-      const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
-        uri === PREP_FIELD_URI ? PREP_FIELD_SRC : undefined,
-      );
-      wireProductionMediator(topology, dispatcher, logger);
-      yield* runRemoteStdlibWarmupPhase(topology, 1);
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[prepare-rename:field-usage] ${JSON.stringify(result)}`);
 
-      yield* Effect.promise(() =>
-        dispatcher.dispatch('documentOpen', {
-          document: {
-            uri: PREP_FIELD_URI,
-            languageId: 'apex',
-            version: 1,
-            getText: () => PREP_FIELD_SRC,
-          },
-          textDocument: { uri: PREP_FIELD_URI },
-          text: PREP_FIELD_SRC,
-        }),
-      );
-
-      // `value` USAGE (LSP line 4, char 10) — must return the usage range, not the
-      // declaration's (exercises exactCursorReference).
-      const result = yield* Effect.promise(() =>
-        dispatcher.dispatch('prepareRename', {
-          textDocument: { uri: PREP_FIELD_URI },
-          position: { line: 4, character: 10 },
-          content: PREP_FIELD_SRC,
-        }),
-      );
-
-      return { result };
-    }).pipe(Effect.scoped);
-
-    const { result } = await Effect.runPromise(program);
-    logger.debug(`[prepare-rename:field-usage] ${JSON.stringify(result)}`);
-
-    expect(result).not.toBeNull();
-    expect(result).toHaveProperty('range');
-    const prepareInfo = result as {
-      range: {
-        start: { line: number; character: number };
-        end: { line: number; character: number };
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('range');
+      const prepareInfo = result as {
+        range: {
+          start: { line: number; character: number };
+          end: { line: number; character: number };
+        };
+        placeholder: string;
       };
-      placeholder: string;
-    };
-    // The usage is on LSP line 4, and the returned range must contain the cursor.
-    expect(prepareInfo.range.start.line).toBe(4);
-    expect(prepareInfo.range.end.line).toBe(4);
-    expect(prepareInfo.range.start.character).toBeLessThanOrEqual(10);
-    expect(prepareInfo.range.end.character).toBeGreaterThan(10);
-    expect(prepareInfo.placeholder).toBe('value');
-  }, 120_000);
+      // The usage is on LSP line 4, and the returned range must contain the cursor.
+      expect(prepareInfo.range.start.line).toBe(4);
+      expect(prepareInfo.range.end.line).toBe(4);
+      expect(prepareInfo.range.start.character).toBeLessThanOrEqual(10);
+      expect(prepareInfo.range.end.character).toBeGreaterThan(10);
+      expect(prepareInfo.placeholder).toBe('value');
+    }, 120_000);
+  });
 
   // W-23631087 re-review (P1): the provenance guard must reject STANDARD-LIBRARY
   // declarations. `apexlib://` is a synthetic read-only scheme; a field declared
@@ -924,185 +726,123 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
     }
 }`;
 
-  it('returns prepareRename range for a method DECLARATION cursor (W-23631152)', async () => {
-    const program = Effect.gen(function* () {
-      const topology = yield* initializeTopology({
-        poolSize: 1,
-        enableResourceLoader: true,
-        logger,
-        logLevel: LOG_LEVEL,
-        compilationPoolSize: COMPILATION_POOL_SIZE,
-        compilationConcurrency: 1,
-        workerLayerFactory,
+  describe('method prepareRename on one shared server', () => {
+    let dispatcher: ReturnType<typeof makeWorkerDispatcher>;
+
+    beforeAll(async () => {
+      const fixture = await startSharedServer(logger, {
+        [PREP_METHOD_URI]: PREP_METHOD_SRC,
       });
-      const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
-        uri === PREP_METHOD_URI ? PREP_METHOD_SRC : undefined,
+      activeSharedScope = fixture.scope;
+      dispatcher = fixture.dispatcher;
+    }, 120_000);
+
+    afterAll(async () => {
+      if (activeSharedScope) {
+        await Effect.runPromise(Scope.close(activeSharedScope, Exit.void));
+        activeSharedScope = undefined;
+      }
+      clearRawWorkers();
+    }, 30_000);
+
+    it('returns prepareRename range for a method DECLARATION cursor (W-23631152)', async () => {
+      const program = Effect.gen(function* () {
+        // `compute` DECLARATION (LSP line 1, char 22) — exercises
+        // getSymbolAtPosition on the method identifier.
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('prepareRename', {
+            textDocument: { uri: PREP_METHOD_URI },
+            position: { line: 1, character: 22 },
+            content: PREP_METHOD_SRC,
+          }),
+        );
+
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(
+        `[prepare-rename:method-declaration] ${JSON.stringify(result)}`,
       );
-      wireProductionMediator(topology, dispatcher, logger);
-      yield* runRemoteStdlibWarmupPhase(topology, 1);
 
-      yield* Effect.promise(() =>
-        dispatcher.dispatch('documentOpen', {
-          document: {
-            uri: PREP_METHOD_URI,
-            languageId: 'apex',
-            version: 1,
-            getText: () => PREP_METHOD_SRC,
-          },
-          textDocument: { uri: PREP_METHOD_URI },
-          text: PREP_METHOD_SRC,
-        }),
-      );
-
-      // `compute` DECLARATION (LSP line 1, char 22) — exercises
-      // getSymbolAtPosition on the method identifier.
-      const result = yield* Effect.promise(() =>
-        dispatcher.dispatch('prepareRename', {
-          textDocument: { uri: PREP_METHOD_URI },
-          position: { line: 1, character: 22 },
-          content: PREP_METHOD_SRC,
-        }),
-      );
-
-      return { result };
-    }).pipe(Effect.scoped);
-
-    const { result } = await Effect.runPromise(program);
-    logger.debug(
-      `[prepare-rename:method-declaration] ${JSON.stringify(result)}`,
-    );
-
-    expect(result).not.toBeNull();
-    expect(result).toHaveProperty('range');
-    const prepareInfo = result as {
-      range: {
-        start: { line: number; character: number };
-        end: { line: number; character: number };
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('range');
+      const prepareInfo = result as {
+        range: {
+          start: { line: number; character: number };
+          end: { line: number; character: number };
+        };
+        placeholder: string;
       };
-      placeholder: string;
-    };
-    // On LSP line 1, and the range must CONTAIN the cursor (char 22).
-    expect(prepareInfo.range.start.line).toBe(1);
-    expect(prepareInfo.range.end.line).toBe(1);
-    expect(prepareInfo.range.start.character).toBeLessThanOrEqual(22);
-    expect(prepareInfo.range.end.character).toBeGreaterThan(22);
-    expect(prepareInfo.placeholder).toBe('compute');
-  }, 120_000);
+      // On LSP line 1, and the range must CONTAIN the cursor (char 22).
+      expect(prepareInfo.range.start.line).toBe(1);
+      expect(prepareInfo.range.end.line).toBe(1);
+      expect(prepareInfo.range.start.character).toBeLessThanOrEqual(22);
+      expect(prepareInfo.range.end.character).toBeGreaterThan(22);
+      expect(prepareInfo.placeholder).toBe('compute');
+    }, 120_000);
 
-  it('returns prepareRename range for a method CALL/usage cursor (W-23631152)', async () => {
-    const program = Effect.gen(function* () {
-      const topology = yield* initializeTopology({
-        poolSize: 1,
-        enableResourceLoader: true,
-        logger,
-        logLevel: LOG_LEVEL,
-        compilationPoolSize: COMPILATION_POOL_SIZE,
-        compilationConcurrency: 1,
-        workerLayerFactory,
-      });
-      const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
-        uri === PREP_METHOD_URI ? PREP_METHOD_SRC : undefined,
-      );
-      wireProductionMediator(topology, dispatcher, logger);
-      yield* runRemoteStdlibWarmupPhase(topology, 1);
+    it('returns prepareRename range for a method CALL/usage cursor (W-23631152)', async () => {
+      const program = Effect.gen(function* () {
+        // `doWork()` CALL (LSP line 2, char 17) — must return the usage range, not
+        // the declaration's (exercises exactCursorReference).
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('prepareRename', {
+            textDocument: { uri: PREP_METHOD_URI },
+            position: { line: 2, character: 17 },
+            content: PREP_METHOD_SRC,
+          }),
+        );
 
-      yield* Effect.promise(() =>
-        dispatcher.dispatch('documentOpen', {
-          document: {
-            uri: PREP_METHOD_URI,
-            languageId: 'apex',
-            version: 1,
-            getText: () => PREP_METHOD_SRC,
-          },
-          textDocument: { uri: PREP_METHOD_URI },
-          text: PREP_METHOD_SRC,
-        }),
-      );
+        return { result };
+      }).pipe(Effect.scoped);
 
-      // `doWork()` CALL (LSP line 2, char 17) — must return the usage range, not
-      // the declaration's (exercises exactCursorReference).
-      const result = yield* Effect.promise(() =>
-        dispatcher.dispatch('prepareRename', {
-          textDocument: { uri: PREP_METHOD_URI },
-          position: { line: 2, character: 17 },
-          content: PREP_METHOD_SRC,
-        }),
-      );
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[prepare-rename:method-usage] ${JSON.stringify(result)}`);
 
-      return { result };
-    }).pipe(Effect.scoped);
-
-    const { result } = await Effect.runPromise(program);
-    logger.debug(`[prepare-rename:method-usage] ${JSON.stringify(result)}`);
-
-    expect(result).not.toBeNull();
-    expect(result).toHaveProperty('range');
-    const prepareInfo = result as {
-      range: {
-        start: { line: number; character: number };
-        end: { line: number; character: number };
+      expect(result).not.toBeNull();
+      expect(result).toHaveProperty('range');
+      const prepareInfo = result as {
+        range: {
+          start: { line: number; character: number };
+          end: { line: number; character: number };
+        };
+        placeholder: string;
       };
-      placeholder: string;
-    };
-    // The call is on LSP line 2, and the returned range must contain the cursor.
-    expect(prepareInfo.range.start.line).toBe(2);
-    expect(prepareInfo.range.end.line).toBe(2);
-    expect(prepareInfo.range.start.character).toBeLessThanOrEqual(17);
-    expect(prepareInfo.range.end.character).toBeGreaterThan(17);
-    expect(prepareInfo.placeholder).toBe('doWork');
-  }, 120_000);
+      // The call is on LSP line 2, and the returned range must contain the cursor.
+      expect(prepareInfo.range.start.line).toBe(2);
+      expect(prepareInfo.range.end.line).toBe(2);
+      expect(prepareInfo.range.start.character).toBeLessThanOrEqual(17);
+      expect(prepareInfo.range.end.character).toBeGreaterThan(17);
+      expect(prepareInfo.placeholder).toBe('doWork');
+    }, 120_000);
 
-  it('returns null from method prepareRename at the identifier-end boundary (W-23631152)', async () => {
-    // `compute` on LSP line 1 occupies chars 19-25; the identifier range is
-    // half-open [19, 26), so a cursor at char 26 sits one past the last char
-    // (the `(`) and must be REJECTED — matching resolvePrepareRenameForLocal/
-    // Field. Guards against the inclusive positionInRange end check wrongly
-    // accepting a cursor immediately after the method identifier.
-    const program = Effect.gen(function* () {
-      const topology = yield* initializeTopology({
-        poolSize: 1,
-        enableResourceLoader: true,
-        logger,
-        logLevel: LOG_LEVEL,
-        compilationPoolSize: COMPILATION_POOL_SIZE,
-        compilationConcurrency: 1,
-        workerLayerFactory,
-      });
-      const dispatcher = makeWorkerDispatcher(topology, logger, (uri) =>
-        uri === PREP_METHOD_URI ? PREP_METHOD_SRC : undefined,
-      );
-      wireProductionMediator(topology, dispatcher, logger);
-      yield* runRemoteStdlibWarmupPhase(topology, 1);
+    it('returns null from method prepareRename at the identifier-end boundary (W-23631152)', async () => {
+      // `compute` on LSP line 1 occupies chars 19-25; the identifier range is
+      // half-open [19, 26), so a cursor at char 26 sits one past the last char
+      // (the `(`) and must be REJECTED — matching resolvePrepareRenameForLocal/
+      // Field. Guards against the inclusive positionInRange end check wrongly
+      // accepting a cursor immediately after the method identifier.
+      const program = Effect.gen(function* () {
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('prepareRename', {
+            textDocument: { uri: PREP_METHOD_URI },
+            position: { line: 1, character: 26 }, // one past `compute`
+            content: PREP_METHOD_SRC,
+          }),
+        );
 
-      yield* Effect.promise(() =>
-        dispatcher.dispatch('documentOpen', {
-          document: {
-            uri: PREP_METHOD_URI,
-            languageId: 'apex',
-            version: 1,
-            getText: () => PREP_METHOD_SRC,
-          },
-          textDocument: { uri: PREP_METHOD_URI },
-          text: PREP_METHOD_SRC,
-        }),
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(
+        `[prepare-rename:method-boundary] ${JSON.stringify(result)}`,
       );
 
-      const result = yield* Effect.promise(() =>
-        dispatcher.dispatch('prepareRename', {
-          textDocument: { uri: PREP_METHOD_URI },
-          position: { line: 1, character: 26 }, // one past `compute`
-          content: PREP_METHOD_SRC,
-        }),
-      );
-
-      return { result };
-    }).pipe(Effect.scoped);
-
-    const { result } = await Effect.runPromise(program);
-    logger.debug(`[prepare-rename:method-boundary] ${JSON.stringify(result)}`);
-
-    expect(result).toBeNull();
-  }, 120_000);
+      expect(result).toBeNull();
+    }, 120_000);
+  });
 
   // W-23631152: the provenance guard must reject STANDARD-LIBRARY methods just
   // as it does stdlib fields. `apexlib://` is a synthetic read-only scheme; a
@@ -2196,76 +1936,60 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       [CONFLICT_URI]: CONFLICT_SRC,
     };
 
-    const runRename = (newName: string) =>
-      Effect.gen(function* () {
-        const topology = yield* initializeTopology({
-          poolSize: 1,
-          enableResourceLoader: true,
-          logger,
-          logLevel: LOG_LEVEL,
-          compilationPoolSize: COMPILATION_POOL_SIZE,
-          compilationConcurrency: 1,
-          workerLayerFactory,
+    describe('stored conflict cases on one shared server', () => {
+      let dispatcher: ReturnType<typeof makeWorkerDispatcher>;
+
+      beforeAll(async () => {
+        const fixture = await startSharedServer(logger, CONFLICT_SOURCES);
+        activeSharedScope = fixture.scope;
+        dispatcher = fixture.dispatcher;
+      }, 120_000);
+
+      afterAll(async () => {
+        if (activeSharedScope) {
+          await Effect.runPromise(Scope.close(activeSharedScope, Exit.void));
+          activeSharedScope = undefined;
+        }
+        clearRawWorkers();
+      }, 30_000);
+
+      const runRename = (newName: string) =>
+        dispatcher.dispatch('rename', {
+          textDocument: { uri: CONFLICT_URI },
+          position: { line: 1, character: 19 },
+          newName,
+          content: CONFLICT_SRC,
         });
-        const dispatcher = makeWorkerDispatcher(
-          topology,
-          logger,
-          (uri) => CONFLICT_SOURCES[uri],
-        );
-        wireProductionMediator(topology, dispatcher, logger);
-        yield* runRemoteStdlibWarmupPhase(topology, 1);
 
-        yield* Effect.promise(() =>
-          dispatcher.dispatch('documentOpen', {
-            document: {
-              uri: CONFLICT_URI,
-              languageId: 'apex',
-              version: 1,
-              getText: () => CONFLICT_SRC,
-            },
-            textDocument: { uri: CONFLICT_URI },
-            text: CONFLICT_SRC,
-          }),
-        );
+      it('rejects a rename that collides with a same-type field', async () => {
+        // Renaming `total` → `amount` collides with the sibling field `amount`.
+        const result = await runRename('amount');
 
-        // Cursor on the `total` field declaration (line 1, char 19).
-        const result = yield* Effect.promise(() =>
-          dispatcher.dispatch('rename', {
-            textDocument: { uri: CONFLICT_URI },
-            position: { line: 1, character: 19 },
-            newName,
-            content: CONFLICT_SRC,
-          }),
-        );
-        return { result };
-      }).pipe(Effect.scoped);
+        expect(result).not.toBeNull();
+        expect(result).toHaveProperty('error');
+        const errResult = result as {
+          error: { code: number; message: string };
+        };
+        expect(errResult.error).toHaveProperty('message');
+        // The message names the colliding new name; it is NOT a WorkspaceEdit.
+        expect(errResult.error.message).toContain('amount');
+        expect(result).not.toHaveProperty('changes');
+      }, 120_000);
 
-    it('rejects a rename that collides with a same-type field', async () => {
-      // Renaming `total` → `amount` collides with the sibling field `amount`.
-      const { result } = await Effect.runPromise(runRename('amount'));
+      it('allows a rename to a non-colliding name', async () => {
+        // `quantity` collides with nothing → a real WorkspaceEdit, no error.
+        const result = await runRename('quantity');
 
-      expect(result).not.toBeNull();
-      expect(result).toHaveProperty('error');
-      const errResult = result as { error: { code: number; message: string } };
-      expect(errResult.error).toHaveProperty('message');
-      // The message names the colliding new name; it is NOT a WorkspaceEdit.
-      expect(errResult.error.message).toContain('amount');
-      expect(result).not.toHaveProperty('changes');
-    }, 120_000);
-
-    it('allows a rename to a non-colliding name', async () => {
-      // `quantity` collides with nothing → a real WorkspaceEdit, no error.
-      const { result } = await Effect.runPromise(runRename('quantity'));
-
-      const edit = result as {
-        changes?: Record<string, unknown>;
-        error?: unknown;
-      } | null;
-      expect(edit).not.toBeNull();
-      expect(edit?.error).toBeUndefined();
-      expect(edit?.changes).toBeDefined();
-      expect(Object.keys(edit!.changes!)).toContain(CONFLICT_URI);
-    }, 120_000);
+        const edit = result as {
+          changes?: Record<string, unknown>;
+          error?: unknown;
+        } | null;
+        expect(edit).not.toBeNull();
+        expect(edit?.error).toBeUndefined();
+        expect(edit?.changes).toBeDefined();
+        expect(Object.keys(edit!.changes!)).toContain(CONFLICT_URI);
+      }, 120_000);
+    });
 
     // W-23631086 review (P1): when CheckMemberConflicts (4.0) is UNAVAILABLE —
     // the declaring type never reached the data-owner store because it was never

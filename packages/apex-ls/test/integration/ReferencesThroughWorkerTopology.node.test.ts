@@ -49,7 +49,7 @@ import { Effect } from 'effect';
 
 const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
 const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
-const LOG_LEVEL = 'debug';
+const LOG_LEVEL = 'error';
 const COMPILATION_POOL_SIZE = 2;
 const workerLayerFactory = (role: WorkerRole) =>
   makeNodeWorkerLayer(WORKER_TS_ENTRY, {
