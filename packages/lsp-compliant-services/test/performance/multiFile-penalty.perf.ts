@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, salesforce.com, inc.
+ * Copyright (c) 2026, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -20,7 +20,6 @@ import { vi } from 'vitest';
  * - Monitor multi-file performance trends over time
  */
 
-import Benchmark from 'benchmark';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -62,11 +61,11 @@ describe('Multi-File Penalty Benchmarks', () => {
 
   const isCI = process.env.CI === 'true';
   const isQuick = process.env.QUICK === 'true';
-  const benchmarkSettings = isCI
-    ? { maxTime: 30, minTime: 10, minSamples: 5, initCount: 1 }
+  const benchmarkOptions = isCI
+    ? { time: 30_000, warmupTime: 10_000, iterations: 5, warmupIterations: 1 }
     : isQuick
-      ? { maxTime: 1, minTime: 0.1, minSamples: 1, initCount: 1 }
-      : { maxTime: 6, minTime: 2, minSamples: 2, initCount: 1 };
+      ? { time: 1_000, warmupTime: 100, iterations: 1, warmupIterations: 1 }
+      : { time: 6_000, warmupTime: 2_000, iterations: 2, warmupIterations: 1 };
 
   const testFiles = [
     {
@@ -196,65 +195,20 @@ describe('Multi-File Penalty Benchmarks', () => {
 
   // Benchmark each file individually
   testFiles.forEach((fileData, index) => {
-    it(
-      `benchmarks file ${index + 1} (${fileData.name})`,
-      () =>
-        new Promise<void>((done) => {
-          const suite = new Benchmark.Suite();
-          const results: Record<string, Benchmark.Target> = {};
+    it(`benchmarks file ${index + 1} (${fileData.name})`, async ({ bench }) => {
+      const document = TextDocument.create(
+        fileData.uri,
+        'apex',
+        1,
+        fileData.content,
+      );
+      const event: TextDocumentChangeEvent<TextDocument> = { document };
 
-          const document = TextDocument.create(
-            fileData.uri,
-            'apex',
-            1,
-            fileData.content,
-          );
-          const event: TextDocumentChangeEvent<TextDocument> = { document };
-
-          suite
-            .add(`Multi-file: ${fileData.name} (position ${index + 1})`, {
-              defer: true,
-              ...benchmarkSettings,
-              fn: (deferred: any) => {
-                service
-                  .processDocumentOpenInternal(event)
-                  .then(() => deferred.resolve())
-                  .catch((err: any) => {
-                    console.error(`Error in ${fileData.name}:`, err);
-                    deferred.resolve();
-                  });
-              },
-            })
-            .on('cycle', (event: any) => {
-              results[event.target.name] = event.target;
-              logger.alwaysLog(String(event.target));
-            })
-            .on('complete', function (this: any) {
-              const fs = require('fs');
-              const path = require('path');
-              const outputPath = path.join(
-                __dirname,
-                '../lsp-compliant-services-benchmark-results.json',
-              );
-
-              let allResults = results;
-              try {
-                if (fs.existsSync(outputPath)) {
-                  const existing = JSON.parse(
-                    fs.readFileSync(outputPath, 'utf8'),
-                  );
-                  allResults = { ...existing, ...results };
-                }
-              } catch (error) {
-                console.warn('Could not read existing results:', error);
-              }
-
-              fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-              done();
-            })
-            .run({ async: true });
-        }),
-      120000,
-    );
+      await bench(
+        `Multi-file: ${fileData.name} (position ${index + 1})`,
+        {},
+        () => service.processDocumentOpenInternal(event),
+      ).run(benchmarkOptions);
+    }, 120000);
   });
 });

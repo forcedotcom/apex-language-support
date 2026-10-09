@@ -6,42 +6,15 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { vi } from 'vitest';
-/**
- * ApexSymbolManager Standard Library Loading Benchmarks
- *
- * These benchmarks measure standard library loading performance identified
- * as the primary blocker in didOpen (198ms).
- *
- * Key areas measured:
- * 1. Cold start compilation (triggers standard library loading)
- * 2. Warm compilation (cached standard library)
- * 3. Generic type resolution (List<T>, Map<K,V>)
- * 4. Cross-file reference resolution
- *
- * Purpose: Track stdlib loading overhead and identify regressions
- *
- * Renamed from: ApexSymbolManager.memberResolution.performance.test.ts
- * (clarifies focus on stdlib loading vs member resolution)
- */
+import { beforeAll, beforeEach, describe, it } from 'vitest';
 
-import Benchmark from 'benchmark';
+import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 describe('ApexSymbolManager - Standard Library Loading Benchmarks', () => {
   let compilerService: CompilerService;
 
-  const isCI = process.env.CI === 'true';
-  const isQuick = process.env.QUICK === 'true';
-  const benchmarkSettings = isCI
-    ? { maxTime: 30, minTime: 10, minSamples: 5, initCount: 1 }
-    : isQuick
-      ? { maxTime: 1, minTime: 0.1, minSamples: 1, initCount: 1 }
-      : { maxTime: 6, minTime: 2, minSamples: 2, initCount: 1 };
-
-  // Test code that uses standard library types
   const codeWithStdLibUsage = `
 public class TestClass {
     public void testStringMethods() {
@@ -50,7 +23,7 @@ public class TestClass {
         String upper = str.toUpperCase();
         Integer len = str.length();
     }
-    
+
     public void testListMethods() {
         List<String> items = new List<String>();
         items.add('First');
@@ -58,7 +31,7 @@ public class TestClass {
         Integer size = items.size();
         String firstItem = items.get(0);
     }
-    
+
     public void testMapMethods() {
         Map<String, Integer> counts = new Map<String, Integer>();
         counts.put('one', 1);
@@ -69,6 +42,14 @@ public class TestClass {
 }
   `.trim();
 
+  const compile = (content: string, fileName: string) => {
+    const listener = new ApexSymbolCollectorListener(undefined, 'full');
+    compilerService.compile(content, fileName, listener, {
+      collectReferences: true,
+      resolveReferences: true,
+    });
+  };
+
   beforeAll(() => {
     enableConsoleLogging();
     setLogLevel('error');
@@ -78,130 +59,30 @@ public class TestClass {
     compilerService = new CompilerService();
   });
 
-  vi.setConfig({ testTimeout: 1000 * 60 * 10 });
+  it('benchmarks compilation with standard library cold start', async ({
+    bench,
+  }) => {
+    await bench('Compilation with stdlib cold start', {}, () => {
+      const freshCompiler = new CompilerService();
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
+      freshCompiler.compile(codeWithStdLibUsage, 'TestClass.cls', listener, {
+        collectReferences: true,
+        resolveReferences: true,
+      });
+    }).run();
+  });
 
-  it('benchmarks compilation with standard library cold start', () =>
-    new Promise<void>((done) => {
-      const suite = new Benchmark.Suite();
-      const results: Record<string, Benchmark.Target> = {};
+  it('benchmarks compilation with cached standard library', async ({
+    bench,
+  }) => {
+    compile(codeWithStdLibUsage, 'Warmup.cls');
+    await bench('Compilation with stdlib cached', {}, () => {
+      compile(codeWithStdLibUsage, 'TestClass.cls');
+    }).run();
+  });
 
-      suite
-        .add('Compilation with stdlib cold start', {
-          defer: true,
-          ...benchmarkSettings,
-          fn: (deferred: any) => {
-            // Create fresh compiler for each iteration to measure cold start
-            const freshCompiler = new CompilerService();
-            const listener = new ApexSymbolCollectorListener(undefined, 'full');
-            freshCompiler.compile(
-              codeWithStdLibUsage,
-              'TestClass.cls',
-              listener,
-              {
-                collectReferences: true,
-                resolveReferences: true,
-              },
-            );
-            deferred.resolve();
-          },
-        })
-        .on('cycle', (event: any) => {
-          results[event.target.name] = event.target;
-          console.log(String(event.target));
-        })
-        .on('complete', function (this: any) {
-          const fs = require('fs');
-          const path = require('path');
-          const outputPath = path.join(
-            __dirname,
-            '../apex-parser-ast-benchmark-results.json',
-          );
-
-          let allResults = results;
-          try {
-            if (fs.existsSync(outputPath)) {
-              const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-              allResults = { ...existing, ...results };
-            }
-          } catch (error) {
-            console.warn('Could not read existing results:', error);
-          }
-
-          fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-          done();
-        })
-        .run({ async: true });
-    }));
-
-  it('benchmarks compilation with cached standard library', () =>
-    new Promise<void>((done) => {
-      const suite = new Benchmark.Suite();
-      const results: Record<string, Benchmark.Target> = {};
-
-      // Warm up once before benchmarking
-      const warmupListener = new ApexSymbolCollectorListener(undefined, 'full');
-      compilerService.compile(
-        codeWithStdLibUsage,
-        'Warmup.cls',
-        warmupListener,
-        {
-          collectReferences: true,
-          resolveReferences: true,
-        },
-      );
-
-      suite
-        .add('Compilation with stdlib cached', {
-          defer: true,
-          ...benchmarkSettings,
-          fn: (deferred: any) => {
-            const listener = new ApexSymbolCollectorListener(undefined, 'full');
-            compilerService.compile(
-              codeWithStdLibUsage,
-              'TestClass.cls',
-              listener,
-              {
-                collectReferences: true,
-                resolveReferences: true,
-              },
-            );
-            deferred.resolve();
-          },
-        })
-        .on('cycle', (event: any) => {
-          results[event.target.name] = event.target;
-          console.log(String(event.target));
-        })
-        .on('complete', function (this: any) {
-          const fs = require('fs');
-          const path = require('path');
-          const outputPath = path.join(
-            __dirname,
-            '../apex-parser-ast-benchmark-results.json',
-          );
-
-          let allResults = results;
-          try {
-            if (fs.existsSync(outputPath)) {
-              const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-              allResults = { ...existing, ...results };
-            }
-          } catch (error) {
-            console.warn('Could not read existing results:', error);
-          }
-
-          fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-          done();
-        })
-        .run({ async: true });
-    }));
-
-  it('benchmarks generic type resolution (List<T>)', () =>
-    new Promise<void>((done) => {
-      const suite = new Benchmark.Suite();
-      const results: Record<string, Benchmark.Target> = {};
-
-      const listCode = `
+  it('benchmarks generic type resolution (List<T>)', async ({ bench }) => {
+    const listCode = `
 public class ListTest {
     public void testGenericList() {
         List<String> strings = new List<String>();
@@ -211,53 +92,13 @@ public class ListTest {
 }
     `.trim();
 
-      suite
-        .add('Generic List<T> resolution', {
-          defer: true,
-          ...benchmarkSettings,
-          fn: (deferred: any) => {
-            const listener = new ApexSymbolCollectorListener(undefined, 'full');
-            compilerService.compile(listCode, 'ListTest.cls', listener, {
-              collectReferences: true,
-              resolveReferences: true,
-            });
-            deferred.resolve();
-          },
-        })
-        .on('cycle', (event: any) => {
-          results[event.target.name] = event.target;
-          console.log(String(event.target));
-        })
-        .on('complete', function (this: any) {
-          const fs = require('fs');
-          const path = require('path');
-          const outputPath = path.join(
-            __dirname,
-            '../apex-parser-ast-benchmark-results.json',
-          );
+    await bench('Generic List<T> resolution', {}, () => {
+      compile(listCode, 'ListTest.cls');
+    }).run();
+  });
 
-          let allResults = results;
-          try {
-            if (fs.existsSync(outputPath)) {
-              const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-              allResults = { ...existing, ...results };
-            }
-          } catch (error) {
-            console.warn('Could not read existing results:', error);
-          }
-
-          fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-          done();
-        })
-        .run({ async: true });
-    }));
-
-  it('benchmarks generic type resolution (Map<K,V>)', () =>
-    new Promise<void>((done) => {
-      const suite = new Benchmark.Suite();
-      const results: Record<string, Benchmark.Target> = {};
-
-      const mapCode = `
+  it('benchmarks generic type resolution (Map<K,V>)', async ({ bench }) => {
+    const mapCode = `
 public class MapTest {
     public void testGenericMap() {
         Map<String, Integer> counts = new Map<String, Integer>();
@@ -266,44 +107,8 @@ public class MapTest {
 }
     `.trim();
 
-      suite
-        .add('Generic Map<K,V> resolution', {
-          defer: true,
-          ...benchmarkSettings,
-          fn: (deferred: any) => {
-            const listener = new ApexSymbolCollectorListener(undefined, 'full');
-            compilerService.compile(mapCode, 'MapTest.cls', listener, {
-              collectReferences: true,
-              resolveReferences: true,
-            });
-            deferred.resolve();
-          },
-        })
-        .on('cycle', (event: any) => {
-          results[event.target.name] = event.target;
-          console.log(String(event.target));
-        })
-        .on('complete', function (this: any) {
-          const fs = require('fs');
-          const path = require('path');
-          const outputPath = path.join(
-            __dirname,
-            '../apex-parser-ast-benchmark-results.json',
-          );
-
-          let allResults = results;
-          try {
-            if (fs.existsSync(outputPath)) {
-              const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-              allResults = { ...existing, ...results };
-            }
-          } catch (error) {
-            console.warn('Could not read existing results:', error);
-          }
-
-          fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-          done();
-        })
-        .run({ async: true });
-    }));
+    await bench('Generic Map<K,V> resolution', {}, () => {
+      compile(mapCode, 'MapTest.cls');
+    }).run();
+  });
 });

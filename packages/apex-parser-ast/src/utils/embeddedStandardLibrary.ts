@@ -81,12 +81,6 @@ function loadZipFromDisk():
 
     // Try multiple possible locations for the ZIP file
     const possiblePaths = [
-      // Vitest executes source modules as ESM, where __dirname is unavailable.
-      path.resolve(process.cwd(), 'resources/StandardApexLibrary.zip'),
-      path.resolve(
-        process.cwd(),
-        'packages/apex-parser-ast/resources/StandardApexLibrary.zip',
-      ),
       // From out/utils/ -> resources/
       path.resolve(__dirname, '../../resources/StandardApexLibrary.zip'),
       // From src/utils/ -> resources/
@@ -124,19 +118,23 @@ function loadZipFromDisk():
     return undefined;
   } catch (error) {
     // Re-throw checksum errors
+    let validator:
+      | {
+          ChecksumFileMissingError: new (...args: never[]) => Error;
+          ChecksumValidationError: new (...args: never[]) => Error;
+        }
+      | undefined;
     try {
-      const {
-        ChecksumFileMissingError,
-        ChecksumValidationError,
-      } = require('./checksum-validator');
-      if (
-        error instanceof ChecksumFileMissingError ||
-        error instanceof ChecksumValidationError
-      ) {
-        throw error;
-      }
+      validator = nodeRequire?.('./checksum-validator');
     } catch {
       // Ignore if validator module not found
+    }
+    if (
+      validator &&
+      (error instanceof validator.ChecksumFileMissingError ||
+        error instanceof validator.ChecksumValidationError)
+    ) {
+      throw error;
     }
     return undefined;
   }

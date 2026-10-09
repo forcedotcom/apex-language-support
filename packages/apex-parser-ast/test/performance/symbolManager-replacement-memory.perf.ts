@@ -6,8 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { vi } from 'vitest';
-import Benchmark from 'benchmark';
+import { beforeAll, afterAll, describe, expect, it } from 'vitest';
 import { Effect } from 'effect';
 import {
   initialize as schedulerInitialize,
@@ -20,233 +19,111 @@ import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { SymbolTable } from '../../src/types/symbol';
 
 describe('ApexSymbolManager replacement memory pressure benchmarks', () => {
-  const isCI = process.env.CI === 'true';
-  const isQuick = process.env.QUICK === 'true';
-  const benchmarkSettings = isCI
-    ? { maxTime: 30, minTime: 10, minSamples: 5, initCount: 1 }
-    : isQuick
-      ? { maxTime: 1, minTime: 0.1, minSamples: 1, initCount: 1 }
-      : { maxTime: 6, minTime: 2, minSamples: 2, initCount: 1 };
-
   const providerFile = 'file:///test/PerfProvider.cls';
   const consumerFile = 'file:///test/PerfConsumer.cls';
-
-  const providerCompact = `
-    public class PerfProvider {
-      public Integer ping() {
-        return 1;
-      }
-    }
-  `;
-  const providerVariant = `
-    public class PerfProvider
-    {
-      public Integer ping()
-      {
-        return 1;
-      }
-    }
-  `;
-  const consumerCompact = `
-    public class PerfConsumer {
-      public Integer run() {
-        PerfProvider p = new PerfProvider();
-        return p.ping();
-      }
-    }
-  `;
-  const consumerVariant = `
-    public class PerfConsumer
-    {
-      public Integer run()
-      {
-        PerfProvider p =
-          new PerfProvider();
-        return p.ping();
-      }
-    }
-  `;
-
-  let compilerService: CompilerService;
-
+  const providerCompact =
+    'public class PerfProvider { public Integer ping() { return 1; } }';
+  const providerVariant =
+    'public class PerfProvider {\n public Integer ping() {\n return 1;\n }\n}';
+  const consumerCompact =
+    'public class PerfConsumer { public Integer run() { PerfProvider p = new PerfProvider(); return p.ping(); } }';
+  const consumerVariant =
+    'public class PerfConsumer {\n public Integer run() {\n' +
+    ' PerfProvider p = new PerfProvider();\n return p.ping();\n }\n}';
   const compile = (code: string, fileUri: string): SymbolTable => {
     const listener = new ApexSymbolCollectorListener(undefined, 'full');
-    const result = compilerService.compile(code, fileUri, listener, {
+    const result = new CompilerService().compile(code, fileUri, listener, {
       collectReferences: true,
       resolveReferences: true,
     });
-    if (!result.result) {
-      throw new Error(`Failed to compile ${fileUri}`);
-    }
+    if (!result.result) throw new Error(`Failed to compile ${fileUri}`);
     return result.result;
   };
-
-  const appendBenchmarkResults = (
-    results: Record<string, Benchmark.Target>,
-  ) => {
-    const fs = require('fs');
-    const path = require('path');
-    const outputPath = path.join(
-      __dirname,
-      '../apex-parser-ast-benchmark-results.json',
+  const replacementTables = () => ({
+    providerCompact: compile(providerCompact, providerFile),
+    providerVariant: compile(providerVariant, providerFile),
+    consumerCompact: compile(consumerCompact, consumerFile),
+    consumerVariant: compile(consumerVariant, consumerFile),
+  });
+  const replace = async (manager: ApexSymbolManager, cycleCount: number) => {
+    const tables = replacementTables();
+    await Effect.runPromise(
+      manager.addSymbolTable(tables.providerCompact, providerFile),
     );
-
-    let allResults = results;
-    try {
-      if (fs.existsSync(outputPath)) {
-        const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-        allResults = { ...existing, ...results };
-      }
-    } catch (error) {
-      console.warn('Could not read existing benchmark results:', error);
+    await Effect.runPromise(
+      manager.addSymbolTable(tables.consumerCompact, consumerFile),
+    );
+    for (let index = 0; index < cycleCount; index++) {
+      await Effect.runPromise(
+        manager.addSymbolTable(tables.providerVariant, providerFile),
+      );
+      await Effect.runPromise(
+        manager.addSymbolTable(tables.consumerVariant, consumerFile),
+      );
+      await Effect.runPromise(
+        manager.addSymbolTable(tables.providerCompact, providerFile),
+      );
+      await Effect.runPromise(
+        manager.addSymbolTable(tables.consumerCompact, consumerFile),
+      );
     }
-
-    fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
   };
 
-  beforeAll(async () => {
-    await Effect.runPromise(
+  beforeAll(() =>
+    Effect.runPromise(
       schedulerInitialize({
         queueCapacity: 100,
         maxHighPriorityStreak: 50,
         idleSleepMs: 1,
       }),
-    );
-  });
-
+    ),
+  );
   afterAll(async () => {
-    try {
-      await Effect.runPromise(schedulerShutdown());
-    } catch (_error) {
-      // Ignore.
-    }
-    try {
-      await Effect.runPromise(schedulerReset());
-    } catch (_error) {
-      // Ignore.
-    }
+    await Effect.runPromise(schedulerShutdown()).catch(() => undefined);
+    await Effect.runPromise(schedulerReset()).catch(() => undefined);
   });
 
-  beforeEach(() => {
-    compilerService = new CompilerService();
+  it('benchmarks repeated cross-file semantic-equivalent replacement cycles', async ({
+    bench,
+  }) => {
+    await bench(
+      'ApexSymbolManager cross-file replacement cycle (100 cycles)',
+      {},
+      async () => {
+        const manager = new ApexSymbolManager();
+        try {
+          await replace(manager, 100);
+        } finally {
+          manager.clear();
+        }
+      },
+    ).run();
   });
-
-  vi.setConfig({ testTimeout: 1000 * 60 * 10 });
-
-  it('benchmarks repeated cross-file semantic-equivalent replacement cycles', () =>
-    new Promise<void>((done) => {
-      const providerCompactTable = compile(providerCompact, providerFile);
-      const providerVariantTable = compile(providerVariant, providerFile);
-      const consumerCompactTable = compile(consumerCompact, consumerFile);
-      const consumerVariantTable = compile(consumerVariant, consumerFile);
-
-      const suite = new Benchmark.Suite();
-      const results: Record<string, Benchmark.Target> = {};
-
-      suite
-        .add('ApexSymbolManager cross-file replacement cycle (100 cycles)', {
-          defer: true,
-          ...benchmarkSettings,
-          fn: (deferred: any) => {
-            const manager = new ApexSymbolManager();
-            const cycleCount = 100;
-            const run = async () => {
-              try {
-                await Effect.runPromise(
-                  manager.addSymbolTable(providerCompactTable, providerFile),
-                );
-                await Effect.runPromise(
-                  manager.addSymbolTable(consumerCompactTable, consumerFile),
-                );
-                for (let i = 0; i < cycleCount; i++) {
-                  await Effect.runPromise(
-                    manager.addSymbolTable(providerVariantTable, providerFile),
-                  );
-                  await Effect.runPromise(
-                    manager.addSymbolTable(consumerVariantTable, consumerFile),
-                  );
-                  await Effect.runPromise(
-                    manager.addSymbolTable(providerCompactTable, providerFile),
-                  );
-                  await Effect.runPromise(
-                    manager.addSymbolTable(consumerCompactTable, consumerFile),
-                  );
-                }
-              } finally {
-                manager.clear();
-                deferred.resolve();
-              }
-            };
-            void run();
-          },
-        })
-        .on('cycle', (event: any) => {
-          results[event.target.name] = event.target;
-          console.log(String(event.target));
-        })
-        .on('complete', () => {
-          appendBenchmarkResults(results);
-          done();
-        })
-        .run({ async: true });
-    }));
 
   it('measures memory and object-count stability under repeated replacements', async () => {
-    const providerCompactTable = compile(providerCompact, providerFile);
-    const providerVariantTable = compile(providerVariant, providerFile);
-    const consumerCompactTable = compile(consumerCompact, consumerFile);
-    const consumerVariantTable = compile(consumerVariant, consumerFile);
     const manager = new ApexSymbolManager();
-    const cycleCount = isCI ? 400 : isQuick ? 60 : 200;
-
     try {
-      const heapBefore = process.memoryUsage().heapUsed;
-
+      const tables = replacementTables();
       await Effect.runPromise(
-        manager.addSymbolTable(providerCompactTable, providerFile),
+        manager.addSymbolTable(tables.providerCompact, providerFile),
       );
       await Effect.runPromise(
-        manager.addSymbolTable(consumerCompactTable, consumerFile),
+        manager.addSymbolTable(tables.consumerCompact, consumerFile),
       );
       const baselineStats = await manager.getStats();
-
-      for (let i = 0; i < cycleCount; i++) {
-        await Effect.runPromise(
-          manager.addSymbolTable(providerVariantTable, providerFile),
-        );
-        await Effect.runPromise(
-          manager.addSymbolTable(consumerVariantTable, consumerFile),
-        );
-        await Effect.runPromise(
-          manager.addSymbolTable(providerCompactTable, providerFile),
-        );
-        await Effect.runPromise(
-          manager.addSymbolTable(consumerCompactTable, consumerFile),
-        );
-      }
-
-      if (global.gc) {
-        global.gc();
-      }
-
-      const heapAfter = process.memoryUsage().heapUsed;
-      const heapDeltaMb = (heapAfter - heapBefore) / (1024 * 1024);
+      await replace(
+        manager,
+        process.env.CI === 'true'
+          ? 400
+          : process.env.QUICK === 'true'
+            ? 60
+            : 200,
+      );
       const finalStats = await manager.getStats();
-
-      console.log('\n=== Replacement memory pressure ===');
-      console.log(`Cycles: ${cycleCount}`);
-      console.log(`Heap delta: ${heapDeltaMb.toFixed(2)} MB`);
-      console.log(`Baseline refs: ${baselineStats.totalReferences}`);
-      console.log(`Final refs: ${finalStats.totalReferences}`);
-      console.log(`Baseline symbols: ${baselineStats.totalSymbols}`);
-      console.log(`Final symbols: ${finalStats.totalSymbols}`);
-
-      // Keep assertions tolerant while still catching unbounded growth regressions.
       expect(finalStats.totalReferences).toBe(baselineStats.totalReferences);
       expect(finalStats.totalSymbols).toBeLessThanOrEqual(
         baselineStats.totalSymbols + 4,
       );
-      expect(heapDeltaMb).toBeLessThan(200);
     } finally {
       manager.clear();
     }

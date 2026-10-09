@@ -140,8 +140,7 @@
     "vscode-languageserver-protocol": "^3.17.5"
   },
   "peerDependencies": {
-    "vscode-languageclient": "^9.0.1",
-    "vitest": "5.0.1"
+    "vscode-languageclient": "^9.0.1"
   },
   "peerDependenciesMeta": {
     "vscode-languageclient": {
@@ -150,6 +149,7 @@
   },
   "devDependencies": {
     "@salesforce/esbuild-presets": "workspace:*",
+    "vitest": "5.0.1",
     "vscode-languageclient": "^9.0.1"
   }
 }

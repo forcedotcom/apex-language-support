@@ -1,6 +1,6 @@
 # Performance Benchmarks
 
-This directory contains performance benchmarks for the `apex-lsp-testbed` package using [Benchmark.js](https://benchmarkjs.com/).
+This directory contains native [Vitest benchmarks](https://vitest.dev/guide/benchmarking) for the `apex-lsp-testbed` package.
 
 ## Benchmark Files
 
@@ -39,13 +39,13 @@ npm run test:perf
 
 ### CI Mode (Comprehensive)
 
-For production CI tracking with high statistical confidence (~15-30 minutes):
+For comprehensive CI sampling (~15-30 minutes):
 
 ```bash
 CI=true npm run test:perf
 ```
 
-- **Purpose**: Generate authoritative benchmark data for trend tracking
+- **Purpose**: Exercise the full benchmark sampling budget
 - **LSP Benchmarks**: Comprehensive settings (maxTime=30s, minSamples=3-5)
 - **EDA Workspace**: 50-100 files for thorough analysis
 - **Use when**: Automated CI runs, official performance tracking
@@ -66,12 +66,12 @@ npm run test:perf:eda
 
 ### LSP Benchmarks (`lsp-benchmarks.perf.ts`)
 
-**Micro-benchmarks** using Benchmark.js for statistical analysis:
+**Micro-benchmarks** using Vitest for statistical analysis:
 
 - Multiple iterations for ops/sec measurement
 - Statistical variance analysis (RME, stddev)
 - Tests individual LSP operations (textDocument/didOpen, completion, etc.)
-- Suitable for Benchmark.js because operations are fast (< 100ms)
+- Suitable for repeated native Vitest sampling because operations are fast (< 100ms)
 
 ### EDA Workspace Benchmarks (`eda-workspace.perf.ts`)
 
@@ -81,42 +81,22 @@ npm run test:perf:eda
 - Direct timing measurements for large-scale compilation
 - Tests workspace loading, batch compilation, layered listeners
 - Uses real EDA repository (large Salesforce codebase)
-- Benchmark.js only used for very small file counts (3-5 files)
+- Native Vitest sampling is limited to very small file counts (3-5 files)
 
 **Important**: EDA tests skip heavy workloads in QUICK mode. Use LOCAL or CI mode for meaningful results.
 
-## Output
-
-Benchmarks generate JSON files for CI tracking:
-
-```
-packages/apex-lsp-testbed/test/apex-lsp-testbed-benchmark-results.json
-```
-
-This file is uploaded to GitHub Actions and tracked over time using [github-action-benchmark](https://github.com/benchmark-action/github-action-benchmark).
-
-## CI Integration
-
-Benchmarks run automatically on:
-
-- **Push to main**: Tracks trends, stores data, alerts on >130% regression
-- **Pull requests**: Compares performance, posts comment with results
-
-See `.github/workflows/benchmark.yml` for configuration.
-
 ## Understanding Results
 
-### Benchmark.js Output (LSP benchmarks):
+### Vitest Output (LSP benchmarks):
 
 ```
-textDocument/didOpen x 45.32 ops/sec ±2.15% (8 runs sampled)
-                      ^^^^^^^  ^^^^^^  ^^^^^^^^
-                      Hz       RME     Samples
+name                    hz       min      max      mean
+textDocument/didOpen   45.32    20 ms    25 ms    22 ms
 ```
 
 - **Hz (ops/sec)**: Operations per second (higher is better)
-- **RME**: Relative margin of error (lower is better, <5% is good)
-- **Samples**: Number of times the benchmark ran
+- **Latency**: Time per operation (lower is better)
+- **Samples**: Vitest reports the configured sample count and distribution
 
 ### Direct Timing Output (EDA workspace):
 
@@ -133,10 +113,10 @@ Average Time per File: 197.09ms
 
 1. **Use QUICK mode for development** - Don't wait for full benchmarks during iteration
 2. **Use LOCAL mode for investigation** - More accurate than QUICK when debugging performance
-3. **Let CI handle comprehensive benchmarks** - CI mode is slow but statistically rigorous
+3. **Let CI handle comprehensive benchmarks** - CI mode is slow but uses the full sampling budget
 4. **Don't add assertions** - Benchmarks are informational, not pass/fail tests
 5. **Understand the test type**:
-   - **Micro-benchmarks** (LSP): Use Benchmark.js, expect statistical data
+   - **Micro-benchmarks** (LSP): Use Vitest benchmarks, expect statistical data
    - **Integration measurements** (EDA): Direct timing, expect single-run results
 
 ## EDA Repository

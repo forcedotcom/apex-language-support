@@ -34,6 +34,7 @@ export default defineConfig({
     noExternal: ['vscode-languageclient'],
   },
   test: {
+    name: 'apex-lsp-vscode-extension',
     globals: true,
     environment: 'node',
     include: ['test/**/*.test.ts'],

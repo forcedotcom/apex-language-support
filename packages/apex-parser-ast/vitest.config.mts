@@ -20,6 +20,7 @@ export default defineConfig({
     ],
   },
   test: {
+    name: 'apex-parser-ast',
     globals: true,
     environment: 'node',
     setupFiles: ['./test/vitest-setup.ts'],

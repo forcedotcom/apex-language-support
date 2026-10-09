@@ -142,35 +142,41 @@
       ]
     },
     "test:perf": {
-      "command": "vitest run --config vitest.config.perf.mts",
+      "command": "vitest bench --run --config vitest.config.perf.mts",
       "dependencies": [
         "compile"
       ],
       "files": [
         "src/**/*.ts",
         "test/**/*.perf.ts",
+        "test/performance/**/*.ts",
+        "vitest.config.mts",
         "vitest.config.perf.mts"
       ]
     },
     "test:perf:eda": {
-      "command": "vitest run --config vitest.config.perf.mts eda-workspace",
+      "command": "vitest bench --run --config vitest.config.perf.mts eda-workspace",
       "dependencies": [
         "compile"
       ],
       "files": [
         "src/**/*.ts",
         "test/**/*.perf.ts",
+        "test/performance/**/*.ts",
+        "vitest.config.mts",
         "vitest.config.perf.mts"
       ]
     },
     "test:perf:lsp": {
-      "command": "vitest run --config vitest.config.perf.mts lsp-benchmarks",
+      "command": "vitest bench --run --config vitest.config.perf.mts lsp-benchmarks",
       "dependencies": [
         "compile"
       ],
       "files": [
         "src/**/*.ts",
         "test/**/*.perf.ts",
+        "test/performance/**/*.ts",
+        "vitest.config.mts",
         "vitest.config.perf.mts"
       ]
     },

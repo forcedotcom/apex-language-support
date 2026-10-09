@@ -12,9 +12,19 @@ importers:
 
 packages:
 
+  '@pnpm/exe.android-arm64@12.10.1':
+    resolution: {integrity: sha512-CVTlHPwNvadQCJD9bGSMzWIhFX8QpjtqC2c27dhdnn/9iKzEjZ3qL62o3gHpKbIuo6qn4WxTKRoaokgNdReBig==}
+    cpu: [arm64]
+    os: [android]
+
   '@pnpm/exe.android-arm64@12.11.2':
     resolution: {integrity: sha512-owLw13OfPkEoY+hLBNeeG+dCFhywr7q2d/EHPz4mNL2RhKnv8gNwMARkjkiDQu234aItVwFNDeGnmQXm+ikkAg==}
     cpu: [arm64]
+    os: [android]
+
+  '@pnpm/exe.android-x64@12.10.1':
+    resolution: {integrity: sha512-NFiYLIaodY7da0XIebwcU3JoP7IK/lzF7zgKSSP+9H+QcFnQ1GDfBkuBKCYJzZ+Xu0WH54neIPLBBCaOjaaauA==}
+    cpu: [x64]
     os: [android]
 
   '@pnpm/exe.android-x64@12.11.2':
@@ -22,9 +32,19 @@ packages:
     cpu: [x64]
     os: [android]
 
+  '@pnpm/exe.darwin-arm64@12.10.1':
+    resolution: {integrity: sha512-0O8tdQ8ijlPJudXspLMTcitMkdBEz6uUflazL5uQE0WMs85oQIp0U+5hfEktMFB64QqEhjqlvvujTwbzdr9oMg==}
+    cpu: [arm64]
+    os: [darwin]
+
   '@pnpm/exe.darwin-arm64@12.11.2':
     resolution: {integrity: sha512-n9M4On66y8FDxUAKgMO1FXt0qihyG4e+56p3/F0uo8Bx9KplW8BwKVnXigzCJ8aNM6sVVPkOE6M9XXbeVIxnZA==}
     cpu: [arm64]
+    os: [darwin]
+
+  '@pnpm/exe.darwin-x64@12.10.1':
+    resolution: {integrity: sha512-ud+1/uZOKEo8P/AsPynOJc/LNwfI0j6WwCElibj71rU9l4nIBnsSn+wWTIPZPkZ4BBSH5+82azSnAARMyJ1lNA==}
+    cpu: [x64]
     os: [darwin]
 
   '@pnpm/exe.darwin-x64@12.11.2':
@@ -32,10 +52,21 @@ packages:
     cpu: [x64]
     os: [darwin]
 
+  '@pnpm/exe.freebsd-x64@12.10.1':
+    resolution: {integrity: sha512-mj9PE5rf8uAfQQ2K66HSATMSut+lNiB4eSqFd5+azFVCMnxNSy/32xpZQJT21PhnN3Y4qbK+iKHe5nWAxSuRhw==}
+    cpu: [x64]
+    os: [freebsd]
+
   '@pnpm/exe.freebsd-x64@12.11.2':
     resolution: {integrity: sha512-qbzc3KoDpa/Lkf8vs3jnDe6dUUbso+6eLIyssYFMiliLpYNxn8dirk11YoNnOQcdHVB50v5RFls1Yid6ttT5pg==}
     cpu: [x64]
     os: [freebsd]
+
+  '@pnpm/exe.linux-arm64-musl@12.10.1':
+    resolution: {integrity: sha512-xba+00wZJ8Um6rBJJjWl88uJj0tydB8dtomvjlCLvi0uL32vpa9CRP8Vv26FIXvbiZ1bo2RCzYt/eChxJVV52w==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
 
   '@pnpm/exe.linux-arm64-musl@12.11.2':
     resolution: {integrity: sha512-uMEYDwKRktGwANubQ+kYCwmhNwg3Ik6qK89ahsbQ5cP30R/5FVJb/T99vr9XRUBC/A7mZI6eeT92oyVas9ACyg==}
@@ -43,9 +74,21 @@ packages:
     os: [linux]
     libc: [musl]
 
+  '@pnpm/exe.linux-arm64@12.10.1':
+    resolution: {integrity: sha512-oBdMp69ScC9UnniG4qZAQVr2fBDSXjm4yk/72vkEVyrlwS23yMxcRQl7Qdo3sgXPAygY6TWnPRKm4rXzjoyW7w==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
   '@pnpm/exe.linux-arm64@12.11.2':
     resolution: {integrity: sha512-6e8ZAQUwFXAWHHHv5FesWqf/kEK04wuitBv5f/gxzkC0DiBfaixr+f+6JQede8SF4Ji5LcMwVFJbzAtffpWxEg==}
     cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.linux-ppc64@12.10.1':
+    resolution: {integrity: sha512-Yyb3wu09h3c7mLme270uHFiVaAIUHC411Ru9LIU2BKUIstrGlXa9OqqVWoXaRgYRdFdOFknkwG7GNn6ygwLbnw==}
+    cpu: [ppc64]
     os: [linux]
     libc: [glibc]
 
@@ -55,9 +98,21 @@ packages:
     os: [linux]
     libc: [glibc]
 
+  '@pnpm/exe.linux-riscv64@12.10.1':
+    resolution: {integrity: sha512-PdkeUFFkybknnGkWP0H22eMpIiS4OZXL5BcQzF4lh+vmrW3IaC2HOkbANKgot/PKO0Kl77pzA/6PKFxgbgfXIQ==}
+    cpu: [riscv64]
+    os: [linux]
+    libc: [glibc]
+
   '@pnpm/exe.linux-riscv64@12.11.2':
     resolution: {integrity: sha512-i1yLdQ5bu+wjQ+srtFoJAaY2gN/+oXHFdjul4llCeoDxHE0rTIG3R41NhHfCjyFPW4+CpbBT58933CL9sMOCnA==}
     cpu: [riscv64]
+    os: [linux]
+    libc: [glibc]
+
+  '@pnpm/exe.linux-s390x@12.10.1':
+    resolution: {integrity: sha512-1okKuHKJwJPAbofDxfhZWAUxEWtee4ZSf7Pah8kcvocaJkf2WxFJ5KVTiNIvDml5GLidDQsgf7Pcf/WHbCak7Q==}
+    cpu: [s390x]
     os: [linux]
     libc: [glibc]
 
@@ -67,11 +122,23 @@ packages:
     os: [linux]
     libc: [glibc]
 
+  '@pnpm/exe.linux-x64-musl@12.10.1':
+    resolution: {integrity: sha512-e6IqzVNkPa7srFKJKnY23uWJ+qz0LaRWiTUo/sHfFXRRMRzB5uNOr6qWWip/jqhdGwU91n9J7LrEYZ6e0tRczw==}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
   '@pnpm/exe.linux-x64-musl@12.11.2':
     resolution: {integrity: sha512-7eIxQR05fvJxCujUSKp5KTtehJ7QqrgqP/HD1+BcB/SaV2Be4XI1PEHiOgA1zxsiMIeMvTF6E4G4dYHrFjeXRg==}
     cpu: [x64]
     os: [linux]
     libc: [musl]
+
+  '@pnpm/exe.linux-x64@12.10.1':
+    resolution: {integrity: sha512-ZByV0DRgWzGaDSjT5ddRBASdwz+r/qPMYh7o6RGmPQjtRGNFbSl94xY2DcAM8mqCOZJUUDtAXQ+wpBXcdpKlkg==}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
 
   '@pnpm/exe.linux-x64@12.11.2':
     resolution: {integrity: sha512-FK7QKe24AYgppJwO3mpooYptduuvIGqKJPi5ac7MdnWkjUy46JBfYhCW0grnkWKC8YOf0x+vGviuQqJEj3SpQQ==}
@@ -79,9 +146,19 @@ packages:
     os: [linux]
     libc: [glibc]
 
+  '@pnpm/exe.win32-arm64@12.10.1':
+    resolution: {integrity: sha512-I7QZHcjioG7orFeCRUFUHByJ1G0zFPnAlaGGyrUvb6MGkv5oeNwNPl7t+Gp+7zHfnMcgLGJ1a+Wfim0IDw3lOw==}
+    cpu: [arm64]
+    os: [win32]
+
   '@pnpm/exe.win32-arm64@12.11.2':
     resolution: {integrity: sha512-PCTjVDdJb6VvraZxrEeFv6EqEA0hhIsAySx28e95J2Tqpi88hLpgOXgNqV0vpxq9A+b8GLQfyk/D+1UlJPv/YQ==}
     cpu: [arm64]
+    os: [win32]
+
+  '@pnpm/exe.win32-x64@12.10.1':
+    resolution: {integrity: sha512-4WJFdp58EKlCj0zLobrXU0vpszSZIr4X/3y/uNbAQqGW0zE+VdruZB0gFc3L2kzsUzVwTYbaCn+XEhnCYSAlTg==}
+    cpu: [x64]
     os: [win32]
 
   '@pnpm/exe.win32-x64@12.11.2':
@@ -89,12 +166,20 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  pnpm@12.10.1:
+    resolution: {integrity: sha512-ukCjfrGjcNYP6oxM8dNkwTvMzvUY6YrSvO6VT1OdONo3RY5YJho/pV4GUjRQ6g//+fSXsTW+QfLBXBZCusrObA==}
+    engines: {node: '>=18.*'}
+    hasBin: true
+
   pnpm@12.11.2:
     resolution: {integrity: sha512-JaUWUqGWeFr18ovabf6NxYLr76SsHRgCIc4TkCMcX7dmN4IupLbkYzznSs3LCnf3Ja8RutOBd/3t2u6BipVcuQ==}
     engines: {node: '>=18.*'}
     hasBin: true
 
 snapshots:
+
+  '@pnpm/exe.android-arm64@12.10.1':
+    optional: true
 
   '@pnpm/exe.android-arm64@12.11.2':
     optional: true
@@ -200,9 +285,6 @@ importers:
       '@tony.ganchev/eslint-plugin-header':
         specifier: ^3.4.4
         version: 3.4.4(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))
-      '@types/benchmark':
-        specifier: ^2.1.5
-        version: 2.1.5
       '@types/node':
         specifier: ^20.19.43
         version: 20.19.43
@@ -224,9 +306,6 @@ importers:
       '@vscode/test-web':
         specifier: ^0.0.81
         version: 0.0.81(supports-color@7.2.0)
-      benchmark:
-        specifier: ^2.1.4
-        version: 2.1.4
       chalk:
         specifier: ^5.3.0
         version: 5.6.2
@@ -463,9 +542,6 @@ importers:
       effect:
         specifier: ^3.22.1
         version: 3.22.2
-      vitest:
-        specifier: 5.0.1
-        version: 5.0.1(@opentelemetry/api@1.9.1)(@types/node@20.19.43)(@vitest/coverage-v8@5.0.1)(jsdom@26.1.0(supports-color@7.2.0))(vite@8.3.3(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       vscode-jsonrpc:
         specifier: ^8.2.1
         version: 8.2.1
@@ -476,6 +552,9 @@ importers:
       '@salesforce/esbuild-presets':
         specifier: workspace:*
         version: link:../esbuild-presets
+      vitest:
+        specifier: 5.0.1
+        version: 5.0.1(@opentelemetry/api@1.9.1)(@types/node@20.19.43)(@vitest/coverage-v8@5.0.1)(jsdom@26.1.0(supports-color@7.2.0))(vite@8.3.3(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       vscode-languageclient:
         specifier: ^9.0.1
         version: 9.0.1
@@ -672,12 +751,6 @@ importers:
       '@salesforce/esbuild-presets':
         specifier: workspace:*
         version: link:../esbuild-presets
-      '@types/benchmark':
-        specifier: ^2.1.5
-        version: 2.1.5
-      benchmark:
-        specifier: ^2.1.4
-        version: 2.1.4
       esbuild-plugin-copy:
         specifier: ^2.1.1
         version: 2.1.1(esbuild@0.28.2)
@@ -740,12 +813,6 @@ importers:
       '@salesforce/esbuild-presets':
         specifier: workspace:*
         version: link:../esbuild-presets
-      '@types/benchmark':
-        specifier: ^2.1.5
-        version: 2.1.5
-      benchmark:
-        specifier: ^2.1.4
-        version: 2.1.4
       vitest:
         specifier: 5.0.1
         version: 5.0.1(@opentelemetry/api@1.9.1)(@types/node@20.19.43)(@vitest/coverage-v8@5.0.1)(jsdom@26.1.0(supports-color@7.2.0))(vite@8.3.3(@types/node@20.19.43)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
@@ -2489,9 +2556,6 @@ packages:
   '@tybys/wasm-util@0.10.4':
     resolution: {integrity: sha512-W3c4gRigFS0T/Ma4qIYF3GDAc5AQdHb1yL5znJT1Zv1YaD9Kitx656wBjvr19qbiosmZT8lWDM5BEMynUqX65A==}
 
-  '@types/benchmark@2.1.5':
-    resolution: {integrity: sha512-cKio2eFB3v7qmKcvIHLUMw/dIx/8bhWPuzpzRT4unCPRTD8VdA9Zb0afxpcxOqR4PixRS7yT42FqGS8BYL8g1w==}
-
   '@types/cacheable-request@6.0.3':
     resolution: {integrity: sha512-IQ3EbTzGxIigb1I3qPZc1rWJnH0BmSKv5QYTalEwweFvyBDLSAe24zP0le/hyi7ecGfZVlIVAg4BZqb8WBwKqw==}
 
@@ -2944,9 +3008,6 @@ packages:
 
   before-after-hook@4.0.0:
     resolution: {integrity: sha512-q6tR3RPqIB1pMiTRMFcZwuG5T8vwp+vUvEG0vuI6B+Rikh5BfPp2fQ82c925FOs+b0lcFQ8CFrL+KbilfZFhOQ==}
-
-  benchmark@2.1.4:
-    resolution: {integrity: sha512-l9MlfN4M1K/H2fbhfMy3B7vJd6AGKJVQn2h6Sg/Yx+KckoUA7ewS5Vv6TjSq18ooE1kS9hhAlQRH3AkXIh/aOQ==}
 
   binary-extensions@2.3.0:
     resolution: {integrity: sha512-Ceh+7ox5qe7LJuLHoY0feh3pHuUDHAcRUeyL2VYghZwfpkNIy/+8Ocg0a3UuSoYzavmylwuLWQOf3hl0jjMMIw==}
@@ -5618,9 +5679,6 @@ packages:
   pkg-conf@2.1.0:
     resolution: {integrity: sha512-C+VUP+8jis7EsQZIhDYmS5qlNtjv2yP4SNtjXK9AP1ZcTRlnSfuumaTnRfYZnYgUUYVIKqL0fRvmUGDV2fmp6g==}
     engines: {node: '>=4'}
-
-  platform@1.3.6:
-    resolution: {integrity: sha512-fnWVljUchTro6RiCFvCXBbNhJc2NijN7oIQxbwsyL0buWJPG85v81ehlHI9fXrJsMNgTofEoWIQeClKpgxFLrg==}
 
   playwright-core@1.62.1:
     resolution: {integrity: sha512-wPYSwEBJY9GHraISXqyqtx0na0LpO3XEX7jNDhntbex7tzUS7kLnZsOlFruFJB4Hi/rhDMjXGqHewDZ68nYZVw==}
@@ -8775,8 +8833,6 @@ snapshots:
       tslib: 2.8.1
     optional: true
 
-  '@types/benchmark@2.1.5': {}
-
   '@types/cacheable-request@6.0.3':
     dependencies:
       '@types/http-cache-semantics': 4.2.0
@@ -9296,11 +9352,6 @@ snapshots:
   basic-ftp@5.3.1: {}
 
   before-after-hook@4.0.0: {}
-
-  benchmark@2.1.4:
-    dependencies:
-      lodash: 4.18.1
-      platform: 1.3.6
 
   binary-extensions@2.3.0: {}
 
@@ -12272,8 +12323,6 @@ snapshots:
     dependencies:
       find-up: 2.1.0
       load-json-file: 4.0.0
-
-  platform@1.3.6: {}
 
   playwright-core@1.62.1: {}
 
