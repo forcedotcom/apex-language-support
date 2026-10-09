@@ -169,7 +169,8 @@ describe('WorkspaceBatchHandler', () => {
       batches.push(createMockBatchParams(2, totalBatches, 10)); // Last batch
 
       // Send all batches
-      const results = [];
+      const results: Awaited<ReturnType<typeof handleWorkspaceBatchRequest>>[] =
+        [];
       for (const batch of batches) {
         const result = await handleWorkspaceBatchRequest(batch);
         results.push(result);
@@ -192,7 +193,8 @@ describe('WorkspaceBatchHandler', () => {
       }
 
       // Send batches
-      const results = [];
+      const results: Awaited<ReturnType<typeof handleWorkspaceBatchRequest>>[] =
+        [];
       for (const batch of batches) {
         const result = await handleWorkspaceBatchRequest(batch);
         results.push(result);

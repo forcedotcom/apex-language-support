@@ -991,7 +991,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         };
       };
 
-      const completionPhases = [];
+      const completionPhases: Awaited<ReturnType<typeof complete>>[] = [];
       completionPhases.push(yield* Effect.promise(() => complete('prop', 2)));
       completionPhases.push(yield* Effect.promise(() => complete('proper', 3)));
       completionPhases.push(

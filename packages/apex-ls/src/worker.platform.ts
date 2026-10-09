@@ -539,7 +539,9 @@ void Effect.runPromiseExit(workerProgram).then((exit) => {
     }
     return;
   }
-  if (process.env.APEX_LS_DISABLE_WORKER_TOPOLOGY_EXIT !== '1') {
+  // A successful worker must exit even when tests suppress failure exits;
+  // otherwise the parent waits for the forced-termination timeout.
+  if (parentPort) {
     process.exit(0);
   }
 });

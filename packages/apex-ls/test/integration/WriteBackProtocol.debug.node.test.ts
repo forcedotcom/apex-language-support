@@ -7,7 +7,7 @@
  */
 
 /**
- * Debug test - minimal reproduction with verbose logging
+ * Minimal write-back reproduction.
  */
 
 import * as path from 'path';
@@ -38,7 +38,7 @@ const TEST_URI = 'file:///test/TestClass.cls';
 describe('WriteBackProtocol Debug Test', () => {
   beforeAll(() => {
     enableConsoleLogging();
-    setLogLevel('debug');
+    setLogLevel('error');
   });
 
   it('minimal: just open document and write back', async () => {
@@ -47,7 +47,7 @@ describe('WriteBackProtocol Debug Test', () => {
         poolSize: 1,
         enableResourceLoader: false,
         logger: getLogger(),
-        logLevel: 'debug',
+        logLevel: 'error',
       });
 
       yield* topology.dataOwner.executeEffect(
