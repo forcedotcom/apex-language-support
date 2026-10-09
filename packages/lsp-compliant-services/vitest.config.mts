@@ -17,6 +17,7 @@ export default defineConfig({
     },
   },
   test: {
+    name: 'lsp-compliant-services',
     globals: true,
     environment: 'node',
     include: ['test/**/*.test.ts'],

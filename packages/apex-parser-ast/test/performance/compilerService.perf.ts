@@ -6,85 +6,63 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { vi } from 'vitest';
-/**
- * CompilerService Performance Benchmarks
- *
- * These benchmarks measure compilation performance to track trends over time:
- * 1. Full compilation (parsing + symbol collection + reference resolution)
- * 2. Compilation without references
- * 3. Compilation with references but no resolution
- * 4. File size impact (scaling)
- *
- * Focus: Track compilation performance and identify regressions
- */
+import { beforeAll, beforeEach, describe, it } from 'vitest';
 
-import Benchmark from 'benchmark';
+import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
 
 describe('CompilerService Benchmarks', () => {
   let compilerService: CompilerService;
 
-  // Benchmark modes: QUICK=true (validation), LOCAL (default), CI (comprehensive)
   const isCI = process.env.CI === 'true';
   const isQuick = process.env.QUICK === 'true';
-  const benchmarkSettings = isCI
-    ? { maxTime: 30, minTime: 10, minSamples: 5, initCount: 1 } // CI: comprehensive
+  const benchmarkOptions = isCI
+    ? { time: 30_000, warmupTime: 10_000, iterations: 5, warmupIterations: 1 }
     : isQuick
-      ? { maxTime: 1, minTime: 0.1, minSamples: 1, initCount: 1 } // QUICK: fast validation
-      : { maxTime: 6, minTime: 2, minSamples: 2, initCount: 1 }; // LOCAL: balanced
+      ? { time: 1_000, warmupTime: 100, iterations: 1, warmupIterations: 1 }
+      : { time: 6_000, warmupTime: 2_000, iterations: 2, warmupIterations: 1 };
 
-  if (isQuick) {
-    console.log('⚡ QUICK mode: Running minimal samples for fast validation');
-  } else if (isCI) {
-    console.log('🏗️  CI mode: Running comprehensive benchmarks');
-  } else {
-    console.log('💻 LOCAL mode: Running balanced benchmarks');
-  }
-
-  // Test fixture - moderately complex class
   const testClassContent = `
 public class PerformanceTestClass {
     private static final String CONSTANT_VALUE = 'Test';
     private Integer counter = 0;
-    
+
     public class InnerClass {
         private String name;
-        
+
         public InnerClass(String name) {
             this.name = name;
         }
-        
+
         public String getName() {
             return this.name;
         }
     }
-    
+
     public PerformanceTestClass() {
         this.counter = 0;
     }
-    
+
     public PerformanceTestClass(Integer initialValue) {
         this.counter = initialValue;
     }
-    
+
     public void increment() {
         this.counter++;
     }
-    
+
     public Integer getCounter() {
         return this.counter;
     }
-    
+
     public String processString(String input) {
         if (String.isBlank(input)) {
             return CONSTANT_VALUE;
         }
         return input.toUpperCase();
     }
-    
+
     public List<String> createList() {
         List<String> result = new List<String>();
         result.add('First');
@@ -92,7 +70,7 @@ public class PerformanceTestClass {
         result.add('Third');
         return result;
     }
-    
+
     public Map<String, Integer> createMap() {
         Map<String, Integer> result = new Map<String, Integer>();
         result.put('one', 1);
@@ -100,25 +78,34 @@ public class PerformanceTestClass {
         result.put('three', 3);
         return result;
     }
-    
+
     public void processCollection() {
         List<String> items = createList();
         Map<String, Integer> counts = createMap();
-        
+
         for (String item : items) {
             System.debug('Item: ' + item);
         }
-        
+
         for (String key : counts.keySet()) {
             System.debug(key + ' = ' + counts.get(key));
         }
     }
-    
+
     public static void staticMethod() {
         System.debug('Static method called');
     }
 }
   `.trim();
+
+  const compile = (
+    content: string,
+    fileName: string,
+    options: { collectReferences: boolean; resolveReferences: boolean },
+  ) => {
+    const listener = new ApexSymbolCollectorListener(undefined, 'full');
+    compilerService.compile(content, fileName, listener, options);
+  };
 
   beforeAll(() => {
     enableConsoleLogging();
@@ -129,233 +116,69 @@ public class PerformanceTestClass {
     compilerService = new CompilerService();
   });
 
-  vi.setConfig({ testTimeout: 1000 * 60 * 10 }); // 10 minute timeout for benchmarks
+  it('benchmarks full compilation', async ({ bench }) => {
+    await bench('CompilerService.compile (full)', {}, () => {
+      compile(testClassContent, 'PerformanceTestClass.cls', {
+        collectReferences: true,
+        resolveReferences: true,
+      });
+    }).run(benchmarkOptions);
+  });
 
-  it('benchmarks full compilation', () =>
-    new Promise<void>((done) => {
-      const suite = new Benchmark.Suite();
-      const results: Record<string, Benchmark.Target> = {};
+  it('benchmarks compilation without references', async ({ bench }) => {
+    await bench('CompilerService.compile (no refs)', {}, () => {
+      compile(testClassContent, 'PerformanceTestClass.cls', {
+        collectReferences: false,
+        resolveReferences: false,
+      });
+    }).run(benchmarkOptions);
+  });
 
-      suite
-        .add('CompilerService.compile (full)', {
-          defer: true,
-          ...benchmarkSettings,
-          fn: (deferred: any) => {
-            const listener = new ApexSymbolCollectorListener(undefined, 'full');
-            compilerService.compile(
-              testClassContent,
-              'PerformanceTestClass.cls',
-              listener,
-              {
-                collectReferences: true,
-                resolveReferences: true,
-              },
-            );
-            deferred.resolve();
-          },
-        })
-        .on('cycle', (event: any) => {
-          results[event.target.name] = event.target;
-          console.log(String(event.target));
-        })
-        .on('complete', function (this: any) {
-          const fs = require('fs');
-          const path = require('path');
-          const outputPath = path.join(
-            __dirname,
-            '../apex-parser-ast-benchmark-results.json',
-          );
+  it('benchmarks compilation with references but no resolution', async ({
+    bench,
+  }) => {
+    await bench('CompilerService.compile (refs, no resolve)', {}, () => {
+      compile(testClassContent, 'PerformanceTestClass.cls', {
+        collectReferences: true,
+        resolveReferences: false,
+      });
+    }).run(benchmarkOptions);
+  });
 
-          // Merge with existing results
-          let allResults = results;
-          try {
-            if (fs.existsSync(outputPath)) {
-              const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-              allResults = { ...existing, ...results };
-            }
-          } catch (error) {
-            console.warn('Could not read existing results:', error);
-          }
-
-          fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-          done();
-        })
-        .run({ async: true });
-    }));
-
-  it('benchmarks compilation without references', () =>
-    new Promise<void>((done) => {
-      const suite = new Benchmark.Suite();
-      const results: Record<string, Benchmark.Target> = {};
-
-      suite
-        .add('CompilerService.compile (no refs)', {
-          defer: true,
-          ...benchmarkSettings,
-          fn: (deferred: any) => {
-            const listener = new ApexSymbolCollectorListener(undefined, 'full');
-            compilerService.compile(
-              testClassContent,
-              'PerformanceTestClass.cls',
-              listener,
-              {
-                collectReferences: false,
-                resolveReferences: false,
-              },
-            );
-            deferred.resolve();
-          },
-        })
-        .on('cycle', (event: any) => {
-          results[event.target.name] = event.target;
-          console.log(String(event.target));
-        })
-        .on('complete', function (this: any) {
-          const fs = require('fs');
-          const path = require('path');
-          const outputPath = path.join(
-            __dirname,
-            '../apex-parser-ast-benchmark-results.json',
-          );
-
-          let allResults = results;
-          try {
-            if (fs.existsSync(outputPath)) {
-              const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-              allResults = { ...existing, ...results };
-            }
-          } catch (error) {
-            console.warn('Could not read existing results:', error);
-          }
-
-          fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-          done();
-        })
-        .run({ async: true });
-    }));
-
-  it('benchmarks compilation with references but no resolution', () =>
-    new Promise<void>((done) => {
-      const suite = new Benchmark.Suite();
-      const results: Record<string, Benchmark.Target> = {};
-
-      suite
-        .add('CompilerService.compile (refs, no resolve)', {
-          defer: true,
-          ...benchmarkSettings,
-          fn: (deferred: any) => {
-            const listener = new ApexSymbolCollectorListener(undefined, 'full');
-            compilerService.compile(
-              testClassContent,
-              'PerformanceTestClass.cls',
-              listener,
-              {
-                collectReferences: true,
-                resolveReferences: false,
-              },
-            );
-            deferred.resolve();
-          },
-        })
-        .on('cycle', (event: any) => {
-          results[event.target.name] = event.target;
-          console.log(String(event.target));
-        })
-        .on('complete', function (this: any) {
-          const fs = require('fs');
-          const path = require('path');
-          const outputPath = path.join(
-            __dirname,
-            '../apex-parser-ast-benchmark-results.json',
-          );
-
-          let allResults = results;
-          try {
-            if (fs.existsSync(outputPath)) {
-              const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-              allResults = { ...existing, ...results };
-            }
-          } catch (error) {
-            console.warn('Could not read existing results:', error);
-          }
-
-          fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-          done();
-        })
-        .run({ async: true });
-    }));
-
-  it('benchmarks compilation scalability with file size', () =>
-    new Promise<void>((done) => {
-      const suite = new Benchmark.Suite();
-      const results: Record<string, Benchmark.Target> = {};
-
-      // Generate test classes of different sizes
-      const generateClass = (methodCount: number): string => {
+  it(
+    'benchmarks compilation scalability with file size',
+    async ({ bench }) => {
+      const generateClass = (methodCount: number) => {
         const methods = Array.from(
           { length: methodCount },
-          (_, i) => `
-          public void method${i}() {
-              System.debug('Method ${i}');
-              Integer value = ${i};
+          (_, index) => `
+          public void method${index}() {
+              System.debug('Method ${index}');
+              Integer value = ${index};
               String message = 'Test';
           }
         `,
         ).join('\n');
 
-        return `
-          public class TestClass {
-              ${methods}
-          }
-        `.trim();
+        return `public class TestClass {${methods}}`;
       };
 
-      const sizes = [5, 10, 20, 50];
-
-      // Add benchmark for each size
-      sizes.forEach((methodCount) => {
+      const registrations = [5, 10, 20, 50].map((methodCount) => {
         const classContent = generateClass(methodCount);
-
-        suite.add(`CompilerService.compile (${methodCount} methods)`, {
-          defer: true,
-          ...benchmarkSettings,
-          fn: (deferred: any) => {
-            const listener = new ApexSymbolCollectorListener(undefined, 'full');
-            compilerService.compile(classContent, 'TestClass.cls', listener, {
+        return bench(
+          `CompilerService.compile (${methodCount} methods)`,
+          {},
+          () => {
+            compile(classContent, 'TestClass.cls', {
               collectReferences: true,
               resolveReferences: true,
             });
-            deferred.resolve();
           },
-        });
+        );
       });
 
-      suite
-        .on('cycle', (event: any) => {
-          results[event.target.name] = event.target;
-          console.log(String(event.target));
-        })
-        .on('complete', function (this: any) {
-          const fs = require('fs');
-          const path = require('path');
-          const outputPath = path.join(
-            __dirname,
-            '../apex-parser-ast-benchmark-results.json',
-          );
-
-          let allResults = results;
-          try {
-            if (fs.existsSync(outputPath)) {
-              const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-              allResults = { ...existing, ...results };
-            }
-          } catch (error) {
-            console.warn('Could not read existing results:', error);
-          }
-
-          fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-          done();
-        })
-        .run({ async: true });
-    }));
+      await bench.compare(...registrations, benchmarkOptions);
+    },
+    benchmarkOptions.time * 4 + benchmarkOptions.warmupTime * 4 + 60_000,
+  );
 });

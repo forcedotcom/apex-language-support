@@ -20,6 +20,7 @@ const baseConfig = defineConfig({
     ],
   },
   test: {
+    name: 'apex-ls',
     globals: true,
     environment: 'node',
     include: ['test/**/*.test.ts'],

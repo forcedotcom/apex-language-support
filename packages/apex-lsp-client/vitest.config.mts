@@ -17,11 +17,11 @@ export default defineConfig({
     },
   },
   test: {
+    name: 'apex-lsp-client',
     globals: true,
     environment: 'node',
     include: ['test/**/*.test.ts'],
     passWithNoTests: true,
-    globalTeardown: fromRoot('scripts/vitest-teardown.ts'),
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'json'],

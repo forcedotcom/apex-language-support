@@ -1,6 +1,6 @@
 # Performance Benchmarks
 
-This directory contains performance benchmarks for the `lsp-compliant-services` package using [Benchmark.js](https://benchmarkjs.com/).
+This directory contains native [Vitest benchmarks](https://vitest.dev/guide/benchmarking) for the `lsp-compliant-services` package.
 
 ## Benchmark Files
 
@@ -39,34 +39,15 @@ npm run test:perf
 
 ### CI Mode (Comprehensive)
 
-For production CI tracking with high statistical confidence (~5-10 minutes):
+For comprehensive CI sampling (~5-10 minutes):
 
 ```bash
 CI=true npm run test:perf
 ```
 
-- **Purpose**: Generate authoritative benchmark data for trend tracking
+- **Purpose**: Exercise the full benchmark sampling budget
 - **Settings**: 5 samples, maxTime=30s, minTime=10s
 - **Use when**: Automated CI runs, official performance tracking
-
-## Output
-
-Benchmarks generate a JSON file for CI tracking:
-
-```
-packages/lsp-compliant-services/test/lsp-compliant-services-benchmark-results.json
-```
-
-This file is uploaded to GitHub Actions and tracked over time using [github-action-benchmark](https://github.com/benchmark-action/github-action-benchmark).
-
-## CI Integration
-
-Benchmarks run automatically on:
-
-- **Push to main**: Tracks trends, stores data, alerts on >130% regression
-- **Pull requests**: Compares performance, posts comment with results
-
-See `.github/workflows/benchmark.yml` for configuration.
 
 ## Benchmark Scope
 
@@ -77,17 +58,16 @@ These benchmarks complement the testbed's end-to-end LSP benchmarks:
 
 ## Understanding Results
 
-Benchmark.js output format:
+Vitest prints benchmark latency, throughput, and sample statistics in the command output.
 
 ```
-didOpen Minimal x 45.32 ops/sec ±2.15% (8 runs sampled)
-                  ^^^^^^^  ^^^^^^  ^^^^^^^^
-                  Hz       RME     Samples
+name              hz       min      max      mean
+didOpen Minimal   45.32    20 ms    25 ms    22 ms
 ```
 
 - **Hz (ops/sec)**: Operations per second (higher is better)
-- **RME**: Relative margin of error (lower is better, <5% is good)
-- **Samples**: Number of times the benchmark ran
+- **Latency**: Time per operation (lower is better)
+- **Samples**: Vitest reports the configured sample count and distribution
 
 ## Best Practices
 
@@ -95,4 +75,4 @@ didOpen Minimal x 45.32 ops/sec ±2.15% (8 runs sampled)
 2. **Use LOCAL mode for investigation** - More accurate than QUICK when debugging performance
 3. **Let CI handle comprehensive benchmarks** - CI mode is slow but statistically rigorous
 4. **Don't add assertions** - Benchmarks are informational, not pass/fail tests
-5. **Merge results** - Each benchmark appends to the JSON file for complete CI tracking
+5. **Use CI logs for comparison** - Vitest output is the benchmark record for CI runs

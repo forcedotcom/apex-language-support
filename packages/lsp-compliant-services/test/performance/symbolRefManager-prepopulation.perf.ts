@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, salesforce.com, inc.
+ * Copyright (c) 2026, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
@@ -61,8 +61,7 @@ interface PrePopulationResult {
   avgPerClass: number;
 }
 
-// TODO: Convert these Jest tests to proper Benchmark.js format
-// These tests still use Jest assertions and timeouts instead of Benchmark.js
+// TODO: Convert these assertions to native Vitest benchmark registrations.
 describe.skip('Symbol Ref Manager Pre-population Performance', () => {
   let logger: LoggerInterface;
   let symbolManager: ApexSymbolManager;

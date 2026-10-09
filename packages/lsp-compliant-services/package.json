@@ -141,7 +141,7 @@
       ]
     },
     "test:perf": {
-      "command": "vitest run --config vitest.config.perf.mts",
+      "command": "vitest bench --config vitest.config.perf.mts",
       "dependencies": [
         "compile"
       ],
@@ -165,8 +165,6 @@
   },
   "devDependencies": {
     "@salesforce/esbuild-presets": "workspace:*",
-    "@types/benchmark": "^2.1.5",
-    "benchmark": "^2.1.4",
     "vitest": "5.0.1"
   }
 }

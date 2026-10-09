@@ -6,17 +6,21 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Bench } from 'vitest';
 import { vi } from 'vitest';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-
-import Benchmark from 'benchmark';
 
 import {
   createTestServer,
   ServerOptions,
 } from '../../src/test-utils/serverFactory';
 import { normalizeTraceData } from '../../src/test-utils/traceDataUtils';
+import {
+  type BenchmarkTarget,
+  VitestBenchmarkSuite,
+  withBenchmarkTimeout,
+} from './vitest-benchmark-suite';
 
 // --- Load test data synchronously ---
 const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
@@ -58,7 +62,7 @@ interface BenchmarkResult {
   };
 }
 
-describe.skip('Server Type Performance Comparison', () => {
+describe('Server Type Performance Comparison', () => {
   const requestTimeout = 10000; // 10 second timeout per request
   let serverContexts: Record<string, any> = {};
   const results: BenchmarkResult[] = [];
@@ -101,8 +105,14 @@ describe.skip('Server Type Performance Comparison', () => {
 
   // Test each LSP method
   for (const [method] of testData) {
-    it(`should compare ${method} performance across server types`, async () => {
-      const suite = new Benchmark.Suite();
+    it(`should compare ${method} performance across server types`, async ({
+      bench,
+      signal,
+    }: {
+      bench: Bench;
+      signal: AbortSignal;
+    }) => {
+      const suite = new VitestBenchmarkSuite(bench, undefined, signal);
 
       // Add benchmarks for each server type
       for (const serverType of serverTypes) {
@@ -114,77 +124,51 @@ describe.skip('Server Type Performance Comparison', () => {
           continue;
         }
 
-        // Ensure client is started
-        await serverContext.client.start();
-
         // Get first request of this method type
         const request = testData.find(([m]) => m === method)?.[1];
         if (!request) continue;
 
         // Add benchmark for this server type
         suite.add(`${serverType} - ${method}`, {
-          defer: true,
-          fn: function (deferred: { resolve: () => void }) {
-            const timeoutPromise = new Promise((_, reject) => {
-              setTimeout(
-                () =>
-                  reject(
-                    new Error(`Request timed out after ${requestTimeout}ms`),
-                  ),
-                requestTimeout,
-              );
-            });
-
-            const req = serverContext.client.sendRequest(
-              method,
-              request.params,
+          fn: async function () {
+            await withBenchmarkTimeout(
+              () => serverContext.client.sendRequest(method, request.params),
+              requestTimeout,
             );
-
-            Promise.race([Promise.resolve(req), timeoutPromise])
-              .then(() => deferred.resolve())
-              .catch((error) => {
-                console.error(`Error in ${serverType} ${method}:`, error);
-                deferred.resolve(); // Resolve anyway to continue the benchmark
-              });
           },
         });
       }
 
-      return new Promise<void>((resolve) => {
-        suite
-          .on('cycle', function (event: Benchmark.Event) {
-            const benchmark = event.target as Benchmark.Target;
-            console.log(String(benchmark));
+      await suite
+        .on('cycle', function (event: { target: BenchmarkTarget }) {
+          const benchmark = event.target;
+          console.log(String(benchmark));
 
-            // Parse the server type and method from the name
-            const [serverType, methodName] = (benchmark.name || '').split(
-              ' - ',
-            );
+          // Parse the server type and method from the name
+          const [serverType, methodName] = (benchmark.name || '').split(' - ');
 
-            if (serverType && methodName && benchmark.stats) {
-              results.push({
-                method: methodName,
-                serverId: benchmark.id ? String(benchmark.id) : '',
-                serverType,
-                hz: benchmark.hz || 0,
-                stats: {
-                  rme: benchmark.stats.rme,
-                  mean: benchmark.stats.mean,
-                  deviation: benchmark.stats.deviation,
-                  variance: benchmark.stats.variance,
-                },
-              });
-            }
-          })
-          .on('complete', function (this: Benchmark.Suite) {
-            const fastest = this.filter('fastest');
-            console.log(
-              `Fastest server for ${method} is ${fastest.map('name').toString().split(' - ')[0]}`,
-            );
-            resolve();
-          })
-          .run({ async: true });
-      });
+          if (serverType && methodName && benchmark.stats) {
+            results.push({
+              method: methodName,
+              serverId: benchmark.id ? String(benchmark.id) : '',
+              serverType,
+              hz: benchmark.hz || 0,
+              stats: {
+                rme: benchmark.stats.rme,
+                mean: benchmark.stats.mean,
+                deviation: benchmark.stats.deviation,
+                variance: benchmark.stats.variance,
+              },
+            });
+          }
+        })
+        .on('complete', function (this: VitestBenchmarkSuite) {
+          const fastest = this.filter('fastest');
+          console.log(
+            `Fastest server for ${method} is ${fastest.map('name').toString().split(' - ')[0]}`,
+          );
+        })
+        .run();
     });
   }
 });

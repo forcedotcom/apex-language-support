@@ -195,7 +195,7 @@
       ]
     },
     "test:perf": {
-      "command": "vitest run --config vitest.config.perf.mts",
+      "command": "vitest bench --run --config vitest.config.perf.mts",
       "dependencies": [
         "compile"
       ],
@@ -221,8 +221,6 @@
     "@protobuf-ts/plugin": "^2.9.4",
     "@protobuf-ts/protoc": "^2.11.1",
     "@salesforce/esbuild-presets": "workspace:*",
-    "@types/benchmark": "^2.1.5",
-    "benchmark": "^2.1.4",
     "esbuild-plugin-copy": "^2.1.1",
     "vitest": "5.0.1"
   }

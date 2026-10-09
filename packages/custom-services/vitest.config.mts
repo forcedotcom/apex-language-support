@@ -17,6 +17,7 @@ export default defineConfig({
     },
   },
   test: {
+    name: 'custom-services',
     globals: true,
     environment: 'node',
     include: ['test/**/*.test.ts'],

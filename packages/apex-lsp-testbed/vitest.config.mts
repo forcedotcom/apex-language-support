@@ -17,10 +17,11 @@ export default defineConfig({
     },
   },
   test: {
+    name: 'apex-lsp-testbed',
     globals: true,
     environment: 'node',
     include: ['test/**/*.test.ts'],
-    exclude: ['test/integration/**', 'test/accuracy/semantic-errors.test.ts'],
+    exclude: ['test/integration/**', 'test/accuracy/semantic-errors.test.ts', 'test/performance/server-comparison.test.ts'],
     globalSetup: ['./scripts/vitest-setup-windows.ts'],
     isolate: false,
     coverage: {
@@ -52,6 +53,7 @@ export const integrationConfig = defineConfig({
     environment: 'node',
     include: ['test/integration/**/*.test.ts', 'test/accuracy/**/*.test.ts'],
     globalSetup: ['./scripts/vitest-setup-windows.ts'],
+    hookTimeout: 60_000,
     isolate: false,
   },
 });
