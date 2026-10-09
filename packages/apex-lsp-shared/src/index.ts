@@ -33,9 +33,6 @@ export {
 
 export * from './logger';
 
-export * from './testing/performance-utils';
-export * from './testing/performance-metrics';
-
 // Export smaller numeric types for memory optimization
 export * from './smallNumericTypes';
 

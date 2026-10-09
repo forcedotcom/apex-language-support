@@ -35,7 +35,6 @@ import {
   setLogLevel,
   ApexSettingsManager,
   LSPConfigurationManager,
-  measureAsyncBlocking,
 } from '@salesforce/apex-lsp-shared';
 
 import { DocumentProcessingService } from '../../src/services/DocumentProcessingService';
@@ -249,22 +248,23 @@ describe('didOpen Performance Benchmarks', () => {
     );
     const event: TextDocumentChangeEvent<TextDocument> = { document };
 
-    const timing = await measureAsyncBlocking('didOpen-blocking', async () =>
-      service.processDocumentOpenInternal(event),
-    );
+    const start = performance.now();
+    const result = await service.processDocumentOpenInternal(event);
+    const durationMs = performance.now() - start;
+    const isBlocking = durationMs > 100;
 
     logger.info('\n=== Blocking Detection ===');
-    logger.info(`Duration: ${timing.durationMs.toFixed(2)}ms`);
-    logger.info(`Blocking: ${timing.isBlocking ? 'YES ⚠️' : 'NO ✓'}`);
-    logger.info(`Environment: ${timing.environment}`);
+    logger.info(`Duration: ${durationMs.toFixed(2)}ms`);
+    logger.info(`Blocking: ${isBlocking ? 'YES ⚠️' : 'NO ✓'}`);
+    logger.info('Environment: node');
 
-    if (timing.isBlocking) {
+    if (isBlocking) {
       logger.warn(
-        `⚠️ didOpen blocked event loop for ${timing.durationMs.toFixed(2)}ms`,
+        `⚠️ didOpen blocked event loop for ${durationMs.toFixed(2)}ms`,
       );
     }
 
     // Informational only - no assertion
-    expect(timing.result).toBeDefined();
+    expect(result).toBeDefined();
   }, 30000);
 });
