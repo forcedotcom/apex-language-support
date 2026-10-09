@@ -28,7 +28,7 @@ export default defineConfig({
     exclude: ['dist/**', '.wireit/**'],
     testTimeout: 120_000,
     pool: 'forks',
-    maxWorkers: Number(process.env.VITEST_MAX_WORKERS ?? 1),
+    maxWorkers: Number(process.env.VITEST_MAX_WORKERS ?? 2),
     isolate: false,
     coverage: {
       provider: 'v8',

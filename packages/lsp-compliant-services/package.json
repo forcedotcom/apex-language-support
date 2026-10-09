@@ -20,6 +20,7 @@
     "compile": "wireit",
     "bundle": "wireit",
     "test": "wireit",
+    "test:verbose": "wireit",
     "test:one": "wireit",
     "test:coverage": "wireit",
     "test:perf": "wireit",
@@ -82,6 +83,22 @@
       "output": [
         ".wireit/test-results.json"
       ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "vitest.config.mts"
+      ]
+    },
+    "test:verbose": {
+      "command": "vitest run --reporter=verbose --reporter=json --outputFile.json=.wireit/test-results-verbose.json",
+      "dependencies": [
+        "compile",
+        "typecheck"
+      ],
+      "output": [
+        ".wireit/test-results-verbose.json"
+      ],
+      "cache": false,
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
