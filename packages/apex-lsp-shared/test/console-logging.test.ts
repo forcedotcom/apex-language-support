@@ -14,19 +14,19 @@ import {
 } from '../src/index';
 
 describe('Console Logging', () => {
-  let logSpy: jest.SpyInstance;
-  let debugSpy: jest.SpyInstance;
-  let infoSpy: jest.SpyInstance;
-  let warnSpy: jest.SpyInstance;
-  let errorSpy: jest.SpyInstance;
+  let logSpy: ReturnType<typeof vi.spyOn>;
+  let debugSpy: ReturnType<typeof vi.spyOn>;
+  let infoSpy: ReturnType<typeof vi.spyOn>;
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     setLogLevel('error');
-    logSpy = jest.spyOn(console, 'log').mockImplementation();
-    debugSpy = jest.spyOn(console, 'debug').mockImplementation();
-    infoSpy = jest.spyOn(console, 'info').mockImplementation();
-    warnSpy = jest.spyOn(console, 'warn').mockImplementation();
-    errorSpy = jest.spyOn(console, 'error').mockImplementation();
+    logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
+    infoSpy = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
@@ -132,7 +132,7 @@ describe('Console Logging', () => {
       enableConsoleLogging();
       setLogLevel('info');
       const logger = getLogger();
-      const messageProvider = jest.fn(() => 'Lazy message');
+      const messageProvider = vi.fn(() => 'Lazy message');
 
       logger.info(messageProvider);
 
@@ -181,7 +181,7 @@ describe('Console Logging', () => {
     it('should handle alwaysLog with lazy evaluation', () => {
       enableConsoleLogging();
       const logger = getLogger();
-      const messageProvider = jest.fn(() => 'Always visible lazy message');
+      const messageProvider = vi.fn(() => 'Always visible lazy message');
 
       logger.alwaysLog(messageProvider);
 

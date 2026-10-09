@@ -25,6 +25,7 @@
     "compile:node": "tsc --build tsconfig.node.json",
     "bundle": "wireit",
     "test": "wireit",
+    "test:verbose": "wireit",
     "test:web": "wireit",
     "test:browser-compilation": "wireit",
     "test:coverage": "wireit",
@@ -92,7 +93,7 @@
       ]
     },
     "test": {
-      "command": "jest --json --outputFile=.wireit/test-results.json",
+      "command": "vitest run --reporter=json --outputFile=.wireit/test-results.json",
       "dependencies": [
         "compile"
       ],
@@ -102,12 +103,26 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs",
-        "../../scripts/jest-teardown.js"
+        "vitest.config.mts"
+      ]
+    },
+    "test:verbose": {
+      "command": "vitest run --reporter=verbose --reporter=json --outputFile.json=.wireit/test-results-verbose.json",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        ".wireit/test-results-verbose.json"
+      ],
+      "cache": false,
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "vitest.config.mts"
       ]
     },
     "test:coverage": {
-      "command": "jest --coverage --coverageDirectory=./coverage",
+      "command": "vitest run --coverage --coverage.reportsDirectory=./coverage",
       "dependencies": [
         "compile"
       ],
@@ -117,8 +132,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs",
-        "../../scripts/jest-teardown.js"
+        "vitest.config.mts"
       ]
     },
     "lint": {
@@ -146,7 +160,7 @@
       "output": []
     },
     "test:web": {
-      "command": "jest --config jest.config.browser.cjs --json --outputFile=.wireit/test-results-web.json",
+      "command": "vitest run --config vitest.config.browser.mts --reporter=json --outputFile=.wireit/test-results-web.json",
       "dependencies": [
         "compile"
       ],
@@ -156,13 +170,12 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs",
-        "jest.config.base.cjs",
-        "../../scripts/jest-teardown.js"
+        "vitest.config.mts",
+        "vitest.config.browser.mts"
       ]
     },
     "test:browser-compilation": {
-      "command": "jest --config jest.config.cjs --runInBand --testPathIgnorePatterns=/node_modules/ --runTestsByPath test/integration/BrowserCompilationPool.browser.node.test.ts",
+      "command": "vitest run --config vitest.config.browser-compilation.mts",
       "dependencies": [
         "compile"
       ],
@@ -170,9 +183,7 @@
         "src/**/*.ts",
         "test/fixtures/browserCompilationPoolHarness.ts",
         "test/integration/BrowserCompilationPool.browser.node.test.ts",
-        "**/jest.config.cjs",
-        "jest.config.base.cjs",
-        "../../scripts/jest-teardown.js"
+        "vitest.config.browser-compilation.mts"
       ],
       "cache": false
     }
@@ -205,15 +216,17 @@
     "assert": "^2.1.0",
     "buffer": "^6.0.3",
     "events": "^3.3.0",
-    "jest-environment-jsdom": "^30.5.1",
+    "jsdom": "^26.1.0",
     "memfs": "^4.71.0",
     "memfs-browser": "^3.5.10302",
     "node-dir": "^0.1.17",
     "npm-run-all": "^4.1.5",
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",
+    "playwright": "1.62.1",
     "process": "^0.11.10",
     "stream-browserify": "^3.0.0",
-    "util": "^0.12.5"
+    "util": "^0.12.5",
+    "vitest": "5.0.1"
   }
 }

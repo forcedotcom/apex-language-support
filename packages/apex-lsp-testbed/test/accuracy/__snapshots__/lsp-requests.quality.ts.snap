@@ -1,6 +1,73 @@
-// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {\\n  type: 'request',\\n  method: 'textDocument/documentSymbol',\\n  id: 9,\\n  params: [Object],\\n  performance: [Object],\\n  result: [Array]\\n}: textDocument/documentSymbol-request 1`] = `
+exports[`LSP Request/Response Accuracy > textDocument/documentSymbol requests > LSP textDocument/documentSymbol request/response matches snapshot for request { type: 'request', …(3) } > textDocument/documentSymbol-request 1`] = `
+{
+  "actualResponse": [
+    {
+      "children": [
+        {
+          "children": [],
+          "kind": 6,
+          "name": "createFile(String, String, String) : String",
+          "range": {
+            "end": {
+              "character": 5,
+              "line": 31,
+            },
+            "start": {
+              "character": 18,
+              "line": 2,
+            },
+          },
+          "selectionRange": {
+            "end": {
+              "character": 35,
+              "line": 2,
+            },
+            "start": {
+              "character": 25,
+              "line": 2,
+            },
+          },
+        },
+      ],
+      "kind": 5,
+      "name": "FileUtilities",
+      "range": {
+        "end": {
+          "character": 1,
+          "line": 34,
+        },
+        "start": {
+          "character": 20,
+          "line": 0,
+        },
+      },
+      "selectionRange": {
+        "end": {
+          "character": 39,
+          "line": 0,
+        },
+        "start": {
+          "character": 26,
+          "line": 0,
+        },
+      },
+    },
+  ],
+  "expectedResponse": undefined,
+  "request": {
+    "method": "textDocument/documentSymbol",
+    "params": {
+      "textDocument": {
+        "uri": "file:///workspace/force-app/main/default/classes/FileUtilities.cls",
+      },
+    },
+  },
+}
+`;
+
+exports[`LSP Request/Response Accuracy > textDocument/documentSymbol requests > LSP textDocument/documentSymbol request/response matches snapshot for request { type: 'request', …(5) } > textDocument/documentSymbol-request 1`] = `
 {
   "actualResponse": [
     {
@@ -265,7 +332,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 }
 `;
 
-exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {\\n  type: 'request',\\n  method: 'textDocument/documentSymbol',\\n  id: 15,\\n  params: [Object],\\n  performance: [Object],\\n  result: [Array]\\n}: textDocument/documentSymbol-request 1`] = `
+exports[`LSP Request/Response Accuracy > textDocument/documentSymbol requests > LSP textDocument/documentSymbol request/response matches snapshot for request { type: 'request', …(5) } > textDocument/documentSymbol-request 2`] = `
 {
   "actualResponse": [
     {
@@ -530,7 +597,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 }
 `;
 
-exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {\\n  type: 'request',\\n  method: 'textDocument/documentSymbol',\\n  id: 21,\\n  params: [Object],\\n  performance: [Object],\\n  result: [Array]\\n}: textDocument/documentSymbol-request 1`] = `
+exports[`LSP Request/Response Accuracy > textDocument/documentSymbol requests > LSP textDocument/documentSymbol request/response matches snapshot for request { type: 'request', …(5) } > textDocument/documentSymbol-request 3`] = `
 {
   "actualResponse": [
     {
@@ -648,7 +715,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 }
 `;
 
-exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {\\n  type: 'request',\\n  method: 'textDocument/documentSymbol',\\n  id: 27,\\n  params: [Object],\\n  performance: [Object],\\n  result: [Array]\\n}: textDocument/documentSymbol-request 1`] = `
+exports[`LSP Request/Response Accuracy > textDocument/documentSymbol requests > LSP textDocument/documentSymbol request/response matches snapshot for request { type: 'request', …(5) } > textDocument/documentSymbol-request 4`] = `
 {
   "actualResponse": [
     {
@@ -766,7 +833,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 }
 `;
 
-exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {\\n  type: 'request',\\n  method: 'textDocument/documentSymbol',\\n  id: 33,\\n  params: [Object],\\n  performance: [Object],\\n  result: [Array]\\n}: textDocument/documentSymbol-request 1`] = `
+exports[`LSP Request/Response Accuracy > textDocument/documentSymbol requests > LSP textDocument/documentSymbol request/response matches snapshot for request { type: 'request', …(5) } > textDocument/documentSymbol-request 5`] = `
 {
   "actualResponse": [
     {
@@ -1080,7 +1147,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 }
 `;
 
-exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {\\n  type: 'request',\\n  method: 'textDocument/documentSymbol',\\n  id: 39,\\n  params: [Object],\\n  performance: [Object],\\n  result: [Array]\\n}: textDocument/documentSymbol-request 1`] = `
+exports[`LSP Request/Response Accuracy > textDocument/documentSymbol requests > LSP textDocument/documentSymbol request/response matches snapshot for request { type: 'request', …(5) } > textDocument/documentSymbol-request 6`] = `
 {
   "actualResponse": [
     {
@@ -1694,7 +1761,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 }
 `;
 
-exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {\\n  type: 'request',\\n  method: 'textDocument/documentSymbol',\\n  id: 45,\\n  params: [Object],\\n  performance: [Object],\\n  result: [Array]\\n}: textDocument/documentSymbol-request 1`] = `
+exports[`LSP Request/Response Accuracy > textDocument/documentSymbol requests > LSP textDocument/documentSymbol request/response matches snapshot for request { type: 'request', …(5) } > textDocument/documentSymbol-request 7`] = `
 {
   "actualResponse": [
     {
@@ -2008,7 +2075,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 }
 `;
 
-exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {\\n  type: 'request',\\n  method: 'textDocument/documentSymbol',\\n  id: 51,\\n  params: [Object],\\n  performance: [Object],\\n  result: [Array]\\n}: textDocument/documentSymbol-request 1`] = `
+exports[`LSP Request/Response Accuracy > textDocument/documentSymbol requests > LSP textDocument/documentSymbol request/response matches snapshot for request { type: 'request', …(5) } > textDocument/documentSymbol-request 8`] = `
 {
   "actualResponse": [
     {
@@ -2769,7 +2836,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 }
 `;
 
-exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {\\n  type: 'request',\\n  method: 'textDocument/documentSymbol',\\n  id: 57,\\n  params: [Object],\\n  performance: [Object],\\n  result: [Array]\\n}: textDocument/documentSymbol-request 1`] = `
+exports[`LSP Request/Response Accuracy > textDocument/documentSymbol requests > LSP textDocument/documentSymbol request/response matches snapshot for request { type: 'request', …(5) } > textDocument/documentSymbol-request 9`] = `
 {
   "actualResponse": [
     {
@@ -2887,7 +2954,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 }
 `;
 
-exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {\\n  type: 'request',\\n  method: 'textDocument/documentSymbol',\\n  id: 63,\\n  params: [Object],\\n  performance: [Object],\\n  result: [Array]\\n}: textDocument/documentSymbol-request 1`] = `
+exports[`LSP Request/Response Accuracy > textDocument/documentSymbol requests > LSP textDocument/documentSymbol request/response matches snapshot for request { type: 'request', …(5) } > textDocument/documentSymbol-request 10`] = `
 {
   "actualResponse": [
     {
@@ -3103,7 +3170,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 }
 `;
 
-exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {\\n  type: 'request',\\n  method: 'textDocument/documentSymbol',\\n  id: 69,\\n  params: [Object],\\n  performance: [Object],\\n  result: [Array]\\n}: textDocument/documentSymbol-request 1`] = `
+exports[`LSP Request/Response Accuracy > textDocument/documentSymbol requests > LSP textDocument/documentSymbol request/response matches snapshot for request { type: 'request', …(5) } > textDocument/documentSymbol-request 11`] = `
 {
   "actualResponse": [
     {
@@ -3368,7 +3435,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 }
 `;
 
-exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {\\n  type: 'request',\\n  method: 'textDocument/documentSymbol',\\n  id: 96,\\n  params: [Object],\\n  performance: [Object],\\n  result: [Array]\\n}: textDocument/documentSymbol-request 1`] = `
+exports[`LSP Request/Response Accuracy > textDocument/documentSymbol requests > LSP textDocument/documentSymbol request/response matches snapshot for request { type: 'request', …(5) } > textDocument/documentSymbol-request 12`] = `
 {
   "actualResponse": [
     {
@@ -3486,74 +3553,7 @@ exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP 
 }
 `;
 
-exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {\\n  type: 'request',\\n  method: 'textDocument/documentSymbol',\\n  id: 101,\\n  params: [Object]\\n}: textDocument/documentSymbol-request 1`] = `
-{
-  "actualResponse": [
-    {
-      "children": [
-        {
-          "children": [],
-          "kind": 6,
-          "name": "createFile(String, String, String) : String",
-          "range": {
-            "end": {
-              "character": 5,
-              "line": 31,
-            },
-            "start": {
-              "character": 18,
-              "line": 2,
-            },
-          },
-          "selectionRange": {
-            "end": {
-              "character": 35,
-              "line": 2,
-            },
-            "start": {
-              "character": 25,
-              "line": 2,
-            },
-          },
-        },
-      ],
-      "kind": 5,
-      "name": "FileUtilities",
-      "range": {
-        "end": {
-          "character": 1,
-          "line": 34,
-        },
-        "start": {
-          "character": 20,
-          "line": 0,
-        },
-      },
-      "selectionRange": {
-        "end": {
-          "character": 39,
-          "line": 0,
-        },
-        "start": {
-          "character": 26,
-          "line": 0,
-        },
-      },
-    },
-  ],
-  "expectedResponse": undefined,
-  "request": {
-    "method": "textDocument/documentSymbol",
-    "params": {
-      "textDocument": {
-        "uri": "file:///workspace/force-app/main/default/classes/FileUtilities.cls",
-      },
-    },
-  },
-}
-`;
-
-exports[`LSP Request/Response Accuracy textDocument/documentSymbol requests LSP textDocument/documentSymbol request/response matches snapshot for request {\\n  type: 'request',\\n  method: 'textDocument/documentSymbol',\\n  id: 175,\\n  params: [Object],\\n  performance: [Object],\\n  result: [Array]\\n}: textDocument/documentSymbol-request 1`] = `
+exports[`LSP Request/Response Accuracy > textDocument/documentSymbol requests > LSP textDocument/documentSymbol request/response matches snapshot for request { type: 'request', …(5) } > textDocument/documentSymbol-request 13`] = `
 {
   "actualResponse": [
     {

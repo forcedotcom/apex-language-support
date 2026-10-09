@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import {
   LSPConfigurationManager,
   getLogger,
@@ -21,7 +23,7 @@ import { EnhancedMissingArtifactResolutionService } from '../../src/services/Mis
  */
 describe('MissingArtifactResolutionService — capability gating', () => {
   let service: EnhancedMissingArtifactResolutionService;
-  let mockConnection: { sendRequest: jest.Mock };
+  let mockConnection: { sendRequest: Mock };
 
   beforeEach(() => {
     LSPConfigurationManager.resetInstance();
@@ -46,7 +48,7 @@ describe('MissingArtifactResolutionService — capability gating', () => {
     } as any);
 
     // Initialize config manager with mock connection
-    mockConnection = { sendRequest: jest.fn().mockResolvedValue({}) };
+    mockConnection = { sendRequest: vi.fn().mockResolvedValue({}) };
     const configManager = LSPConfigurationManager.getInstance();
     configManager.setConnection(mockConnection as any);
 

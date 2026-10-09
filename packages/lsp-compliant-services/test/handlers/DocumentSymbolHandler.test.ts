@@ -6,31 +6,26 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mocked } from 'vitest';
+import { vi } from 'vitest';
 import { DocumentSymbolParams, DocumentSymbol } from 'vscode-languageserver';
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import { createMockLogger, type MockLogger } from '../utils/mockLogger';
 
 import { DocumentSymbolHandler } from '../../src/handlers/DocumentSymbolHandler';
 import { IDocumentSymbolProcessor } from '../../src/services/DocumentSymbolProcessingService';
 
 describe('DocumentSymbolHandler', () => {
   let handler: DocumentSymbolHandler;
-  let mockLogger: jest.Mocked<LoggerInterface>;
-  let mockDocumentSymbolProcessor: jest.Mocked<IDocumentSymbolProcessor>;
+  let mockLogger: MockLogger;
+  let mockDocumentSymbolProcessor: Mocked<IDocumentSymbolProcessor>;
 
   beforeEach(() => {
     // Create mock logger
-    mockLogger = {
-      log: jest.fn(),
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      alwaysLog: jest.fn(),
-    };
+    mockLogger = createMockLogger();
 
     // Create mock document symbol processor
     mockDocumentSymbolProcessor = {
-      processDocumentSymbol: jest.fn(),
+      processDocumentSymbol: vi.fn(),
     };
 
     // Create handler with mocked dependencies
@@ -41,7 +36,7 @@ describe('DocumentSymbolHandler', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('handleDocumentSymbol', () => {
@@ -76,9 +71,12 @@ describe('DocumentSymbolHandler', () => {
       expect(mockLogger.debug).toHaveBeenCalledWith(expect.any(Function));
       // Verify the debug message function was called with correct content
       const debugCall = mockLogger.debug.mock.calls[0];
-      expect(debugCall[0]()).toBe(
-        'Processing document symbol request: file:///test.cls',
-      );
+      expect(typeof debugCall[0]).toBe('function');
+      if (typeof debugCall[0] === 'function') {
+        expect(debugCall[0]()).toBe(
+          'Processing document symbol request: file:///test.cls',
+        );
+      }
       expect(
         mockDocumentSymbolProcessor.processDocumentSymbol,
       ).toHaveBeenCalledWith(mockParams);
@@ -105,10 +103,14 @@ describe('DocumentSymbolHandler', () => {
       // Verify the error message function was called with correct content
       const errorLogCall = mockLogger.error.mock.calls[0];
       expect(typeof errorLogCall[0]).toBe('function');
-      expect(errorLogCall[0]()).toContain(
-        'Error processing document symbol request for file:///test.cls',
-      );
-      expect(errorLogCall[0]()).toContain('Document symbol processing failed');
+      if (typeof errorLogCall[0] === 'function') {
+        expect(errorLogCall[0]()).toContain(
+          'Error processing document symbol request for file:///test.cls',
+        );
+        expect(errorLogCall[0]()).toContain(
+          'Document symbol processing failed',
+        );
+      }
     });
   });
 });

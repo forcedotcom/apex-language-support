@@ -213,7 +213,9 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
   experimental: {
     findMissingArtifactProvider: {
       enabled: true, // Enabled for production (hover, goto def, etc.)
-      supportedModes: ['blocking', 'background'],
+      supportedModes: ['blocking', 'background'] as (
+        'blocking' | 'background'
+      )[],
       maxCandidatesToOpen: 3,
       timeoutMsHint: 1500,
     },
@@ -272,7 +274,9 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
   experimental: {
     findMissingArtifactProvider: {
       enabled: true, // Enabled by default in development
-      supportedModes: ['blocking', 'background'],
+      supportedModes: ['blocking', 'background'] as (
+        'blocking' | 'background'
+      )[],
       maxCandidatesToOpen: 3,
       timeoutMsHint: 2000,
     },

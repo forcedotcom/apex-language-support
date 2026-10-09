@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { RenameParams } from 'vscode-languageserver-protocol';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
@@ -30,7 +31,7 @@ describe('RenameProcessingService (Phase-0 no-op)', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     logger = getLogger();
   });
 
@@ -44,7 +45,7 @@ describe('RenameProcessingService (Phase-0 no-op)', () => {
   });
 
   it('runs prerequisites for the rename request when enrichment is wired', async () => {
-    const prerequisiteSpy = jest
+    const prerequisiteSpy = vi
       .spyOn(
         PrerequisiteOrchestrationService.prototype,
         'runPrerequisitesForLspRequestType',
@@ -65,12 +66,10 @@ describe('RenameProcessingService (Phase-0 no-op)', () => {
   });
 
   it('still returns null when prerequisites fail (non-fatal)', async () => {
-    jest
-      .spyOn(
-        PrerequisiteOrchestrationService.prototype,
-        'runPrerequisitesForLspRequestType',
-      )
-      .mockRejectedValue(new Error('prereq boom'));
+    vi.spyOn(
+      PrerequisiteOrchestrationService.prototype,
+      'runPrerequisitesForLspRequestType',
+    ).mockRejectedValue(new Error('prereq boom'));
 
     const symbolManager = {} as any;
     const service = new RenameProcessingService(logger, symbolManager);

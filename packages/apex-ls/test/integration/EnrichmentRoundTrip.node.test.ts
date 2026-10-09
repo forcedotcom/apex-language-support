@@ -899,7 +899,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         [`    ${expression}`, "    String marker = 'after';"].join('\n'),
       );
     const resolvedSource = sourceWithExpression('property.Beds__c');
-    const submitSpy = jest
+    const submitSpy = vi
       .spyOn(LSPQueueManager.prototype, 'submitFindMissingArtifactRequest')
       .mockResolvedValue({
         artifacts: [
@@ -991,7 +991,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         };
       };
 
-      const completionPhases = [];
+      const completionPhases: Awaited<ReturnType<typeof complete>>[] = [];
       completionPhases.push(yield* Effect.promise(() => complete('prop', 2)));
       completionPhases.push(yield* Effect.promise(() => complete('proper', 3)));
       completionPhases.push(
@@ -1132,7 +1132,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
       '}',
     ].join('\n');
     const uri = 'file:///test/PropertyConsumer.cls';
-    const submitSpy = jest
+    const submitSpy = vi
       .spyOn(LSPQueueManager.prototype, 'submitFindMissingArtifactRequest')
       .mockResolvedValue({
         artifacts: [

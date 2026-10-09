@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 /**
  * F11-3 regression guard: qualifier-scoped member resolution.
  *
@@ -132,9 +133,9 @@ describe('qualifier-scoped member resolution (F11-3 regression guard)', () => {
 
   it('does not fetch or re-register an already-installed stdlib table', async () => {
     const installed = {} as SymbolTable;
-    const getSymbolTableForFile = jest.fn(() => installed);
-    const fetchSymbolTable = jest.fn(async () => ({}) as SymbolTable);
-    const addSymbolTableAsync = jest.fn(async () => undefined);
+    const getSymbolTableForFile = vi.fn(() => installed);
+    const fetchSymbolTable = vi.fn(async () => ({}) as SymbolTable);
+    const addSymbolTableAsync = vi.fn(async () => undefined);
     const fakeOps = {
       symbolRefManager: { getSymbolTableForFile },
       stdlibProvider: { getSymbolTable: fetchSymbolTable },
@@ -169,7 +170,7 @@ describe('qualifier-scoped member resolution (F11-3 regression guard)', () => {
     await symbolManager.resolveStandardApexClass('List');
     await symbolManager.resolveStandardApexClass('Object');
     const provider = (symbolManager as any).stdlibProvider;
-    const getSymbolTable = jest.spyOn(provider, 'getSymbolTable');
+    const getSymbolTable = vi.spyOn(provider, 'getSymbolTable');
     getSymbolTable.mockClear();
 
     const lineText = source.split('\n')[2];

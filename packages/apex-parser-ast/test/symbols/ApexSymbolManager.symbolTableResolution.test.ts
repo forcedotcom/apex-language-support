@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
@@ -135,7 +136,7 @@ describe('ApexSymbolManager SymbolTable-Based Resolution', () => {
           }
         }
       `;
-      const standardClassSpy = jest.spyOn(
+      const standardClassSpy = vi.spyOn(
         symbolManager,
         'resolveStandardApexClass',
       );

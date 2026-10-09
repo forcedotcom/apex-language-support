@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { ReferenceContext } from '../../src/types/symbolReference';
 import { isChainedSymbolReference } from '../../src/utils/symbolNarrowing';
@@ -333,7 +334,7 @@ describe('ApexSymbolManager Reference Processing', () => {
       const resolutionTarget = symbolManager as unknown as {
         resolveStandardApexClass(name: string): Promise<unknown>;
       };
-      const classLoadSpy = jest.spyOn(
+      const classLoadSpy = vi.spyOn(
         resolutionTarget,
         'resolveStandardApexClass',
       );
@@ -344,7 +345,7 @@ describe('ApexSymbolManager Reference Processing', () => {
           };
         }
       ).stdlibProvider;
-      const resolveClassFqnSpy = jest.spyOn(stdlibProvider, 'resolveClassFqn');
+      const resolveClassFqnSpy = vi.spyOn(stdlibProvider, 'resolveClassFqn');
 
       await Effect.runPromise(
         symbolManager.addSymbolTable(result.result!, fileUri),

@@ -9,6 +9,7 @@
 import { CompilerService } from '../../src/parser/compilerService';
 import { VisibilitySymbolListener } from '../../src/parser/listeners/VisibilitySymbolListener';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
+import { ApexSymbolRefManager } from '../../src/symbols/ApexSymbolRefManager';
 import { SymbolTable, SymbolKind } from '../../src/types/symbol';
 import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
 
@@ -130,10 +131,6 @@ public class Foo {
   });
 
   it('registerSymbolTable merge (full then public-api) should produce single FooB in merged table', () => {
-    const {
-      ApexSymbolRefManager,
-    } = require('../../src/symbols/ApexSymbolRefManager');
-
     const graph = new ApexSymbolRefManager();
 
     // First: compile with full (ApexSymbolCollectorListener)
@@ -283,10 +280,6 @@ public class Foo {
     });
 
     it('registerSymbolTable merge should produce single Foo class symbol (no duplicates)', () => {
-      const {
-        ApexSymbolRefManager,
-      } = require('../../src/symbols/ApexSymbolRefManager');
-
       const graph = new ApexSymbolRefManager();
 
       const table1 = new SymbolTable();

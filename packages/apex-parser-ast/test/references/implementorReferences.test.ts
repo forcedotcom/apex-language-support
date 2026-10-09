@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 /**
  * W-23006798 Phase 1: implements/extends produce reverse-reference graph edges.
  *
@@ -277,7 +278,7 @@ describe('implementor reverse references (W-23006798 Phase 1)', () => {
     // observable symptom is the warning. Assert that warning never fires so the
     // accessor can't silently regress to the index form again.
     it('processes generic type declarations without an iteration error', () => {
-      const warnSpy = jest.spyOn(getLogger(), 'warn');
+      const warnSpy = vi.spyOn(getLogger(), 'warn');
       try {
         const refs = compileViaWorkerConfig(
           'public class C { public void m() { Map<Id, Contact> byId; } }',

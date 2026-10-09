@@ -1,3 +1,11 @@
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
 /**
  * VS Code API mock
  */
@@ -9,52 +17,52 @@ module.exports = {
   },
   workspace: {
     workspaceFolders: [{ uri: { fsPath: '/test-workspace' } }],
-    getConfiguration: jest.fn().mockImplementation((section) => ({
-      get: jest.fn().mockImplementation((key, defaultValue) => defaultValue),
+    getConfiguration: vi.fn().mockImplementation((section) => ({
+      get: vi.fn().mockImplementation((key, defaultValue) => defaultValue),
     })),
-    createFileSystemWatcher: jest.fn().mockReturnValue({
-      onDidChange: jest.fn(),
-      onDidCreate: jest.fn(),
-      onDidDelete: jest.fn(),
-      dispose: jest.fn(),
+    createFileSystemWatcher: vi.fn().mockReturnValue({
+      onDidChange: vi.fn(),
+      onDidCreate: vi.fn(),
+      onDidDelete: vi.fn(),
+      dispose: vi.fn(),
     }),
   },
   window: {
-    createOutputChannel: jest.fn().mockReturnValue({
-      appendLine: jest.fn(),
-      clear: jest.fn(),
-      show: jest.fn(),
-      dispose: jest.fn(),
+    createOutputChannel: vi.fn().mockReturnValue({
+      appendLine: vi.fn(),
+      clear: vi.fn(),
+      show: vi.fn(),
+      dispose: vi.fn(),
     }),
-    showErrorMessage: jest.fn(),
-    showInformationMessage: jest.fn(),
-    showWarningMessage: jest.fn(),
+    showErrorMessage: vi.fn(),
+    showInformationMessage: vi.fn(),
+    showWarningMessage: vi.fn(),
   },
   commands: {
-    registerCommand: jest.fn(),
-    executeCommand: jest.fn(),
+    registerCommand: vi.fn(),
+    executeCommand: vi.fn(),
   },
   StatusBarAlignment: {
     Left: 'Left',
     Right: 'Right',
   },
   ExtensionContext: {
-    asAbsolutePath: jest.fn().mockImplementation((path) => path),
+    asAbsolutePath: vi.fn().mockImplementation((path) => path),
     subscriptions: [],
   },
   Disposable: {
-    from: jest.fn().mockImplementation((...items) => ({
-      dispose: jest.fn(),
+    from: vi.fn().mockImplementation((...items) => ({
+      dispose: vi.fn(),
     })),
   },
   languages: {
-    registerDocumentFormattingEditProvider: jest.fn(),
+    registerDocumentFormattingEditProvider: vi.fn(),
   },
-  Position: jest.fn().mockImplementation((line, character) => ({
+  Position: vi.fn().mockImplementation((line, character) => ({
     line,
     character,
   })),
-  Range: jest.fn().mockImplementation((start, end) => ({
+  Range: vi.fn().mockImplementation((start, end) => ({
     start,
     end,
   })),

@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { CollectionTypeValidator } from '../../../src/semantics/validation/CollectionTypeValidator';
 import type {
   ValidationScope,
@@ -15,8 +16,8 @@ import type {
 describe('CollectionTypeValidator', () => {
   const createMockScope = (): ValidationScope => ({
     errors: {
-      addError: jest.fn(),
-      addWarning: jest.fn(),
+      addError: vi.fn(),
+      addWarning: vi.fn(),
     },
     settings: {
       collectMultipleErrors: true,

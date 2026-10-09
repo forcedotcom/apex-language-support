@@ -5,6 +5,8 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+
+import { vi } from 'vitest';
 import { readFileSync, readdirSync } from 'fs';
 import { join, resolve } from 'path';
 import { platform } from 'os';
@@ -16,7 +18,7 @@ import {
 } from '../../src/test-utils/serverFactory';
 import { ServerType } from '../../src/utils/serverUtils';
 
-jest.setTimeout(180_000); // Increased timeout for server operations
+vi.setConfig({ testTimeout: 180_000 }); // Increased timeout for server operations
 
 // Add global error handlers to catch unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {

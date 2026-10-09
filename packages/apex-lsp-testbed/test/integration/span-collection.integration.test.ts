@@ -40,9 +40,6 @@ describe('Span Collection Integration', () => {
   // Workspace URI for initialization
   const workspaceUri = pathToFileURL(join(__dirname, '../fixtures')).href;
 
-  // Increase timeout for integration test
-  jest.setTimeout(60000); // 60 seconds for workspace load + span collection
-
   beforeAll(async () => {
     // Start simple HTTP server to receive OTLP spans
     await new Promise<void>((resolve) => {

@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mocked } from 'vitest';
+import { vi } from 'vitest';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import {
   ISymbolManager,
@@ -16,19 +18,19 @@ import { MissingArtifactUtils } from '../../src/utils/missingArtifactUtils';
 
 describe('MissingArtifactUtils', () => {
   let utils: MissingArtifactUtils;
-  let mockSymbolManager: jest.Mocked<ISymbolManager>;
+  let mockSymbolManager: Mocked<ISymbolManager>;
   let logger: any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     logger = getLogger();
 
     mockSymbolManager = {
-      getReferencesAtPosition: jest.fn(),
-      getSymbolAtPosition: jest.fn(),
-      getSymbolTableForFile: jest.fn(),
-      findSymbolsInFile: jest.fn().mockResolvedValue([]),
+      getReferencesAtPosition: vi.fn(),
+      getSymbolAtPosition: vi.fn(),
+      getSymbolTableForFile: vi.fn(),
+      findSymbolsInFile: vi.fn().mockResolvedValue([]),
     } as any;
 
     utils = new MissingArtifactUtils(logger, mockSymbolManager);

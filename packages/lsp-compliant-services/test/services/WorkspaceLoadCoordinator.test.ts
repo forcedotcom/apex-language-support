@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { Effect } from 'effect';
 import {
   enableConsoleLogging,
@@ -39,7 +40,7 @@ describe('LocalWorkspaceLoadCoordinator', () => {
   });
 
   it('sends apex/requestWorkspaceLoad notification on first call', async () => {
-    const sendNotification = jest.fn();
+    const sendNotification = vi.fn();
     const connection = { sendNotification } as any;
     const coord = new LocalWorkspaceLoadCoordinator(connection, getLogger());
 
@@ -52,7 +53,7 @@ describe('LocalWorkspaceLoadCoordinator', () => {
   });
 
   it('skips notification when already loading', async () => {
-    const sendNotification = jest.fn();
+    const sendNotification = vi.fn();
     const connection = { sendNotification } as any;
     const coord = new LocalWorkspaceLoadCoordinator(connection, getLogger());
 
@@ -76,7 +77,7 @@ describe('RemoteWorkspaceLoadCoordinator', () => {
   });
 
   it('forwards to coordinator:EnsureWorkspaceLoaded over the assistance proxy', async () => {
-    const proxy = jest.fn().mockResolvedValue(undefined);
+    const proxy = vi.fn().mockResolvedValue(undefined);
     const coord = new RemoteWorkspaceLoadCoordinator(proxy, getLogger());
 
     await Effect.runPromise(coord.ensureLoaded(42));
@@ -92,7 +93,7 @@ describe('RemoteWorkspaceLoadCoordinator', () => {
     // Simulates the hot-path on a worker: many references requests come in
     // before the coordinator finishes loading. Only the first should hit
     // the assistance bus; the rest read worker-local state and no-op.
-    const proxy = jest.fn().mockResolvedValue(undefined);
+    const proxy = vi.fn().mockResolvedValue(undefined);
     const coord = new RemoteWorkspaceLoadCoordinator(proxy, getLogger());
 
     await Effect.runPromise(coord.ensureLoaded());
@@ -103,7 +104,7 @@ describe('RemoteWorkspaceLoadCoordinator', () => {
   });
 
   it('swallows proxy failures so the worker can continue with partial results', async () => {
-    const proxy = jest
+    const proxy = vi
       .fn()
       .mockRejectedValue(new Error('coordinator unreachable'));
     const coord = new RemoteWorkspaceLoadCoordinator(proxy, getLogger());
@@ -134,7 +135,7 @@ describe('LocalWorkspaceLoadCoordinator — capability gating', () => {
       LSPConfigurationManager.getInstance().getClientCapabilities(),
     ).toBeUndefined();
 
-    const sendNotification = jest.fn();
+    const sendNotification = vi.fn();
     const connection = { sendNotification } as any;
     const coord = new LocalWorkspaceLoadCoordinator(connection, getLogger());
 
@@ -152,7 +153,7 @@ describe('LocalWorkspaceLoadCoordinator — capability gating', () => {
       experimental: { requestWorkspaceLoadProvider: { enabled: true } },
     } as any);
 
-    const sendNotification = jest.fn();
+    const sendNotification = vi.fn();
     const connection = { sendNotification } as any;
     const coord = new LocalWorkspaceLoadCoordinator(connection, getLogger());
 
@@ -170,7 +171,7 @@ describe('LocalWorkspaceLoadCoordinator — capability gating', () => {
       experimental: {},
     } as any);
 
-    const sendNotification = jest.fn();
+    const sendNotification = vi.fn();
     const connection = { sendNotification } as any;
     const coord = new LocalWorkspaceLoadCoordinator(connection, getLogger());
 

@@ -6,71 +6,69 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-jest.mock('@salesforce/apex-lsp-parser-ast', () => {
-  const originalModule = jest.requireActual('@salesforce/apex-lsp-parser-ast');
+import type { Mock, Mocked } from 'vitest';
+import { vi } from 'vitest';
+vi.mock('@salesforce/apex-lsp-parser-ast', async () => {
+  const originalModule = await vi.importActual(
+    '@salesforce/apex-lsp-parser-ast',
+  );
   return {
     ...originalModule,
-    getLogger: jest.fn(() => ({
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
+    getLogger: vi.fn(() => ({
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
     })),
   };
 });
 
-jest.mock('@salesforce/apex-lsp-shared', () => ({
-  ...jest.requireActual('@salesforce/apex-lsp-shared'),
+vi.mock('@salesforce/apex-lsp-shared', async () => ({
+  ...(await vi.importActual('@salesforce/apex-lsp-shared')),
   ApexSettingsManager: {
-    getInstance: jest.fn(() => ({
-      getCompilationOptions: jest.fn(() => ({})),
+    getInstance: vi.fn(() => ({
+      getCompilationOptions: vi.fn(() => ({})),
     })),
   },
-  getLogger: jest.fn(() => ({
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
+  getLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
   })),
 }));
 
 import { DocumentSymbolParams } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { getLogger, LoggerInterface } from '@salesforce/apex-lsp-shared';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
 import {
   ApexDocumentSymbolProvider,
   DefaultApexDocumentSymbolProvider,
 } from '@salesforce/apex-lsp-compliant-services';
+import { createMockLogger, type MockLogger } from '../utils/mockLogger';
 
-const mockedGetLogger = getLogger as jest.Mock;
+const mockedGetLogger = getLogger as Mock;
 
 describe('DefaultApexDocumentSymbolProvider - Unit Tests', () => {
   let symbolProvider: ApexDocumentSymbolProvider;
-  let mockStorage: jest.Mocked<ApexStorageInterface>;
-  let mockLogger: jest.Mocked<LoggerInterface>;
+  let mockStorage: Mocked<ApexStorageInterface>;
+  let mockLogger: MockLogger;
 
   beforeEach(() => {
     mockStorage = {
-      getDocument: jest.fn(),
+      getDocument: vi.fn(),
     } as any;
 
-    mockLogger = {
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
-      log: jest.fn(),
-      alwaysLog: jest.fn(),
-    };
+    mockLogger = createMockLogger();
     mockedGetLogger.mockReturnValue(mockLogger);
 
     symbolProvider = new DefaultApexDocumentSymbolProvider(mockStorage);
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('provideDocumentSymbols', () => {

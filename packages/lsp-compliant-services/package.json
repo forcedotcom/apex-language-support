@@ -20,6 +20,7 @@
     "compile": "wireit",
     "bundle": "wireit",
     "test": "wireit",
+    "test:verbose": "wireit",
     "test:one": "wireit",
     "test:coverage": "wireit",
     "test:perf": "wireit",
@@ -74,7 +75,7 @@
       ]
     },
     "test": {
-      "command": "jest --json --outputFile=.wireit/test-results.json",
+      "command": "vitest run --reporter=json --outputFile=.wireit/test-results.json",
       "dependencies": [
         "compile",
         "typecheck"
@@ -85,12 +86,27 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs",
-        "../../scripts/jest-teardown.js"
+        "vitest.config.mts"
+      ]
+    },
+    "test:verbose": {
+      "command": "vitest run --reporter=verbose --reporter=json --outputFile.json=.wireit/test-results-verbose.json",
+      "dependencies": [
+        "compile",
+        "typecheck"
+      ],
+      "output": [
+        ".wireit/test-results-verbose.json"
+      ],
+      "cache": false,
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "vitest.config.mts"
       ]
     },
     "test:coverage": {
-      "command": "jest --coverage --coverageDirectory=./coverage",
+      "command": "vitest run --coverage --coverage.reportsDirectory=./coverage",
       "dependencies": [
         "compile"
       ],
@@ -100,8 +116,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs",
-        "../../scripts/jest-teardown.js"
+        "vitest.config.mts"
       ]
     },
     "lint": {
@@ -129,7 +144,7 @@
       "output": []
     },
     "test:one": {
-      "command": "jest --testPathPattern=HoverProcessingService.integration.test --testNamePattern=\"should provide hover for method declaration testFileUtilities\" --json --outputFile=.wireit/test-results-one.json",
+      "command": "vitest run test/integration/HoverProcessingService.integration.test.ts -t \"should provide hover for method declaration testFileUtilities\" --reporter=json --outputFile=.wireit/test-results-one.json",
       "dependencies": [
         "compile"
       ],
@@ -139,19 +154,18 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs",
-        "../../scripts/jest-teardown.js"
+        "vitest.config.mts"
       ]
     },
     "test:perf": {
-      "command": "jest --testMatch \"**/test/**/*.perf.ts\" --runInBand",
+      "command": "vitest bench --config vitest.config.perf.mts",
       "dependencies": [
         "compile"
       ],
       "files": [
         "src/**/*.ts",
         "test/**/*.perf.ts",
-        "**/jest.config.cjs"
+        "vitest.config.perf.mts"
       ]
     }
   },
@@ -167,9 +181,7 @@
     "vscode-languageserver-textdocument": "^1.0.15"
   },
   "devDependencies": {
-    "@jest/globals": "^30.5.1",
     "@salesforce/esbuild-presets": "workspace:*",
-    "@types/benchmark": "^2.1.5",
-    "benchmark": "^2.1.4"
+    "vitest": "5.0.1"
   }
 }

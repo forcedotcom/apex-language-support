@@ -13,6 +13,7 @@ const path = require('path');
 const packages = [
   'apex-ls',
   'apex-lsp-shared',
+  'apex-lsp-client',
   'apex-lsp-testbed',
   'apex-lsp-vscode-extension',
   'apex-parser-ast',
@@ -29,8 +30,6 @@ let totalSnapshots = 0;
 let totalSnapshotsPassed = 0;
 let totalTime = 0;
 // For wall-clock: earliest start and latest end across every package's run.
-let wallBegin = Infinity;
-let wallFinish = 0;
 const packageResults = [];
 
 packages.forEach((pkg) => {
@@ -42,34 +41,25 @@ packages.forEach((pkg) => {
     '.wireit',
     'test-results.json',
   );
-  if (fs.existsSync(resultPath)) {
+  if (!fs.existsSync(resultPath)) {
+    packageResults.push({ name: pkg, missing: true });
+  } else {
     try {
       const results = JSON.parse(fs.readFileSync(resultPath, 'utf8'));
-      const suites = results.numTotalTestSuites || 0;
-      const passed = results.numPassedTests || 0;
-      const failed = results.numFailedTests || 0;
-      const pending = results.numPendingTests || 0;
-      const tests = results.numTotalTests || 0;
-      const snapshots = results.numTotalSnapshots || 0;
-      const snapshotsPassed = results.snapshots?.passed || 0;
-      // Jest's --json output writes a top-level `startTime` but no top-level
-      // `endTime`; the per-suite entries in `testResults[]` carry both. Derive
-      // the run's wall-clock as the span from the earliest start to the latest
-      // suite end. Fall back to a top-level `endTime` if a future Jest adds one.
-      const suites_ = results.testResults || [];
-      const suiteEnds = suites_.map((s) => s.endTime).filter(Boolean);
-      const suiteStarts = suites_.map((s) => s.startTime).filter(Boolean);
-      const begin = Math.min(
-        ...[results.startTime, ...suiteStarts].filter(Boolean),
-      );
-      const finish = results.endTime || (suiteEnds.length ? Math.max(...suiteEnds) : 0);
+      const suites = results.numTotalTestSuites ?? results.numTotalTestFiles ?? 0;
+      const passed = results.numPassedTests ?? 0;
+      const failed = results.numFailedTests ?? 0;
+      const pending = results.numPendingTests ?? 0;
+      const tests = results.numTotalTests ?? 0;
+      const snapshots = results.numTotalSnapshots ?? results.snapshot?.total ?? 0;
+      const snapshotsPassed = results.snapshots?.passed ?? ((results.snapshot?.added ?? 0) + (results.snapshot?.matched ?? 0));
+      const suiteEnds = results.testResults?.map((suite) => suite.endTime).filter(Boolean) ?? [];
+      const suiteStarts = results.testResults?.map((suite) => suite.startTime).filter(Boolean) ?? [];
+      const begin = Math.min(...[results.startTime, ...suiteStarts].filter(Boolean));
+      const finish = results.endTime ?? (suiteEnds.length > 0 ? Math.max(...suiteEnds) : 0);
       const time = begin && finish && finish > begin ? finish - begin : 0;
       // Track the global window so we can also report wall-clock (packages run
       // in parallel under wireit, so wall-clock < sum of per-package times).
-      if (time > 0) {
-        wallBegin = Math.min(wallBegin, begin);
-        wallFinish = Math.max(wallFinish, finish);
-      }
 
       totalSuites += suites;
       totalPassed += passed;
@@ -80,21 +70,9 @@ packages.forEach((pkg) => {
       totalSnapshotsPassed += snapshotsPassed;
       totalTime += time;
 
-      if (tests > 0) {
-        packageResults.push({
-          name: pkg,
-          suites,
-          passed,
-          failed,
-          pending,
-          tests,
-          snapshots,
-          snapshotsPassed,
-          time,
-        });
-      }
+      packageResults.push({ name: pkg, suites, passed, failed, pending, tests, snapshots, snapshotsPassed, time });
     } catch (e) {
-      // Ignore parse errors or missing files
+      packageResults.push({ name: pkg, missing: true });
     }
   }
 });
@@ -110,7 +88,11 @@ output('='.repeat(70));
 if (packageResults.length > 0) {
   // Per-package breakdown
   packageResults.forEach((result) => {
-    const status = result.failed > 0 ? '❌' : '✅';
+    const status = result.missing || result.failed > 0 ? '❌' : '✅';
+    if (result.missing) {
+      output(`${status} ${result.name.padEnd(30)} missing test results`);
+      return;
+    }
     output(
       `${status} ${result.name.padEnd(30)} ${result.passed}/${result.tests} passed (${(result.time / 1000).toFixed(1)}s)`,
     );
@@ -119,7 +101,8 @@ if (packageResults.length > 0) {
   output('-'.repeat(70));
 
   // Overall summary
-  const status = totalFailed > 0 ? '❌' : '✅';
+  const missingResults = packageResults.filter((result) => result.missing).map((result) => result.name);
+  const status = totalFailed > 0 || missingResults.length > 0 ? '❌' : '✅';
   output(`${status} Test Suites: ${totalSuites} total`);
   output(
     `   Tests:       ${totalPassed} passed, ${totalFailed} failed, ${totalPending} pending (${totalTests} total)`,
@@ -127,24 +110,8 @@ if (packageResults.length > 0) {
   if (totalSnapshots > 0) {
     output(`   Snapshots:   ${totalSnapshotsPassed}/${totalSnapshots} passed`);
   }
-  // Wall-clock = the global span across packages. It's only meaningful when
-  // every package's result file comes from the SAME run (overlapping windows).
-  // If packages were run separately, the span includes idle gaps between runs
-  // and exceeds the cumulative in-test time — in that case the figure is a lie,
-  // so report the gap instead of a bogus wall-clock.
-  const wallTime = wallFinish > wallBegin ? wallFinish - wallBegin : 0;
-  if (wallTime > 0 && wallTime <= totalTime) {
-    output(
-      `   Time:        ${(totalTime / 1000).toFixed(1)}s in tests, ` +
-        `${(wallTime / 1000).toFixed(1)}s wall-clock`,
-    );
-  } else {
-    output(`   Time:        ${(totalTime / 1000).toFixed(1)}s in tests`);
-    output(
-      '   Note:        results span multiple runs; wall-clock unavailable. ' +
-        'Run `pnpm test` once for all packages to get it.',
-    );
-  }
+  output(`   Time:        ${(totalTime / 1000).toFixed(1)}s in tests`);
+  if (missingResults.length > 0) output(`   Missing:     ${missingResults.join(', ')}`);
 } else {
   output('No test results found. Run tests first.');
 }
@@ -152,4 +119,4 @@ if (packageResults.length > 0) {
 output('='.repeat(70) + '\n');
 
 // Exit with error code if any tests failed
-process.exit(totalFailed > 0 ? 1 : 0);
+process.exit(totalFailed > 0 || packageResults.some((result) => result.missing) ? 1 : 0);

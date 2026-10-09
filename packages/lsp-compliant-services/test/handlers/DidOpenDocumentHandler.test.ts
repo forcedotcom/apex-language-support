@@ -6,18 +6,20 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock, Mocked } from 'vitest';
+import { vi } from 'vitest';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger, ApexSettingsManager } from '@salesforce/apex-lsp-shared';
 
 // Mock the logging module
-jest.mock('@salesforce/apex-lsp-shared', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
+vi.mock('@salesforce/apex-lsp-shared', async () => {
+  const actual = await vi.importActual('@salesforce/apex-lsp-shared');
   return {
     ...actual,
-    getLogger: jest.fn(),
+    getLogger: vi.fn(),
     ApexSettingsManager: {
-      getInstance: jest.fn(),
+      getInstance: vi.fn(),
     },
   };
 });
@@ -26,103 +28,102 @@ jest.mock('@salesforce/apex-lsp-shared', () => {
 // Note: DocumentOpenBatcher is still mocked as it's appropriate for handler tests
 
 // Mock the storage manager
-jest.mock('../../src/storage/ApexStorageManager', () => ({
+vi.mock('../../src/storage/ApexStorageManager', () => ({
   ApexStorageManager: {
-    getInstance: jest.fn(),
+    getInstance: vi.fn(),
   },
 }));
 
 // Mock the definition upserter
-jest.mock('../../src/definition/ApexDefinitionUpserter', () => ({
-  DefaultApexDefinitionUpserter: jest.fn().mockImplementation(() => ({
-    upsertDefinition: jest.fn().mockResolvedValue(undefined),
-  })),
+vi.mock('../../src/definition/ApexDefinitionUpserter', () => ({
+  DefaultApexDefinitionUpserter: vi.fn(function () {
+    return { upsertDefinition: vi.fn().mockResolvedValue(undefined) };
+  }),
 }));
 
 // Mock the references upserter
-jest.mock('../../src/references/ApexReferencesUpserter', () => ({
-  DefaultApexReferencesUpserter: jest.fn().mockImplementation(() => ({
-    upsertReferences: jest.fn().mockResolvedValue(undefined),
-  })),
+vi.mock('../../src/references/ApexReferencesUpserter', () => ({
+  DefaultApexReferencesUpserter: vi.fn(function () {
+    return { upsertReferences: vi.fn().mockResolvedValue(undefined) };
+  }),
 }));
 
 // Mock DocumentOpenBatcher
-jest.mock('../../src/services/DocumentOpenBatcher', () => ({
-  makeDocumentOpenBatcher: jest.fn(),
-  DocumentOpenBatcher: jest.fn(),
+vi.mock('../../src/services/DocumentOpenBatcher', () => ({
+  makeDocumentOpenBatcher: vi.fn(),
+  DocumentOpenBatcher: vi.fn(),
 }));
 
 // Import the handler after the logger mock is set up
 import { DidOpenDocumentHandler } from '../../src/handlers/DidOpenDocumentHandler';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 import { makeDocumentOpenBatcher } from '../../src/services/DocumentOpenBatcher';
+import { DefaultApexDefinitionUpserter } from '../../src/definition/ApexDefinitionUpserter';
+import { DefaultApexReferencesUpserter } from '../../src/references/ApexReferencesUpserter';
 import { Effect } from 'effect';
 
 describe('DidOpenDocumentHandler', () => {
   let handler: DidOpenDocumentHandler;
-  let mockLogger: jest.Mocked<ReturnType<typeof getLogger>>;
-  let mockStorage: jest.Mocked<any>;
-  let mockStorageManager: jest.Mocked<typeof ApexStorageManager>;
-  let mockSettingsManager: jest.Mocked<typeof ApexSettingsManager>;
+  let mockLogger: Mocked<ReturnType<typeof getLogger>>;
+  let mockStorage: Mocked<any>;
+  let mockStorageManager: Mocked<typeof ApexStorageManager>;
+  let mockSettingsManager: Mocked<typeof ApexSettingsManager>;
   let mockBatcher: any;
 
   beforeEach(() => {
     // Reset all mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Reset the upserter mocks to their default implementation
-    const {
-      DefaultApexDefinitionUpserter,
-    } = require('../../src/definition/ApexDefinitionUpserter');
-    const {
-      DefaultApexReferencesUpserter,
-    } = require('../../src/references/ApexReferencesUpserter');
+    (DefaultApexDefinitionUpserter as Mock).mockImplementation(function () {
+      return {
+        upsertDefinition: vi.fn().mockResolvedValue(undefined),
+      };
+    });
 
-    DefaultApexDefinitionUpserter.mockImplementation(() => ({
-      upsertDefinition: jest.fn().mockResolvedValue(undefined),
-    }));
-
-    DefaultApexReferencesUpserter.mockImplementation(() => ({
-      upsertReferences: jest.fn().mockResolvedValue(undefined),
-    }));
+    (DefaultApexReferencesUpserter as Mock).mockImplementation(function () {
+      return {
+        upsertReferences: vi.fn().mockResolvedValue(undefined),
+      };
+    });
 
     // Setup logger mock
     mockLogger = {
-      log: jest.fn(),
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
+      log: vi.fn(),
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
     } as any;
-    (getLogger as jest.Mock).mockReturnValue(mockLogger);
+    (getLogger as Mock).mockReturnValue(mockLogger);
 
     // Setup storage mock
     mockStorage = {
-      setDocument: jest.fn().mockResolvedValue(undefined),
+      setDocument: vi.fn().mockResolvedValue(undefined),
     };
 
     // Setup storage manager mock
-    mockStorageManager = ApexStorageManager as jest.Mocked<
+    mockStorageManager = ApexStorageManager as Mocked<
       typeof ApexStorageManager
     >;
     mockStorageManager.getInstance.mockReturnValue({
-      getStorage: jest.fn().mockReturnValue(mockStorage),
+      getStorage: vi.fn().mockReturnValue(mockStorage),
     } as any);
 
     // Setup settings manager mock
-    mockSettingsManager = ApexSettingsManager as jest.Mocked<
+    mockSettingsManager = ApexSettingsManager as Mocked<
       typeof ApexSettingsManager
     >;
     mockSettingsManager.getInstance.mockReturnValue({
-      getCompilationOptions: jest.fn().mockReturnValue({}),
+      getCompilationOptions: vi.fn().mockReturnValue({}),
     } as any);
 
     // Setup batcher mock
     mockBatcher = {
-      addDocumentOpen: jest.fn().mockReturnValue(Effect.succeed([])),
-      forceFlush: jest.fn().mockReturnValue(Effect.void),
+      addDocumentOpen: vi.fn().mockReturnValue(Effect.succeed([])),
+      forceFlush: vi.fn().mockReturnValue(Effect.void),
     } as any;
-    (makeDocumentOpenBatcher as jest.Mock).mockReturnValue(
+    (makeDocumentOpenBatcher as Mock).mockReturnValue(
       Effect.succeed({
         service: mockBatcher,
         shutdown: Effect.void,
@@ -138,7 +139,7 @@ describe('DidOpenDocumentHandler', () => {
         uri: 'file:///test.cls',
         languageId: 'apex',
         version: 1,
-        getText: jest.fn().mockReturnValue('public class TestClass {}'),
+        getText: vi.fn().mockReturnValue('public class TestClass {}'),
       } as any,
     };
 
@@ -166,10 +167,10 @@ describe('DidOpenDocumentHandler', () => {
       const batcherError = new Error('Batcher failed');
       // Mock makeDocumentOpenBatcher to return a service that fails
       const failingBatcher = {
-        addDocumentOpen: jest.fn().mockReturnValue(Effect.fail(batcherError)),
-        forceFlush: jest.fn().mockReturnValue(Effect.void),
+        addDocumentOpen: vi.fn().mockReturnValue(Effect.fail(batcherError)),
+        forceFlush: vi.fn().mockReturnValue(Effect.void),
       };
-      (makeDocumentOpenBatcher as jest.Mock).mockReturnValue(
+      (makeDocumentOpenBatcher as Mock).mockReturnValue(
         Effect.succeed({
           service: failingBatcher,
           shutdown: Effect.void,
@@ -200,7 +201,7 @@ describe('DidOpenDocumentHandler', () => {
 
     it('should use batcher factory', async () => {
       // Clear previous calls
-      jest.clearAllMocks();
+      vi.clearAllMocks();
 
       // Call handleDocumentOpen to trigger batcher initialization (void return)
       handler.handleDocumentOpen(mockEvent);

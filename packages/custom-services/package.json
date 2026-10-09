@@ -55,7 +55,7 @@
       ]
     },
     "test": {
-      "command": "jest --passWithNoTests --json --outputFile=.wireit/test-results.json",
+      "command": "vitest run --reporter=json --outputFile=.wireit/test-results.json",
       "dependencies": [
         "compile"
       ],
@@ -65,11 +65,11 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs"
+        "vitest.config.mts"
       ]
     },
     "test:coverage": {
-      "command": "jest --coverage --coverageDirectory=./coverage --passWithNoTests",
+      "command": "vitest run --coverage --coverage.reportsDirectory=./coverage",
       "dependencies": [
         "compile"
       ],
@@ -79,7 +79,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
-        "**/jest.config.cjs"
+        "vitest.config.mts"
       ]
     },
     "lint": {
@@ -109,6 +109,7 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "@salesforce/esbuild-presets": "workspace:*"
+    "@salesforce/esbuild-presets": "workspace:*",
+    "vitest": "5.0.1"
   }
 }

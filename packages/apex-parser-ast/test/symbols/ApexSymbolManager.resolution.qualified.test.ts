@@ -6,5 +6,14 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-process.env.APEX_RESOLUTION_GROUP = 'qualified';
-require('./ApexSymbolManager.resolution.test');
+import { vi } from 'vitest';
+
+vi.hoisted(() => {
+  process.env.APEX_RESOLUTION_GROUP = 'qualified';
+});
+
+import './ApexSymbolManager.resolution.test?group=qualified';
+
+afterAll(() => {
+  delete process.env.APEX_RESOLUTION_GROUP;
+});

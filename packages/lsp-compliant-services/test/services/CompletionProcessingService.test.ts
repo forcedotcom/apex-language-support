@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import { CompletionParams } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -26,7 +28,7 @@ import {
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 
-jest.mock('../../src/storage/ApexStorageManager');
+vi.mock('../../src/storage/ApexStorageManager');
 
 describe('CompletionProcessingService', () => {
   let service: CompletionProcessingService;
@@ -36,7 +38,7 @@ describe('CompletionProcessingService', () => {
   let logger: ReturnType<typeof getLogger>;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     logger = getLogger();
     symbolManager = new ApexSymbolManager();
@@ -58,16 +60,16 @@ describe('CompletionProcessingService', () => {
     );
 
     mockStorage = {
-      getDocument: jest.fn(),
+      getDocument: vi.fn(),
     };
 
-    (ApexStorageManager.getInstance as jest.Mock).mockReturnValue({
-      getStorage: jest.fn().mockReturnValue(mockStorage),
+    (ApexStorageManager.getInstance as Mock).mockReturnValue({
+      getStorage: vi.fn().mockReturnValue(mockStorage),
     });
 
     mockDocument = {
       uri: 'file:///test/TestClass.cls',
-      getText: jest.fn().mockReturnValue(`
+      getText: vi.fn().mockReturnValue(`
         public class TestClass {
           public void doSomething() {
             String testVar = 'test';
@@ -75,9 +77,9 @@ describe('CompletionProcessingService', () => {
           }
         }
       `),
-      offsetAt: jest.fn().mockReturnValue(100),
-      positionAt: jest.fn(),
-      lineCount: jest.fn().mockReturnValue(10),
+      offsetAt: vi.fn().mockReturnValue(100),
+      positionAt: vi.fn(),
+      lineCount: vi.fn().mockReturnValue(10),
     } as any;
 
     service = new CompletionProcessingService(logger, symbolManager);

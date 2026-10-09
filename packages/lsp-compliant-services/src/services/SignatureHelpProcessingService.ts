@@ -456,7 +456,7 @@ export class SignatureHelpProcessingService implements ISignatureHelpProcessor {
     }
 
     if (symbol.modifiers) {
-      const modifiers = [];
+      const modifiers: string[] = [];
       if (symbol.modifiers.isStatic) modifiers.push('static');
       if (symbol.modifiers.visibility)
         modifiers.push(symbol.modifiers.visibility);

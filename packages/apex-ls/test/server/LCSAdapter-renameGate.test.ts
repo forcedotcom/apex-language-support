@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 /**
  * Rename capability-gate coverage (W-23631076 / Phase 0).
  *
@@ -23,43 +25,43 @@ import { LCSAdapter } from '../../src/server/LCSAdapter';
 import { LSPConfigurationManager } from '@salesforce/apex-lsp-shared';
 import { ServerCapabilities } from 'vscode-languageserver-protocol';
 
-jest.mock('@salesforce/apex-lsp-shared', () => ({
+vi.mock('@salesforce/apex-lsp-shared', () => ({
   LSPConfigurationManager: {
-    getInstance: jest.fn(),
+    getInstance: vi.fn(),
   },
-  getLogger: jest.fn(() => ({
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
-    alwaysLog: jest.fn(),
+  getLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    log: vi.fn(),
+    alwaysLog: vi.fn(),
   })),
   Priority: { Immediate: 1, High: 2, Normal: 3, Low: 4, Background: 5 },
-  runWithSpan: jest.fn((_name: string, fn: () => any) => fn()),
+  runWithSpan: vi.fn((_name: string, fn: () => any) => fn()),
   LSP_SPAN_NAMES: {},
-  CommandPerformanceAggregator: jest.fn().mockImplementation(() => ({
-    record: jest.fn(),
-    flush: jest
+  CommandPerformanceAggregator: class {
+    record = vi.fn();
+    flush = vi
       .fn()
-      .mockReturnValue({ type: 'command_performance', commands: [] }),
-    reset: jest.fn(),
-  })),
-  collectStartupSnapshot: jest.fn().mockReturnValue({
+      .mockReturnValue({ type: 'command_performance', commands: [] });
+    reset = vi.fn();
+  },
+  collectStartupSnapshot: vi.fn().mockReturnValue({
     type: 'startup_snapshot',
     sessionId: 'mock-session',
   }),
-  getDocumentSelectorsFromSettings: jest.fn(() => [
+  getDocumentSelectorsFromSettings: vi.fn(() => [
     { scheme: 'file', language: 'apex' },
   ]),
 }));
 
 // The full connection surface touched by the LCSAdapter constructor + all its
 // setup methods is broad and incidental to this test. A self-mocking Proxy
-// returns a fresh jest.fn() for any accessed member and auto-vivifies nested
+// returns a fresh vi.fn() for any accessed member and auto-vivifies nested
 // namespaces (languages.diagnostics.on, window.createWorkDoneProgress, …), so
 // construction and setupProtocolHandlers run to completion regardless of which
-// methods they reach. Each jest.fn() is cached per key, so the SAME spy is
+// methods they reach. Each vi.fn() is cached per key, so the SAME spy is
 // returned across accesses — that's what lets the assertions below observe
 // whether `onRenameRequest` / `onReferences` were invoked.
 const makeMockConnection = (): any => {
@@ -80,14 +82,14 @@ const makeMockConnection = (): any => {
           } else if (prop === 'createWorkDoneProgress') {
             cache.set(
               prop,
-              jest.fn().mockResolvedValue({
-                begin: jest.fn(),
-                report: jest.fn(),
-                done: jest.fn(),
+              vi.fn().mockResolvedValue({
+                begin: vi.fn(),
+                report: vi.fn(),
+                done: vi.fn(),
               }),
             );
           } else {
-            cache.set(prop, jest.fn());
+            cache.set(prop, vi.fn());
           }
         }
         return cache.get(prop);
@@ -101,24 +103,24 @@ const makeAdapter = (
   capabilities: ServerCapabilities,
 ): LCSAdapter => {
   const mockConfigManager = {
-    getCapabilities: jest.fn().mockReturnValue(capabilities),
-    setInitialSettings: jest.fn(),
-    getSettings: jest.fn().mockReturnValue({
+    getCapabilities: vi.fn().mockReturnValue(capabilities),
+    setInitialSettings: vi.fn(),
+    getSettings: vi.fn().mockReturnValue({
       apex: { environment: { additionalDocumentSchemes: undefined } },
     }),
     // setupProtocolHandlers reads this after the navigation gates to decide
     // whether to register the dev-only apex/queueState endpoint. Report
     // production so that branch is skipped — the rename gate we assert on runs
     // before it and is unaffected.
-    getCapabilitiesManager: jest.fn().mockReturnValue({
-      getMode: jest.fn().mockReturnValue('production'),
+    getCapabilitiesManager: vi.fn().mockReturnValue({
+      getMode: vi.fn().mockReturnValue('production'),
     }),
     // Read at the tail of setupProtocolHandlers to decide profiling handler
     // registration. Empty caps → no experimental.profilingProvider → the
     // profiling branch is skipped and the method returns cleanly.
-    getExtendedServerCapabilities: jest.fn().mockReturnValue({}),
+    getExtendedServerCapabilities: vi.fn().mockReturnValue({}),
   } as any;
-  (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue(
+  (LSPConfigurationManager.getInstance as Mock).mockReturnValue(
     mockConfigManager,
   );
 
@@ -126,12 +128,12 @@ const makeAdapter = (
   const adapter = new LCSAdapter({
     connection,
     logger: {
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      log: jest.fn(),
-      alwaysLog: jest.fn(),
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      log: vi.fn(),
+      alwaysLog: vi.fn(),
     },
   });
   return adapter;
@@ -139,7 +141,7 @@ const makeAdapter = (
 
 describe('LCSAdapter rename capability gate (W-23631076)', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('registers onRenameRequest when renameProvider is advertised', () => {
@@ -222,7 +224,7 @@ describe('LCSAdapter rename capability gate (W-23631076)', () => {
     expect(registeredHandler).toBeInstanceOf(Function);
 
     // Mock handleLspRequest to return an error shape (invalid newName validation failure)
-    jest.spyOn(adapter as any, 'handleLspRequest').mockResolvedValue({
+    vi.spyOn(adapter as any, 'handleLspRequest').mockResolvedValue({
       error: { code: -32602, message: 'Identifier cannot be a keyword: class' },
     });
 
@@ -248,7 +250,7 @@ describe('LCSAdapter rename capability gate (W-23631076)', () => {
         },
         undefined,
       );
-      fail('Expected handler to throw ResponseError');
+      expect.fail('Expected handler to throw ResponseError');
     } catch (err: any) {
       // ResponseError from vscode-languageserver has code and message properties
       expect(err).toHaveProperty('code', -32602);

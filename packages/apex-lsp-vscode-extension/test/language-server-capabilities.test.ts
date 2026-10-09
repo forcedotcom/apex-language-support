@@ -6,10 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { getClientCapabilitiesForMode } from '@salesforce/apex-lsp-shared';
 
 // Mock VSCode
-jest.mock('vscode', () => ({
+vi.mock('vscode', () => ({
   workspace: {
     workspaceFolders: [
       {

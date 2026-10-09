@@ -21,6 +21,11 @@ import {
   SymbolKind,
   SymbolVisibility,
 } from '../../src/types/symbol';
+import {
+  StandardLibrary,
+  TypeKind,
+  Visibility,
+} from '../../src/generated/apex-stdlib';
 import { gzipSync, gunzipSync } from 'fflate';
 
 describe('StandardLibraryCacheLoader', () => {
@@ -80,7 +85,6 @@ describe('StandardLibraryDeserializer', () => {
       const deserializer = new StandardLibraryDeserializer();
 
       // Create a minimal proto message using the generated type
-      const { StandardLibrary } = require('../../src/generated/apex-stdlib');
       const proto = StandardLibrary.create({
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'abc123',
@@ -100,11 +104,6 @@ describe('StandardLibraryDeserializer', () => {
     it('correctly deserializes from binary', () => {
       const deserializer = new StandardLibraryDeserializer();
 
-      const {
-        StandardLibrary,
-        TypeKind,
-        Visibility,
-      } = require('../../src/generated/apex-stdlib');
       const proto = StandardLibrary.create({
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'test123',
@@ -163,11 +162,6 @@ describe('StandardLibraryDeserializer', () => {
 
     it('hydrateAllSymbolTables is idempotent for cached deserialization result', () => {
       const deserializer = new StandardLibraryDeserializer();
-      const {
-        StandardLibrary,
-        TypeKind,
-        Visibility,
-      } = require('../../src/generated/apex-stdlib');
       const proto = StandardLibrary.create({
         generatedAt: new Date().toISOString(),
         sourceChecksum: 'hydrate-all-test',
@@ -224,7 +218,6 @@ describe('StandardLibrarySerializer', () => {
       expect(binary.length).toBeGreaterThan(0);
 
       // Verify it can be deserialized back
-      const { StandardLibrary } = require('../../src/generated/apex-stdlib');
       const proto = StandardLibrary.fromBinary(binary);
 
       expect(proto.sourceChecksum).toBe('checksum123');
@@ -287,7 +280,6 @@ describe('StandardLibrarySerializer', () => {
       expect(binary.length).toBeGreaterThan(0);
 
       // Verify it can be deserialized back
-      const { StandardLibrary } = require('../../src/generated/apex-stdlib');
       const proto = StandardLibrary.fromBinary(binary);
 
       expect(proto.namespaces.length).toBe(1);

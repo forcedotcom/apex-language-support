@@ -20,7 +20,7 @@
  * - On first run: the snapshot is created from whatever stubs are currently empty.
  * - When new empty stubs appear: the test fails, prompting investigation.
  * - To accept a newly empty stub as "expected" (e.g. a by-design marker class):
- *     npx jest --testPathPattern=emptyStubDetection.snapshot --updateSnapshot
+ *     npx vi --testPathPattern=emptyStubDetection.snapshot --updateSnapshot
  * - When an existing empty stub gains members (scraper fixed): the test fails
  *   with a diff showing the removal; run --updateSnapshot to update.
  *

@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import type { SObjectDescribe } from '@salesforce/apex-lsp-shared';
 import accountFixture from '../fixtures/sobjects/Account.describe.json';
 import invoiceFixture from '../fixtures/sobjects/Invoice__c.describe.json';
@@ -317,7 +318,7 @@ describe('SObjectSymbolTableComposer', () => {
   });
 
   it('does not invoke CompilerService or parse Apex', () => {
-    const compile = jest.spyOn(CompilerService.prototype, 'compile');
+    const compile = vi.spyOn(CompilerService.prototype, 'compile');
 
     composeSObjectSymbolTable(account, 1);
 

@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import * as path from 'path';
 import {
   initializeTopology,
@@ -65,7 +66,7 @@ describe('ResourceLoaderProxy (Step 9)', () => {
 
   it('reuses completed immutable stdlib loads across callers', async () => {
     const worker = topology.resourceLoader!;
-    const executeSpy = jest.spyOn(worker, 'executeEffect');
+    const executeSpy = vi.spyOn(worker, 'executeEffect');
     const proxy = new ResourceLoaderProxy(worker, logger);
 
     const first = await proxy.getSymbolTable('System/String.cls');

@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock, Mocked } from 'vitest';
+import { vi } from 'vitest';
 import { LCSAdapter } from '../../src/server/LCSAdapter';
 import { LSPConfigurationManager } from '@salesforce/apex-lsp-shared';
 import { Connection } from 'vscode-languageserver/browser';
@@ -13,15 +15,15 @@ import { ServerCapabilities } from 'vscode-languageserver-protocol';
 import { ResourceLoader } from '@salesforce/apex-lsp-parser-ast';
 
 // Mock the dependencies
-jest.mock('@salesforce/apex-lsp-shared', () => ({
+vi.mock('@salesforce/apex-lsp-shared', () => ({
   LSPConfigurationManager: {
-    getInstance: jest.fn(),
+    getInstance: vi.fn(),
   },
-  getLogger: jest.fn(() => ({
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
+  getLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
   })),
   Priority: {
     Immediate: 1,
@@ -31,28 +33,28 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
     Background: 5,
   },
   UniversalLoggerFactory: {
-    getInstance: jest.fn(() => ({
-      createLogger: jest.fn(() => ({
-        debug: jest.fn(),
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
+    getInstance: vi.fn(() => ({
+      createLogger: vi.fn(() => ({
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
       })),
     })),
   },
   ApexSettingsManager: {
-    getInstance: jest.fn(() => ({})),
+    getInstance: vi.fn(() => ({})),
   },
-  runWithSpan: jest.fn((_name: string, fn: () => any) => fn()),
+  runWithSpan: vi.fn((_name: string, fn: () => any) => fn()),
   LSP_SPAN_NAMES: {},
-  CommandPerformanceAggregator: jest.fn().mockImplementation(() => ({
-    record: jest.fn(),
-    flush: jest
+  CommandPerformanceAggregator: class {
+    record = vi.fn();
+    flush = vi
       .fn()
-      .mockReturnValue({ type: 'command_performance', commands: [] }),
-    reset: jest.fn(),
-  })),
-  collectStartupSnapshot: jest.fn().mockReturnValue({
+      .mockReturnValue({ type: 'command_performance', commands: [] });
+    reset = vi.fn();
+  },
+  collectStartupSnapshot: vi.fn().mockReturnValue({
     type: 'startup_snapshot',
     sessionId: 'mock-session',
   }),
@@ -60,32 +62,30 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
 
 // Mock the apex-parser-ast package with embedded ZIP support
 // Only mock what's necessary for testing ResourceLoader initialization
-jest.mock('@salesforce/apex-lsp-parser-ast', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-parser-ast');
+vi.mock('@salesforce/apex-lsp-parser-ast', async () => {
+  const actual = await vi.importActual('@salesforce/apex-lsp-parser-ast');
   // Create mock ZIP buffer (ZIP magic bytes)
   const mockZip = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
   return {
     ...actual, // Use real implementations for everything else
     ResourceLoader: {
-      getInstance: jest.fn(() => ({
-        setZipBuffer: jest.fn(),
-        getDirectoryStatistics: jest.fn(() => ({
+      getInstance: vi.fn(() => ({
+        setZipBuffer: vi.fn(),
+        getDirectoryStatistics: vi.fn(() => ({
           totalFiles: 100,
           namespaces: ['System', 'Database', 'Schema'],
         })),
-        initialize: jest.fn().mockResolvedValue(undefined),
+        initialize: vi.fn().mockResolvedValue(undefined),
       })),
     },
-    getEmbeddedStandardLibraryZip: jest.fn(() => mockZip),
+    getEmbeddedStandardLibraryZip: vi.fn(() => mockZip),
     ApexSymbolManager: class MockApexSymbolManager {},
     ApexSymbolProcessingManager: class MockApexSymbolProcessingManager {
       static getInstance() {
         return new MockApexSymbolProcessingManager();
       }
       getSymbolManager() {
-        return new (jest.requireMock(
-          '@salesforce/apex-lsp-parser-ast',
-        ).ApexSymbolManager)();
+        return {};
       }
     },
     // initializeValidators uses the real implementation from actual
@@ -94,57 +94,57 @@ jest.mock('@salesforce/apex-lsp-parser-ast', () => {
 
 describe('LCSAdapter ResourceLoader Initialization', () => {
   let mockConnection: any;
-  let mockConfigManager: jest.Mocked<LSPConfigurationManager>;
+  let mockConfigManager: Mocked<LSPConfigurationManager>;
   let adapter: LCSAdapter;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Create mock connection
     mockConnection = {
-      sendRequest: jest.fn(),
-      onRequest: jest.fn(),
-      onNotification: jest.fn(),
-      onInitialize: jest.fn(),
-      onInitialized: jest.fn(),
-      onDidChangeConfiguration: jest.fn(),
-      onDocumentSymbol: jest.fn(),
-      onHover: jest.fn(),
-      onCompletion: jest.fn(),
+      sendRequest: vi.fn(),
+      onRequest: vi.fn(),
+      onNotification: vi.fn(),
+      onInitialize: vi.fn(),
+      onInitialized: vi.fn(),
+      onDidChangeConfiguration: vi.fn(),
+      onDocumentSymbol: vi.fn(),
+      onHover: vi.fn(),
+      onCompletion: vi.fn(),
       languages: {
         foldingRange: {
-          on: jest.fn(),
+          on: vi.fn(),
         },
         diagnostics: {
-          on: jest.fn(),
+          on: vi.fn(),
         },
       },
       workspace: {
-        getConfiguration: jest.fn().mockResolvedValue({}),
-        onDidChangeWorkspaceFolders: jest.fn(),
-        onDidDeleteFiles: jest.fn(),
+        getConfiguration: vi.fn().mockResolvedValue({}),
+        onDidChangeWorkspaceFolders: vi.fn(),
+        onDidDeleteFiles: vi.fn(),
       },
       console: {
-        log: jest.fn(),
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
+        log: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
       },
     };
 
     // Mock LSPConfigurationManager
     mockConfigManager = {
-      getInstance: jest.fn(),
-      getSettingsManager: jest.fn(() => ({})),
-      getCapabilities: jest.fn(),
-      getSettings: jest.fn(() => ({})),
-      getCapabilitiesManager: jest.fn(() => ({
-        getMode: jest.fn(() => 'production'),
+      getInstance: vi.fn(),
+      getSettingsManager: vi.fn(() => ({})),
+      getCapabilities: vi.fn(),
+      getSettings: vi.fn(() => ({})),
+      getCapabilitiesManager: vi.fn(() => ({
+        getMode: vi.fn(() => 'production'),
       })),
-      getExtendedServerCapabilities: jest.fn(() => ({})),
-    } as unknown as jest.Mocked<LSPConfigurationManager>;
+      getExtendedServerCapabilities: vi.fn(() => ({})),
+    } as unknown as Mocked<LSPConfigurationManager>;
 
-    (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue(
+    (LSPConfigurationManager.getInstance as Mock).mockReturnValue(
       mockConfigManager,
     );
 
@@ -158,17 +158,15 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
   describe('initializeResourceLoader', () => {
     it('should initialize ResourceLoader with protobuf cache', async () => {
       const mockResourceLoader = {
-        getDirectoryStatistics: jest.fn(() => ({
+        getDirectoryStatistics: vi.fn(() => ({
           totalFiles: 100,
           namespaces: ['System', 'Database', 'Schema'],
         })),
-        initialize: jest.fn().mockResolvedValue(undefined),
-        isStandardLibrarySymbolDataLoaded: jest.fn(() => true),
+        initialize: vi.fn().mockResolvedValue(undefined),
+        isStandardLibrarySymbolDataLoaded: vi.fn(() => true),
       };
 
-      (ResourceLoader.getInstance as jest.Mock).mockReturnValue(
-        mockResourceLoader,
-      );
+      (ResourceLoader.getInstance as Mock).mockReturnValue(mockResourceLoader);
 
       await (adapter as any).initializeResourceLoader();
 
@@ -178,17 +176,15 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
 
     it('should call initialize on ResourceLoader', async () => {
       const mockResourceLoader = {
-        getDirectoryStatistics: jest.fn(() => ({
+        getDirectoryStatistics: vi.fn(() => ({
           totalFiles: 100,
           namespaces: ['System'],
         })),
-        initialize: jest.fn().mockResolvedValue(undefined),
-        isStandardLibrarySymbolDataLoaded: jest.fn(() => true),
+        initialize: vi.fn().mockResolvedValue(undefined),
+        isStandardLibrarySymbolDataLoaded: vi.fn(() => true),
       };
 
-      (ResourceLoader.getInstance as jest.Mock).mockReturnValue(
-        mockResourceLoader,
-      );
+      (ResourceLoader.getInstance as Mock).mockReturnValue(mockResourceLoader);
 
       await (adapter as any).initializeResourceLoader();
 
@@ -198,10 +194,10 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
 
     it('should log statistics after successful initialization', async () => {
       const mockLogger = {
-        debug: jest.fn(),
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
       };
 
       // @ts-expect-error - LCSAdapter is not exported from the package
@@ -211,17 +207,15 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       });
 
       const mockResourceLoader = {
-        getDirectoryStatistics: jest.fn(() => ({
+        getDirectoryStatistics: vi.fn(() => ({
           totalFiles: 100,
           namespaces: ['System', 'Database'],
         })),
-        initialize: jest.fn().mockResolvedValue(undefined),
-        isStandardLibrarySymbolDataLoaded: jest.fn(() => true),
+        initialize: vi.fn().mockResolvedValue(undefined),
+        isStandardLibrarySymbolDataLoaded: vi.fn(() => true),
       };
 
-      (ResourceLoader.getInstance as jest.Mock).mockReturnValue(
-        mockResourceLoader,
-      );
+      (ResourceLoader.getInstance as Mock).mockReturnValue(mockResourceLoader);
 
       await (adapterWithLogger as any).initializeResourceLoader();
 
@@ -231,10 +225,10 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
 
     it('should handle initialization errors gracefully', async () => {
       const mockLogger = {
-        debug: jest.fn(),
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
       };
 
       // @ts-expect-error - LCSAdapter is not exported from the package
@@ -244,21 +238,19 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       });
 
       const mockResourceLoader = {
-        getDirectoryStatistics: jest.fn(() => ({
+        getDirectoryStatistics: vi.fn(() => ({
           totalFiles: 0,
           namespaces: [],
         })),
-        initialize: jest
+        initialize: vi
           .fn()
           .mockRejectedValue(
             new Error('Standard library symbol data cache not available'),
           ),
-        isStandardLibrarySymbolDataLoaded: jest.fn(() => false),
+        isStandardLibrarySymbolDataLoaded: vi.fn(() => false),
       };
 
-      (ResourceLoader.getInstance as jest.Mock).mockReturnValue(
-        mockResourceLoader,
-      );
+      (ResourceLoader.getInstance as Mock).mockReturnValue(mockResourceLoader);
 
       // Should not throw, but should log warning
       await expect(
@@ -290,7 +282,7 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       } as Partial<ServerCapabilities> as ServerCapabilities);
 
       // Spy on the private method
-      const initResourceLoaderSpy = jest.spyOn(
+      const initResourceLoaderSpy = vi.spyOn(
         adapter as any,
         'initializeResourceLoader',
       );
@@ -313,10 +305,10 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       const initializationPending = new Promise<void>((resolve) => {
         releaseInitialization = resolve;
       });
-      const initResourceLoaderSpy = jest
+      const initResourceLoaderSpy = vi
         .spyOn(adapter as any, 'initializeResourceLoader')
         .mockReturnValue(initializationPending);
-      const prePopulateSpy = jest
+      const prePopulateSpy = vi
         .spyOn(adapter as any, 'prePopulateSymbolGraph')
         .mockResolvedValue(undefined);
 
@@ -339,14 +331,11 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
         documentSymbolProvider: { resolveProvider: false },
       } as Partial<ServerCapabilities> as ServerCapabilities);
       (adapter as any).workerDispatcher = {};
-      const initResourceLoaderSpy = jest.spyOn(
+      const initResourceLoaderSpy = vi.spyOn(
         adapter as any,
         'initializeResourceLoader',
       );
-      const prePopulateSpy = jest.spyOn(
-        adapter as any,
-        'prePopulateSymbolGraph',
-      );
+      const prePopulateSpy = vi.spyOn(adapter as any, 'prePopulateSymbolGraph');
 
       const onInitializedHandler =
         mockConnection.onInitialized.mock.calls[0][0];
@@ -358,10 +347,10 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
 
     it('should handle ResourceLoader initialization successfully', async () => {
       const mockLogger = {
-        debug: jest.fn(),
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
       };
 
       // @ts-expect-error - LCSAdapter is not exported from the package
@@ -371,12 +360,10 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
       });
 
       const mockResourceLoader = {
-        initialize: jest.fn().mockResolvedValue(undefined),
+        initialize: vi.fn().mockResolvedValue(undefined),
       };
 
-      (ResourceLoader.getInstance as jest.Mock).mockReturnValue(
-        mockResourceLoader,
-      );
+      (ResourceLoader.getInstance as Mock).mockReturnValue(mockResourceLoader);
 
       // Should not throw - ResourceLoader handles all artifact loading internally
       await expect(

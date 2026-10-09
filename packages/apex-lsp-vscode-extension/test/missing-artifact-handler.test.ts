@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock, MockedFunction } from 'vitest';
+import { vi } from 'vitest';
 import type { FindMissingArtifactParams } from '@salesforce/apex-lsp-shared';
 import * as Effect from 'effect/Effect';
 import * as vscode from 'vscode';
@@ -62,18 +64,18 @@ function createDependencies(
 ) {
   const fileSystem = new OrgArtifactFileSystem();
   const telemetry: Record<string, unknown>[] = [];
-  const search = jest.fn((request: OrgArtifactRequest) => {
+  const search = vi.fn((request: OrgArtifactRequest) => {
     const result = resolve(request);
     return Effect.isEffect(result) ? result : Effect.succeed(result);
   });
-  const isServicesAvailable = jest.fn(() => true);
-  const notifyServicesUnavailable = jest.fn().mockResolvedValue(undefined);
+  const isServicesAvailable = vi.fn(() => true);
+  const notifyServicesUnavailable = vi.fn().mockResolvedValue(undefined);
   const dependencies: MissingArtifactHandlerDependencies = {
     orgAdapter: { search },
     sObjectAdapter: new OrgSObjectAdapter(fileSystem),
     fileSystem,
     workspaceComponentAdapter: {
-      resolve: jest.fn().mockResolvedValue(new Map()),
+      resolve: vi.fn().mockResolvedValue(new Map()),
     },
     servicesAvailability: {
       isAvailable: isServicesAvailable,
@@ -87,7 +89,7 @@ function createDependencies(
     fileSystem,
     telemetry,
     workspaceResolve: dependencies.workspaceComponentAdapter
-      .resolve as jest.MockedFunction<
+      .resolve as MockedFunction<
       MissingArtifactHandlerDependencies['workspaceComponentAdapter']['resolve']
     >,
     isServicesAvailable,
@@ -107,11 +109,11 @@ async function waitFor(predicate: () => boolean): Promise<void> {
 
 describe('handleFindMissingArtifact', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    (vscode.workspace.openTextDocument as jest.Mock).mockResolvedValue({
+    vi.clearAllMocks();
+    (vscode.workspace.openTextDocument as Mock).mockResolvedValue({
       uri: 'opened',
     });
-    (vscode.window.showTextDocument as jest.Mock).mockResolvedValue(undefined);
+    (vscode.window.showTextDocument as Mock).mockResolvedValue(undefined);
   });
 
   it('resolves a decomposed workspace sObject before querying the org', async () => {
@@ -666,10 +668,10 @@ describe('handleFindMissingArtifact', () => {
   });
 
   it('offers the targeted Services extension view for a blocking request', async () => {
-    jest.mocked(vscode.extensions.getExtension).mockReturnValue(undefined);
-    jest
-      .mocked(vscode.window.showWarningMessage)
-      .mockResolvedValue('Show Salesforce Services');
+    vi.mocked(vscode.extensions.getExtension).mockReturnValue(undefined);
+    vi.mocked(vscode.window.showWarningMessage).mockResolvedValue(
+      'Show Salesforce Services',
+    );
 
     await expect(
       handleFindMissingArtifact(

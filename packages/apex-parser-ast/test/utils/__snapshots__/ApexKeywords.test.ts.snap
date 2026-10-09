@@ -1,6 +1,6 @@
-// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`ApexKeywords Keyword List Snapshot should have consistent keyword list (snapshot test): apex-keywords-list 1`] = `
+exports[`ApexKeywords > Keyword List Snapshot > should have consistent keyword list (snapshot test) > apex-keywords-list 1`] = `
 [
   "above",
   "above_or_below",

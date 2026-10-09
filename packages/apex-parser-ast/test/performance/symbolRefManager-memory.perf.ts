@@ -1,11 +1,22 @@
 /*
- * Copyright (c) 2026, salesforce.com, inc.
+ * Copyright (c) 2025, salesforce.com, inc.
  * All rights reserved.
  * Licensed under the BSD 3-Clause license.
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Bench,
+  type BenchRunOptions,
+} from 'vitest';
 /**
  * ApexSymbolRefManager Memory and Performance Benchmarks
  *
@@ -22,7 +33,6 @@
  * Moved from: test/references/ApexSymbolRefManager.performance.test.ts
  */
 
-import Benchmark from 'benchmark';
 import {
   ApexSymbolRefManager,
   ReferenceType,
@@ -45,11 +55,11 @@ describe('ApexSymbolRefManager Performance Benchmarks', () => {
 
   const isCI = process.env.CI === 'true';
   const isQuick = process.env.QUICK === 'true';
-  const benchmarkSettings = isCI
-    ? { maxTime: 30, minTime: 10, minSamples: 5, initCount: 1 }
+  const benchmarkOptions: BenchRunOptions = isCI
+    ? { time: 30_000, warmupTime: 10_000, iterations: 5, warmupIterations: 1 }
     : isQuick
-      ? { maxTime: 1, minTime: 0.1, minSamples: 1, initCount: 1 }
-      : { maxTime: 6, minTime: 2, minSamples: 2, initCount: 1 };
+      ? { time: 1_000, warmupTime: 100, iterations: 1, warmupIterations: 1 }
+      : { time: 6_000, warmupTime: 2_000, iterations: 2, warmupIterations: 1 };
 
   beforeAll(async () => {
     await Effect.runPromise(
@@ -81,8 +91,6 @@ describe('ApexSymbolRefManager Performance Benchmarks', () => {
   afterEach(() => {
     graph.clear();
   });
-
-  jest.setTimeout(1000 * 60 * 10);
 
   const createTestSymbol = (
     name: string,
@@ -138,59 +146,30 @@ describe('ApexSymbolRefManager Performance Benchmarks', () => {
     };
   };
 
-  it('benchmarks symbol addition (1000 symbols)', (done) => {
-    const suite = new Benchmark.Suite();
-    const results: Record<string, Benchmark.Target> = {};
+  const runBenchmark = async (bench: Bench, name: string, fn: () => void) => {
+    await bench(name, {}, fn).run(benchmarkOptions);
+  };
 
+  it('benchmarks symbol addition (1000 symbols)', async ({ bench }) => {
     let counter = 0;
-
-    suite
-      .add('ApexSymbolRefManager.addSymbol (1000 symbols)', {
-        defer: true,
-        ...benchmarkSettings,
-        fn: (deferred: any) => {
-          // Add 1000 symbols in this iteration
-          for (let i = 0; i < 1000; i++) {
-            const symbol = createTestSymbol(
-              `Class${counter++}`,
-              SymbolKind.Class,
-              `Class${counter}`,
-              `file:///test/File${counter}.cls`,
-            );
-            graph.addSymbol(symbol, `File${counter}.cls`);
-          }
-          deferred.resolve();
-        },
-      })
-      .on('cycle', (event: any) => {
-        results[event.target.name] = event.target;
-        console.log(String(event.target));
-      })
-      .on('complete', function (this: any) {
-        const fs = require('fs');
-        const path = require('path');
-        const outputPath = path.join(
-          __dirname,
-          '../apex-parser-ast-benchmark-results.json',
-        );
-
-        let allResults = results;
-        try {
-          if (fs.existsSync(outputPath)) {
-            const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-            allResults = { ...existing, ...results };
-          }
-        } catch (error) {
-          console.warn('Could not read existing results:', error);
+    await runBenchmark(
+      bench,
+      'ApexSymbolRefManager.addSymbol (1000 symbols)',
+      () => {
+        for (let index = 0; index < 1000; index++) {
+          const symbol = createTestSymbol(
+            `Class${counter++}`,
+            SymbolKind.Class,
+            `Class${counter}`,
+            `file:///test/File${counter}.cls`,
+          );
+          graph.addSymbol(symbol, `File${counter}`);
         }
-
-        fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-        done();
-      })
-      .run({ async: true });
+      },
+    );
   });
 
-  it('benchmarks symbol lookup by name', (done) => {
+  it('benchmarks symbol lookup by name', async ({ bench }) => {
     // Pre-populate graph with 10,000 symbols
     for (let i = 0; i < 10000; i++) {
       const symbol = createTestSymbol(
@@ -202,48 +181,16 @@ describe('ApexSymbolRefManager Performance Benchmarks', () => {
       graph.addSymbol(symbol, `File${i}.cls`);
     }
 
-    const suite = new Benchmark.Suite();
-    const results: Record<string, Benchmark.Target> = {};
-
-    suite
-      .add('ApexSymbolRefManager.lookupSymbolByName (10K symbols)', {
-        defer: true,
-        ...benchmarkSettings,
-        fn: (deferred: any) => {
-          const symbolName = `Class${Math.floor(Math.random() * 10000)}`;
-          graph.lookupSymbolByName(symbolName);
-          deferred.resolve();
-        },
-      })
-      .on('cycle', (event: any) => {
-        results[event.target.name] = event.target;
-        console.log(String(event.target));
-      })
-      .on('complete', function (this: any) {
-        const fs = require('fs');
-        const path = require('path');
-        const outputPath = path.join(
-          __dirname,
-          '../apex-parser-ast-benchmark-results.json',
-        );
-
-        let allResults = results;
-        try {
-          if (fs.existsSync(outputPath)) {
-            const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-            allResults = { ...existing, ...results };
-          }
-        } catch (error) {
-          console.warn('Could not read existing results:', error);
-        }
-
-        fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-        done();
-      })
-      .run({ async: true });
+    await runBenchmark(
+      bench,
+      'ApexSymbolRefManager.lookupSymbolByName (10K symbols)',
+      () => {
+        graph.lookupSymbolByName(`Class${Math.floor(Math.random() * 10000)}`);
+      },
+    );
   });
 
-  it('benchmarks reference lookup', (done) => {
+  it('benchmarks reference lookup', async ({ bench }) => {
     // Pre-populate graph
     const symbols: ApexSymbol[] = [];
     for (let i = 0; i < 1000; i++) {
@@ -283,49 +230,18 @@ describe('ApexSymbolRefManager Performance Benchmarks', () => {
       );
     }
 
-    const suite = new Benchmark.Suite();
-    const results: Record<string, Benchmark.Target> = {};
-
-    suite
-      .add('ApexSymbolRefManager.findReferences (1K symbols, 5K refs)', {
-        defer: true,
-        ...benchmarkSettings,
-        fn: (deferred: any) => {
-          const randomSymbol = symbols[Math.floor(Math.random() * 1000)];
-          graph.findReferencesTo(randomSymbol);
-          graph.findReferencesFrom(randomSymbol);
-          deferred.resolve();
-        },
-      })
-      .on('cycle', (event: any) => {
-        results[event.target.name] = event.target;
-        console.log(String(event.target));
-      })
-      .on('complete', function (this: any) {
-        const fs = require('fs');
-        const path = require('path');
-        const outputPath = path.join(
-          __dirname,
-          '../apex-parser-ast-benchmark-results.json',
-        );
-
-        let allResults = results;
-        try {
-          if (fs.existsSync(outputPath)) {
-            const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-            allResults = { ...existing, ...results };
-          }
-        } catch (error) {
-          console.warn('Could not read existing results:', error);
-        }
-
-        fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-        done();
-      })
-      .run({ async: true });
+    await runBenchmark(
+      bench,
+      'ApexSymbolRefManager.findReferences (1K symbols, 5K refs)',
+      () => {
+        const randomSymbol = symbols[Math.floor(Math.random() * 1000)];
+        graph.findReferencesTo(randomSymbol);
+        graph.findReferencesFrom(randomSymbol);
+      },
+    );
   });
 
-  it('benchmarks circular dependency detection', (done) => {
+  it('benchmarks circular dependency detection', async ({ bench }) => {
     // Pre-populate with circular references
     for (let i = 0; i < 1000; i++) {
       const symbol = createTestSymbol(
@@ -373,44 +289,13 @@ describe('ApexSymbolRefManager Performance Benchmarks', () => {
       );
     }
 
-    const suite = new Benchmark.Suite();
-    const results: Record<string, Benchmark.Target> = {};
-
-    suite
-      .add('ApexSymbolRefManager.detectCircularDependencies (1K symbols)', {
-        defer: true,
-        ...benchmarkSettings,
-        fn: (deferred: any) => {
-          graph.detectCircularDependencies();
-          deferred.resolve();
-        },
-      })
-      .on('cycle', (event: any) => {
-        results[event.target.name] = event.target;
-        console.log(String(event.target));
-      })
-      .on('complete', function (this: any) {
-        const fs = require('fs');
-        const path = require('path');
-        const outputPath = path.join(
-          __dirname,
-          '../apex-parser-ast-benchmark-results.json',
-        );
-
-        let allResults = results;
-        try {
-          if (fs.existsSync(outputPath)) {
-            const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-            allResults = { ...existing, ...results };
-          }
-        } catch (error) {
-          console.warn('Could not read existing results:', error);
-        }
-
-        fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-        done();
-      })
-      .run({ async: true });
+    await runBenchmark(
+      bench,
+      'ApexSymbolRefManager.detectCircularDependencies (1K symbols)',
+      () => {
+        graph.detectCircularDependencies();
+      },
+    );
   });
 
   // Informational tests - measure memory usage

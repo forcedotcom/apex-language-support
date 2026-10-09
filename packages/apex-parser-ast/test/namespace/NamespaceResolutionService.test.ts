@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mocked } from 'vitest';
+import { vi } from 'vitest';
 import { NamespaceResolutionService } from '../../src/namespace/NamespaceResolutionService';
 import {
   SymbolTable,
@@ -106,21 +108,21 @@ const createMockCompilationContext = (): CompilationContext => ({
   isStaticContext: false,
 });
 
-const createMockSymbolProvider = (): jest.Mocked<SymbolProvider> => ({
-  find: jest.fn(),
-  findScalarKeywordType: jest.fn(),
-  findSObjectType: jest.fn(),
-  findExternalType: jest.fn(),
-  findInDefaultNamespaceOrder: jest.fn(),
-  findInImplicitFileNamespaceSlot: jest.fn(),
-  findInExplicitNamespace: jest.fn(),
-  isBuiltInNamespace: jest.fn(),
-  isSObjectContainerNamespace: jest.fn(),
+const createMockSymbolProvider = (): Mocked<SymbolProvider> => ({
+  find: vi.fn(),
+  findScalarKeywordType: vi.fn(),
+  findSObjectType: vi.fn(),
+  findExternalType: vi.fn(),
+  findInDefaultNamespaceOrder: vi.fn(),
+  findInImplicitFileNamespaceSlot: vi.fn(),
+  findInExplicitNamespace: vi.fn(),
+  isBuiltInNamespace: vi.fn(),
+  isSObjectContainerNamespace: vi.fn(),
 });
 
 describe('NamespaceResolutionService', () => {
   let service: NamespaceResolutionService;
-  let mockSymbolProvider: jest.Mocked<SymbolProvider>;
+  let mockSymbolProvider: Mocked<SymbolProvider>;
 
   beforeEach(() => {
     service = new NamespaceResolutionService();

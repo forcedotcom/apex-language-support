@@ -6,7 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import type { Mock } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { BaseLanguageClient, State } from 'vscode-languageclient';
 import type { Disposable } from '@salesforce/apex-lsp-shared';
 import { LanguageClientConnection } from '../../src/transports/languageClientConnection';
@@ -24,8 +25,30 @@ const State_Starting = 3 as unknown as State;
  * `onError`/`onClose` events via `onDidChangeState`.
  */
 describe('LanguageClientConnection', () => {
-  let mockClient: jest.Mocked<
-    Pick<
+  let mockClient: Pick<
+    BaseLanguageClient,
+    | 'sendRequest'
+    | 'sendNotification'
+    | 'onRequest'
+    | 'onNotification'
+    | 'isRunning'
+    | 'stop'
+    | 'onDidChangeState'
+  >;
+  let adapter: LanguageClientConnection;
+
+  beforeEach(() => {
+    const disposable: Disposable = { dispose: vi.fn() };
+
+    mockClient = {
+      sendRequest: vi.fn(),
+      sendNotification: vi.fn().mockResolvedValue(undefined),
+      onRequest: vi.fn().mockReturnValue(disposable),
+      onNotification: vi.fn().mockReturnValue(disposable),
+      isRunning: vi.fn().mockReturnValue(true),
+      stop: vi.fn().mockResolvedValue(undefined),
+      onDidChangeState: vi.fn().mockReturnValue(disposable),
+    } as Pick<
       BaseLanguageClient,
       | 'sendRequest'
       | 'sendNotification'
@@ -34,24 +57,7 @@ describe('LanguageClientConnection', () => {
       | 'isRunning'
       | 'stop'
       | 'onDidChangeState'
-    >
-  >;
-  let adapter: LanguageClientConnection;
-
-  beforeEach(() => {
-    const disposable: Disposable = { dispose: jest.fn() };
-
-    mockClient = {
-      sendRequest: jest.fn<any>(),
-      sendNotification: jest
-        .fn<() => Promise<void>>()
-        .mockResolvedValue(undefined),
-      onRequest: jest.fn<any>().mockReturnValue(disposable),
-      onNotification: jest.fn<any>().mockReturnValue(disposable),
-      isRunning: jest.fn<any>().mockReturnValue(true),
-      stop: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-      onDidChangeState: jest.fn<any>().mockReturnValue(disposable),
-    };
+    >;
 
     adapter = new LanguageClientConnection(
       mockClient as unknown as BaseLanguageClient,
@@ -62,7 +68,7 @@ describe('LanguageClientConnection', () => {
     it('delegates to the underlying client', async () => {
       const expected = { capabilities: {} };
       (
-        mockClient.sendRequest as jest.Mock<() => Promise<typeof expected>>
+        mockClient.sendRequest as Mock<() => Promise<typeof expected>>
       ).mockResolvedValue(expected);
 
       const result = await adapter.sendRequest('initialize', { processId: 1 });
@@ -93,7 +99,7 @@ describe('LanguageClientConnection', () => {
 
   describe('onRequest', () => {
     it('registers a handler and returns a Disposable', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       const disposable = adapter.onRequest('apex/findMissingArtifact', handler);
 
       expect(mockClient.onRequest).toHaveBeenCalledWith(
@@ -107,7 +113,7 @@ describe('LanguageClientConnection', () => {
 
   describe('onNotification', () => {
     it('registers a handler and returns a Disposable', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       const disposable = adapter.onNotification('window/logMessage', handler);
 
       expect(mockClient.onNotification).toHaveBeenCalledWith(
@@ -123,12 +129,17 @@ describe('LanguageClientConnection', () => {
     it('fires handler with Error when state transitions to Stopped', () => {
       let capturedListener:
         ((event: { oldState: State; newState: State }) => void) | undefined;
-      mockClient.onDidChangeState.mockImplementation((listener) => {
-        capturedListener = listener;
-        return { dispose: jest.fn() };
-      });
+      (mockClient.onDidChangeState as Mock).mockImplementation(
+        (listener: unknown) => {
+          capturedListener = listener as (event: {
+            oldState: State;
+            newState: State;
+          }) => void;
+          return { dispose: vi.fn() };
+        },
+      );
 
-      const handler = jest.fn();
+      const handler = vi.fn();
       adapter.onError(handler);
 
       expect(capturedListener).toBeDefined();
@@ -146,12 +157,17 @@ describe('LanguageClientConnection', () => {
     it('does not fire when state stays Stopped', () => {
       let capturedListener:
         ((event: { oldState: State; newState: State }) => void) | undefined;
-      mockClient.onDidChangeState.mockImplementation((listener) => {
-        capturedListener = listener;
-        return { dispose: jest.fn() };
-      });
+      (mockClient.onDidChangeState as Mock).mockImplementation(
+        (listener: unknown) => {
+          capturedListener = listener as (event: {
+            oldState: State;
+            newState: State;
+          }) => void;
+          return { dispose: vi.fn() };
+        },
+      );
 
-      const handler = jest.fn();
+      const handler = vi.fn();
       adapter.onError(handler);
 
       // Simulate Stopped→Stopped (no change).
@@ -161,7 +177,7 @@ describe('LanguageClientConnection', () => {
     });
 
     it('returns a Disposable', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       const disposable = adapter.onError(handler);
 
       expect(disposable).toBeDefined();
@@ -173,12 +189,17 @@ describe('LanguageClientConnection', () => {
     it('fires handler when state transitions to Stopped', () => {
       let capturedListener:
         ((event: { oldState: State; newState: State }) => void) | undefined;
-      mockClient.onDidChangeState.mockImplementation((listener) => {
-        capturedListener = listener;
-        return { dispose: jest.fn() };
-      });
+      (mockClient.onDidChangeState as Mock).mockImplementation(
+        (listener: unknown) => {
+          capturedListener = listener as (event: {
+            oldState: State;
+            newState: State;
+          }) => void;
+          return { dispose: vi.fn() };
+        },
+      );
 
-      const handler = jest.fn();
+      const handler = vi.fn();
       adapter.onClose(handler);
 
       expect(capturedListener).toBeDefined();
@@ -192,12 +213,17 @@ describe('LanguageClientConnection', () => {
     it('does not fire when transitioning from Stopped to Starting', () => {
       let capturedListener:
         ((event: { oldState: State; newState: State }) => void) | undefined;
-      mockClient.onDidChangeState.mockImplementation((listener) => {
-        capturedListener = listener;
-        return { dispose: jest.fn() };
-      });
+      (mockClient.onDidChangeState as Mock).mockImplementation(
+        (listener: unknown) => {
+          capturedListener = listener as (event: {
+            oldState: State;
+            newState: State;
+          }) => void;
+          return { dispose: vi.fn() };
+        },
+      );
 
-      const handler = jest.fn();
+      const handler = vi.fn();
       adapter.onClose(handler);
 
       // Simulate Stopped→Starting (not a close event).
@@ -207,7 +233,7 @@ describe('LanguageClientConnection', () => {
     });
 
     it('returns a Disposable', () => {
-      const handler = jest.fn();
+      const handler = vi.fn();
       const disposable = adapter.onClose(handler);
 
       expect(disposable).toBeDefined();
@@ -217,13 +243,13 @@ describe('LanguageClientConnection', () => {
 
   describe('isListening', () => {
     it('returns true when client is running', () => {
-      mockClient.isRunning.mockReturnValue(true);
+      (mockClient.isRunning as Mock).mockReturnValue(true);
 
       expect(adapter.isListening()).toBe(true);
     });
 
     it('returns false when client is not running', () => {
-      mockClient.isRunning.mockReturnValue(false);
+      (mockClient.isRunning as Mock).mockReturnValue(false);
 
       expect(adapter.isListening()).toBe(false);
     });

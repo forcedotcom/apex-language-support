@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { pathToFileURL } from 'url';
@@ -49,7 +50,7 @@ describe('Logging Protocol Integration', () => {
   const workspaceUri = pathToFileURL(join(__dirname, '../fixtures')).href;
 
   // Increase timeout for integration test (server startup can be slow)
-  jest.setTimeout(45000); // 45 seconds to allow for workspace processing
+  vi.setConfig({ testTimeout: 45000 }); // 45 seconds to allow for workspace processing
 
   beforeAll(async () => {
     // Create notification capture middleware

@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { SymbolTable } from '../../src/types/symbol';
 import {
   ApexSymbolIndexingIntegration,
@@ -21,15 +22,15 @@ import {
 import { Effect } from 'effect';
 
 // Mock getLogger, but keep Priority from actual module
-jest.mock('@salesforce/apex-lsp-shared', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
+vi.mock('@salesforce/apex-lsp-shared', async () => {
+  const actual = await vi.importActual('@salesforce/apex-lsp-shared');
   return {
     ...actual,
-    getLogger: jest.fn(() => ({
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
+    getLogger: vi.fn(() => ({
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
     })),
   };
 });
@@ -65,7 +66,7 @@ describe('ApexSymbolIndexingService', () => {
   });
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     symbolManager = new ApexSymbolManager();
     indexingService = new ApexSymbolIndexingIntegration(symbolManager);
     // Give scheduler a moment to process any queued tasks

@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import {
   DocumentCloseProcessingService,
   IDocumentCloseProcessor,
@@ -14,39 +16,38 @@ import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { DocumentSymbolResultStore } from '../../src/services/DocumentSymbolResultStore';
+import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
+import { getDocumentStateCache } from '../../src/services/DocumentStateCache';
 
 // Only mock storage - use real implementations for everything else
-jest.mock('../../src/storage/ApexStorageManager');
+vi.mock('../../src/storage/ApexStorageManager');
 
 describe('DocumentCloseProcessingService', () => {
   let service: DocumentCloseProcessingService;
   let logger: ReturnType<typeof getLogger>;
   let mockStorage: any;
-  let mockDocumentSymbolCache: { invalidate: jest.Mock };
+  let mockDocumentSymbolCache: { invalidate: Mock };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     logger = getLogger();
 
     mockStorage = {
-      setDocument: jest.fn(),
-      getDocument: jest.fn(),
-      deleteDocument: jest.fn(),
-      getAllDocuments: jest.fn(),
+      setDocument: vi.fn(),
+      getDocument: vi.fn(),
+      deleteDocument: vi.fn(),
+      getAllDocuments: vi.fn(),
     };
     mockDocumentSymbolCache = {
-      invalidate: jest.fn(),
+      invalidate: vi.fn(),
     };
-    jest
-      .spyOn(DocumentSymbolResultStore, 'getInstance')
-      .mockReturnValue(mockDocumentSymbolCache as any);
+    vi.spyOn(DocumentSymbolResultStore, 'getInstance').mockReturnValue(
+      mockDocumentSymbolCache as any,
+    );
 
-    const {
-      ApexStorageManager,
-    } = require('../../src/storage/ApexStorageManager');
-    ApexStorageManager.getInstance.mockReturnValue({
-      getStorage: jest.fn(() => mockStorage),
+    (ApexStorageManager.getInstance as Mock).mockReturnValue({
+      getStorage: vi.fn(() => mockStorage),
     });
 
     service = new DocumentCloseProcessingService(logger);
@@ -67,11 +68,11 @@ describe('DocumentCloseProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -89,11 +90,11 @@ describe('DocumentCloseProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -112,11 +113,11 @@ describe('DocumentCloseProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -132,11 +133,11 @@ describe('DocumentCloseProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => '',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 0,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -155,11 +156,11 @@ describe('DocumentCloseProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => largeContent,
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1001,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -191,11 +192,11 @@ describe('DocumentCloseProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -213,11 +214,11 @@ describe('DocumentCloseProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -232,10 +233,7 @@ describe('DocumentCloseProcessingService', () => {
 
   describe('error scenarios', () => {
     it('should handle storage manager errors', async () => {
-      const {
-        ApexStorageManager,
-      } = require('../../src/storage/ApexStorageManager');
-      ApexStorageManager.getInstance.mockImplementation(() => {
+      (ApexStorageManager.getInstance as Mock).mockImplementation(() => {
         throw new Error('Storage manager not available');
       });
 
@@ -245,11 +243,11 @@ describe('DocumentCloseProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -269,11 +267,11 @@ describe('DocumentCloseProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -291,11 +289,11 @@ describe('DocumentCloseProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -312,9 +310,6 @@ describe('DocumentCloseProcessingService', () => {
 
   describe('cache invalidation', () => {
     it('should invalidate document state cache on close', async () => {
-      const {
-        getDocumentStateCache,
-      } = require('../../src/services/DocumentStateCache');
       const cache = getDocumentStateCache();
       const testUri = 'file:///cachetest.cls';
 
@@ -335,11 +330,11 @@ describe('DocumentCloseProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class CacheTest {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -360,11 +355,11 @@ describe('DocumentCloseProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class CacheTest {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -383,11 +378,11 @@ describe('DocumentCloseProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => 'public class TestClass {}',
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       };
 
@@ -416,11 +411,11 @@ describe('DocumentCloseProcessingService', () => {
           languageId: 'apex',
           version: 1,
           getText: () => `public class TestClass${index} {}`,
-          positionAt: jest.fn(),
-          offsetAt: jest.fn(),
+          positionAt: vi.fn(),
+          offsetAt: vi.fn(),
           lineCount: 1,
-          getLineRange: jest.fn(),
-          getEOLCharacters: jest.fn(),
+          getLineRange: vi.fn(),
+          getEOLCharacters: vi.fn(),
         },
       }));
 

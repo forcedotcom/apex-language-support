@@ -6,32 +6,27 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mocked } from 'vitest';
+import { vi } from 'vitest';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import { createMockLogger, type MockLogger } from '../utils/mockLogger';
 
 import { DidSaveDocumentHandler } from '../../src/handlers/DidSaveDocumentHandler';
 import { IDocumentSaveProcessor } from '../../src/services/DocumentSaveProcessingService';
 
 describe('DidSaveDocumentHandler', () => {
   let handler: DidSaveDocumentHandler;
-  let mockLogger: jest.Mocked<LoggerInterface>;
-  let mockDocumentSaveProcessor: jest.Mocked<IDocumentSaveProcessor>;
+  let mockLogger: MockLogger;
+  let mockDocumentSaveProcessor: Mocked<IDocumentSaveProcessor>;
 
   beforeEach(() => {
     // Create mock logger
-    mockLogger = {
-      log: jest.fn(),
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      alwaysLog: jest.fn(),
-    };
+    mockLogger = createMockLogger();
 
     // Create mock document save processor
     mockDocumentSaveProcessor = {
-      processDocumentSave: jest.fn(),
+      processDocumentSave: vi.fn(),
     };
 
     // Create handler with mocked dependencies
@@ -39,7 +34,7 @@ describe('DidSaveDocumentHandler', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('handleDocumentSave', () => {
@@ -66,9 +61,12 @@ describe('DidSaveDocumentHandler', () => {
 
       // Verify the debug message function was called with correct content
       const debugCall = mockLogger.debug.mock.calls[0];
-      expect(debugCall[0]()).toBe(
-        'Processing document save: file:///test.cls (version: 1)',
-      );
+      expect(typeof debugCall[0]).toBe('function');
+      if (typeof debugCall[0] === 'function') {
+        expect(debugCall[0]()).toBe(
+          'Processing document save: file:///test.cls (version: 1)',
+        );
+      }
       expect(
         mockDocumentSaveProcessor.processDocumentSave,
       ).toHaveBeenCalledWith(mockEvent);
@@ -103,10 +101,12 @@ describe('DidSaveDocumentHandler', () => {
       // Verify the error message function was called with correct content
       const errorCall = mockLogger.error.mock.calls[0];
       expect(typeof errorCall[0]).toBe('function');
-      expect(errorCall[0]()).toContain(
-        'Error processing document save for file:///test.cls',
-      );
-      expect(errorCall[0]()).toContain('Document save processing failed');
+      if (typeof errorCall[0] === 'function') {
+        expect(errorCall[0]()).toContain(
+          'Error processing document save for file:///test.cls',
+        );
+        expect(errorCall[0]()).toContain('Document save processing failed');
+      }
     });
   });
 });

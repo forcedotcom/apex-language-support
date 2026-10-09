@@ -6,36 +6,40 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-// jest.mock calls are hoisted before imports
-jest.mock('../src/logging', () => ({
-  logToOutputChannel: jest.fn(),
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
+// vi.mock calls are hoisted before imports
+vi.mock('../src/logging', () => ({
+  logToOutputChannel: vi.fn(),
 }));
 
-jest.mock('effect', () => {
-  const actual = jest.requireActual<typeof import('effect')>('effect');
+vi.mock('effect', async () => {
+  const actual = await vi.importActual<typeof import('effect')>('effect');
   return {
     ...actual,
     Effect: {
       ...actual.Effect,
       // Spy wrappers preserve real behaviour while recording calls
-      withSpan: jest.fn(actual.Effect.withSpan),
-      annotateCurrentSpan: jest.fn(actual.Effect.annotateCurrentSpan),
-      runPromise: jest.fn(actual.Effect.runPromise),
+      withSpan: vi.fn(actual.Effect.withSpan),
+      annotateCurrentSpan: vi.fn(actual.Effect.annotateCurrentSpan),
+      runPromise: vi.fn(actual.Effect.runPromise),
     },
     ManagedRuntime: {
-      make: jest.fn(),
+      make: vi.fn(),
     },
   };
 });
 
 // Provide a complete vscode mock that includes `workspace.onDidChangeConfiguration`
 // and `extensions.getExtension` — both required by extensionTracing.ts.
-const mockGetExtension = jest.fn();
-const mockOnDidChangeConfiguration = jest.fn(() => ({ dispose: jest.fn() }));
+const { mockGetExtension, mockOnDidChangeConfiguration } = vi.hoisted(() => ({
+  mockGetExtension: vi.fn(),
+  mockOnDidChangeConfiguration: vi.fn(() => ({ dispose: vi.fn() })),
+}));
 
-jest.mock('vscode', () => ({
+vi.mock('vscode', () => ({
   workspace: {
-    getConfiguration: jest.fn(() => ({ get: jest.fn() })),
+    getConfiguration: vi.fn(() => ({ get: vi.fn() })),
     onDidChangeConfiguration: mockOnDidChangeConfiguration,
   },
   extensions: {
@@ -44,6 +48,8 @@ jest.mock('vscode', () => ({
 }));
 
 import * as vscode from 'vscode';
+import { Effect, ManagedRuntime } from 'effect';
+import { logToOutputChannel } from '../src/logging';
 import {
   initializeExtensionTracing,
   injectTraceContextFromCurrentEffectSpan,
@@ -68,25 +74,23 @@ describe('extensionTracing', () => {
   let mockContext: vscode.ExtensionContext;
   let mockServicesApi: {
     services: {
-      SdkLayerFor: jest.Mock;
-      getSdkLayerConfigFromContext?: jest.Mock;
+      SdkLayerFor: Mock;
+      getSdkLayerConfigFromContext?: Mock;
     };
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Reset ManagedRuntime.make to return a usable runtime by default.
     // disposeEffect must be a real Effect so Effect.runPromise can interpret it.
-    const { Effect, ManagedRuntime } =
-      require('effect') as typeof import('effect');
-    (ManagedRuntime.make as jest.Mock).mockReturnValue({
-      runPromise: jest.fn().mockResolvedValue(undefined),
+    (ManagedRuntime.make as Mock).mockReturnValue({
+      runPromise: vi.fn().mockResolvedValue(undefined),
       disposeEffect: Effect.void,
     });
 
     // Reset onDidChangeConfiguration to return a disposable
-    mockOnDidChangeConfiguration.mockReturnValue({ dispose: jest.fn() });
+    mockOnDidChangeConfiguration.mockReturnValue({ dispose: vi.fn() });
 
     mockContext = {
       subscriptions: [],
@@ -99,7 +103,7 @@ describe('extensionTracing', () => {
     } as unknown as vscode.ExtensionContext;
 
     mockServicesApi = {
-      services: { SdkLayerFor: jest.fn().mockReturnValue({}) },
+      services: { SdkLayerFor: vi.fn().mockReturnValue({}) },
     };
 
     // Default: services extension not found
@@ -123,10 +127,6 @@ describe('extensionTracing', () => {
     });
 
     it('logs a warning and does not throw when services extension is absent', async () => {
-      const { logToOutputChannel } = require('../src/logging') as {
-        logToOutputChannel: jest.Mock;
-      };
-
       await expect(
         initializeExtensionTracing(mockContext),
       ).resolves.toBeUndefined();
@@ -138,7 +138,7 @@ describe('extensionTracing', () => {
     });
 
     it('activates the services extension if it is not yet active', async () => {
-      const mockActivate = jest.fn().mockResolvedValue(mockServicesApi);
+      const mockActivate = vi.fn().mockResolvedValue(mockServicesApi);
       mockGetExtension.mockReturnValue({
         isActive: false,
         activate: mockActivate,
@@ -151,7 +151,7 @@ describe('extensionTracing', () => {
     });
 
     it('uses the already-active services extension without re-activating', async () => {
-      const mockActivate = jest.fn();
+      const mockActivate = vi.fn();
       mockGetExtension.mockReturnValue({
         isActive: true,
         activate: mockActivate,
@@ -166,7 +166,7 @@ describe('extensionTracing', () => {
     it('calls SdkLayerFor with the extension context', async () => {
       mockGetExtension.mockReturnValue({
         isActive: true,
-        activate: jest.fn(),
+        activate: vi.fn(),
         exports: mockServicesApi,
       });
 
@@ -178,14 +178,13 @@ describe('extensionTracing', () => {
     });
 
     it('creates collected-span SDK runtimes with the original service identity', () => {
-      const { ManagedRuntime } = require('effect') as typeof import('effect');
       const fallbackRuntime = {
-        runPromise: jest.fn(),
+        runPromise: vi.fn(),
       } as unknown as import('effect').ManagedRuntime.ManagedRuntime<
         never,
         never
       >;
-      mockServicesApi.services.getSdkLayerConfigFromContext = jest
+      mockServicesApi.services.getSdkLayerConfigFromContext = vi
         .fn()
         .mockReturnValue({
           extensionName: 'apex-language-server-extension',
@@ -223,9 +222,9 @@ describe('extensionTracing', () => {
       ((event: vscode.ConfigurationChangeEvent) => Promise<void>) | undefined;
 
     beforeEach(async () => {
-      mockOnDidChangeConfiguration.mockImplementation((listener) => {
+      mockOnDidChangeConfiguration.mockImplementation((listener: unknown) => {
         capturedListener = listener as typeof capturedListener;
-        return { dispose: jest.fn() };
+        return { dispose: vi.fn() };
       });
       await initializeExtensionTracing(mockContext);
     });
@@ -234,7 +233,7 @@ describe('extensionTracing', () => {
       [`${SALESFORCE_DX_SECTION}.enableFileTraces`],
       [`${SALESFORCE_DX_SECTION}.enableConsoleTraces`],
       [`${SALESFORCE_DX_SECTION}.enableLocalTraces`],
-    ])('reinitializes runtime when %s changes', async (settingKey) => {
+    ])('reinitializes runtime when %s changes', async (settingKey: string) => {
       expect(capturedListener).toBeDefined();
 
       await capturedListener!(makeChangeEvent([settingKey]));
@@ -270,10 +269,9 @@ describe('extensionTracing', () => {
     });
 
     it('uses event.type as the span name', async () => {
-      const { Effect } = require('effect') as typeof import('effect');
       mockGetExtension.mockReturnValue({
         isActive: true,
-        activate: jest.fn(),
+        activate: vi.fn(),
         exports: mockServicesApi,
       });
 
@@ -286,10 +284,9 @@ describe('extensionTracing', () => {
     });
 
     it('falls back to "unknown" span name when event has no type', async () => {
-      const { Effect } = require('effect') as typeof import('effect');
       mockGetExtension.mockReturnValue({
         isActive: true,
-        activate: jest.fn(),
+        activate: vi.fn(),
         exports: mockServicesApi,
       });
 
@@ -300,10 +297,9 @@ describe('extensionTracing', () => {
     });
 
     it('omits null and undefined values from span annotations', async () => {
-      const { Effect } = require('effect') as typeof import('effect');
       mockGetExtension.mockReturnValue({
         isActive: true,
-        activate: jest.fn(),
+        activate: vi.fn(),
         exports: mockServicesApi,
       });
 
@@ -323,8 +319,6 @@ describe('extensionTracing', () => {
 
   describe('runWithExtensionTracing', () => {
     it('uses the default Effect runtime before tracing is initialized', async () => {
-      const { Effect } = require('effect') as typeof import('effect');
-
       await expect(
         runWithExtensionTracing(Effect.succeed('fallback')),
       ).resolves.toBe('fallback');
@@ -332,15 +326,13 @@ describe('extensionTracing', () => {
     });
 
     it('uses the managed tracing runtime after initialization', async () => {
-      const { Effect, ManagedRuntime } =
-        require('effect') as typeof import('effect');
       mockGetExtension.mockReturnValue({
         isActive: true,
-        activate: jest.fn(),
+        activate: vi.fn(),
         exports: mockServicesApi,
       });
       await initializeExtensionTracing(mockContext);
-      const rt = (ManagedRuntime.make as jest.Mock).mock.results[0].value;
+      const rt = (ManagedRuntime.make as Mock).mock.results[0].value;
       rt.runPromise.mockClear();
       rt.runPromise.mockResolvedValueOnce('traced');
 
@@ -353,7 +345,7 @@ describe('extensionTracing', () => {
 
   describe('injectTraceContextFromCurrentEffectSpan', () => {
     it('injects the Effect-native span even without a global OTEL active span', async () => {
-      const actual = jest.requireActual<typeof import('effect')>('effect');
+      const actual = await vi.importActual<typeof import('effect')>('effect');
       const result = await actual.Effect.runPromise(
         actual.Effect.gen(function* () {
           return yield* injectTraceContextFromCurrentEffectSpan({ value: 1 });
@@ -375,16 +367,14 @@ describe('extensionTracing', () => {
     });
 
     it('disposes the runtime on shutdown', async () => {
-      const { Effect, ManagedRuntime } =
-        require('effect') as typeof import('effect');
       mockGetExtension.mockReturnValue({
         isActive: true,
-        activate: jest.fn(),
+        activate: vi.fn(),
         exports: mockServicesApi,
       });
 
       await initializeExtensionTracing(mockContext);
-      const rt = (ManagedRuntime.make as jest.Mock).mock.results[0].value;
+      const rt = (ManagedRuntime.make as Mock).mock.results[0].value;
 
       await shutdownExtensionTracing();
 
@@ -393,18 +383,17 @@ describe('extensionTracing', () => {
     });
 
     it('makes emitTelemetrySpan a no-op after shutdown', async () => {
-      const { ManagedRuntime } = require('effect') as typeof import('effect');
       mockGetExtension.mockReturnValue({
         isActive: true,
-        activate: jest.fn(),
+        activate: vi.fn(),
         exports: mockServicesApi,
       });
 
       await initializeExtensionTracing(mockContext);
       await shutdownExtensionTracing();
 
-      const mockRunPromise = (ManagedRuntime.make as jest.Mock).mock.results[0]
-        .value.runPromise as jest.Mock;
+      const mockRunPromise = (ManagedRuntime.make as Mock).mock.results[0].value
+        .runPromise as Mock;
       mockRunPromise.mockClear();
 
       emitTelemetrySpan({ type: 'post_shutdown' });

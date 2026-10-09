@@ -6,49 +6,51 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock, Mocked } from 'vitest';
+import { vi } from 'vitest';
 import { Diagnostic, DocumentSymbolParams } from 'vscode-languageserver';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
 import { processOnDiagnostic } from '../../src/handlers/DiagnosticHandler';
+import { DiagnosticProcessingService } from '../../src/services/DiagnosticProcessingService';
 
 // Mock the logging module
-jest.mock('@salesforce/apex-lsp-shared', () => ({
-  ...jest.requireActual('@salesforce/apex-lsp-shared'),
-  getLogger: jest.fn(),
+vi.mock('@salesforce/apex-lsp-shared', async () => ({
+  ...(await vi.importActual('@salesforce/apex-lsp-shared')),
+  getLogger: vi.fn(),
 }));
 
 // Mock the DiagnosticProcessingService
-jest.mock('../../src/services/DiagnosticProcessingService', () => ({
-  DiagnosticProcessingService: jest.fn(),
+vi.mock('../../src/services/DiagnosticProcessingService', () => ({
+  DiagnosticProcessingService: vi.fn(),
 }));
 
 describe('processOnDiagnostic', () => {
-  let mockLogger: jest.Mocked<ReturnType<typeof getLogger>>;
+  let mockLogger: Mocked<ReturnType<typeof getLogger>>;
   let mockDiagnosticProcessor: any;
 
   beforeEach(() => {
     mockLogger = {
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
     } as any;
 
     mockDiagnosticProcessor = {
-      processDiagnostic: jest.fn(),
+      processDiagnostic: vi.fn(),
     };
 
-    (getLogger as jest.Mock).mockReturnValue(mockLogger);
-    const {
-      DiagnosticProcessingService,
-    } = require('../../src/services/DiagnosticProcessingService');
-    DiagnosticProcessingService.mockImplementation(
-      () => mockDiagnosticProcessor,
+    (getLogger as Mock).mockReturnValue(mockLogger);
+    (DiagnosticProcessingService as unknown as Mock).mockImplementation(
+      function () {
+        return mockDiagnosticProcessor;
+      },
     );
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('processOnDiagnostic', () => {

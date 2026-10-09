@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { DEFAULT_APEX_SETTINGS } from '@salesforce/apex-lsp-shared';

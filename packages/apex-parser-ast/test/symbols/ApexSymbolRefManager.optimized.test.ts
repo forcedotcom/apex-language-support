@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import {
   ApexSymbolRefManager,
   ReferenceType,
@@ -610,7 +611,7 @@ describe('ApexSymbolRefManager - Optimized Architecture', () => {
 
   describe('Performance and Memory', () => {
     it('should read graph counts without running topology analysis', () => {
-      const detectCycles = jest.spyOn(
+      const detectCycles = vi.spyOn(
         symbolRefManager,
         'detectCircularDependencies',
       );

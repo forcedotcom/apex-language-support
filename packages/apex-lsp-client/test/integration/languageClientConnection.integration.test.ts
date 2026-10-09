@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { describe, it, expect, afterAll } from '@jest/globals';
+import { describe, it, expect, afterAll } from 'vitest';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { LanguageClientConnection } from '../../src/transports/languageClientConnection';

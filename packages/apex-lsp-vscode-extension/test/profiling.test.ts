@@ -6,9 +6,11 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 // Mock vscode
-jest.mock('vscode', () => ({
-  ...jest.requireActual('vscode'),
+vi.mock('vscode', async () => ({
+  ...(await vi.importActual('vscode')),
   env: {
     uiKind: 1, // UIKind.Desktop (1), UIKind.Web (2)
     language: 'en',
@@ -25,13 +27,13 @@ jest.mock('vscode', () => ({
 }));
 
 // Mock the logging module
-jest.mock('../src/logging', () => ({
-  logToOutputChannel: jest.fn(),
+vi.mock('../src/logging', () => ({
+  logToOutputChannel: vi.fn(),
 }));
 
 // Mock the language-server module
-jest.mock('../src/language-server', () => ({
-  getClient: jest.fn(),
+vi.mock('../src/language-server', () => ({
+  getClient: vi.fn(),
 }));
 
 import * as vscode from 'vscode';
@@ -43,6 +45,7 @@ import {
   getProfilingTag,
   setProfilingTag,
 } from '../src/status-bar';
+import { getClient } from '../src/language-server';
 
 describe('Profiling Status Bar', () => {
   let mockContext: vscode.ExtensionContext;
@@ -52,7 +55,7 @@ describe('Profiling Status Bar', () => {
   let mockLanguageClient: any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Mock LanguageStatusItem
     mockStatusItem = {
@@ -62,45 +65,44 @@ describe('Profiling Status Bar', () => {
       severity: vscode.LanguageStatusSeverity.Information,
       command: undefined,
       busy: false,
-      show: jest.fn(),
-      hide: jest.fn(),
-      dispose: jest.fn(),
+      show: vi.fn(),
+      hide: vi.fn(),
+      dispose: vi.fn(),
     };
 
-    jest
-      .spyOn(vscode.languages, 'createLanguageStatusItem')
-      .mockReturnValue(mockStatusItem);
+    vi.spyOn(vscode.languages, 'createLanguageStatusItem').mockReturnValue(
+      mockStatusItem,
+    );
 
     // Mock workspace configuration
     mockConfig = {
-      get: jest.fn(),
-      update: jest.fn().mockResolvedValue(undefined),
+      get: vi.fn(),
+      update: vi.fn().mockResolvedValue(undefined),
     };
 
-    jest
-      .spyOn(vscode.workspace, 'getConfiguration')
-      .mockReturnValue(mockConfig as any);
+    vi.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue(
+      mockConfig as any,
+    );
 
     // Mock language client
     mockLanguageClient = {
-      sendRequest: jest.fn(),
+      sendRequest: vi.fn(),
     };
 
     mockClient = {
-      isDisposed: jest.fn().mockReturnValue(false),
-      profilingStatus: jest.fn((params) =>
+      isDisposed: vi.fn().mockReturnValue(false),
+      profilingStatus: vi.fn((params) =>
         mockLanguageClient.sendRequest('apex/profiling/status', params),
       ),
-      profilingStart: jest.fn((params) =>
+      profilingStart: vi.fn((params) =>
         mockLanguageClient.sendRequest('apex/profiling/start', params),
       ),
-      profilingStop: jest.fn((params) =>
+      profilingStop: vi.fn((params) =>
         mockLanguageClient.sendRequest('apex/profiling/stop', params),
       ),
     };
 
-    const { getClient } = require('../src/language-server');
-    getClient.mockReturnValue(mockClient);
+    vi.mocked(getClient).mockReturnValue(mockClient);
 
     // Mock context
     mockContext = {
@@ -112,14 +114,14 @@ describe('Profiling Status Bar', () => {
     (vscode.env as any).uiKind = vscode.UIKind.Desktop;
 
     // Mock window methods
-    jest
-      .spyOn(vscode.window, 'showInformationMessage')
-      .mockResolvedValue(undefined);
-    jest.spyOn(vscode.window, 'showErrorMessage').mockResolvedValue(undefined);
+    vi.spyOn(vscode.window, 'showInformationMessage').mockResolvedValue(
+      undefined,
+    );
+    vi.spyOn(vscode.window, 'showErrorMessage').mockResolvedValue(undefined);
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
     // Reset module state by hiding the toggle item
     hideProfilingToggleItem();
   });
@@ -315,7 +317,7 @@ describe('Profiling Status Bar', () => {
 
     it('should hide item when profiling mode is not interactive', async () => {
       mockConfig.get.mockReturnValue('none');
-      const disposeSpy = jest.spyOn(mockStatusItem, 'dispose');
+      const disposeSpy = vi.spyOn(mockStatusItem, 'dispose');
 
       await updateProfilingToggleItem();
 
@@ -392,9 +394,9 @@ describe('Profiling Status Bar', () => {
         if (key === 'profilingType') return 'cpu';
         return '';
       });
-      jest
-        .spyOn(vscode.commands, 'registerCommand')
-        .mockReturnValue({ dispose: jest.fn() } as any);
+      vi.spyOn(vscode.commands, 'registerCommand').mockReturnValue({
+        dispose: vi.fn(),
+      } as any);
     });
 
     it('should register toggle command', () => {
@@ -424,7 +426,7 @@ describe('Profiling Status Bar', () => {
         });
 
       registerProfilingToggleCommand(mockContext);
-      const command = (vscode.commands.registerCommand as jest.Mock).mock
+      const command = (vscode.commands.registerCommand as Mock).mock
         .calls[0][1];
 
       await command();
@@ -457,7 +459,7 @@ describe('Profiling Status Bar', () => {
         });
 
       registerProfilingToggleCommand(mockContext);
-      const command = (vscode.commands.registerCommand as jest.Mock).mock
+      const command = (vscode.commands.registerCommand as Mock).mock
         .calls[0][1];
 
       await command();
@@ -489,7 +491,7 @@ describe('Profiling Status Bar', () => {
         });
 
       registerProfilingToggleCommand(mockContext);
-      const command = (vscode.commands.registerCommand as jest.Mock).mock
+      const command = (vscode.commands.registerCommand as Mock).mock
         .calls[0][1];
 
       await command();
@@ -501,11 +503,10 @@ describe('Profiling Status Bar', () => {
     });
 
     it('should handle client not available', async () => {
-      const { getClient } = require('../src/language-server');
-      getClient.mockReturnValue(null);
+      vi.mocked(getClient).mockReturnValue(null as never);
 
       registerProfilingToggleCommand(mockContext);
-      const command = (vscode.commands.registerCommand as jest.Mock).mock
+      const command = (vscode.commands.registerCommand as Mock).mock
         .calls[0][1];
 
       await command();
@@ -521,7 +522,7 @@ describe('Profiling Status Bar', () => {
       );
 
       registerProfilingToggleCommand(mockContext);
-      const command = (vscode.commands.registerCommand as jest.Mock).mock
+      const command = (vscode.commands.registerCommand as Mock).mock
         .calls[0][1];
 
       await command();

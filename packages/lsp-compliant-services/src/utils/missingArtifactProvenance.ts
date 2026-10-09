@@ -9,6 +9,7 @@
 import {
   WireIdentifierSpecSchema,
   type FindMissingArtifactParams,
+  type IdentifierSpec,
 } from '@salesforce/apex-lsp-shared';
 import { Schema } from 'effect';
 
@@ -28,7 +29,7 @@ export const sanitizeMissingArtifactParams = (
   params: FindMissingArtifactParams,
 ): FindMissingArtifactParams | null => {
   const decodeIdentifier = Schema.decodeUnknownSync(WireIdentifierSpecSchema);
-  const identifiers = [];
+  const identifiers: FindMissingArtifactParams['identifiers'] = [];
   for (const identifier of params.identifiers) {
     try {
       const decoded = decodeIdentifier(identifier);
@@ -42,7 +43,7 @@ export const sanitizeMissingArtifactParams = (
       ) {
         continue;
       }
-      identifiers.push(decoded);
+      identifiers.push(decoded as IdentifierSpec);
     } catch {
       continue;
     }

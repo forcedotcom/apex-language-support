@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import { HoverParams } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { readFileSync } from 'fs';
@@ -31,9 +33,9 @@ import {
 import { Effect } from 'effect';
 
 // Mock the storage manager
-jest.mock('../../src/storage/ApexStorageManager', () => ({
+vi.mock('../../src/storage/ApexStorageManager', () => ({
   ApexStorageManager: {
-    getInstance: jest.fn(),
+    getInstance: vi.fn(),
   },
 }));
 
@@ -302,12 +304,12 @@ describe('HoverProcessingService Integration Tests', () => {
 
     // Set up mock storage
     mockStorage = {
-      getDocument: jest.fn(),
+      getDocument: vi.fn(),
     };
 
     // Mock the storage manager to return our mock storage
-    (ApexStorageManager.getInstance as jest.Mock).mockReturnValue({
-      getStorage: jest.fn().mockReturnValue(mockStorage),
+    (ApexStorageManager.getInstance as Mock).mockReturnValue({
+      getStorage: vi.fn().mockReturnValue(mockStorage),
     });
 
     // Create HoverProcessingService with the real symbol manager
@@ -351,7 +353,7 @@ describe('HoverProcessingService Integration Tests', () => {
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterAll(async () => {
@@ -2938,9 +2940,9 @@ public class RecordTypeModel {}`;
         ),
       );
 
-      coldStartStorage = { getDocument: jest.fn() };
-      (ApexStorageManager.getInstance as jest.Mock).mockReturnValue({
-        getStorage: jest.fn().mockReturnValue(coldStartStorage),
+      coldStartStorage = { getDocument: vi.fn() };
+      (ApexStorageManager.getInstance as Mock).mockReturnValue({
+        getStorage: vi.fn().mockReturnValue(coldStartStorage),
       });
 
       coldStartHoverService = new HoverProcessingService(
@@ -2950,7 +2952,7 @@ public class RecordTypeModel {}`;
     });
 
     afterEach(() => {
-      jest.clearAllMocks();
+      vi.clearAllMocks();
     });
 
     const chainedRefPosition = (token: string) => {
@@ -3028,7 +3030,7 @@ public class RecordTypeModel {}`;
       );
       coldStartStorage.getDocument.mockResolvedValue(document);
 
-      const backgroundLookup = jest.fn();
+      const backgroundLookup = vi.fn();
       (
         coldStartHoverService as unknown as {
           missingArtifactUtils: {

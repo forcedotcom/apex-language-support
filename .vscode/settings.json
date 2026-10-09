@@ -12,9 +12,9 @@
   "prettier.requireConfig": true,
   "prettier.useEditorConfig": false,
   "files.autoSave": "afterDelay",
-  "jest.jestCommandLine": "node_modules/.bin/jest",
-  "jest.debugMode": true,
-  "jest.autoRun": {
+  "vitest.commandLine": "node_modules/.bin/vitest",
+  "vitest.debugMode": true,
+  "vitest.autoRun": {
     "watch": false,
     "onSave": false
   },
@@ -44,6 +44,7 @@
   ],
   "coverage-gutters.lcovname": "lcov.info",
   "coverage-gutters.watch": true,
-  // Enable OTEL console span output while developing the extension
-  "salesforcedx-vscode-salesforcedx.enableConsoleTraces": true
+  "[json]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  }
 }
