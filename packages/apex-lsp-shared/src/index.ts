@@ -11,7 +11,6 @@ export * from './types';
 export * from './storage/StorageInterface';
 export * from './utils/CorrelatedMessage';
 export * from './utils/Environment';
-export * from './utils/BrowserUtils';
 export * from './utils/ErrorUtils';
 export * from './utils/Logging';
 export * from './communication/Interfaces';
