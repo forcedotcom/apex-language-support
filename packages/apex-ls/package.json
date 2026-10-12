@@ -95,7 +95,7 @@
     "test": {
       "command": "vitest run --reporter=json --outputFile=.wireit/test-results.json",
       "dependencies": [
-        "compile"
+        "bundle"
       ],
       "output": [
         ".wireit/test-results.json"
@@ -103,13 +103,14 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
+        "test/**/*.js",
         "vitest.config.mts"
       ]
     },
     "test:verbose": {
       "command": "vitest run --reporter=verbose --reporter=json --outputFile.json=.wireit/test-results-verbose.json",
       "dependencies": [
-        "compile"
+        "bundle"
       ],
       "output": [
         ".wireit/test-results-verbose.json"
@@ -118,13 +119,14 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
+        "test/**/*.js",
         "vitest.config.mts"
       ]
     },
     "test:coverage": {
       "command": "vitest run --coverage --coverage.reportsDirectory=./coverage",
       "dependencies": [
-        "compile"
+        "bundle"
       ],
       "output": [
         "coverage/**"
@@ -132,6 +134,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
+        "test/**/*.js",
         "vitest.config.mts"
       ]
     },
@@ -143,6 +146,7 @@
       "files": [
         "src/**/*.ts",
         "test/**/*.ts",
+        "test/**/*.js",
         "eslint.config.mjs"
       ],
       "output": []

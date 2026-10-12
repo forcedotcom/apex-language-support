@@ -36,7 +36,7 @@ import {
   makeWorkerDispatcher,
 } from '../../src/server/WorkerCoordinator';
 
-const WORKER_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
+const WORKER_ENTRY = path.resolve(__dirname, '../../dist/worker.platform.js');
 const COMPILATION_POOL_SIZE = 2;
 const SESSION_ID = 'check-member-conflicts-shared-session';
 
@@ -324,7 +324,6 @@ describe('CheckMemberConflicts data-owner query', () => {
         workerLayerFactory: (role) =>
           makeNodeWorkerLayer(WORKER_ENTRY, {
             name: `test-${role}`,
-            execArgv: ['--import', 'tsx'],
             workerData: {
               role,
               compilationPoolSize: COMPILATION_POOL_SIZE,

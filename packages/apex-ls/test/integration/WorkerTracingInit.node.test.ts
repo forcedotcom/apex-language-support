@@ -33,8 +33,7 @@ import {
 import { PingWorker, getLogger } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 
-const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
-const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
+const WORKER_ENTRY = path.resolve(__dirname, '../../dist/worker.platform.js');
 
 describe('Worker topology init with tracing enabled', () => {
   it.skip('initializes successfully and exports the worker init test span', async () => {
@@ -69,10 +68,7 @@ describe('Worker topology init with tracing enabled', () => {
         return yield* topology.dataOwner.executeEffect(
           new PingWorker({ echo: 'tracing-sanity' }),
         );
-      }).pipe(
-        Effect.scoped,
-        Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-      );
+      }).pipe(Effect.scoped, Effect.provide(makeNodeWorkerLayer(WORKER_ENTRY)));
 
       const ping = await Effect.runPromise(program);
       expect(ping.echo).toBe('tracing-sanity');

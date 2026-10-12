@@ -24,8 +24,7 @@ import {
 } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 
-const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
-const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
+const WORKER_ENTRY = path.resolve(__dirname, '../../dist/worker.platform.js');
 
 const SAMPLE_APEX_CLASS = `public class TestClass {
     public String testMethod() {
@@ -83,10 +82,7 @@ describe('WriteBackProtocol Debug Test', () => {
 
       expect(updateResult).toBeDefined();
       return updateResult;
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped, Effect.provide(makeNodeWorkerLayer(WORKER_ENTRY)));
 
     await Effect.runPromise(program);
   }, 120_000);

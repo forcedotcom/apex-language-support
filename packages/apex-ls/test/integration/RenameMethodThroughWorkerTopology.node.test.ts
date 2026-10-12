@@ -52,14 +52,13 @@ import { CoordinatorAssistanceMediator } from '../../src/server/CoordinatorAssis
 import { createPrimaryAssistanceHandler } from '../../src/server/CoordinatorPrimaryAssistanceHandler';
 import { ResourceLoaderProxy } from '../../src/server/ResourceLoaderProxy';
 
-const WORKER_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
+const WORKER_ENTRY = path.resolve(__dirname, '../../dist/worker.platform.js');
 const COMPILATION_POOL_SIZE = 2;
 const SESSION_ID = 'rename-method-shared-session';
 
 const workerLayerFactory = (role: WorkerRole) =>
   makeNodeWorkerLayer(WORKER_ENTRY, {
     name: `test-${role}`,
-    execArgv: ['--import', 'tsx'],
     workerData: {
       role,
       compilationPoolSize: COMPILATION_POOL_SIZE,
