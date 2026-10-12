@@ -38,7 +38,7 @@ jobs:
       version-bump: 'auto'
       exclude-web-vsix: 'false'
       package-manager: 'pnpm'
-      package-manager-version: '12.10.1'
+      package-manager-version: '12.11.2'
       cache-dependency-path: 'pnpm-lock.yaml'
       install-command: 'pnpm install --frozen-lockfile'
       package-command: 'pnpm run package:packages'
