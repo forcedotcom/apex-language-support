@@ -31,5 +31,10 @@ jobs:
       exclude-web-vsix: 'true'
       extensions-root: 'packages'
       required-ci-checks: '["CI Complete"]'
+      package-manager: 'pnpm'
+      package-manager-version: '12.11.2'
+      cache-dependency-path: 'pnpm-lock.yaml'
+      lockfile-path: 'pnpm-lock.yaml'
+      install-command: 'pnpm install --frozen-lockfile'
       dry-run: ${{ inputs.dry-run || 'false' }}
     secrets: inherit
