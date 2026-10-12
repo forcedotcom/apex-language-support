@@ -45,11 +45,23 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
     });
 
     await test.step('Navigate from derived class to base', async () => {
+      // Confirm Find placed the cursor on the unresolved type before sending
+      // the single definition request. The status bar can lag behind the key
+      // press, so poll its position without reissuing F12.
       await apexEditor.positionCursorOnWord('BaseHandler');
+      // Find selects the word and leaves the cursor just after the match.
+      // ArrowLeft places it inside the identifier.
+      await page.keyboard.press('ArrowLeft');
+      await expect(async () => {
+        const position = await apexEditor.getCursorPosition();
+        expect(position.line).toBe(5);
+        expect(position.column).toBeGreaterThanOrEqual(37);
+        expect(position.column).toBeLessThanOrEqual(47);
+      }).toPass({ timeout: 10000 });
       await apexEditor.goToDefinition();
       let navigationError: unknown;
       try {
-        await apexEditor.waitForNavigation('AccountHandler.cls', 12000);
+        await apexEditor.waitForActiveTab('BaseHandler.cls', 15000);
       } catch (error) {
         navigationError = error;
       }
