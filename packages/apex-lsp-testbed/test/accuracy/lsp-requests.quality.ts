@@ -134,22 +134,6 @@ describe('LSP Request/Response Accuracy', () => {
         console.warn(`Cleanup failed: ${error}`);
       }
     }
-
-    // Give some time for cleanup to complete
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    // Force cleanup any remaining processes
-    try {
-      // Kill any remaining Node.js processes that might be hanging
-      const { execSync } = require('child_process');
-      try {
-        execSync('pkill -f "apex-ls"', { stdio: 'ignore' });
-      } catch (_error) {
-        // Silently ignore if no processes to kill
-      }
-    } catch (error) {
-      console.warn('Failed to force cleanup processes:', error);
-    }
   });
 
   // Generate test groups for each configured request type
