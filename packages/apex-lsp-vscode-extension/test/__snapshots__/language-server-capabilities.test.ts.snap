@@ -1,6 +1,6 @@
-// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`VSCode Extension Capabilities Alignment Capability Feature Alignment should have consistent text document capabilities: text-document-capabilities-comparison 1`] = `
+exports[`VSCode Extension Capabilities Alignment > Capability Feature Alignment > should have consistent text document capabilities > text-document-capabilities-comparison 1`] = `
 {
   "development": {
     "codeAction": undefined,
@@ -197,7 +197,7 @@ exports[`VSCode Extension Capabilities Alignment Capability Feature Alignment sh
 }
 `;
 
-exports[`VSCode Extension Capabilities Alignment Capability Feature Alignment should have consistent workspace capabilities: workspace-capabilities-comparison 1`] = `
+exports[`VSCode Extension Capabilities Alignment > Capability Feature Alignment > should have consistent workspace capabilities > workspace-capabilities-comparison 1`] = `
 {
   "development": {
     "applyEdit": true,
@@ -314,7 +314,7 @@ exports[`VSCode Extension Capabilities Alignment Capability Feature Alignment sh
 }
 `;
 
-exports[`VSCode Extension Capabilities Alignment Client Capabilities Configuration should have consistent dynamic registration settings: dynamic-registration-comparison 1`] = `
+exports[`VSCode Extension Capabilities Alignment > Client Capabilities Configuration > should have consistent dynamic registration settings > dynamic-registration-comparison 1`] = `
 {
   "development": {
     "textDocument": {
@@ -351,7 +351,7 @@ exports[`VSCode Extension Capabilities Alignment Client Capabilities Configurati
 }
 `;
 
-exports[`VSCode Extension Capabilities Alignment Client Capabilities Configuration should return development client capabilities for development mode: development-client-capabilities 1`] = `
+exports[`VSCode Extension Capabilities Alignment > Client Capabilities Configuration > should return development client capabilities for development mode > development-client-capabilities 1`] = `
 {
   "experimental": {
     "findMissingArtifactProvider": {
@@ -556,7 +556,7 @@ exports[`VSCode Extension Capabilities Alignment Client Capabilities Configurati
 }
 `;
 
-exports[`VSCode Extension Capabilities Alignment Client Capabilities Configuration should return production client capabilities for production mode: production-client-capabilities 1`] = `
+exports[`VSCode Extension Capabilities Alignment > Client Capabilities Configuration > should return production client capabilities for production mode > production-client-capabilities 1`] = `
 {
   "experimental": {
     "findMissingArtifactProvider": {
@@ -700,7 +700,7 @@ exports[`VSCode Extension Capabilities Alignment Client Capabilities Configurati
 }
 `;
 
-exports[`VSCode Extension Capabilities Alignment Document Selector Consistency should exclude output channel schemes from document selectors: document-selectors-without-output-channels 1`] = `
+exports[`VSCode Extension Capabilities Alignment > Document Selector Consistency > should exclude output channel schemes from document selectors > document-selectors-without-output-channels 1`] = `
 [
   {
     "language": "apex",
@@ -713,7 +713,7 @@ exports[`VSCode Extension Capabilities Alignment Document Selector Consistency s
 ]
 `;
 
-exports[`VSCode Extension Capabilities Alignment Document Selector Consistency should have consistent document selectors between client and server: document-selectors-consistency 1`] = `
+exports[`VSCode Extension Capabilities Alignment > Document Selector Consistency > should have consistent document selectors between client and server > document-selectors-consistency 1`] = `
 [
   {
     "language": "apex",
@@ -726,7 +726,7 @@ exports[`VSCode Extension Capabilities Alignment Document Selector Consistency s
 ]
 `;
 
-exports[`VSCode Extension Capabilities Alignment Mode Detection and Capabilities should detect development mode correctly: development-mode-capabilities 1`] = `
+exports[`VSCode Extension Capabilities Alignment > Mode Detection and Capabilities > should detect development mode correctly > development-mode-capabilities 1`] = `
 {
   "experimental": {
     "findMissingArtifactProvider": {
@@ -931,7 +931,7 @@ exports[`VSCode Extension Capabilities Alignment Mode Detection and Capabilities
 }
 `;
 
-exports[`VSCode Extension Capabilities Alignment Mode Detection and Capabilities should detect production mode correctly: production-mode-capabilities 1`] = `
+exports[`VSCode Extension Capabilities Alignment > Mode Detection and Capabilities > should detect production mode correctly > production-mode-capabilities 1`] = `
 {
   "experimental": {
     "findMissingArtifactProvider": {

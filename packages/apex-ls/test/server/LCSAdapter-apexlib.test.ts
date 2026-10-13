@@ -6,26 +6,28 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock, Mocked } from 'vitest';
+import { vi } from 'vitest';
 import { LCSAdapter } from '../../src/server/LCSAdapter';
 import { Connection } from 'vscode-languageserver';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
 // Mock the logger
 const mockLogger = {
-  debug: jest.fn(),
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
 } as any;
-(getLogger as jest.Mock).mockReturnValue(mockLogger);
+(getLogger as Mock).mockReturnValue(mockLogger);
 
 // Mock is now handled in the LSPConfigurationManager section above
 
 // Mock the LSP configuration manager
-jest.mock('@salesforce/apex-lsp-shared', () => ({
+vi.mock('@salesforce/apex-lsp-shared', () => ({
   LSPConfigurationManager: {
-    getInstance: jest.fn().mockReturnValue({
-      getCapabilities: jest.fn().mockReturnValue({
+    getInstance: vi.fn().mockReturnValue({
+      getCapabilities: vi.fn().mockReturnValue({
         diagnosticProvider: true,
         hoverProvider: true,
         completionProvider: true,
@@ -35,11 +37,11 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
       }),
     }),
   },
-  getLogger: jest.fn(() => ({
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
+  getLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
   })),
   Priority: {
     Immediate: 1,
@@ -48,16 +50,16 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
     Low: 4,
     Background: 5,
   },
-  runWithSpan: jest.fn((_name: string, fn: () => any) => fn()),
+  runWithSpan: vi.fn((_name: string, fn: () => any) => fn()),
   LSP_SPAN_NAMES: {},
-  CommandPerformanceAggregator: jest.fn().mockImplementation(() => ({
-    record: jest.fn(),
-    flush: jest
+  CommandPerformanceAggregator: class {
+    record = vi.fn();
+    flush = vi
       .fn()
-      .mockReturnValue({ type: 'command_performance', commands: [] }),
-    reset: jest.fn(),
-  })),
-  collectStartupSnapshot: jest.fn().mockReturnValue({
+      .mockReturnValue({ type: 'command_performance', commands: [] });
+    reset = vi.fn();
+  },
+  collectStartupSnapshot: vi.fn().mockReturnValue({
     type: 'startup_snapshot',
     sessionId: 'mock-session',
   }),
@@ -66,41 +68,41 @@ jest.mock('@salesforce/apex-lsp-shared', () => ({
 // Skip DiagnosticProcessor mock since it's not essential for this test
 
 describe('LCSAdapter - ApexLib Support', () => {
-  let mockConnection: jest.Mocked<Connection>;
+  let mockConnection: Mocked<Connection>;
   let adapter: LCSAdapter;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     mockConnection = {
       languages: {
         diagnostics: {
-          on: jest.fn(),
+          on: vi.fn(),
         },
         hover: {
-          on: jest.fn(),
+          on: vi.fn(),
         },
         completion: {
-          on: jest.fn(),
+          on: vi.fn(),
         },
         documentSymbol: {
-          on: jest.fn(),
+          on: vi.fn(),
         },
         foldingRange: {
-          on: jest.fn(),
+          on: vi.fn(),
         },
         definition: {
-          on: jest.fn(),
+          on: vi.fn(),
         },
       },
-      onRequest: jest.fn(),
-      onNotification: jest.fn(),
-      onInitialize: jest.fn(),
-      onInitialized: jest.fn(),
-      onDidChangeConfiguration: jest.fn(),
-      onShutdown: jest.fn(),
-      onExit: jest.fn(),
-      listen: jest.fn(),
+      onRequest: vi.fn(),
+      onNotification: vi.fn(),
+      onInitialize: vi.fn(),
+      onInitialized: vi.fn(),
+      onDidChangeConfiguration: vi.fn(),
+      onShutdown: vi.fn(),
+      onExit: vi.fn(),
+      listen: vi.fn(),
     } as any;
 
     // The constructor is private (public creation is via LCSAdapter.create,
@@ -111,12 +113,12 @@ describe('LCSAdapter - ApexLib Support', () => {
     adapter = new LCSAdapter({
       connection: mockConnection,
       logger: {
-        debug: jest.fn(),
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        log: jest.fn(),
-        alwaysLog: jest.fn(),
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        log: vi.fn(),
+        alwaysLog: vi.fn(),
       },
     });
   });
@@ -132,7 +134,7 @@ describe('LCSAdapter - ApexLib Support', () => {
       // through an untyped view to assert on the mock's own structure.
       const languages = mockConnection.languages as unknown as Record<
         string,
-        { on: jest.Mock }
+        { on: Mock }
       >;
       expect(mockConnection.languages.diagnostics.on).toBeDefined();
       expect(languages.hover.on).toBeDefined();

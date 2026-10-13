@@ -1,9 +1,17 @@
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
 /**
- * Jest setup file for web/browser testing environment
+ * Vitest setup file for web/browser testing environment
  * Sets up DOM globals and polyfills needed for browser-like testing
  */
 
-// Prevents LCSAdapter worker-topology init failures from terminating the Jest process
+// Prevents LCSAdapter worker-topology init failures from terminating the test process
 process.env.APEX_LS_DISABLE_WORKER_TOPOLOGY_EXIT = '1';
 
 // TextEncoder/TextDecoder polyfill for Effect library (must be first)
@@ -68,16 +76,16 @@ global.MessagePort = class MockMessagePort {
 // Mock IndexedDB for storage tests
 if (!global.indexedDB) {
   global.indexedDB = {
-    open: jest.fn(() => ({
+    open: vi.fn(() => ({
       onsuccess: null,
       onerror: null,
       result: {
-        transaction: jest.fn(() => ({
-          objectStore: jest.fn(() => ({
-            add: jest.fn(),
-            get: jest.fn(),
-            put: jest.fn(),
-            delete: jest.fn(),
+        transaction: vi.fn(() => ({
+          objectStore: vi.fn(() => ({
+            add: vi.fn(),
+            get: vi.fn(),
+            put: vi.fn(),
+            delete: vi.fn(),
           })),
         })),
       },
@@ -106,9 +114,9 @@ if (!global.crypto.randomUUID) {
 const originalConsole = global.console;
 global.console = {
   ...originalConsole,
-  debug: jest.fn(),
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  log: jest.fn(),
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  log: vi.fn(),
 };

@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import { Effect, Exit, Layer, Ref, Scope } from 'effect';
 import type { LoadWorkspaceParams } from '@salesforce/apex-lsp-shared';
 import type { ApexClientCore } from '@salesforce/apex-lsp-client';
@@ -21,20 +23,20 @@ import {
 import * as workspaceLoaderModule from '../src/workspace-loader';
 
 // Mock dependencies
-jest.mock('../src/workspace-loader', () => {
-  const actual = jest.requireActual('../src/workspace-loader');
+vi.mock('../src/workspace-loader', async () => {
+  const actual = await vi.importActual('../src/workspace-loader');
   return {
     ...actual,
-    loadWorkspaceForServer: jest.fn(),
+    loadWorkspaceForServer: vi.fn(),
   };
 });
 
-jest.mock('../src/logging', () => ({
-  logToOutputChannel: jest.fn(),
+vi.mock('../src/logging', () => ({
+  logToOutputChannel: vi.fn(),
 }));
 
-jest.mock('../src/configuration', () => ({
-  getWorkspaceSettings: jest.fn(() => ({
+vi.mock('../src/configuration', () => ({
+  getWorkspaceSettings: vi.fn(() => ({
     apex: {
       loadWorkspace: {
         enabled: true,
@@ -50,10 +52,10 @@ jest.mock('../src/configuration', () => ({
 
 describe('Workspace Load Handler', () => {
   let mockLanguageClient: ApexClientCore;
-  let mockLoadWorkspaceForServer: jest.Mock;
+  let mockLoadWorkspaceForServer: Mock;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Reset workspace state before each test
     await Effect.runPromise(
@@ -62,13 +64,13 @@ describe('Workspace Load Handler', () => {
 
     // Mock language client
     mockLanguageClient = {
-      workspaceLoadComplete: jest.fn(),
-      workspaceLoadFailed: jest.fn(),
+      workspaceLoadComplete: vi.fn(),
+      workspaceLoadFailed: vi.fn(),
     } as unknown as ApexClientCore;
 
     // Mock loadWorkspaceForServer
     mockLoadWorkspaceForServer =
-      workspaceLoaderModule.loadWorkspaceForServer as jest.Mock;
+      workspaceLoaderModule.loadWorkspaceForServer as Mock;
     mockLoadWorkspaceForServer.mockResolvedValue(undefined);
   });
 
@@ -546,8 +548,8 @@ describe('Workspace Load Handler', () => {
       await Effect.runPromise(Scope.close(firstScope, Exit.void));
 
       const secondClient = {
-        workspaceLoadComplete: jest.fn(),
-        workspaceLoadFailed: jest.fn(),
+        workspaceLoadComplete: vi.fn(),
+        workspaceLoadFailed: vi.fn(),
       } as unknown as ApexClientCore;
       const secondScope = await Effect.runPromise(makeWorkspaceLoadScope);
       const restartResult = await Effect.runPromise(
@@ -620,7 +622,7 @@ describe('Workspace Load Handler', () => {
     });
 
     it('resets loading state when the completion notification rejects after disposal', async () => {
-      mockLanguageClient.workspaceLoadComplete = jest
+      mockLanguageClient.workspaceLoadComplete = vi
         .fn()
         .mockRejectedValue(new Error('disposed'));
       const scope = await Effect.runPromise(makeWorkspaceLoadScope);

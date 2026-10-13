@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mocked } from 'vitest';
+import { vi } from 'vitest';
 import {
   BuiltInNamespace,
   BuiltInSystemSchema,
@@ -99,16 +101,16 @@ const createContext = (
   };
 };
 
-const createProvider = (): jest.Mocked<SymbolProvider> => ({
-  find: jest.fn(),
-  findScalarKeywordType: jest.fn(),
-  findSObjectType: jest.fn(),
-  findExternalType: jest.fn(),
-  findInDefaultNamespaceOrder: jest.fn(),
-  findInImplicitFileNamespaceSlot: jest.fn(),
-  findInExplicitNamespace: jest.fn(),
-  isBuiltInNamespace: jest.fn(),
-  isSObjectContainerNamespace: jest.fn(),
+const createProvider = (): Mocked<SymbolProvider> => ({
+  find: vi.fn(),
+  findScalarKeywordType: vi.fn(),
+  findSObjectType: vi.fn(),
+  findExternalType: vi.fn(),
+  findInDefaultNamespaceOrder: vi.fn(),
+  findInImplicitFileNamespaceSlot: vi.fn(),
+  findInExplicitNamespace: vi.fn(),
+  isBuiltInNamespace: vi.fn(),
+  isSObjectContainerNamespace: vi.fn(),
 });
 
 describe('ResolutionRules delegation', () => {

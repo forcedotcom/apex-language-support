@@ -17,7 +17,7 @@
  * at build time, preventing Effect types from appearing in the public API.
  */
 
-import { describe, it } from '@jest/globals';
+import { describe, it } from 'vitest';
 import type { Effect } from 'effect';
 import type * as PublicAPI from '../src/index';
 

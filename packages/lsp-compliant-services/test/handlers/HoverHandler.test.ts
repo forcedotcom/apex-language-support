@@ -6,19 +6,21 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import { HoverHandler } from '../../src/handlers/HoverHandler';
 import { LSPQueueManager } from '../../src/queue';
 
-jest.mock('../../src/queue', () => ({
+vi.mock('../../src/queue', () => ({
   LSPQueueManager: {
-    getInstance: jest.fn(),
+    getInstance: vi.fn(),
   },
 }));
 
 describe('HoverHandler', () => {
   const mockLogger = {
-    debug: jest.fn(),
-    error: jest.fn(),
+    debug: vi.fn(),
+    error: vi.fn(),
   } as any;
 
   const params = {
@@ -27,23 +29,23 @@ describe('HoverHandler', () => {
   } as any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('schedules timeout follow-up and returns null on hover timeout', async () => {
     const queueManager = {
-      submitHoverRequest: jest
+      submitHoverRequest: vi
         .fn()
         .mockRejectedValue(
           new Error("TimeoutException: timed out after '100ms'"),
         ),
-      getStats: jest.fn(),
+      getStats: vi.fn(),
     };
-    (LSPQueueManager.getInstance as jest.Mock).mockReturnValue(queueManager);
+    (LSPQueueManager.getInstance as Mock).mockReturnValue(queueManager);
 
     const hoverProcessor = {
-      processHover: jest.fn(),
-      scheduleTimeoutFollowup: jest.fn().mockResolvedValue(undefined),
+      processHover: vi.fn(),
+      scheduleTimeoutFollowup: vi.fn().mockResolvedValue(undefined),
     };
 
     const handler = new HoverHandler(mockLogger, hoverProcessor as any);

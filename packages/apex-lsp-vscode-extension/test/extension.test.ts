@@ -5,36 +5,32 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+
+import { vi } from 'vitest';
 // Mock vscode
-jest.mock('vscode', () => ({
-  ...jest.requireActual('vscode'),
-  env: {
-    uiKind: 1, // UIKind.Desktop (1), UIKind.Web (2)
-    language: 'en',
-  },
-  UIKind: {
-    Desktop: 1,
-    Web: 2,
-  },
-  window: {
-    ...jest.requireActual('vscode').window,
-    registerWebviewPanelSerializer: jest.fn(),
-  },
-}));
+vi.mock('vscode', async () => {
+  const actual = await vi.importActual<typeof import('vscode')>('vscode');
+  return {
+    ...actual,
+    env: { uiKind: 1, language: 'en' },
+    UIKind: { Desktop: 1, Web: 2 },
+    window: { ...actual.window, registerWebviewPanelSerializer: vi.fn() },
+  };
+});
 
 // Provide a lightweight mock for vscode-languageclient to avoid runtime deps
-jest.mock('vscode-languageclient/node', () => ({
+vi.mock('vscode-languageclient/node', () => ({
   Trace: { Off: 0, Messages: 1, Verbose: 2 },
   State: { Stopped: 1, Starting: 2, Running: 3 },
   LanguageClient: class {},
 }));
 
 // Mock language server module
-jest.mock('../src/language-server', () => ({
-  startLanguageServer: jest.fn().mockResolvedValue(undefined),
-  restartLanguageServer: jest.fn().mockResolvedValue(undefined),
-  stopLanguageServer: jest.fn().mockResolvedValue(undefined),
-  getClient: jest.fn().mockReturnValue(null), // Return null to simulate no existing client
+vi.mock('../src/language-server', () => ({
+  startLanguageServer: vi.fn().mockResolvedValue(undefined),
+  restartLanguageServer: vi.fn().mockResolvedValue(undefined),
+  stopLanguageServer: vi.fn().mockResolvedValue(undefined),
+  getClient: vi.fn().mockReturnValue(null), // Return null to simulate no existing client
 }));
 
 import * as vscode from 'vscode';
@@ -48,13 +44,13 @@ describe('Apex Language Server Extension ()', () => {
   let mockContext: vscode.ExtensionContext;
 
   beforeEach(() => {
-    jest.useFakeTimers();
-    jest.clearAllMocks();
-    jest.mocked(getClient).mockReturnValue({
-      getLineBreakpointInfo: jest.fn().mockResolvedValue([]),
-      getExceptionBreakpointInfo: jest.fn().mockResolvedValue([]),
+    vi.useFakeTimers();
+    vi.clearAllMocks();
+    vi.mocked(getClient).mockReturnValue({
+      getLineBreakpointInfo: vi.fn().mockResolvedValue([]),
+      getExceptionBreakpointInfo: vi.fn().mockResolvedValue([]),
     } as any);
-    jest.mocked(vscode.extensions.getExtension).mockReturnValue({
+    vi.mocked(vscode.extensions.getExtension).mockReturnValue({
       isActive: true,
     } as vscode.Extension<unknown>);
 
@@ -66,8 +62,8 @@ describe('Apex Language Server Extension ()', () => {
   });
 
   afterEach(() => {
-    jest.clearAllTimers();
-    jest.clearAllMocks();
+    vi.clearAllTimers();
+    vi.clearAllMocks();
   });
 
   it('activates and registers commands', async () => {
@@ -82,8 +78,8 @@ describe('Apex Language Server Extension ()', () => {
   });
 
   it('exposes the materialized client through the activation API', async () => {
-    const client = { getLineBreakpointInfo: jest.fn() };
-    jest.mocked(getClient).mockReturnValue(client as any);
+    const client = { getLineBreakpointInfo: vi.fn() };
+    vi.mocked(getClient).mockReturnValue(client as any);
 
     const api = await activate(mockContext);
 
@@ -112,12 +108,12 @@ describe('Apex Language Server Extension ()', () => {
   });
 
   it('sets log level from workspace settings', async () => {
-    const mockGet = jest.fn((key: string, def: any) => {
+    const mockGet = vi.fn((key: string, def: any) => {
       if (key === 'apex.logLevel') return 'debug';
       if (key === 'apex') return {};
       return def;
     });
-    const mockGetConfiguration = jest.fn().mockReturnValue({
+    const mockGetConfiguration = vi.fn().mockReturnValue({
       get: mockGet,
     });
 

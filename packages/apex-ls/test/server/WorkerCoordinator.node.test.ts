@@ -37,8 +37,7 @@ import type {
   TransportSendError,
 } from '@salesforce/apex-lsp-compliant-services';
 
-const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
-const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
+const WORKER_ENTRY = path.resolve(__dirname, '../../dist/worker.platform.js');
 
 function createSpyLogger(): LoggerInterface & { messages: string[] } {
   const messages: string[] = [];
@@ -61,7 +60,7 @@ describe('WorkerCoordinator', () => {
   describe('vertical slice (step 3)', () => {
     it('round-trip: WorkerInit + PingWorker', async () => {
       const logger = createSpyLogger();
-      await runVerticalSlice(logger, WORKER_TS_ENTRY, TSX_OPTIONS);
+      await runVerticalSlice(logger, WORKER_ENTRY);
 
       expect(logger.messages).toEqual(
         expect.arrayContaining([
@@ -87,9 +86,7 @@ describe('WorkerCoordinator', () => {
             enableResourceLoader: false,
             logger,
           });
-        }).pipe(
-          Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-        );
+        }).pipe(Effect.provide(makeNodeWorkerLayer(WORKER_ENTRY)));
         topology = await Effect.runPromise(
           Effect.provideService(program, Scope.Scope, scope),
         );
@@ -272,9 +269,7 @@ describe('WorkerCoordinator', () => {
             enableResourceLoader: true,
             logger,
           });
-        }).pipe(
-          Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-        );
+        }).pipe(Effect.provide(makeNodeWorkerLayer(WORKER_ENTRY)));
         topology = await Effect.runPromise(
           Effect.provideService(program, Scope.Scope, scope),
         );
@@ -325,9 +320,7 @@ describe('WorkerCoordinator', () => {
           enableResourceLoader: false,
           logger,
         });
-      }).pipe(
-        Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-      );
+      }).pipe(Effect.provide(makeNodeWorkerLayer(WORKER_ENTRY)));
       topology = await Effect.runPromise(
         Effect.provideService(program, Scope.Scope, scope),
       );
@@ -444,10 +437,7 @@ describe('WorkerCoordinator', () => {
         );
 
         expect(result.processedCount).toBe(2);
-      }).pipe(
-        Effect.scoped,
-        Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-      );
+      }).pipe(Effect.scoped, Effect.provide(makeNodeWorkerLayer(WORKER_ENTRY)));
 
       await Effect.runPromise(program);
     }, 120_000);

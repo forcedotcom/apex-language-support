@@ -5,58 +5,60 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+
+import { vi } from 'vitest';
 // packages/apex-lsp-vscode-extension/test/mocks/vscode.ts
 
 export const window = {
-  createOutputChannel: jest.fn(() => ({
-    appendLine: jest.fn(),
-    show: jest.fn(),
-    clear: jest.fn(),
-    dispose: jest.fn(),
+  createOutputChannel: vi.fn(() => ({
+    appendLine: vi.fn(),
+    show: vi.fn(),
+    clear: vi.fn(),
+    dispose: vi.fn(),
   })),
-  createStatusBarItem: jest.fn(() => ({
-    show: jest.fn(),
-    hide: jest.fn(),
-    dispose: jest.fn(),
+  createStatusBarItem: vi.fn(() => ({
+    show: vi.fn(),
+    hide: vi.fn(),
+    dispose: vi.fn(),
     text: '',
     tooltip: '',
     command: '',
   })),
-  showInformationMessage: jest.fn(),
-  showWarningMessage: jest.fn(),
-  showErrorMessage: jest.fn(),
-  showTextDocument: jest.fn(),
+  showInformationMessage: vi.fn(),
+  showWarningMessage: vi.fn(),
+  showErrorMessage: vi.fn(),
+  showTextDocument: vi.fn(),
 };
 
 export const commands = {
-  registerCommand: jest.fn(),
-  executeCommand: jest.fn(),
+  registerCommand: vi.fn(),
+  executeCommand: vi.fn(),
 };
 
 export const workspace = {
-  getConfiguration: jest.fn(() => ({
-    get: jest.fn(),
+  getConfiguration: vi.fn(() => ({
+    get: vi.fn(),
   })),
-  createFileSystemWatcher: jest.fn(() => ({
-    onDidCreate: jest.fn(),
-    onDidChange: jest.fn(),
-    onDidDelete: jest.fn(),
-    dispose: jest.fn(),
+  createFileSystemWatcher: vi.fn(() => ({
+    onDidCreate: vi.fn(),
+    onDidChange: vi.fn(),
+    onDidDelete: vi.fn(),
+    dispose: vi.fn(),
   })),
   workspaceFolders: [],
-  onDidChangeConfiguration: jest.fn(() => ({
-    dispose: jest.fn(),
+  onDidChangeConfiguration: vi.fn(() => ({
+    dispose: vi.fn(),
   })),
-  registerTextDocumentContentProvider: jest.fn(() => ({
-    dispose: jest.fn(),
+  registerTextDocumentContentProvider: vi.fn(() => ({
+    dispose: vi.fn(),
   })),
-  openTextDocument: jest.fn(),
-  onDidOpenTextDocument: jest.fn(() => new Disposable(() => {})),
+  openTextDocument: vi.fn(),
+  onDidOpenTextDocument: vi.fn(() => new Disposable(() => {})),
   textDocuments: [] as unknown[],
 };
 
 export const extensions = {
-  getExtension: jest.fn(),
+  getExtension: vi.fn(),
 };
 
 export enum ExtensionMode {
@@ -108,18 +110,18 @@ export class EventEmitter<T> {
 }
 
 export const languages = {
-  createLanguageStatusItem: jest.fn(() => ({
+  createLanguageStatusItem: vi.fn(() => ({
     name: '',
     text: '',
     detail: '',
     command: undefined,
-    show: jest.fn(),
-    hide: jest.fn(),
-    dispose: jest.fn(),
+    show: vi.fn(),
+    hide: vi.fn(),
+    dispose: vi.fn(),
     severity: 1,
     busy: false,
   })),
-  match: jest.fn(
+  match: vi.fn(
     (
       selector:
         | string
@@ -174,12 +176,6 @@ export const StatusBarAlignment = {
   Right: 2,
 };
 
-export const ExtensionMode = {
-  Production: 1,
-  Development: 2,
-  Test: 3,
-};
-
 export class ThemeColor {
   constructor(public readonly id: string) {}
 }
@@ -188,7 +184,7 @@ export class CancellationError extends Error {}
 
 export class Disposable {
   private readonly _callOnDispose: () => any;
-  dispose = jest.fn(() => {
+  dispose = vi.fn(() => {
     if (this._callOnDispose) {
       this._callOnDispose();
     }

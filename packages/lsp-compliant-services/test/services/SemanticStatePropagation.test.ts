@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import type { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -15,7 +17,7 @@ import { HoverProcessingService } from '../../src/services/HoverProcessingServic
 import { DefinitionProcessingService } from '../../src/services/DefinitionProcessingService';
 import { hasCompleteSemanticState } from '../../src/utils/semanticStateUtils';
 
-jest.mock('../../src/storage/ApexStorageManager');
+vi.mock('../../src/storage/ApexStorageManager');
 
 describe('incomplete semantic state propagation', () => {
   const uri = 'file:///test/ActivelyEdited.cls';
@@ -26,7 +28,7 @@ describe('incomplete semantic state propagation', () => {
 
   function createIncompleteManager() {
     return {
-      createResolutionContext: jest.fn().mockResolvedValue({
+      createResolutionContext: vi.fn().mockResolvedValue({
         sourceFile: uri,
         importStatements: [],
         namespaceContext: '',
@@ -39,13 +41,13 @@ describe('incomplete semantic state propagation', () => {
         interfaceImplementations: [],
         semanticState: 'incomplete',
       }),
-      getReferencesAtPosition: jest.fn().mockResolvedValue([]),
-      getIncompleteMemberAccessAtPosition: jest.fn(),
-      getSymbolAtPosition: jest.fn(),
+      getReferencesAtPosition: vi.fn().mockResolvedValue([]),
+      getIncompleteMemberAccessAtPosition: vi.fn(),
+      getSymbolAtPosition: vi.fn(),
     } as unknown as ISymbolManager & {
-      getReferencesAtPosition: jest.Mock;
-      getIncompleteMemberAccessAtPosition: jest.Mock;
-      getSymbolAtPosition: jest.Mock;
+      getReferencesAtPosition: Mock;
+      getIncompleteMemberAccessAtPosition: Mock;
+      getSymbolAtPosition: Mock;
     };
   }
 
@@ -57,9 +59,9 @@ describe('incomplete semantic state propagation', () => {
       2,
       'public class ActivelyEdited {\n  void run() {\n    value.\n  }\n}',
     );
-    (ApexStorageManager.getInstance as jest.Mock).mockReturnValue({
+    (ApexStorageManager.getInstance as Mock).mockReturnValue({
       getStorage: () => ({
-        getDocument: jest.fn().mockResolvedValue(document),
+        getDocument: vi.fn().mockResolvedValue(document),
       }),
     });
 

@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { CoordinatorAssistanceMediator } from '../../src/server/CoordinatorAssistanceMediator';
 import type {
@@ -28,9 +30,9 @@ function createSpyLogger(): LoggerInterface {
   } as unknown as LoggerInterface;
 }
 
-function makeMockWorker(): EventEmitter & { postMessage: jest.Mock } {
+function makeMockWorker(): EventEmitter & { postMessage: Mock } {
   const emitter = new EventEmitter();
-  (emitter as any).postMessage = jest.fn();
+  (emitter as any).postMessage = vi.fn();
   return emitter as any;
 }
 
@@ -72,7 +74,7 @@ describe('CoordinatorAssistanceMediator', () => {
   });
 
   it('routes blocking request to handler and responds', async () => {
-    const handler: AssistanceHandler = jest
+    const handler: AssistanceHandler = vi
       .fn()
       .mockResolvedValue({ opened: ['file:///Foo.cls'] });
 
@@ -100,7 +102,7 @@ describe('CoordinatorAssistanceMediator', () => {
   });
 
   it('extracts worker trace context around the assistance handler', async () => {
-    const handler: AssistanceHandler = jest
+    const handler: AssistanceHandler = vi
       .fn()
       .mockResolvedValue({ opened: ['file:///Foo.cls'] });
     const activeContext = context.active();
@@ -108,10 +110,10 @@ describe('CoordinatorAssistanceMediator', () => {
       createContextKey('test-worker-parent'),
       true,
     );
-    const extractSpy = jest
+    const extractSpy = vi
       .spyOn(propagation, 'extract')
       .mockReturnValue(extractedContext);
-    const withSpy = jest.spyOn(context, 'with');
+    const withSpy = vi.spyOn(context, 'with');
 
     try {
       const mediator = new CoordinatorAssistanceMediator(handler, logger);
@@ -147,7 +149,7 @@ describe('CoordinatorAssistanceMediator', () => {
   });
 
   it('routes background request as fire-and-forget', async () => {
-    const handler: AssistanceHandler = jest
+    const handler: AssistanceHandler = vi
       .fn()
       .mockResolvedValue({ accepted: true });
 
@@ -173,7 +175,7 @@ describe('CoordinatorAssistanceMediator', () => {
   });
 
   it('responds with error when handler rejects', async () => {
-    const handler: AssistanceHandler = jest
+    const handler: AssistanceHandler = vi
       .fn()
       .mockRejectedValue(new Error('connection lost'));
 
@@ -195,7 +197,7 @@ describe('CoordinatorAssistanceMediator', () => {
 
   it('deduplicates concurrent blocking requests with same correlationId', async () => {
     let callCount = 0;
-    const handler: AssistanceHandler = jest.fn().mockImplementation(() => {
+    const handler: AssistanceHandler = vi.fn().mockImplementation(() => {
       callCount++;
       return new Promise((resolve) =>
         setTimeout(() => resolve({ opened: ['file:///Foo.cls'] }), 100),
@@ -218,7 +220,7 @@ describe('CoordinatorAssistanceMediator', () => {
   });
 
   it('ignores non-assistance messages', async () => {
-    const handler: AssistanceHandler = jest.fn();
+    const handler: AssistanceHandler = vi.fn();
     const mediator = new CoordinatorAssistanceMediator(handler, logger);
     const worker = makeMockWorker();
     mediator.attachToWorkers([worker as any]);
@@ -233,7 +235,7 @@ describe('CoordinatorAssistanceMediator', () => {
   });
 
   it('handles multiple workers independently', async () => {
-    const handler: AssistanceHandler = jest
+    const handler: AssistanceHandler = vi
       .fn()
       .mockResolvedValue({ notFound: true });
 

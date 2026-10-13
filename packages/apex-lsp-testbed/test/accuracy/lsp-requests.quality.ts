@@ -5,6 +5,8 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+
+import { vi } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
@@ -25,7 +27,7 @@ const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
 const rawData = readFileSync(logPath, 'utf8');
 const logData: Record<string, any> = JSON.parse(rawData);
 
-jest.setTimeout(180_000); // Increased timeout for server operations
+vi.setConfig({ testTimeout: 180_000 }); // Increased timeout for server operations
 
 // Add global error handlers to catch unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
@@ -131,22 +133,6 @@ describe('LSP Request/Response Accuracy', () => {
       } catch (error) {
         console.warn(`Cleanup failed: ${error}`);
       }
-    }
-
-    // Give some time for cleanup to complete
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    // Force cleanup any remaining processes
-    try {
-      // Kill any remaining Node.js processes that might be hanging
-      const { execSync } = require('child_process');
-      try {
-        execSync('pkill -f "apex-ls"', { stdio: 'ignore' });
-      } catch (_error) {
-        // Silently ignore if no processes to kill
-      }
-    } catch (error) {
-      console.warn('Failed to force cleanup processes:', error);
     }
   });
 

@@ -12,13 +12,12 @@ import type { ExtendedServerCapabilities } from '../../src/capabilities/ApexLang
 import { ApexCapabilitiesManager } from '../../src/capabilities/ApexCapabilitiesManager';
 import { ApexSettingsManager } from '../../src/settings/ApexSettingsManager';
 
-// Mock the ApexCapabilitiesManager
-jest.mock('../../src/capabilities/ApexCapabilitiesManager');
-jest.mock('../../src/settings/ApexSettingsManager');
+vi.mock('../../src/capabilities/ApexCapabilitiesManager');
+vi.mock('../../src/settings/ApexSettingsManager');
 
 describe('LSPConfigurationManager', () => {
-  let mockCapabilitiesManager: jest.Mocked<ApexCapabilitiesManager>;
-  let mockSettingsManager: jest.Mocked<ApexSettingsManager>;
+  let mockCapabilitiesManager: ApexCapabilitiesManager;
+  let mockSettingsManager: ApexSettingsManager;
   let configurationManager: LSPConfigurationManager;
 
   const mockCapabilities = {
@@ -131,62 +130,62 @@ describe('LSPConfigurationManager', () => {
 
   beforeEach(() => {
     // Reset all mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Create mock capabilities manager
     mockCapabilitiesManager = {
-      setMode: jest.fn(),
-      getMode: jest.fn().mockReturnValue('production'),
-      setPlatform: jest.fn(),
-      getPlatform: jest.fn().mockReturnValue('desktop'),
-      getCapabilities: jest.fn().mockReturnValue(mockCapabilities),
-      getRawCapabilities: jest.fn().mockReturnValue(mockCapabilities),
-      getCapabilitiesForMode: jest.fn().mockReturnValue(mockCapabilities),
-      getCapabilitiesForModeAndPlatform: jest
+      setMode: vi.fn(),
+      getMode: vi.fn().mockReturnValue('production'),
+      setPlatform: vi.fn(),
+      getPlatform: vi.fn().mockReturnValue('desktop'),
+      getCapabilities: vi.fn().mockReturnValue(mockCapabilities),
+      getRawCapabilities: vi.fn().mockReturnValue(mockCapabilities),
+      getCapabilitiesForMode: vi.fn().mockReturnValue(mockCapabilities),
+      getCapabilitiesForModeAndPlatform: vi
         .fn()
         .mockReturnValue(mockCapabilities),
-      getRawCapabilitiesForMode: jest.fn().mockReturnValue(mockCapabilities),
-      getAllCapabilities: jest.fn(),
-      isCapabilityEnabled: jest.fn(),
-      isCapabilityEnabledForMode: jest.fn(),
-      updateExperimentalCapabilities: jest.fn(),
-    } as unknown as jest.Mocked<ApexCapabilitiesManager>;
+      getRawCapabilitiesForMode: vi.fn().mockReturnValue(mockCapabilities),
+      getAllCapabilities: vi.fn(),
+      isCapabilityEnabled: vi.fn(),
+      isCapabilityEnabledForMode: vi.fn(),
+      updateExperimentalCapabilities: vi.fn(),
+    } as unknown as ApexCapabilitiesManager;
 
     // Create mock settings manager
     mockSettingsManager = {
-      getSettings: jest.fn().mockReturnValue(mockSettings),
-      updateSettings: jest.fn(),
-      updateFromLSPConfiguration: jest.fn().mockReturnValue(true),
-      onSettingsChange: jest.fn().mockReturnValue(jest.fn()),
-      isPerformanceProfilingEnabled: jest.fn().mockReturnValue(false),
-      getDocumentChangeDebounceMs: jest.fn().mockReturnValue(300),
-      shouldUseAsyncCommentProcessing: jest.fn().mockReturnValue(true),
-      getCompilationOptions: jest.fn().mockReturnValue({
+      getSettings: vi.fn().mockReturnValue(mockSettings),
+      updateSettings: vi.fn(),
+      updateFromLSPConfiguration: vi.fn().mockReturnValue(true),
+      onSettingsChange: vi.fn().mockReturnValue(vi.fn()),
+      isPerformanceProfilingEnabled: vi.fn().mockReturnValue(false),
+      getDocumentChangeDebounceMs: vi.fn().mockReturnValue(300),
+      shouldUseAsyncCommentProcessing: vi.fn().mockReturnValue(true),
+      getCompilationOptions: vi.fn().mockReturnValue({
         includeComments: true,
         includeSingleLineComments: false,
         associateComments: false,
       }),
-      getServerMode: jest.fn().mockReturnValue('production'),
-      getProfilingMode: jest.fn().mockReturnValue('none'),
-      setProfilingMode: jest.fn().mockReturnValue(true),
-      getProfilingType: jest.fn().mockReturnValue('cpu'),
-      setProfilingType: jest.fn().mockReturnValue(true),
-      getRuntimePlatform: jest.fn().mockReturnValue('desktop'),
-      getDefaultSettings: jest.fn().mockReturnValue(mockSettings),
-    } as unknown as jest.Mocked<ApexSettingsManager>;
+      getServerMode: vi.fn().mockReturnValue('production'),
+      getProfilingMode: vi.fn().mockReturnValue('none'),
+      setProfilingMode: vi.fn().mockReturnValue(true),
+      getProfilingType: vi.fn().mockReturnValue('cpu'),
+      setProfilingType: vi.fn().mockReturnValue(true),
+      getRuntimePlatform: vi.fn().mockReturnValue('desktop'),
+      getDefaultSettings: vi.fn().mockReturnValue(mockSettings),
+    } as unknown as ApexSettingsManager;
 
-    (ApexCapabilitiesManager.getInstance as jest.Mock).mockReturnValue(
+    vi.mocked(ApexCapabilitiesManager.getInstance).mockReturnValue(
       mockCapabilitiesManager,
     );
 
-    (ApexSettingsManager.getInstance as jest.Mock).mockReturnValue(
+    vi.mocked(ApexSettingsManager.getInstance).mockReturnValue(
       mockSettingsManager,
     );
 
     // Mock the static getDefaultSettings method
-    (ApexSettingsManager.getDefaultSettings as jest.Mock) = jest
-      .fn()
-      .mockReturnValue(mockSettings);
+    (ApexSettingsManager.getDefaultSettings as unknown as ReturnType<
+      typeof vi.fn
+    >) = vi.fn().mockReturnValue(mockSettings);
 
     // Create configuration manager instance
     configurationManager = new LSPConfigurationManager();
@@ -418,7 +417,7 @@ describe('LSPConfigurationManager', () => {
     });
 
     it('should register settings change listener', () => {
-      const listener = jest.fn();
+      const listener = vi.fn();
       const unsubscribe = configurationManager.onSettingsChange(listener);
 
       expect(mockSettingsManager.onSettingsChange).toHaveBeenCalledWith(
@@ -554,7 +553,9 @@ describe('LSPConfigurationManager', () => {
   describe('Constructor Options', () => {
     it('should initialize with custom mode', () => {
       // Mock getServerMode to return 'development' for this test
-      mockSettingsManager.getServerMode.mockReturnValue('development');
+      vi.mocked(mockSettingsManager.getServerMode).mockReturnValue(
+        'development',
+      );
 
       const _manager = new LSPConfigurationManager({});
 

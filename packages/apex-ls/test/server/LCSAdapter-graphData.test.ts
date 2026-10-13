@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { LCSAdapter } from '../../src/server/LCSAdapter';
 import type { GraphDataParams } from '@salesforce/apex-lsp-shared';
 
@@ -17,7 +18,7 @@ describe('LCSAdapter graph data routing', () => {
         edges: [],
       },
     };
-    const queryGraphData = jest.fn().mockResolvedValue(graph);
+    const queryGraphData = vi.fn().mockResolvedValue(graph);
     const adapter = Object.create(LCSAdapter.prototype) as {
       workerDispatcher?: {
         isAvailable(): boolean;

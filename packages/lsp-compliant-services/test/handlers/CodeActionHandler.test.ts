@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mocked } from 'vitest';
+import { vi } from 'vitest';
 import { CodeActionParams, CodeAction } from 'vscode-languageserver-protocol';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
@@ -13,8 +15,8 @@ import { CodeActionHandler } from '../../src/handlers/CodeActionHandler';
 import { ICodeActionProcessor } from '../../src/services/CodeActionProcessingService';
 
 // Mock the code action processor
-const mockCodeActionProcessor: jest.Mocked<ICodeActionProcessor> = {
-  processCodeAction: jest.fn(),
+const mockCodeActionProcessor: Mocked<ICodeActionProcessor> = {
+  processCodeAction: vi.fn(),
 };
 
 describe('CodeActionHandler', () => {
@@ -23,7 +25,7 @@ describe('CodeActionHandler', () => {
 
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Setup logger
     logger = getLogger();

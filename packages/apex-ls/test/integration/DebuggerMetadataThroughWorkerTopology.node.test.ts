@@ -29,7 +29,7 @@ import {
   type WorkerRole,
 } from '@salesforce/apex-lsp-shared';
 
-const WORKER_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
+const WORKER_ENTRY = path.resolve(__dirname, '../../dist/worker.platform.js');
 const URI = 'file:///workspace/ManagedExample.cls';
 const SOURCE = [
   'public class ManagedExample {',
@@ -51,7 +51,6 @@ const entry = {
 const workerLayerFactory = (role: WorkerRole) =>
   makeNodeWorkerLayer(WORKER_ENTRY, {
     name: `debugger-${role}`,
-    execArgv: ['--import', 'tsx'],
     workerData: { role, compilationPoolSize: 1, compilationConcurrency: 1 },
   });
 

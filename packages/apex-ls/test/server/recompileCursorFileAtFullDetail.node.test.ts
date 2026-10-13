@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 /**
  * Content-guard coverage for recompileCursorFileAtFullDetail (node platform).
  *
@@ -19,13 +21,13 @@
  * freshly-opened empty `.cls` at public-api detail — the same undefined-vs-blank
  * bug class #531 fixed elsewhere in the stack.
  *
- * These tests inject a stubbed RequestServices (symbol manager as jest mocks,
+ * These tests inject a stubbed RequestServices (symbol manager as vi mocks,
  * matching loadDependentsForReferences.node.test.ts) so the recompile path runs
  * against real parser output without a worker or storage.
  */
 
 import { Effect } from 'effect';
-import { recompileCursorFileAtFullDetail } from '../../src/worker.platform';
+import { recompileCursorFileAtFullDetail } from '../../src/worker.platform.shared';
 import type { RequestServices } from '@salesforce/apex-lsp-compliant-services';
 
 const URI = 'file:///workspace/RefUtil.cls';
@@ -36,13 +38,13 @@ const CLASS_BODY = `public class RefUtil {
 }`;
 
 describe('recompileCursorFileAtFullDetail content guard', () => {
-  let addSymbolTable: jest.Mock;
-  let resolveCrossFileReferencesForFile: jest.Mock;
+  let addSymbolTable: Mock;
+  let resolveCrossFileReferencesForFile: Mock;
   let svc: RequestServices;
 
   beforeEach(() => {
-    addSymbolTable = jest.fn(() => Effect.void);
-    resolveCrossFileReferencesForFile = jest.fn(() => Effect.void);
+    addSymbolTable = vi.fn(() => Effect.void);
+    resolveCrossFileReferencesForFile = vi.fn(() => Effect.void);
     svc = {
       symbolManager: { addSymbolTable, resolveCrossFileReferencesForFile },
     } as unknown as RequestServices;
@@ -142,7 +144,7 @@ describe('recompileCursorFileAtFullDetail content guard', () => {
       currentTable = table;
       return Effect.void;
     });
-    (svc.symbolManager as any).getSymbolTableForFile = jest.fn(
+    (svc.symbolManager as any).getSymbolTableForFile = vi.fn(
       async () => currentTable,
     );
     const firstTelemetry: { reused?: boolean } = {};
@@ -172,7 +174,7 @@ describe('recompileCursorFileAtFullDetail content guard', () => {
       currentTable = table;
       return Effect.void;
     });
-    (svc.symbolManager as any).getSymbolTableForFile = jest.fn(
+    (svc.symbolManager as any).getSymbolTableForFile = vi.fn(
       async () => currentTable,
     );
 

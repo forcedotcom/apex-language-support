@@ -6,9 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 // Mock vscode with locale support
-jest.mock('vscode', () => ({
-  ...jest.requireActual('vscode'),
+vi.mock('vscode', async () => ({
+  ...(await vi.importActual('vscode')),
   env: {
     uiKind: 1, // UIKind.Desktop (1), UIKind.Web (2)
     language: 'en', // Default locale for tests
@@ -18,9 +19,9 @@ jest.mock('vscode', () => ({
 import * as vscode from 'vscode';
 
 // Mock the logging module before importing the module under test
-jest.mock('@salesforce/apex-lsp-shared', () => ({
-  shouldLog: jest.fn().mockReturnValue(true),
-  setLogLevel: jest.fn(),
+vi.mock('@salesforce/apex-lsp-shared', () => ({
+  shouldLog: vi.fn().mockReturnValue(true),
+  setLogLevel: vi.fn(),
 }));
 
 // Import after mocking
@@ -37,17 +38,17 @@ describe('Logging Module', () => {
 
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Create mock output channel
     mockOutputChannel = {
-      appendLine: jest.fn(),
+      appendLine: vi.fn(),
     } as unknown as vscode.LogOutputChannel;
 
     // Mock vscode.window.createOutputChannel
-    jest
-      .spyOn(vscode.window, 'createOutputChannel')
-      .mockReturnValue(mockOutputChannel as any);
+    vi.spyOn(vscode.window, 'createOutputChannel').mockReturnValue(
+      mockOutputChannel as any,
+    );
 
     // Create mock context
     mockContext = {
@@ -55,15 +56,15 @@ describe('Logging Module', () => {
     } as unknown as vscode.ExtensionContext;
 
     // Mock workspace configuration
-    jest.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue({
-      get: jest.fn().mockReturnValue('error'),
+    vi.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue({
+      get: vi.fn().mockReturnValue('error'),
     } as unknown as vscode.WorkspaceConfiguration);
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
     // Reset the module's internal state
-    jest.resetModules();
+    vi.resetModules();
   });
 
   describe('initializeLogging', () => {
@@ -77,8 +78,8 @@ describe('Logging Module', () => {
     });
 
     it('should set initial log level from workspace settings', () => {
-      const mockGet = jest.fn().mockReturnValue('debug');
-      jest.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue({
+      const mockGet = vi.fn().mockReturnValue('debug');
+      vi.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue({
         get: mockGet,
       } as unknown as vscode.WorkspaceConfiguration);
 
@@ -171,14 +172,13 @@ describe('Logging Module', () => {
       expect(outputChannel).toBe(mockOutputChannel);
     });
 
-    it('should return undefined before initialization', () => {
+    it('should return undefined before initialization', async () => {
       // Reset modules to clear any previous state
-      jest.resetModules();
+      vi.resetModules();
 
       // Re-import the module to get fresh state
-      const {
-        getClientOutputChannel: freshGetClientOutputChannel,
-      } = require('../src/logging');
+      const { getClientOutputChannel: freshGetClientOutputChannel } =
+        await import('../src/logging');
 
       const outputChannel = freshGetClientOutputChannel();
 

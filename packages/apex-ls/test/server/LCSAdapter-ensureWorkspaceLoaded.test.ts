@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { reset as resetWorkspaceLoadState } from '@salesforce/apex-lsp-compliant-services';
 import { CoordinatorAssistanceMediator } from '../../src/server/CoordinatorAssistanceMediator';
@@ -25,9 +27,9 @@ function createSpyLogger(): LoggerInterface {
   } as unknown as LoggerInterface;
 }
 
-function makeMockWorker(): EventEmitter & { postMessage: jest.Mock } {
+function makeMockWorker(): EventEmitter & { postMessage: Mock } {
   const emitter = new EventEmitter();
-  (emitter as any).postMessage = jest.fn();
+  (emitter as any).postMessage = vi.fn();
   return emitter as any;
 }
 
@@ -80,8 +82,8 @@ describe('LCSAdapter primary assistance handler — coordinator:EnsureWorkspaceL
   });
 
   it('fires apex/requestWorkspaceLoad on the LSP Connection when worker requests load', async () => {
-    const sendNotification = jest.fn();
-    const sendRequest = jest.fn();
+    const sendNotification = vi.fn();
+    const sendRequest = vi.fn();
     // Wire the production primary handler into the production mediator —
     // the same pair of objects LCSAdapter constructs in
     // initializeWorkerTopology. Any drift in the live branching logic
@@ -124,9 +126,9 @@ describe('LCSAdapter primary assistance handler — coordinator:EnsureWorkspaceL
   });
 
   it('skips notification when workspace already loading (state guard)', async () => {
-    const sendNotification = jest.fn();
+    const sendNotification = vi.fn();
     const handler = createPrimaryAssistanceHandler({
-      connection: { sendNotification, sendRequest: jest.fn() } as any,
+      connection: { sendNotification, sendRequest: vi.fn() } as any,
       logger,
       getResourceLoaderProxy: () => undefined,
     });
@@ -147,9 +149,9 @@ describe('LCSAdapter primary assistance handler — coordinator:EnsureWorkspaceL
     // Regression guard: only the recognised coordinator:* and
     // resourceLoader:* prefixes are intercepted. Anything else must hit
     // the LSP wire so the client can handle it.
-    const sendRequest = jest.fn().mockResolvedValue({ ok: true });
+    const sendRequest = vi.fn().mockResolvedValue({ ok: true });
     const handler = createPrimaryAssistanceHandler({
-      connection: { sendRequest, sendNotification: jest.fn() } as any,
+      connection: { sendRequest, sendNotification: vi.fn() } as any,
       logger,
       getResourceLoaderProxy: () => undefined,
     });
@@ -163,15 +165,15 @@ describe('LCSAdapter primary assistance handler — coordinator:EnsureWorkspaceL
   });
 
   it('batches stdlib symbol-table assistance through the resource-loader proxy', async () => {
-    const getSymbolTables = jest.fn(async (classPaths: string[]) =>
+    const getSymbolTables = vi.fn(async (classPaths: string[]) =>
       Object.fromEntries(
         classPaths.map((classPath) => [classPath, { classPath }]),
       ),
     );
     const handler = createPrimaryAssistanceHandler({
       connection: {
-        sendRequest: jest.fn(),
-        sendNotification: jest.fn(),
+        sendRequest: vi.fn(),
+        sendNotification: vi.fn(),
       } as any,
       logger,
       getResourceLoaderProxy: () =>

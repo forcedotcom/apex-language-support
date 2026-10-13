@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import {
   DocumentStateCache,
   DocumentState,
@@ -13,14 +14,14 @@ import {
 } from '../../src/services/DocumentStateCache';
 
 // Mock getLogger to avoid console output during tests
-jest.mock('@salesforce/apex-lsp-shared', () => ({
-  ...jest.requireActual('@salesforce/apex-lsp-shared'),
-  getLogger: jest.fn(() => ({
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    log: jest.fn(),
+vi.mock('@salesforce/apex-lsp-shared', async () => ({
+  ...(await vi.importActual('@salesforce/apex-lsp-shared')),
+  getLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    log: vi.fn(),
   })),
 }));
 
@@ -29,7 +30,7 @@ describe('DocumentStateCache', () => {
 
   beforeEach(() => {
     cache = new DocumentStateCache(10); // Small cache for testing
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('constructor', () => {

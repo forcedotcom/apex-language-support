@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { Effect } from 'effect';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { ApexSymbolManager } from '@salesforce/apex-lsp-parser-ast';
@@ -147,7 +148,7 @@ describe('SystemNamespaceCompletionStrategy', () => {
     });
 
     it('uses lexer-owned namespace and partial type tokens for qualified prefixes', async () => {
-      jest.spyOn(symbolManager, 'findSymbolsByPrefix').mockResolvedValue([
+      vi.spyOn(symbolManager, 'findSymbolsByPrefix').mockResolvedValue([
         {
           id: 'system:Assert',
           name: 'Assert',

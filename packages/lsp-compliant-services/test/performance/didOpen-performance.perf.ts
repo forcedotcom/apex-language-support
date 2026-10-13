@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 /**
  * didOpen Performance Benchmarks - Complexity Scaling & Blocking Analysis
  *
@@ -24,7 +26,6 @@
  * - DocumentProcessing.performance.integration.test.ts (blocking detection)
  */
 
-import Benchmark from 'benchmark';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
@@ -51,15 +52,15 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 // Minimal mocks - only mock external dependencies
-jest.mock('@salesforce/apex-lsp-shared', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
+vi.mock('@salesforce/apex-lsp-shared', async () => {
+  const actual = await vi.importActual('@salesforce/apex-lsp-shared');
   return {
     ...actual,
     LSPConfigurationManager: {
-      getInstance: jest.fn(),
+      getInstance: vi.fn(),
     },
     ApexSettingsManager: {
-      getInstance: jest.fn(),
+      getInstance: vi.fn(),
     },
   };
 });
@@ -74,11 +75,11 @@ describe('didOpen Performance Benchmarks', () => {
 
   const isCI = process.env.CI === 'true';
   const isQuick = process.env.QUICK === 'true';
-  const benchmarkSettings = isCI
-    ? { maxTime: 30, minTime: 10, minSamples: 5, initCount: 1 }
+  const benchmarkOptions = isCI
+    ? { time: 30_000, warmupTime: 10_000, iterations: 5, warmupIterations: 1 }
     : isQuick
-      ? { maxTime: 1, minTime: 0.1, minSamples: 1, initCount: 1 }
-      : { maxTime: 6, minTime: 2, minSamples: 2, initCount: 1 };
+      ? { time: 1_000, warmupTime: 100, iterations: 1, warmupIterations: 1 }
+      : { time: 6_000, warmupTime: 2_000, iterations: 2, warmupIterations: 1 };
 
   // Test fixtures for complexity scaling
   const fixtures = [
@@ -117,7 +118,7 @@ describe('didOpen Performance Benchmarks', () => {
   });
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     logger = getLogger();
 
     ApexStorageManager.reset();
@@ -128,16 +129,16 @@ describe('didOpen Performance Benchmarks', () => {
     await storageManager.initialize();
 
     mockConfigManager = {
-      getConnection: jest.fn().mockReturnValue({
-        sendRequest: jest.fn(),
+      getConnection: vi.fn().mockReturnValue({
+        sendRequest: vi.fn(),
       }),
     };
-    (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue(
+    (LSPConfigurationManager.getInstance as Mock).mockReturnValue(
       mockConfigManager,
     );
 
     mockSettingsManager = {
-      getSettings: jest.fn().mockReturnValue({
+      getSettings: vi.fn().mockReturnValue({
         apex: {
           findMissingArtifact: { enabled: false },
           scheduler: {
@@ -167,12 +168,12 @@ describe('didOpen Performance Benchmarks', () => {
           },
         },
       }),
-      getCompilationOptions: jest.fn().mockReturnValue({
+      getCompilationOptions: vi.fn().mockReturnValue({
         collectReferences: true,
         resolveReferences: true,
       }),
     };
-    (ApexSettingsManager.getInstance as jest.Mock).mockReturnValue(
+    (ApexSettingsManager.getInstance as Mock).mockReturnValue(
       mockSettingsManager,
     );
 
@@ -196,63 +197,21 @@ describe('didOpen Performance Benchmarks', () => {
 
   // Complexity Scaling Benchmarks
   fixtures.forEach((fixture) => {
-    it(`benchmarks ${fixture.complexity} complexity (${fixture.name})`, (done) => {
-      const suite = new Benchmark.Suite();
-      const results: Record<string, Benchmark.Target> = {};
-
+    it(`benchmarks ${fixture.complexity} complexity (${fixture.name})`, async ({
+      bench,
+    }) => {
       const content = readFileSync(join(__dirname, fixture.path), 'utf8');
       const document = TextDocument.create(fixture.uri, 'apex', 1, content);
       const event: TextDocumentChangeEvent<TextDocument> = { document };
 
-      suite
-        .add(`didOpen ${fixture.complexity}`, {
-          defer: true,
-          ...benchmarkSettings,
-          fn: (deferred: any) => {
-            service
-              .processDocumentOpenInternal(event)
-              .then(() => deferred.resolve())
-              .catch((err: any) => {
-                console.error(`Error in ${fixture.name}:`, err);
-                deferred.resolve();
-              });
-          },
-        })
-        .on('cycle', (event: any) => {
-          results[event.target.name] = event.target;
-          logger.alwaysLog(String(event.target));
-        })
-        .on('complete', function (this: any) {
-          const fs = require('fs');
-          const path = require('path');
-          const outputPath = path.join(
-            __dirname,
-            '../lsp-compliant-services-benchmark-results.json',
-          );
-
-          // Merge with existing results if file exists
-          let allResults = results;
-          try {
-            if (fs.existsSync(outputPath)) {
-              const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-              allResults = { ...existing, ...results };
-            }
-          } catch (error) {
-            console.warn('Could not read existing results:', error);
-          }
-
-          fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-          done();
-        })
-        .run({ async: true });
+      await bench(`didOpen ${fixture.complexity}`, {}, () =>
+        service.processDocumentOpenInternal(event),
+      ).run(benchmarkOptions);
     }, 120000);
   });
 
   // Variance Analysis Benchmark
-  it('benchmarks didOpen variance across iterations', (done) => {
-    const suite = new Benchmark.Suite();
-    const results: Record<string, Benchmark.Target> = {};
-
+  it('benchmarks didOpen variance across iterations', async ({ bench }) => {
     const fixtureContent = readFileSync(
       join(__dirname, '../fixtures/classes/PerformanceTestClass.cls'),
       'utf8',
@@ -265,53 +224,15 @@ describe('didOpen Performance Benchmarks', () => {
     );
     const event: TextDocumentChangeEvent<TextDocument> = { document };
 
-    suite
-      .add('didOpen variance test', {
-        defer: true,
-        ...benchmarkSettings,
-        fn: (deferred: any) => {
-          // Reset symbol manager for each iteration to measure cold start
-          const newSymbolManager = new ApexSymbolManager();
-          const processingManager = ApexSymbolProcessingManager.getInstance();
-          // @ts-expect-error - accessing private field for testing
-          processingManager.symbolManager = newSymbolManager;
+    await bench('didOpen variance test', {}, async () => {
+      // Reset symbol manager for each iteration to measure cold start
+      const newSymbolManager = new ApexSymbolManager();
+      const processingManager = ApexSymbolProcessingManager.getInstance();
+      // @ts-expect-error - accessing private field for testing
+      processingManager.symbolManager = newSymbolManager;
 
-          service
-            .processDocumentOpenInternal(event)
-            .then(() => deferred.resolve())
-            .catch((err: any) => {
-              console.error('Error in variance test:', err);
-              deferred.resolve();
-            });
-        },
-      })
-      .on('cycle', (event: any) => {
-        results[event.target.name] = event.target;
-        logger.alwaysLog(String(event.target));
-      })
-      .on('complete', function (this: any) {
-        const fs = require('fs');
-        const path = require('path');
-        const outputPath = path.join(
-          __dirname,
-          '../lsp-compliant-services-benchmark-results.json',
-        );
-
-        // Merge with existing results
-        let allResults = results;
-        try {
-          if (fs.existsSync(outputPath)) {
-            const existing = JSON.parse(fs.readFileSync(outputPath, 'utf8'));
-            allResults = { ...existing, ...results };
-          }
-        } catch (error) {
-          console.warn('Could not read existing results:', error);
-        }
-
-        fs.writeFileSync(outputPath, JSON.stringify(allResults, null, 2));
-        done();
-      })
-      .run({ async: true });
+      await service.processDocumentOpenInternal(event);
+    }).run(benchmarkOptions);
   }, 120000);
 
   // Blocking Detection (informational)

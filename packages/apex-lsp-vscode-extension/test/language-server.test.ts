@@ -6,40 +6,42 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 /**
  * Language Server Module Tests
  */
 
 // The shared vscode mock omits env/UIKind; provide them for environment detection.
-jest.mock('vscode', () => ({
-  ...jest.requireActual('vscode'),
+vi.mock('vscode', async () => ({
+  ...(await vi.importActual('vscode')),
   env: { uiKind: 1, language: 'en' },
   UIKind: { Desktop: 1, Web: 2 },
 }));
 
 // vscode-languageclient pulls in browser/node globals that are absent under Jest;
 // stub the surface language-server.ts touches at import time.
-jest.mock('vscode-languageclient', () => ({
+vi.mock('vscode-languageclient', () => ({
   Trace: { Off: 0, Messages: 1, Verbose: 2 },
   State: { Stopped: 1, Starting: 2, Running: 3 },
 }));
-jest.mock('vscode-languageclient/node', () => ({
+vi.mock('vscode-languageclient/node', () => ({
   Trace: { Off: 0, Messages: 1, Verbose: 2 },
   State: { Stopped: 1, Starting: 2, Running: 3 },
   LanguageClient: class {},
 }));
 
-jest.mock('../src/logging', () => ({
-  logToOutputChannel: jest.fn(),
-  createSafeOutputChannel: jest.fn(),
-  getWorkerServerOutputChannel: jest.fn(),
+vi.mock('../src/logging', () => ({
+  logToOutputChannel: vi.fn(),
+  createSafeOutputChannel: vi.fn(),
+  getWorkerServerOutputChannel: vi.fn(),
 }));
 
-const coreCreate = jest.fn();
-const connectionConstructor = jest.fn();
-const apexLibInitialize = jest.fn();
+const coreCreate = vi.fn();
+const connectionConstructor = vi.fn();
+const apexLibInitialize = vi.fn();
 
-jest.mock('@salesforce/apex-lsp-client', () => ({
+vi.mock('@salesforce/apex-lsp-client', () => ({
   ApexClientCore: { create: coreCreate },
   LanguageClientConnection: class {
     constructor(client: unknown) {
@@ -48,7 +50,7 @@ jest.mock('@salesforce/apex-lsp-client', () => ({
   },
 }));
 
-jest.mock('@salesforce/apex-lsp-client/browser', () => ({
+vi.mock('@salesforce/apex-lsp-client/browser', () => ({
   ApexClientCore: { create: coreCreate },
   LanguageClientConnection: class {
     constructor(client: unknown) {
@@ -57,8 +59,8 @@ jest.mock('@salesforce/apex-lsp-client/browser', () => ({
   },
 }));
 
-jest.mock('@salesforce/apex-lsp-compliant-services', () => ({
-  createApexLibManager: jest.fn(() => ({ initialize: apexLibInitialize })),
+vi.mock('@salesforce/apex-lsp-compliant-services', () => ({
+  createApexLibManager: vi.fn(() => ({ initialize: apexLibInitialize })),
 }));
 
 import * as vscode from 'vscode';
@@ -85,14 +87,14 @@ describe('createClientState', () => {
   it('constructs the core before starting the raw language client without a second handshake', async () => {
     const events: string[] = [];
     const rawClient = {
-      start: jest.fn(async () => {
+      start: vi.fn(async () => {
         events.push('start');
       }),
     };
     const core = {
-      initialize: jest.fn(),
-      shutdown: jest.fn(),
-      dispose: jest.fn(),
+      initialize: vi.fn(),
+      shutdown: vi.fn(),
+      dispose: vi.fn(),
     };
     coreCreate.mockImplementation(async () => {
       events.push('core');
@@ -120,7 +122,7 @@ describe('createClientState', () => {
     const state = {
       rawClient: {} as never,
       core: {
-        dispose: jest.fn(async () => {
+        dispose: vi.fn(async () => {
           events.push('dispose');
           throw new Error('stop failed');
         }),
@@ -149,23 +151,23 @@ describe('createClientState', () => {
     const state = {
       rawClient: {} as never,
       configurationListener: {
-        dispose: jest.fn(() => {
+        dispose: vi.fn(() => {
           events.push('listener');
           throw new Error('listener failed');
         }),
       },
       apexLibResources: [
         {
-          dispose: jest.fn(() => {
+          dispose: vi.fn(() => {
             events.push('resource-one');
             throw new Error('resource one failed');
           }),
         },
-        { dispose: jest.fn(() => events.push('resource-two')) },
+        { dispose: vi.fn(() => events.push('resource-two')) },
       ],
       workspaceLoadScope,
       core: {
-        dispose: jest.fn(async () => {
+        dispose: vi.fn(async () => {
           events.push('core');
           throw new Error('core failed');
         }),
@@ -188,15 +190,15 @@ describe('createClientState', () => {
 
   it('disposes the core when the raw language client fails to start', async () => {
     const rawClient = {
-      start: jest.fn().mockRejectedValue(new Error('start failed')),
+      start: vi.fn().mockRejectedValue(new Error('start failed')),
     };
     const core = {
-      dispose: jest.fn().mockResolvedValue(undefined),
+      dispose: vi.fn().mockResolvedValue(undefined),
     };
     coreCreate.mockResolvedValue(core);
 
     await expect(
-      createClientState(rawClient as never, 'web', jest.fn()),
+      createClientState(rawClient as never, 'web', vi.fn()),
     ).rejects.toThrow('start failed');
 
     expect(core.dispose).toHaveBeenCalledTimes(1);
@@ -204,17 +206,17 @@ describe('createClientState', () => {
 
   it('preserves the raw client startup error when cleanup also fails', async () => {
     const startupError = new Error('start failed');
-    const rawClient = { start: jest.fn().mockRejectedValue(startupError) };
+    const rawClient = { start: vi.fn().mockRejectedValue(startupError) };
     const core = {
-      dispose: jest.fn().mockRejectedValue(new Error('dispose failed')),
+      dispose: vi.fn().mockRejectedValue(new Error('dispose failed')),
     };
     coreCreate.mockResolvedValue(core);
 
     await expect(
-      createClientState(rawClient as never, 'desktop', jest.fn()),
+      createClientState(rawClient as never, 'desktop', vi.fn()),
     ).rejects.toBe(startupError);
 
-    const { logToOutputChannel } = jest.requireMock('../src/logging');
+    const { logToOutputChannel } = await vi.importMock('../src/logging');
     expect(logToOutputChannel).toHaveBeenCalledWith(
       expect.stringContaining('dispose failed'),
       'warning',
@@ -224,8 +226,8 @@ describe('createClientState', () => {
 
 describe('restartAfterStrictStop', () => {
   it('does not start a replacement when stopping the old client fails', async () => {
-    const stop = jest.fn().mockRejectedValue(new Error('stop failed'));
-    const start = jest.fn().mockResolvedValue(undefined);
+    const stop = vi.fn().mockRejectedValue(new Error('stop failed'));
+    const start = vi.fn().mockResolvedValue(undefined);
 
     await expect(restartAfterStrictStop(stop, start)).rejects.toThrow(
       'stop failed',
@@ -237,25 +239,25 @@ describe('restartAfterStrictStop', () => {
 
 describe('completeClientStart', () => {
   beforeEach(() => {
-    (vscode.workspace.getConfiguration as jest.Mock).mockReturnValue({
-      get: jest.fn((_key: string, defaultValue: unknown) => defaultValue),
+    (vscode.workspace.getConfiguration as Mock).mockReturnValue({
+      get: vi.fn((_key: string, defaultValue: unknown) => defaultValue),
     });
   });
 
   it('disposes the candidate core when setting trace fails after raw start', async () => {
-    const dispose = jest.fn().mockResolvedValue(undefined);
+    const dispose = vi.fn().mockResolvedValue(undefined);
     const state = {
       rawClient: {
-        setTrace: jest.fn().mockRejectedValue(new Error('trace failed')),
+        setTrace: vi.fn().mockRejectedValue(new Error('trace failed')),
       },
       core: { dispose },
     } as never;
 
     await expect(
       completeClientStart(state, {
-        registerConfigurationListener: jest.fn(),
-        sendConfiguration: jest.fn(),
-        loadWorkspace: jest.fn(),
+        registerConfigurationListener: vi.fn(),
+        sendConfiguration: vi.fn(),
+        loadWorkspace: vi.fn(),
         shouldLoadWorkspace: false,
       }),
     ).rejects.toThrow('trace failed');
@@ -264,20 +266,20 @@ describe('completeClientStart', () => {
   });
 
   it('disposes the listener and candidate core when workspace loading fails', async () => {
-    const listener = { dispose: jest.fn() };
-    const apexLibResource = { dispose: jest.fn() };
-    const dispose = jest.fn().mockResolvedValue(undefined);
+    const listener = { dispose: vi.fn() };
+    const apexLibResource = { dispose: vi.fn() };
+    const dispose = vi.fn().mockResolvedValue(undefined);
     const state = {
-      rawClient: { setTrace: jest.fn().mockResolvedValue(undefined) },
+      rawClient: { setTrace: vi.fn().mockResolvedValue(undefined) },
       core: { dispose },
     } as never;
 
     await expect(
       completeClientStart(state, {
-        registerConfigurationListener: jest.fn().mockReturnValue(listener),
-        initializeApexLib: jest.fn().mockResolvedValue([apexLibResource]),
-        sendConfiguration: jest.fn(),
-        loadWorkspace: jest.fn().mockRejectedValue(new Error('load failed')),
+        registerConfigurationListener: vi.fn().mockReturnValue(listener),
+        initializeApexLib: vi.fn().mockResolvedValue([apexLibResource]),
+        sendConfiguration: vi.fn(),
+        loadWorkspace: vi.fn().mockRejectedValue(new Error('load failed')),
         shouldLoadWorkspace: true,
       }),
     ).rejects.toThrow('load failed');
@@ -289,19 +291,19 @@ describe('completeClientStart', () => {
 
   it('continues startup when ApexLib initialization fails', async () => {
     const apexLibError = new Error('ApexLib initialization failed');
-    const markReady = jest.fn();
-    const dispose = jest.fn();
+    const markReady = vi.fn();
+    const dispose = vi.fn();
     const state = {
-      rawClient: { setTrace: jest.fn().mockResolvedValue(undefined) },
+      rawClient: { setTrace: vi.fn().mockResolvedValue(undefined) },
       core: { dispose },
     } as never;
 
     await expect(
       completeClientStart(state, {
-        registerConfigurationListener: jest.fn(() => ({ dispose: jest.fn() })),
-        initializeApexLib: jest.fn().mockRejectedValue(apexLibError),
-        sendConfiguration: jest.fn(),
-        loadWorkspace: jest.fn(),
+        registerConfigurationListener: vi.fn(() => ({ dispose: vi.fn() })),
+        initializeApexLib: vi.fn().mockRejectedValue(apexLibError),
+        sendConfiguration: vi.fn(),
+        loadWorkspace: vi.fn(),
         shouldLoadWorkspace: false,
         markReady,
       }),
@@ -309,7 +311,7 @@ describe('completeClientStart', () => {
 
     expect(dispose).not.toHaveBeenCalled();
     expect(markReady).toHaveBeenCalledTimes(1);
-    const { logToOutputChannel } = jest.requireMock('../src/logging');
+    const { logToOutputChannel } = await vi.importMock('../src/logging');
     expect(logToOutputChannel).toHaveBeenCalledWith(
       expect.stringContaining('Standard library navigation may not work'),
       'warning',
@@ -330,10 +332,10 @@ describe('completeClientStart', () => {
       ),
     );
     const state = {
-      rawClient: { setTrace: jest.fn().mockResolvedValue(undefined) },
+      rawClient: { setTrace: vi.fn().mockResolvedValue(undefined) },
       workspaceLoadScope,
       core: {
-        dispose: jest.fn(async () => {
+        dispose: vi.fn(async () => {
           events.push('core');
           throw new Error('core failed');
         }),
@@ -342,13 +344,13 @@ describe('completeClientStart', () => {
 
     await expect(
       completeClientStart(state, {
-        registerConfigurationListener: jest.fn().mockReturnValue({
+        registerConfigurationListener: vi.fn().mockReturnValue({
           dispose: () => {
             events.push('listener');
             throw new Error('listener failed');
           },
         }),
-        initializeApexLib: jest.fn().mockResolvedValue([
+        initializeApexLib: vi.fn().mockResolvedValue([
           {
             dispose: () => {
               events.push('resource-one');
@@ -357,8 +359,8 @@ describe('completeClientStart', () => {
           },
           { dispose: () => events.push('resource-two') },
         ]),
-        sendConfiguration: jest.fn(),
-        loadWorkspace: jest.fn().mockRejectedValue(startupError),
+        sendConfiguration: vi.fn(),
+        loadWorkspace: vi.fn().mockRejectedValue(startupError),
         shouldLoadWorkspace: true,
       }),
     ).rejects.toBe(startupError);
@@ -374,32 +376,32 @@ describe('completeClientStart', () => {
 
   it('initializes ApexLib after raw start and disposes its resources before the client core', async () => {
     const events: string[] = [];
-    const listener = { dispose: jest.fn(() => events.push('listener')) };
+    const listener = { dispose: vi.fn(() => events.push('listener')) };
     const apexLibResource = {
-      dispose: jest.fn(() => events.push('apexlib')),
+      dispose: vi.fn(() => events.push('apexlib')),
     };
     const state = {
       rawClient: {
-        setTrace: jest.fn(async () => events.push('trace')),
+        setTrace: vi.fn(async () => events.push('trace')),
       },
       core: {
-        dispose: jest.fn(async () => {
+        dispose: vi.fn(async () => {
           events.push('core');
         }),
       },
     } as never;
     const completed = await completeClientStart(state, {
-      registerConfigurationListener: jest.fn().mockReturnValue(listener),
-      initializeApexLib: jest.fn(async () => {
+      registerConfigurationListener: vi.fn().mockReturnValue(listener),
+      initializeApexLib: vi.fn(async () => {
         events.push('apexlib-init');
         return [apexLibResource];
       }),
-      sendConfiguration: jest.fn(),
-      loadWorkspace: jest.fn(),
+      sendConfiguration: vi.fn(),
+      loadWorkspace: vi.fn(),
       shouldLoadWorkspace: false,
     });
 
-    await disposeClientState(completed, jest.fn());
+    await disposeClientState(completed, vi.fn());
 
     expect(events).toEqual([
       'trace',
@@ -412,26 +414,26 @@ describe('completeClientStart', () => {
 
   it('waits for the server ingestion-complete notification before marking a loaded workspace ready', async () => {
     const events: string[] = [];
-    const resetStartRetries = jest.fn(() => events.push('reset'));
+    const resetStartRetries = vi.fn(() => events.push('reset'));
     const state = {
       rawClient: {
-        setTrace: jest.fn(async () => events.push('trace')),
+        setTrace: vi.fn(async () => events.push('trace')),
       },
-      core: { dispose: jest.fn() },
+      core: { dispose: vi.fn() },
     } as never;
 
     await completeClientStart(state, {
-      registerConfigurationListener: jest.fn(() => {
+      registerConfigurationListener: vi.fn(() => {
         events.push('listener');
-        return { dispose: jest.fn() };
+        return { dispose: vi.fn() };
       }),
-      sendConfiguration: jest.fn(() => events.push('configuration')),
-      loadWorkspace: jest.fn(async () => {
+      sendConfiguration: vi.fn(() => events.push('configuration')),
+      loadWorkspace: vi.fn(async () => {
         events.push('load');
       }),
       shouldLoadWorkspace: true,
       resetStartRetries,
-      markReady: jest.fn(() => events.push('ready')),
+      markReady: vi.fn(() => events.push('ready')),
     });
 
     expect(events).toEqual([
@@ -444,17 +446,17 @@ describe('completeClientStart', () => {
   });
 
   it('marks the server ready immediately when workspace loading is disabled', async () => {
-    const markReady = jest.fn();
-    const resetStartRetries = jest.fn();
+    const markReady = vi.fn();
+    const resetStartRetries = vi.fn();
     const state = {
-      rawClient: { setTrace: jest.fn().mockResolvedValue(undefined) },
-      core: { dispose: jest.fn() },
+      rawClient: { setTrace: vi.fn().mockResolvedValue(undefined) },
+      core: { dispose: vi.fn() },
     } as never;
 
     await completeClientStart(state, {
-      registerConfigurationListener: jest.fn(() => ({ dispose: jest.fn() })),
-      sendConfiguration: jest.fn(),
-      loadWorkspace: jest.fn(),
+      registerConfigurationListener: vi.fn(() => ({ dispose: vi.fn() })),
+      sendConfiguration: vi.fn(),
+      loadWorkspace: vi.fn(),
       shouldLoadWorkspace: false,
       resetStartRetries,
       markReady,
@@ -491,7 +493,7 @@ describe('initializeApexLib', () => {
     ).rejects.toBe(initializationError);
 
     expect(events).toEqual(['resource-one', 'resource-two']);
-    const { logToOutputChannel } = jest.requireMock('../src/logging');
+    const { logToOutputChannel } = await vi.importMock('../src/logging');
     expect(logToOutputChannel).toHaveBeenCalledWith(
       expect.stringContaining('resource one cleanup failed'),
       'warning',
@@ -500,10 +502,10 @@ describe('initializeApexLib', () => {
 });
 
 describe('logDesktopServerStartStatus', () => {
-  it('reports confirmed post-start client status without observing private process state', () => {
+  it('reports confirmed post-start client status without observing private process state', async () => {
     logDesktopServerStartStatus({ isRunning: () => true });
 
-    const { logToOutputChannel } = jest.requireMock('../src/logging');
+    const { logToOutputChannel } = await vi.importMock('../src/logging');
     expect(logToOutputChannel).toHaveBeenCalledWith(
       '🟢 Node language server start completed (client running: true)',
       'debug',
@@ -577,13 +579,13 @@ describe('createWebDocumentSelector', () => {
       position: unknown,
       token: {
         isCancellationRequested: boolean;
-        onCancellationRequested: jest.Mock;
+        onCancellationRequested: Mock;
       },
       next: () => Promise<unknown>,
     ) => Promise<unknown>;
     const token = {
       isCancellationRequested: false,
-      onCancellationRequested: jest.fn(),
+      onCancellationRequested: vi.fn(),
     };
     const document = { uri: 'file:///Test.cls' };
     const position = { line: 0, character: 0 };
@@ -607,14 +609,14 @@ describe('createWebDocumentSelector', () => {
         position,
         {
           isCancellationRequested: true,
-          onCancellationRequested: jest.fn(),
+          onCancellationRequested: vi.fn(),
         },
         () => new Promise(() => {}),
       ),
     ).resolves.toBeNull();
 
     const sendRequest = options.middleware!.sendRequest!;
-    const next = jest.fn().mockResolvedValue({ contents: 'hover result' });
+    const next = vi.fn().mockResolvedValue({ contents: 'hover result' });
     await expect(
       sendRequest(
         'textDocument/hover',
@@ -627,7 +629,7 @@ describe('createWebDocumentSelector', () => {
       ),
     ).resolves.toEqual({ contents: 'hover result' });
 
-    const { logToOutputChannel } = jest.requireMock('../src/logging');
+    const { logToOutputChannel } = await vi.importMock('../src/logging');
     expect(logToOutputChannel).toHaveBeenCalledWith(
       expect.stringContaining(
         'Hover request initiated: file:///Test.cls at 2:4',

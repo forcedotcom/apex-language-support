@@ -20,7 +20,7 @@ import {
   makeWorkerDispatcher,
 } from '../../src/server/WorkerCoordinator';
 
-const WORKER_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
+const WORKER_ENTRY = path.resolve(__dirname, '../../dist/worker.platform.js');
 const COMPILATION_POOL_SIZE = 2;
 
 const entries = [
@@ -61,7 +61,6 @@ describe('data-owner-managed Effect compilation pool', () => {
         workerLayerFactory: (role) =>
           makeNodeWorkerLayer(WORKER_ENTRY, {
             name: `test-${role}`,
-            execArgv: ['--import', 'tsx'],
             workerData: {
               role,
               compilationPoolSize: COMPILATION_POOL_SIZE,
@@ -133,7 +132,6 @@ describe('data-owner-managed Effect compilation pool', () => {
         workerLayerFactory: (role) =>
           makeNodeWorkerLayer(WORKER_ENTRY, {
             name: `test-${role}`,
-            execArgv: ['--import', 'tsx'],
             workerData: { role, compilationPoolSize: 1 },
           }),
       });
@@ -177,7 +175,6 @@ describe('data-owner-managed Effect compilation pool', () => {
         workerLayerFactory: (role) =>
           makeNodeWorkerLayer(WORKER_ENTRY, {
             name: `test-${role}`,
-            execArgv: ['--import', 'tsx'],
             workerData: { role, compilationPoolSize: 1 },
           }),
       });
