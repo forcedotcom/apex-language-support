@@ -27,6 +27,8 @@ export default defineConfig({
     include: ['test/**/*.test.ts', 'test/**/generate-Standard-Apex-Library.ts'],
     exclude: ['dist/**', '.wireit/**'],
     testTimeout: 120_000,
+    // Jest's testTimeout covered hooks too; Vitest uses a separate 10s default.
+    hookTimeout: 120_000,
     pool: 'forks',
     maxWorkers: Number(process.env.VITEST_MAX_WORKERS ?? 2),
     isolate: false,

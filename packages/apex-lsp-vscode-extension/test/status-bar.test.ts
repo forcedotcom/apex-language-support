@@ -47,7 +47,6 @@ describe('Apex Server Status LanguageStatusItem', () => {
       'apex-ls-ts.serverStatus',
       {
         language: 'apex',
-        scheme: 'file',
       },
     );
     expect(mockContext.subscriptions).toContain(mockStatusItem);

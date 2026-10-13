@@ -294,11 +294,15 @@ export class HoverProcessingService implements IHoverProcessor {
           // Detect when precise resolved the qualifier class rather than the method:
           // the ChainedRef's identifierRange spans the whole expression, so methodCallRef
           // matches even when the cursor is on the qualifier (e.g. FileUtilities in
-          // FileUtilities.createFile). In that case the class symbol is correct — keep it.
+          // FileUtilities.createFile). Keep the class only when the parser-selected
+          // chain member does not identify a different symbol under the cursor.
           const isQualifierClass =
             symbol !== null &&
             isClassSymbol(symbol) &&
-            symbol.name.toLowerCase() !== methodCallRef.name.toLowerCase();
+            symbol.name.toLowerCase() !== methodCallRef.name.toLowerCase() &&
+            (!selectedChainMember ||
+              symbol.name.toLowerCase() ===
+                selectedChainMember.name.toLowerCase());
 
           // If we got a non-method symbol and it is NOT the qualifier class, reject it
           // and try enrichment to resolve the actual method call.

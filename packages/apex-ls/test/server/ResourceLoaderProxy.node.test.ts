@@ -17,8 +17,7 @@ import { Effect, Exit, Scope } from 'effect';
 import type { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import type { WorkerTopology } from '../../src/server/WorkerCoordinator';
 
-const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
-const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
+const WORKER_ENTRY = path.resolve(__dirname, '../../dist/worker.platform.js');
 
 function createSpyLogger(): LoggerInterface {
   const noop = () => {};
@@ -46,7 +45,7 @@ describe('ResourceLoaderProxy (Step 9)', () => {
         enableResourceLoader: true,
         logger,
       });
-    }).pipe(Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)));
+    }).pipe(Effect.provide(makeNodeWorkerLayer(WORKER_ENTRY)));
 
     topology = await Effect.runPromise(
       Effect.provideService(program, Scope.Scope, scope),

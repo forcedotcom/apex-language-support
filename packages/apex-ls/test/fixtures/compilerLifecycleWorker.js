@@ -6,22 +6,21 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import * as WorkerRunner from '@effect/platform/WorkerRunner';
-import * as NodeWorkerRunner from '@effect/platform-node/NodeWorkerRunner';
-import { Effect, Layer } from 'effect';
-import {
+const WorkerRunner = require('@effect/platform/WorkerRunner');
+const NodeWorkerRunner = require('@effect/platform-node/NodeWorkerRunner');
+const { Effect, Layer } = require('effect');
+const {
   CompilationWorkerRequests,
   CompileApexFile,
-} from '@salesforce/apex-lsp-shared';
-// @ts-ignore - .ts extension is required when this fixture runs through tsx.
-import { createCompilationWorkerHandlers } from '../../src/compiler/CompilationWorkerHandler.ts';
+} = require('@salesforce/apex-lsp-shared');
+const {
+  createCompilationWorkerHandlers,
+} = require('../../out/node/compiler/CompilationWorkerHandler.js');
 
 const baseHandlers = createCompilationWorkerHandlers();
 const handlers = {
   ...baseHandlers,
-  CompileApexFile: (
-    request: Parameters<typeof baseHandlers.CompileApexFile>[0],
-  ) => {
+  CompileApexFile: (request) => {
     if (request.content === '__hang__') {
       return Effect.never;
     }

@@ -206,8 +206,8 @@ export const createApexServerStatusItem = (
   apexServerStatusItem = vscode.languages.createLanguageStatusItem(
     'apex-ls-ts.serverStatus',
     {
+      // Web workspaces use memfs URIs; readiness must be visible there too.
       language: 'apex',
-      scheme: 'file',
     },
   );
   apexServerStatusItem.name = 'Apex-LS-TS Language Server Status';

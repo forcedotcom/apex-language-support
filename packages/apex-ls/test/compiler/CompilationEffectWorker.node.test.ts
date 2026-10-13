@@ -27,10 +27,10 @@ import {
 } from '../../src/compiler/CompilationWorkerPool';
 import { runWorkspaceCompilationPipeline } from '../../src/compiler/WorkspaceCompilationPipeline';
 
-const WORKER_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
+const WORKER_ENTRY = path.resolve(__dirname, '../../dist/worker.platform.js');
 const LIFECYCLE_WORKER_ENTRY = path.resolve(
   __dirname,
-  '../fixtures/compilerLifecycleWorker.ts',
+  '../fixtures/compilerLifecycleWorker.js',
 );
 
 const compileRequest = (content: string, version = 1) =>
@@ -49,7 +49,6 @@ const spawnCompilerWorker = (): NodeWorkerThread => {
   const worker = new NodeWorkerThread(WORKER_ENTRY, {
     workerData: { role: 'compiler', assistPort: assist.port2 },
     transferList: [assist.port2],
-    execArgv: ['--import', 'tsx'],
   });
   worker.once('exit', () => assist.port1.close());
   return worker;
@@ -59,7 +58,7 @@ describe('dedicated Effect compilation worker', () => {
   it('fails pool acquisition when a backing worker cannot start', async () => {
     const missingWorkerEntry = path.resolve(
       __dirname,
-      '../../src/compiler.worker.missing.ts',
+      '../../dist/compiler.worker.missing.js',
     );
     const program = Effect.scoped(
       withCompilationWorkerStartupTimeout(
@@ -75,12 +74,7 @@ describe('dedicated Effect compilation worker', () => {
       ),
     ).pipe(
       Effect.provide(
-        NodeWorker.layer(
-          () =>
-            new NodeWorkerThread(missingWorkerEntry, {
-              execArgv: ['--import', 'tsx'],
-            }),
-        ),
+        NodeWorker.layer(() => new NodeWorkerThread(missingWorkerEntry)),
       ),
     );
 
@@ -145,9 +139,7 @@ describe('dedicated Effect compilation worker', () => {
     ).pipe(
       Effect.provide(
         NodeWorker.layer(() => {
-          const worker = new NodeWorkerThread(LIFECYCLE_WORKER_ENTRY, {
-            execArgv: ['--import', 'tsx'],
-          });
+          const worker = new NodeWorkerThread(LIFECYCLE_WORKER_ENTRY);
           workers.push(worker);
           return worker;
         }),
@@ -184,12 +176,7 @@ describe('dedicated Effect compilation worker', () => {
       }),
     ).pipe(
       Effect.provide(
-        NodeWorker.layer(
-          () =>
-            new NodeWorkerThread(LIFECYCLE_WORKER_ENTRY, {
-              execArgv: ['--import', 'tsx'],
-            }),
-        ),
+        NodeWorker.layer(() => new NodeWorkerThread(LIFECYCLE_WORKER_ENTRY)),
       ),
     );
 
@@ -252,12 +239,7 @@ describe('dedicated Effect compilation worker', () => {
       }),
     ).pipe(
       Effect.provide(
-        NodeWorker.layer(
-          () =>
-            new NodeWorkerThread(LIFECYCLE_WORKER_ENTRY, {
-              execArgv: ['--import', 'tsx'],
-            }),
-        ),
+        NodeWorker.layer(() => new NodeWorkerThread(LIFECYCLE_WORKER_ENTRY)),
       ),
     );
 
@@ -297,12 +279,7 @@ describe('dedicated Effect compilation worker', () => {
       }),
     ).pipe(
       Effect.provide(
-        NodeWorker.layer(
-          () =>
-            new NodeWorkerThread(LIFECYCLE_WORKER_ENTRY, {
-              execArgv: ['--import', 'tsx'],
-            }),
-        ),
+        NodeWorker.layer(() => new NodeWorkerThread(LIFECYCLE_WORKER_ENTRY)),
       ),
     );
 

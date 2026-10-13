@@ -318,6 +318,7 @@ test.describe('Apex Hover - Cross-File Workspace Types', () => {
       await apexEditor.waitForLanguageServerReady();
       await apexEditor.openFile('CrossFileCaller.cls');
       await apexEditor.waitForLanguageServerReady();
+      await apexEditor.waitForWorkspaceReady();
     });
 
     await test.step('Hover on cross-file static method reference', async () => {

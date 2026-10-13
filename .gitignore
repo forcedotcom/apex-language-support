@@ -111,3 +111,4 @@ scripts/test-extensions/memfs-provider/workspace-files.json
 .claude/worktrees/
 .superpowers/
 /.fastcontext
+/.sf
