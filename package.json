@@ -265,21 +265,21 @@
       "cache": false
     },
     "test:web": {
-      "command": "node scripts/test-web-ext.js",
+      "command": "node scripts/test-web-ext.js --with-services --no-memfs",
       "dependencies": [
         "bundle"
       ],
       "cache": false
     },
     "test:web:debug": {
-      "command": "node scripts/test-web-ext.js --log-level=debug",
+      "command": "node scripts/test-web-ext.js --log-level=debug --with-services --no-memfs",
       "dependencies": [
         "bundle"
       ],
       "cache": false
     },
     "test:web:full": {
-      "command": "node scripts/test-web-ext.js --with-services",
+      "command": "node scripts/test-web-ext.js --with-services --no-memfs",
       "dependencies": [
         "bundle"
       ],

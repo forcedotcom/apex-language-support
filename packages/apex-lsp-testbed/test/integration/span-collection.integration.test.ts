@@ -10,6 +10,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { pathToFileURL } from 'url';
 import * as http from 'http';
+import { vi } from 'vitest';
 import {
   createHeadlessClient,
   type ApexClientCore,
@@ -96,8 +97,11 @@ describe('Span Collection Integration', () => {
     // Create client with OTLP endpoint configured via environment
     // Note: The server currently reads tracing config from environment variables,
     // not from initializationOptions
-    process.env.OTEL_EXPORTER_OTLP_ENDPOINT = `http://localhost:${collectorPort}`;
-    process.env.APEX_LS_ENABLE_TRACING = 'true';
+    vi.stubEnv(
+      'OTEL_EXPORTER_OTLP_ENDPOINT',
+      `http://localhost:${collectorPort}`,
+    );
+    vi.stubEnv('APEX_LS_ENABLE_TRACING', 'true');
 
     const result = await createHeadlessClient(serverPath, {
       serverArgs: ['--stdio'],
@@ -148,6 +152,7 @@ describe('Span Collection Integration', () => {
         spanCollectorServer.close(() => resolve());
       });
     }
+    vi.unstubAllEnvs();
   });
 
   it('should collect spans from server', () => {

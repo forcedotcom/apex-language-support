@@ -200,6 +200,7 @@ describe('Server Config Module', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   describe('createServerOptions', () => {
@@ -218,25 +219,16 @@ describe('Server Config Module', () => {
     });
 
     it('should use bundled files when APEX_LS_DEBUG_USE_INDIVIDUAL_FILES is false', () => {
-      // Save original environment
-      const originalEnv = process.env.APEX_LS_DEBUG_USE_INDIVIDUAL_FILES;
+      vi.stubEnv('APEX_LS_DEBUG_USE_INDIVIDUAL_FILES', 'false');
 
-      try {
-        // Set environment variable to disable individual files
-        process.env.APEX_LS_DEBUG_USE_INDIVIDUAL_FILES = 'false';
+      const serverOptions = createServerOptions(mockContext, 'development');
 
-        const serverOptions = createServerOptions(mockContext, 'development');
-
-        expect(getRunModule(serverOptions)).toBe(
-          path.join('/mock', 'apex-ls', 'dist', 'server.node.js'),
-        );
-        expect(getDebugModule(serverOptions)).toBe(
-          path.join('/mock', 'apex-ls', 'dist', 'server.node.js'),
-        );
-      } finally {
-        // Restore original environment
-        process.env.APEX_LS_DEBUG_USE_INDIVIDUAL_FILES = originalEnv;
-      }
+      expect(getRunModule(serverOptions)).toBe(
+        path.join('/mock', 'apex-ls', 'dist', 'server.node.js'),
+      );
+      expect(getDebugModule(serverOptions)).toBe(
+        path.join('/mock', 'apex-ls', 'dist', 'server.node.js'),
+      );
     });
 
     it('should create server options for production mode', () => {
@@ -273,43 +265,25 @@ describe('Server Config Module', () => {
     });
 
     it('should override extension mode with APEX_LS_MODE environment variable', () => {
-      // Save original environment
-      const originalEnv = process.env.APEX_LS_MODE;
+      vi.stubEnv('APEX_LS_MODE', 'production');
 
-      try {
-        // Set environment variable to override extension mode
-        process.env.APEX_LS_MODE = 'production';
+      const serverMode = determineServerMode(mockContext);
+      const serverOptions = createServerOptions(mockContext, serverMode);
 
-        const serverMode = determineServerMode(mockContext);
-        const serverOptions = createServerOptions(mockContext, serverMode);
-
-        // Should use environment variable instead of extension mode
-        expect(getRunApexLsMode(serverOptions)).toBe('production');
-        expect(getDebugApexLsMode(serverOptions)).toBe('production');
-      } finally {
-        // Restore original environment
-        process.env.APEX_LS_MODE = originalEnv;
-      }
+      // Should use environment variable instead of extension mode
+      expect(getRunApexLsMode(serverOptions)).toBe('production');
+      expect(getDebugApexLsMode(serverOptions)).toBe('production');
     });
 
     it('should use extension mode when APEX_LS_MODE is not set', () => {
-      // Save original environment
-      const originalEnv = process.env.APEX_LS_MODE;
+      vi.stubEnv('APEX_LS_MODE', undefined);
 
-      try {
-        // Clear environment variable
-        delete process.env.APEX_LS_MODE;
+      const serverMode = determineServerMode(mockContext);
+      const serverOptions = createServerOptions(mockContext, serverMode);
 
-        const serverMode = determineServerMode(mockContext);
-        const serverOptions = createServerOptions(mockContext, serverMode);
-
-        // Should use extension mode (development)
-        expect(getRunApexLsMode(serverOptions)).toBe('development');
-        expect(getDebugApexLsMode(serverOptions)).toBe('development');
-      } finally {
-        // Restore original environment
-        process.env.APEX_LS_MODE = originalEnv;
-      }
+      // Should use extension mode (development)
+      expect(getRunApexLsMode(serverOptions)).toBe('development');
+      expect(getDebugApexLsMode(serverOptions)).toBe('development');
     });
 
     it('should map Test extension mode to development server mode', () => {
@@ -489,69 +463,51 @@ describe('Server Config Module', () => {
     });
 
     it('should use workspace settings when APEX_LS_MODE is not set', () => {
-      // Save original environment
-      const originalEnv = process.env.APEX_LS_MODE;
+      vi.stubEnv('APEX_LS_MODE', undefined);
 
-      try {
-        // Clear environment variable
-        delete process.env.APEX_LS_MODE;
+      // Mock production extension mode
+      const prodContext = {
+        ...mockContext,
+        extensionMode: vscode.ExtensionMode.Production,
+      } as vscode.ExtensionContext;
 
-        // Mock production extension mode
-        const prodContext = {
-          ...mockContext,
-          extensionMode: vscode.ExtensionMode.Production,
-        } as vscode.ExtensionContext;
+      // Mock workspace configuration to return development mode
+      vi.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue({
+        get: vi.fn((key: string) => {
+          if (key === 'environment.serverMode') {
+            return 'development';
+          }
+          return 'off';
+        }),
+      } as unknown as vscode.WorkspaceConfiguration);
 
-        // Mock workspace configuration to return development mode
-        vi.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue({
-          get: vi.fn((key: string) => {
-            if (key === 'environment.serverMode') {
-              return 'development';
-            }
-            return 'off';
-          }),
-        } as unknown as vscode.WorkspaceConfiguration);
+      const serverMode = determineServerMode(prodContext);
+      const serverOptions = createServerOptions(prodContext, serverMode);
 
-        const serverMode = determineServerMode(prodContext);
-        const serverOptions = createServerOptions(prodContext, serverMode);
-
-        // Should use workspace settings (development) over extension mode (production)
-        expect(getRunApexLsMode(serverOptions)).toBe('development');
-        expect(getDebugApexLsMode(serverOptions)).toBe('development');
-      } finally {
-        // Restore original environment
-        process.env.APEX_LS_MODE = originalEnv;
-      }
+      // Should use workspace settings (development) over extension mode (production)
+      expect(getRunApexLsMode(serverOptions)).toBe('development');
+      expect(getDebugApexLsMode(serverOptions)).toBe('development');
     });
 
     it('should prioritize APEX_LS_MODE over workspace settings', () => {
-      // Save original environment
-      const originalEnv = process.env.APEX_LS_MODE;
+      vi.stubEnv('APEX_LS_MODE', 'production');
 
-      try {
-        // Set environment variable to production
-        process.env.APEX_LS_MODE = 'production';
+      // Mock workspace configuration to return development mode
+      vi.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue({
+        get: vi.fn((key: string) => {
+          if (key === 'environment.serverMode') {
+            return 'development';
+          }
+          return 'off';
+        }),
+      } as unknown as vscode.WorkspaceConfiguration);
 
-        // Mock workspace configuration to return development mode
-        vi.spyOn(vscode.workspace, 'getConfiguration').mockReturnValue({
-          get: vi.fn((key: string) => {
-            if (key === 'environment.serverMode') {
-              return 'development';
-            }
-            return 'off';
-          }),
-        } as unknown as vscode.WorkspaceConfiguration);
+      const serverMode = determineServerMode(mockContext);
+      const serverOptions = createServerOptions(mockContext, serverMode);
 
-        const serverMode = determineServerMode(mockContext);
-        const serverOptions = createServerOptions(mockContext, serverMode);
-
-        // Should use environment variable (production) over workspace settings (development)
-        expect(getRunApexLsMode(serverOptions)).toBe('production');
-        expect(getDebugApexLsMode(serverOptions)).toBe('production');
-      } finally {
-        // Restore original environment
-        process.env.APEX_LS_MODE = originalEnv;
-      }
+      // Should use environment variable (production) over workspace settings (development)
+      expect(getRunApexLsMode(serverOptions)).toBe('production');
+      expect(getDebugApexLsMode(serverOptions)).toBe('production');
     });
   });
 

@@ -9,11 +9,11 @@
 import { vi } from 'vitest';
 
 vi.hoisted(() => {
-  process.env.APEX_RESOLUTION_GROUP = 'qualified';
+  vi.stubEnv('APEX_RESOLUTION_GROUP', 'qualified');
 });
 
 import './ApexSymbolManager.resolution.test?group=qualified';
 
 afterAll(() => {
-  delete process.env.APEX_RESOLUTION_GROUP;
+  vi.unstubAllEnvs();
 });
