@@ -49,8 +49,7 @@ import {
 import type { SerializedSymbolTableData } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 
-const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
-const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
+const WORKER_ENTRY = path.resolve(__dirname, '../../dist/worker.platform.js');
 
 const TARGET_URI = 'file:///test/CrossWorkerTarget.cls';
 const TARGET_CLASS = `public class CrossWorkerTarget {
@@ -143,10 +142,7 @@ describe('Cross-worker DataOwnerQuerySymbolByName Integration Tests', () => {
 
       // Owning file's symbol table is returned for the worker to ingest.
       expect(queryResult.entries[TARGET_URI]).toBeDefined();
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped, Effect.provide(makeNodeWorkerLayer(WORKER_ENTRY)));
 
     await Effect.runPromise(program);
   }, 120_000);
@@ -202,10 +198,7 @@ describe('Cross-worker DataOwnerQuerySymbolByName Integration Tests', () => {
       expect(queryResult.entries[TARGET_URI]).toBeDefined();
 
       return queryResult;
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped, Effect.provide(makeNodeWorkerLayer(WORKER_ENTRY)));
 
     const queryResult = await Effect.runPromise(program);
 
@@ -277,10 +270,7 @@ describe('Cross-worker DataOwnerQuerySymbolByName Integration Tests', () => {
 
       expect(queryResult.matches).toHaveLength(0);
       expect(Object.keys(queryResult.entries)).toHaveLength(0);
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped, Effect.provide(makeNodeWorkerLayer(WORKER_ENTRY)));
 
     await Effect.runPromise(program);
   }, 120_000);

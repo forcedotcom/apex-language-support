@@ -43,8 +43,7 @@ import {
 } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 
-const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
-const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
+const WORKER_ENTRY = path.resolve(__dirname, '../../dist/worker.platform.js');
 const LOG_LEVEL = 'error';
 const COMPILATION_POOL_SIZE = 2;
 
@@ -86,8 +85,7 @@ const GATE_BUDGET_MS = 3000;
 const MATCH_LATEST_VERSION = -1;
 
 const workerLayerFactory = (role: WorkerRole) =>
-  makeNodeWorkerLayer(WORKER_TS_ENTRY, {
-    ...TSX_OPTIONS,
+  makeNodeWorkerLayer(WORKER_ENTRY, {
     name: `cold-start-${role}`,
     workerData: {
       role,

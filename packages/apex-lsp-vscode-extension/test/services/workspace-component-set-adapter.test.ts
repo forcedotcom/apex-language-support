@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
 import * as vscode from 'vscode';
@@ -20,7 +21,7 @@ const fieldPath =
 
 describe('WorkspaceComponentSetAdapter', () => {
   beforeEach(() => {
-    jest.spyOn(vscode.Uri, 'file').mockImplementation(
+    vi.spyOn(vscode.Uri, 'file').mockImplementation(
       (value: string) =>
         ({
           scheme: 'file',
@@ -35,7 +36,7 @@ describe('WorkspaceComponentSetAdapter', () => {
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
     Object.defineProperty(vscode.workspace, 'workspaceFolders', {
       configurable: true,
       value: [],
@@ -93,7 +94,7 @@ describe('WorkspaceComponentSetAdapter', () => {
       getChildren: () => [],
       parseXml: async () => ({}),
     };
-    const getComponentSetFromProjectDirectories = jest.fn(() =>
+    const getComponentSetFromProjectDirectories = vi.fn(() =>
       Effect.succeed({
         getSourceComponents: () => [object, field, apexClass, trigger],
       }),
@@ -181,7 +182,7 @@ describe('WorkspaceComponentSetAdapter', () => {
     const workspaceUri = {
       scheme: 'memfs',
       path: '/dx-project',
-      with: jest.fn(({ path }: { path: string }) => ({
+      with: vi.fn(({ path }: { path: string }) => ({
         scheme: 'memfs',
         path,
         toString: () => `memfs:${path}`,
@@ -270,7 +271,7 @@ describe('WorkspaceComponentSetAdapter', () => {
       getChildren: () => [],
       parseXml: async () => ({}),
     };
-    const getComponentSetFromProjectDirectories = jest.fn(() =>
+    const getComponentSetFromProjectDirectories = vi.fn(() =>
       Effect.succeed({ getSourceComponents: () => [outer] }),
     );
     const api = {

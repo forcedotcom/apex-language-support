@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Bench } from 'vitest';
+import { vi } from 'vitest';
 /**
  * LSP Performance Benchmarks
  *
@@ -35,13 +37,16 @@
 import { readFileSync } from 'fs';
 import { join, basename } from 'path';
 
-import Benchmark from 'benchmark';
-
 import {
   createTestServer,
   ServerOptions,
 } from '../../src/test-utils/serverFactory';
 import { normalizeTraceData } from '../../src/test-utils/traceDataUtils';
+import {
+  type BenchmarkTarget,
+  VitestBenchmarkSuite,
+  withBenchmarkTimeout,
+} from './vitest-benchmark-suite';
 
 // --- Load test data synchronously ---
 const logPath = join(__dirname, '../fixtures/ls-sample-trace.log.json');
@@ -51,7 +56,7 @@ const logData: Record<string, any> = JSON.parse(rawData);
 // Normalize the trace data for portability
 const normalizedLogData = normalizeTraceData(logData);
 
-jest.setTimeout(1000 * 60 * 10);
+vi.setConfig({ testTimeout: 1000 * 60 * 10 });
 
 // Helper function to extract filename from URI
 const getFilenameFromUri = (uri: string): string => {
@@ -288,10 +293,10 @@ describe(testTitle, () => {
 
   testMethod(
     `should benchmark ${serverType} LSP request handling`,
-    async () => {
-      const suite = new Benchmark.Suite();
+    async ({ bench, signal }: { bench: Bench; signal: AbortSignal }) => {
+      const suite = new VitestBenchmarkSuite(bench, undefined, signal);
       const requestTimeout = 2_000; // 2 second timeout per request
-      const results: Record<string, Benchmark.Target> = {};
+      const results: Record<string, BenchmarkTarget> = {};
 
       // Ensure client is healthy
       if (!(await serverContext.client.isHealthy())) {
@@ -304,9 +309,12 @@ describe(testTitle, () => {
 
       // Fast validation settings (use longer times in CI/CD)
       const isCI = process.env.CI === 'true';
+      const isQuick = process.env.QUICK === 'true';
       const workflowSettings = isCI
         ? { maxTime: 30, minTime: 10, minSamples: 3, initCount: 1 } // CI settings
-        : { maxTime: 6, minTime: 2, minSamples: 2, initCount: 1 }; // Local settings
+        : isQuick
+          ? { maxTime: 1, minTime: 0.1, minSamples: 1, initCount: 1 } // Quick validation
+          : { maxTime: 6, minTime: 2, minSamples: 2, initCount: 1 }; // Local settings
 
       console.log(
         `Benchmark mode: ${isCI ? 'CI (comprehensive)' : 'Local (fast validation)'}`,
@@ -317,32 +325,19 @@ describe(testTitle, () => {
 
       // Add benchmark for complete LSP workflow (stateful sequence)
       suite.add(`${serverType} LSP Complete Workflow`, {
-        defer: true,
         ...workflowSettings,
-        fn: function (deferred: { resolve: () => void }) {
+        fn: async function () {
           const executeWorkflow = async () => {
             // Execute all requests in the stateful order
             for (const [method, request] of testData) {
               try {
                 if (requestMethods.includes(method)) {
                   // Send as request (expects response) - with timeout
-                  const timeoutPromise = new Promise((_, reject) => {
-                    setTimeout(
-                      () =>
-                        reject(
-                          new Error(
-                            `Request ${method} timed out after ${requestTimeout}ms`,
-                          ),
-                        ),
-                      requestTimeout,
-                    );
-                  });
-
-                  const req = serverContext.client.sendRequest(
-                    method,
-                    request.params,
+                  await withBenchmarkTimeout(
+                    () =>
+                      serverContext.client.sendRequest(method, request.params),
+                    requestTimeout,
                   );
-                  await Promise.race([req, timeoutPromise]);
                 } else if (notificationMethods.includes(method)) {
                   // Send as notification (no response expected) - no timeout needed
                   serverContext.client.sendNotification(method, request.params);
@@ -354,17 +349,12 @@ describe(testTitle, () => {
                 await new Promise((resolve) => setTimeout(resolve, 100));
               } catch (error) {
                 console.error(`Error in ${method}:`, error);
-                // Continue with next request even if one fails
+                throw error;
               }
             }
           };
 
-          executeWorkflow()
-            .then(() => deferred.resolve())
-            .catch((error) => {
-              console.error('Error in complete workflow:', error);
-              deferred.resolve(); // Resolve anyway to continue the benchmark
-            });
+          await executeWorkflow();
         },
       });
 
@@ -380,7 +370,9 @@ describe(testTitle, () => {
 
         const individualSettings = isCI
           ? { maxTime: 60, minTime: 10, minSamples: 5, initCount: 1 } // CI settings
-          : { maxTime: 8, minTime: 2, minSamples: 2, initCount: 1 }; // Local settings
+          : isQuick
+            ? { maxTime: 1, minTime: 0.1, minSamples: 1, initCount: 1 } // Quick validation
+            : { maxTime: 8, minTime: 2, minSamples: 2, initCount: 1 }; // Local settings
 
         // Extract filename from URI for better benchmark naming
         const uri =
@@ -390,9 +382,8 @@ describe(testTitle, () => {
         const filename = getFilenameFromUri(uri);
 
         suite.add(`${serverType} LSP ${benchmarkMethod} ${filename}`, {
-          defer: true,
           ...individualSettings,
-          fn: function (deferred: { resolve: () => void }) {
+          fn: async function () {
             const executeWithSetup = async () => {
               // For stateful requests, ensure proper setup
               if (benchmarkMethod !== 'textDocument/didOpen') {
@@ -410,6 +401,7 @@ describe(testTitle, () => {
                     await new Promise((resolve) => setTimeout(resolve, 200));
                   } catch (error) {
                     console.error('Error in setup didOpen:', error);
+                    throw error;
                   }
                 }
               }
@@ -417,23 +409,14 @@ describe(testTitle, () => {
               // Execute the actual request or notification
               if (requestMethods.includes(benchmarkMethod)) {
                 // Send as request (expects response) - with timeout
-                const timeoutPromise = new Promise((_, reject) => {
-                  setTimeout(
-                    () =>
-                      reject(
-                        new Error(
-                          `Request timed out after ${requestTimeout}ms`,
-                        ),
-                      ),
-                    requestTimeout,
-                  );
-                });
-
-                const req = serverContext.client.sendRequest(
-                  benchmarkMethod,
-                  benchmarkRequest.params,
+                await withBenchmarkTimeout(
+                  () =>
+                    serverContext.client.sendRequest(
+                      benchmarkMethod,
+                      benchmarkRequest.params,
+                    ),
+                  requestTimeout,
                 );
-                await Promise.race([req, timeoutPromise]);
               } else if (notificationMethods.includes(benchmarkMethod)) {
                 // Send as notification (no response expected) - no timeout needed
                 serverContext.client.sendNotification(
@@ -445,49 +428,37 @@ describe(testTitle, () => {
               }
             };
 
-            executeWithSetup()
-              .then(() => deferred.resolve())
-              .catch((error) => {
-                console.error(`Error in ${benchmarkMethod}:`, error);
-                deferred.resolve(); // Resolve anyway to continue the benchmark
-              });
+            await executeWithSetup();
           },
         });
       });
 
-      return new Promise<void>((resolve) => {
-        suite
-          .on('cycle', function (event: Benchmark.Event) {
-            const benchmark = event.target as Benchmark.Target;
-            if (benchmark.name) {
-              results[benchmark.name] = benchmark;
-            }
-            console.log(String(benchmark));
-          })
-          .on('complete', async function (this: Benchmark.Suite) {
-            console.log(
-              `Fastest ${serverType} method is ` +
-                this.filter('fastest').map('name'),
-            );
+      await suite
+        .on('cycle', function (event: { target: BenchmarkTarget }) {
+          const benchmark = event.target;
+          if (benchmark.name) {
+            results[benchmark.name] = benchmark;
+          }
+          console.log(String(benchmark));
+        })
+        .on('complete', async function (this: VitestBenchmarkSuite) {
+          console.log(
+            `Fastest ${serverType} method is ` +
+              this.filter('fastest').map('name'),
+          );
 
-            // Write results to disk with server-specific filename
-            const outputPath = join(
-              __dirname,
-              `../${currentConfig.outputFile}`,
-            );
+          // Write results to disk with server-specific filename
+          const outputPath = join(__dirname, `../${currentConfig.outputFile}`);
 
-            require('fs').writeFileSync(
-              outputPath,
-              JSON.stringify(results, null, 2),
-            );
+          require('fs').writeFileSync(
+            outputPath,
+            JSON.stringify(results, null, 2),
+          );
 
-            // Small delay to allow any pending operations to complete
-            await new Promise((r) => setTimeout(r, 200));
-
-            resolve();
-          })
-          .run({ async: true });
-      });
+          // Small delay to allow any pending operations to complete
+          await new Promise((r) => setTimeout(r, 200));
+        })
+        .run();
     },
   );
 });

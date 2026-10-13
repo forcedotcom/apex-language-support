@@ -33,11 +33,15 @@ let cachedZipBuffer: Uint8Array | null = null;
  * This is set by esbuild at bundle time.
  */
 let embeddedZipDataUrl: string | undefined;
+const nodeRequire =
+  typeof require === 'function'
+    ? require
+    : (globalThis as typeof globalThis & { require?: NodeRequire }).require;
 
 // Try to import the ZIP file - this will be transformed by esbuild in bundled builds
 // In unbundled builds, this will fail and we'll fall back to fs.readFileSync
 try {
-  // Dynamic require to prevent TypeScript from complaining
+  // The literal require lets esbuild embed the ZIP in browser bundles.
   const imported = require('../../resources/StandardApexLibrary.zip');
   // In bundled builds, this will be a data URL string
   if (typeof imported === 'string' && imported.startsWith('data:')) {
@@ -65,16 +69,15 @@ function loadZipFromDisk():
   | undefined {
   try {
     // Only available in Node.js environments
-    if (typeof process === 'undefined' || typeof require === 'undefined') {
+    if (typeof process === 'undefined' || !nodeRequire) {
       return undefined;
     }
 
-    const fs = require('fs');
-    const path = require('path');
-    const {
-      ChecksumFileMissingError,
-      ChecksumValidationError,
-    } = require('./checksum-validator');
+    const fs = nodeRequire('fs');
+    const path = nodeRequire('path');
+    const { ChecksumFileMissingError, ChecksumValidationError } = nodeRequire(
+      './checksum-validator',
+    );
 
     // Try multiple possible locations for the ZIP file
     const possiblePaths = [
@@ -115,19 +118,23 @@ function loadZipFromDisk():
     return undefined;
   } catch (error) {
     // Re-throw checksum errors
+    let validator:
+      | {
+          ChecksumFileMissingError: new (...args: never[]) => Error;
+          ChecksumValidationError: new (...args: never[]) => Error;
+        }
+      | undefined;
     try {
-      const {
-        ChecksumFileMissingError,
-        ChecksumValidationError,
-      } = require('./checksum-validator');
-      if (
-        error instanceof ChecksumFileMissingError ||
-        error instanceof ChecksumValidationError
-      ) {
-        throw error;
-      }
+      validator = nodeRequire?.('./checksum-validator');
     } catch {
       // Ignore if validator module not found
+    }
+    if (
+      validator &&
+      (error instanceof validator.ChecksumFileMissingError ||
+        error instanceof validator.ChecksumValidationError)
+    ) {
+      throw error;
     }
     return undefined;
   }
@@ -190,7 +197,8 @@ export function getEmbeddedStandardLibraryZip(): Uint8Array | undefined {
   if (diskResult) {
     try {
       // Validate checksum
-      const { validateMD5Checksum } = require('./checksum-validator');
+      const { validateMD5Checksum } =
+        nodeRequire?.('./checksum-validator') ?? {};
       validateMD5Checksum(
         'StandardApexLibrary.zip',
         diskResult.data,

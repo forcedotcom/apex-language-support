@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { MockedFunction } from 'vitest';
+import { vi } from 'vitest';
 import type {
   FindMissingArtifactParams,
   LoggerInterface,
@@ -23,12 +25,12 @@ import { SObjectEnrichmentService } from '../../src/services/SObjectEnrichmentSe
 import { classifyMissingArtifactIdentifier } from '../../src/services/PrerequisiteHelpers';
 
 const logger = {
-  debug: jest.fn(),
-  info: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn(),
-  log: jest.fn(),
-  alwaysLog: jest.fn(),
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  log: vi.fn(),
+  alwaysLog: vi.fn(),
 } as unknown as LoggerInterface;
 
 const semanticProvenance = {
@@ -118,7 +120,7 @@ const accountArtifact: MissingArtifactPayload = {
 
 function createHarness(options: { coordinator?: boolean } = {}) {
   const tables = new Map<string, SymbolTable>();
-  const addSymbolTable = jest.fn(
+  const addSymbolTable = vi.fn(
     (table: SymbolTable, uri: string, version?: number): Effect.Effect<void> =>
       Effect.sync(() => {
         const storedVersion =
@@ -130,17 +132,17 @@ function createHarness(options: { coordinator?: boolean } = {}) {
   );
   const symbolManager = {
     addSymbolTable,
-    getSymbolTableForFile: jest.fn(async (uri: string) => tables.get(uri)),
-    resolveCrossFileReferencesForFile: jest.fn(() => Effect.succeed(undefined)),
+    getSymbolTableForFile: vi.fn(async (uri: string) => tables.get(uri)),
+    resolveCrossFileReferencesForFile: vi.fn(() => Effect.succeed(undefined)),
   };
   const resolver: MissingArtifactResolutionService = {
-    resolveBlocking: jest.fn(async () => ({
+    resolveBlocking: vi.fn(async () => ({
       status: 'resolved' as const,
       artifacts: [artifact],
     })),
-    resolveInBackground: jest.fn(async () => undefined),
+    resolveInBackground: vi.fn(async () => undefined),
   };
-  const signalDiagnosticRefresh = jest.fn(async () => undefined);
+  const signalDiagnosticRefresh = vi.fn(async () => undefined);
   const service = new SObjectEnrichmentService(
     logger,
     symbolManager as never,
@@ -185,7 +187,7 @@ describe('SObjectEnrichmentService', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('installs an incomplete placeholder before calling the client', async () => {
@@ -196,7 +198,7 @@ describe('SObjectEnrichmentService', () => {
       release = resolve;
     });
     (
-      harness.resolver.resolveBlocking as jest.MockedFunction<
+      harness.resolver.resolveBlocking as MockedFunction<
         MissingArtifactResolutionService['resolveBlocking']
       >
     ).mockImplementation(async () => {
@@ -211,7 +213,7 @@ describe('SObjectEnrichmentService', () => {
     await waitFor(
       () =>
         (
-          harness.resolver.resolveBlocking as jest.MockedFunction<
+          harness.resolver.resolveBlocking as MockedFunction<
             MissingArtifactResolutionService['resolveBlocking']
           >
         ).mock.calls.length === 1,
@@ -263,7 +265,7 @@ describe('SObjectEnrichmentService', () => {
       release = resolve;
     });
     (
-      harness.resolver.resolveBlocking as jest.MockedFunction<
+      harness.resolver.resolveBlocking as MockedFunction<
         MissingArtifactResolutionService['resolveBlocking']
       >
     ).mockImplementation(async () => {
@@ -285,7 +287,7 @@ describe('SObjectEnrichmentService', () => {
     await waitFor(
       () =>
         (
-          harness.resolver.resolveBlocking as jest.MockedFunction<
+          harness.resolver.resolveBlocking as MockedFunction<
             MissingArtifactResolutionService['resolveBlocking']
           >
         ).mock.calls.length === 1,
@@ -312,7 +314,7 @@ describe('SObjectEnrichmentService', () => {
       release = resolve;
     });
     (
-      harness.resolver.resolveBlocking as jest.MockedFunction<
+      harness.resolver.resolveBlocking as MockedFunction<
         MissingArtifactResolutionService['resolveBlocking']
       >
     ).mockImplementation(async () => {
@@ -328,7 +330,7 @@ describe('SObjectEnrichmentService', () => {
     await waitFor(
       () =>
         (
-          harness.resolver.resolveBlocking as jest.MockedFunction<
+          harness.resolver.resolveBlocking as MockedFunction<
             MissingArtifactResolutionService['resolveBlocking']
           >
         ).mock.calls.length === 1,
@@ -357,7 +359,7 @@ describe('SObjectEnrichmentService', () => {
   it('composes standard and custom Account fields with their VFS targets', async () => {
     const harness = createHarness();
     (
-      harness.resolver.resolveBlocking as jest.MockedFunction<
+      harness.resolver.resolveBlocking as MockedFunction<
         MissingArtifactResolutionService['resolveBlocking']
       >
     ).mockResolvedValue({
@@ -403,7 +405,7 @@ describe('SObjectEnrichmentService', () => {
   it('recomposes at the next synthetic version when requested after invalidation', async () => {
     const harness = createHarness();
     (
-      harness.resolver.resolveBlocking as jest.MockedFunction<
+      harness.resolver.resolveBlocking as MockedFunction<
         MissingArtifactResolutionService['resolveBlocking']
       >
     ).mockResolvedValue({
@@ -442,7 +444,7 @@ describe('SObjectEnrichmentService', () => {
   ])('retains the placeholder for $status resolution', async (outcome) => {
     const harness = createHarness();
     (
-      harness.resolver.resolveBlocking as jest.MockedFunction<
+      harness.resolver.resolveBlocking as MockedFunction<
         MissingArtifactResolutionService['resolveBlocking']
       >
     ).mockResolvedValue(outcome);
@@ -459,7 +461,7 @@ describe('SObjectEnrichmentService', () => {
   it('temporarily caches not-found enrichment requests', async () => {
     const harness = createHarness();
     (
-      harness.resolver.resolveBlocking as jest.MockedFunction<
+      harness.resolver.resolveBlocking as MockedFunction<
         MissingArtifactResolutionService['resolveBlocking']
       >
     ).mockResolvedValue({ status: 'not-found' });

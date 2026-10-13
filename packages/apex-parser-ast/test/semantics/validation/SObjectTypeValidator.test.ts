@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { SObjectTypeValidator } from '../../../src/semantics/validation/SObjectTypeValidator';
 import type {
   ValidationScope,
@@ -16,8 +17,8 @@ import type {
 describe('SObjectTypeValidator', () => {
   const createMockScope = (): ValidationScope => ({
     errors: {
-      addError: jest.fn(),
-      addWarning: jest.fn(),
+      addError: vi.fn(),
+      addWarning: vi.fn(),
     },
     settings: {
       collectMultipleErrors: true,

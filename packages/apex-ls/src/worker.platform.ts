@@ -534,7 +534,14 @@ const workerProgram = WorkerRunner.launch(
 void Effect.runPromiseExit(workerProgram).then((exit) => {
   if (exit._tag === 'Failure' && !Cause.isInterruptedOnly(exit.cause)) {
     console.error(`Apex worker runner failed: ${Cause.pretty(exit.cause)}`);
-    process.exit(1);
+    if (process.env.APEX_LS_DISABLE_WORKER_TOPOLOGY_EXIT !== '1') {
+      process.exit(1);
+    }
+    return;
   }
-  process.exit(0);
+  // A successful worker must exit even when tests suppress failure exits;
+  // otherwise the parent waits for the forced-termination timeout.
+  if (parentPort) {
+    process.exit(0);
+  }
 });

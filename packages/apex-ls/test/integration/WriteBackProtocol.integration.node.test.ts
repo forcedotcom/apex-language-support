@@ -29,8 +29,7 @@ import {
 } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 
-const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
-const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
+const WORKER_ENTRY = path.resolve(__dirname, '../../dist/worker.platform.js');
 
 // Sample Apex class for testing
 const SAMPLE_APEX_CLASS = `public class TestClass {
@@ -115,10 +114,7 @@ describe('WriteBackProtocol Integration Tests', () => {
         () =>
           `Stale write-back correctly rejected: versionMismatch=${updateResult.versionMismatch}`,
       );
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped, Effect.provide(makeNodeWorkerLayer(WORKER_ENTRY)));
 
     await Effect.runPromise(program);
   }, 120_000);
@@ -185,10 +181,7 @@ describe('WriteBackProtocol Integration Tests', () => {
         () =>
           `Same-level write-back correctly rejected: accepted=${updateResult.accepted}`,
       );
-    }).pipe(
-      Effect.scoped,
-      Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)),
-    );
+    }).pipe(Effect.scoped, Effect.provide(makeNodeWorkerLayer(WORKER_ENTRY)));
 
     await Effect.runPromise(program);
   }, 120_000);

@@ -6,7 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-jest.mock('../../src/language-server', () => ({ getClient: jest.fn() }));
+import { vi } from 'vitest';
+vi.mock('../../src/language-server', () => ({ getClient: vi.fn() }));
 
 import {
   convertProtocolGraphData,

@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock, Mocked, MockedFunction } from 'vitest';
+import { vi } from 'vitest';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -21,59 +23,61 @@ import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 import { getDocumentStateCache } from '../../src/services/DocumentStateCache';
 
 // Only mock storage and upserters - use real implementations for everything else
-jest.mock('../../src/storage/ApexStorageManager');
+vi.mock('../../src/storage/ApexStorageManager');
 
-jest.mock('../../src/definition/ApexDefinitionUpserter', () => ({
-  DefaultApexDefinitionUpserter: jest.fn().mockImplementation(() => ({
-    upsertDefinition: jest.fn().mockResolvedValue(undefined),
-  })),
+vi.mock('../../src/definition/ApexDefinitionUpserter', () => ({
+  DefaultApexDefinitionUpserter: vi.fn(function () {
+    return { upsertDefinition: vi.fn().mockResolvedValue(undefined) };
+  }),
 }));
 
-jest.mock('../../src/references/ApexReferencesUpserter', () => ({
-  DefaultApexReferencesUpserter: jest.fn().mockImplementation(() => ({
-    upsertReferences: jest.fn().mockResolvedValue(undefined),
-  })),
+vi.mock('../../src/references/ApexReferencesUpserter', () => ({
+  DefaultApexReferencesUpserter: vi.fn(function () {
+    return { upsertReferences: vi.fn().mockResolvedValue(undefined) };
+  }),
 }));
 
-jest.mock('../../src/services/DocumentStateCache', () => ({
-  getDocumentStateCache: jest.fn(),
+vi.mock('../../src/services/DocumentStateCache', () => ({
+  getDocumentStateCache: vi.fn(),
 }));
 
 // Mock CompilerService and scheduler utilities
-const mockCompileMultipleWithConfigs = jest.fn();
-jest.mock('@salesforce/apex-lsp-parser-ast', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-parser-ast');
+const mockCompileMultipleWithConfigs = vi.fn();
+vi.mock('@salesforce/apex-lsp-parser-ast', async () => {
+  const actual = await vi.importActual<
+    typeof import('@salesforce/apex-lsp-parser-ast')
+  >('@salesforce/apex-lsp-parser-ast');
   return {
     ...actual,
-    CompilerService: jest.fn().mockImplementation(() => ({
-      compileMultipleWithConfigs: mockCompileMultipleWithConfigs,
-    })),
-    offer: jest.fn(() => Effect.succeed({ fiber: Effect.void } as any)),
-    createQueuedItem: jest.fn((eff: any) =>
+    CompilerService: class {
+      compileMultipleWithConfigs = mockCompileMultipleWithConfigs;
+    },
+    offer: vi.fn(() => Effect.succeed({ fiber: Effect.void } as any)),
+    createQueuedItem: vi.fn((eff: any) =>
       Effect.succeed({ id: 'mock', eff, fiberDeferred: {} } as any),
     ),
     SchedulerInitializationService: {
       ...actual.SchedulerInitializationService,
-      getInstance: jest.fn(() => ({
-        ensureInitialized: jest.fn(() => Promise.resolve()),
-        isInitialized: jest.fn(() => false),
-        resetInstance: jest.fn(),
+      getInstance: vi.fn(() => ({
+        ensureInitialized: vi.fn(() => Promise.resolve()),
+        isInitialized: vi.fn(() => false),
+        resetInstance: vi.fn(),
       })),
-      resetInstance: jest.fn(),
+      resetInstance: vi.fn(),
     },
     ApexSymbolProcessingManager: {
       ...actual.ApexSymbolProcessingManager,
-      getInstance: jest.fn(),
+      getInstance: vi.fn(),
     },
   };
 });
-jest.mock('@salesforce/apex-lsp-shared', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
+vi.mock('@salesforce/apex-lsp-shared', async () => {
+  const actual = await vi.importActual('@salesforce/apex-lsp-shared');
   return {
     ...actual,
     ApexSettingsManager: {
-      getInstance: jest.fn(() => ({
-        getSettings: jest.fn().mockReturnValue({
+      getInstance: vi.fn(() => ({
+        getSettings: vi.fn().mockReturnValue({
           apex: {
             queueProcessing: {
               maxConcurrency: {
@@ -92,7 +96,7 @@ jest.mock('@salesforce/apex-lsp-shared', () => {
             },
           },
         }),
-        getCompilationOptions: jest.fn().mockReturnValue({}),
+        getCompilationOptions: vi.fn().mockReturnValue({}),
       })),
     },
   };
@@ -104,62 +108,60 @@ describe('DocumentProcessingService - Batch Processing', () => {
   let symbolManager: ApexSymbolManager;
   let mockStorage: any;
   let mockCache: any;
-  let mockSymbolProcessingManager: jest.Mocked<
-    typeof ApexSymbolProcessingManager
-  >;
+  let mockSymbolProcessingManager: Mocked<typeof ApexSymbolProcessingManager>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Setup logger
     logger = getLogger();
-    jest.spyOn(logger, 'error');
-    jest.spyOn(logger, 'debug');
-    jest.spyOn(logger, 'warn');
+    vi.spyOn(logger, 'error');
+    vi.spyOn(logger, 'debug');
+    vi.spyOn(logger, 'warn');
 
     // Use real symbol manager
     symbolManager = new ApexSymbolManager();
 
     // Setup storage
     mockStorage = {
-      setDocument: jest.fn().mockResolvedValue(undefined),
+      setDocument: vi.fn().mockResolvedValue(undefined),
     };
-    (ApexStorageManager.getInstance as jest.Mock).mockReturnValue({
-      getStorage: jest.fn().mockReturnValue(mockStorage),
+    (ApexStorageManager.getInstance as Mock).mockReturnValue({
+      getStorage: vi.fn().mockReturnValue(mockStorage),
     } as any);
 
     // Setup cache
     mockCache = {
-      get: jest.fn().mockReturnValue(null),
-      getSymbolResult: jest.fn().mockReturnValue(null),
-      merge: jest.fn(),
-      clear: jest.fn(),
-      hasDetailLevel: jest.fn().mockReturnValue(false),
+      get: vi.fn().mockReturnValue(null),
+      getSymbolResult: vi.fn().mockReturnValue(null),
+      merge: vi.fn(),
+      clear: vi.fn(),
+      hasDetailLevel: vi.fn().mockReturnValue(false),
     };
     (
-      getDocumentStateCache as jest.MockedFunction<typeof getDocumentStateCache>
+      getDocumentStateCache as MockedFunction<typeof getDocumentStateCache>
     ).mockReturnValue(mockCache as any);
 
     // Reset the mock for compileMultipleWithConfigs
     mockCompileMultipleWithConfigs.mockReset();
 
     // Mock ApexSymbolProcessingManager
-    mockSymbolProcessingManager = ApexSymbolProcessingManager as jest.Mocked<
+    mockSymbolProcessingManager = ApexSymbolProcessingManager as Mocked<
       typeof ApexSymbolProcessingManager
     >;
     // Spy on symbolManager methods
-    jest.spyOn(symbolManager, 'addSymbolTable');
-    jest.spyOn(symbolManager, 'findSymbolsInFile');
+    vi.spyOn(symbolManager, 'addSymbolTable');
+    vi.spyOn(symbolManager, 'findSymbolsInFile');
     mockSymbolProcessingManager.getInstance.mockReturnValue({
-      getSymbolManager: jest.fn().mockReturnValue(symbolManager),
-      processSymbolTable: jest.fn(),
+      getSymbolManager: vi.fn().mockReturnValue(symbolManager),
+      processSymbolTable: vi.fn(),
     } as any);
 
     service = new DocumentProcessingService(logger);
   });
 
   afterEach(() => {
-    jest.restoreAllMocks();
+    vi.restoreAllMocks();
   });
 
   const createMockEvent = (
@@ -170,7 +172,7 @@ describe('DocumentProcessingService - Batch Processing', () => {
       uri,
       languageId: 'apex',
       version,
-      getText: jest.fn().mockReturnValue('public class Test {}'),
+      getText: vi.fn().mockReturnValue('public class Test {}'),
     } as any,
   });
 
@@ -223,9 +225,9 @@ describe('DocumentProcessingService - Batch Processing', () => {
       ],
     ])(
       'routes VFS-backed Apex %s source through the normal compiler',
-      async (_kind, uri, source) => {
+      async (_kind: string, uri: string, source: string) => {
         const event = createMockEvent(uri, 1);
-        (event.document.getText as jest.Mock).mockReturnValue(source);
+        (event.document.getText as Mock).mockReturnValue(source);
         mockCompileMultipleWithConfigs.mockReturnValue(
           Effect.succeed([
             {
@@ -260,7 +262,7 @@ describe('DocumentProcessingService - Batch Processing', () => {
         .mockReturnValueOnce(null);
 
       // Mock that symbols exist in manager for cached document (so it doesn't get recompiled)
-      (symbolManager.findSymbolsInFile as jest.Mock)
+      (symbolManager.findSymbolsInFile as Mock)
         .mockReturnValueOnce([{ name: 'TestClass' }]) // Symbols exist for test1.cls
         .mockReturnValueOnce([]); // No symbols for test2.cls
 

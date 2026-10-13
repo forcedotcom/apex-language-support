@@ -122,9 +122,8 @@ describe('SwitchStatementValidator', () => {
   });
 
   it('should detect when type variable already matching switch expression type', async () => {
-    jest
-      .spyOn(symbolManager, 'findSObjectType')
-      .mockImplementation(async (name) =>
+    vi.spyOn(symbolManager, 'findSObjectType').mockImplementation(
+      async (name) =>
         name.toLowerCase() === 'account'
           ? ({
               kind: SymbolKind.Class,
@@ -132,7 +131,7 @@ describe('SwitchStatementValidator', () => {
               namespace: 'SObject',
             } as unknown as ApexSymbol)
           : null,
-      );
+    );
 
     const { symbolTable, options } = await compileFixtureWithOptions(
       VALIDATOR_CATEGORY,

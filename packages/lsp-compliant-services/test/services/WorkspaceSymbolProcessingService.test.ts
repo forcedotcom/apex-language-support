@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { WorkspaceSymbolParams } from 'vscode-languageserver-protocol';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 
@@ -19,7 +20,7 @@ describe('WorkspaceSymbolProcessingService', () => {
 
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Setup logger
     logger = getLogger();
@@ -65,7 +66,7 @@ describe('WorkspaceSymbolProcessingService', () => {
 
       // Mock ApexSymbolManager to throw error
       const mockSymbolManager = (service as any).symbolManager;
-      mockSymbolManager.getAllSymbols = jest.fn().mockImplementation(() => {
+      mockSymbolManager.getAllSymbols = vi.fn().mockImplementation(() => {
         throw new Error('Symbol manager error');
       });
 

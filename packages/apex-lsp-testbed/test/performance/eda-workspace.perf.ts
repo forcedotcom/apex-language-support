@@ -8,7 +8,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import Benchmark from 'benchmark';
+import type { Bench } from 'vitest';
 import { disableLogging } from '@salesforce/apex-lsp-shared';
 import {
   CompilerService,
@@ -33,6 +33,10 @@ import {
   type FileCompilationMetrics,
   type ManagerAdditionMetrics,
 } from './eda-performance-helpers';
+import {
+  type BenchmarkTarget,
+  VitestBenchmarkSuite,
+} from './vitest-benchmark-suite';
 
 /**
  * Test configuration
@@ -67,7 +71,7 @@ const DEFAULT_CONFIG: TestConfig = {
  * IMPORTANT:
  * - Debug logging is disabled for accurate measurements
  * - These are SINGLE-RUN timing tests, NOT statistical benchmarks
- * - Benchmark.js is only used where file count is very small (< 5 files)
+ * - Vitest benchmarks are only used where file count is very small (< 5 files)
  * - Large-scale compilation tests use direct timing measurements
  *
  * The test will automatically clone the EDA repository on first run.
@@ -132,7 +136,7 @@ describe('EDA Workspace Performance Tests', () => {
 
     it(
       'should compile all EDA files and measure performance',
-      async () => {
+      async ({ bench, signal }: { bench: Bench; signal: AbortSignal }) => {
         // Skip if repository not available
         if (!checkEDARepositoryExists(EDA_REPO_PATH)) {
           console.log('Skipping test: EDA repository not found');
@@ -180,7 +184,7 @@ describe('EDA Workspace Performance Tests', () => {
 
         // Track file-level metrics
         const fileMetrics: FileCompilationMetrics[] = [];
-        const benchmarkResults: Record<string, Benchmark.Target> = {};
+        const benchmarkResults: Record<string, BenchmarkTarget> = {};
         const batchTimings: Record<number, number> = {};
 
         // Benchmark settings (use longer times in CI/CD, quick mode for validation)
@@ -204,11 +208,15 @@ describe('EDA Workspace Performance Tests', () => {
             `minSamples=${benchmarkSettings.minSamples}`,
         );
 
-        // Use Benchmark.js for accurate timing measurements
+        // Use Vitest benchmarks for accurate timing measurements
         console.log(
           `\n⚙️  Compiling ${apexFiles.length} files in batches of ${config.batchSize}...`,
         );
-        const suite = new Benchmark.Suite('EDA Workspace Compilation');
+        const suite = new VitestBenchmarkSuite(
+          bench,
+          'EDA Workspace Compilation',
+          signal,
+        );
 
         // Add benchmark for each batch
         for (
@@ -229,9 +237,8 @@ describe('EDA Workspace Performance Tests', () => {
           suite.add(
             `Batch ${batchNum}/${totalBatches} (${batch.length} files)`,
             {
-              defer: true,
               ...benchmarkSettings,
-              fn: async (deferred: { resolve: () => void }) => {
+              fn: async () => {
                 const results = await Effect.runPromise(
                   compilerService.compileMultipleWithConfigs(batch),
                 );
@@ -258,8 +265,6 @@ describe('EDA Workspace Performance Tests', () => {
                 // Take memory snapshot after batch
                 const snapshot = measureMemoryUsage();
                 memorySnapshots.push(snapshot);
-
-                deferred.resolve();
               },
             },
           );
@@ -267,20 +272,16 @@ describe('EDA Workspace Performance Tests', () => {
 
         // Run benchmark suite with timeout protection
         const startTime = Date.now();
-        let suiteCompleted = false;
         const timeoutMs = isQuick ? 30_000 : 600_000; // 30s for quick, 10min for full
         const timeoutId = setTimeout(() => {
-          if (!suiteCompleted) {
-            console.warn('\n⚠️  Benchmark suite timeout - aborting...');
-            suite.abort();
-            suiteCompleted = true;
-          }
+          console.warn('\n⚠️  Benchmark suite timeout - aborting...');
+          suite.abort();
         }, timeoutMs);
 
-        await new Promise<void>((resolve) => {
-          suite
-            .on('cycle', function (event: Benchmark.Event) {
-              const benchmark = event.target as Benchmark.Target;
+        try {
+          await suite
+            .on('cycle', function (event: { target: BenchmarkTarget }) {
+              const benchmark = event.target;
               if (benchmark.name && benchmark.stats) {
                 benchmarkResults[benchmark.name] = benchmark;
                 // Extract batch number and store timing (mean in seconds, convert to ms)
@@ -292,18 +293,15 @@ describe('EDA Workspace Performance Tests', () => {
               }
               console.log(String(benchmark));
             })
-            .on('complete', function (this: Benchmark.Suite) {
-              clearTimeout(timeoutId);
-              suiteCompleted = true;
+            .on('complete', function (this: VitestBenchmarkSuite) {
               console.log(
                 `\nFastest batch: ${this.filter('fastest').map('name').join(', ')}`,
               );
-              // Abort suite to ensure all timers are cleared
-              suite.abort();
-              resolve();
             })
-            .run({ async: true });
-        });
+            .run();
+        } finally {
+          clearTimeout(timeoutId);
+        }
         const endTime = Date.now();
         const totalCompileTime = endTime - startTime;
 
@@ -412,7 +410,7 @@ describe('EDA Workspace Performance Tests', () => {
 
     it(
       'should measure performance with different batch sizes',
-      async () => {
+      async ({ bench, signal }: { bench: Bench; signal: AbortSignal }) => {
         if (!checkEDARepositoryExists(EDA_REPO_PATH)) {
           console.log('Skipping test: EDA repository not found');
           return;
@@ -435,8 +433,12 @@ describe('EDA Workspace Performance Tests', () => {
           });
 
         const batchSizes = [10, 25, 50, 100];
-        const suite = new Benchmark.Suite('Batch Size Comparison');
-        const results: Record<string, Benchmark.Target> = {};
+        const suite = new VitestBenchmarkSuite(
+          bench,
+          'Batch Size Comparison',
+          signal,
+        );
+        const results: Record<string, BenchmarkTarget> = {};
 
         // Benchmark settings (use longer times in CI/CD, quick mode for validation)
         const isCI = process.env.CI === 'true';
@@ -473,47 +475,39 @@ describe('EDA Workspace Performance Tests', () => {
             }));
 
           suite.add(`Batch size ${batchSize}`, {
-            defer: true,
             ...benchmarkSettings,
-            fn: async (deferred: { resolve: () => void }) => {
+            fn: async () => {
               await Effect.runPromise(
                 compilerService.compileMultipleWithConfigs(compilationConfigs),
               );
-              deferred.resolve();
             },
           });
         }
 
-        let suiteCompleted = false;
         const timeoutMs = isQuick ? 20_000 : 300_000; // 20s for quick, 5min for full
         const timeoutId = setTimeout(() => {
-          if (!suiteCompleted) {
-            console.warn('\n⚠️  Benchmark suite timeout - aborting...');
-            suite.abort();
-            suiteCompleted = true;
-          }
+          console.warn('\n⚠️  Benchmark suite timeout - aborting...');
+          suite.abort();
         }, timeoutMs);
 
-        await new Promise<void>((resolve) => {
-          suite
-            .on('cycle', function (event: Benchmark.Event) {
-              const benchmark = event.target as Benchmark.Target;
+        try {
+          await suite
+            .on('cycle', function (event: { target: BenchmarkTarget }) {
+              const benchmark = event.target;
               if (benchmark.name) {
                 results[benchmark.name] = benchmark;
               }
               console.log(String(benchmark));
             })
-            .on('complete', function (this: Benchmark.Suite) {
-              clearTimeout(timeoutId);
-              suiteCompleted = true;
+            .on('complete', function (this: VitestBenchmarkSuite) {
               console.log(
                 `\nFastest batch size: ${this.filter('fastest').map('name').join(', ')}`,
               );
-              suite.abort();
-              resolve();
             })
-            .run({ async: true });
-        });
+            .run();
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         expect(Object.keys(results).length).toBe(batchSizes.length);
       },
@@ -535,7 +529,7 @@ describe('EDA Workspace Performance Tests', () => {
 
     it(
       'should measure cost of adding files incrementally',
-      async () => {
+      async ({ bench, signal }: { bench: Bench; signal: AbortSignal }) => {
         if (!checkEDARepositoryExists(EDA_REPO_PATH)) {
           console.log('Skipping test: EDA repository not found');
           return;
@@ -547,14 +541,21 @@ describe('EDA Workspace Performance Tests', () => {
         }
 
         const initialMemory = measureMemoryUsage();
-        const suite = new Benchmark.Suite('Incremental File Compilation');
-        const results: Record<string, Benchmark.Target> = {};
+        const suite = new VitestBenchmarkSuite(
+          bench,
+          'Incremental File Compilation',
+          signal,
+        );
+        const results: Record<string, BenchmarkTarget> = {};
 
         // Benchmark settings (use longer times in CI/CD)
         const isCI = process.env.CI === 'true';
+        const isQuick = process.env.QUICK === 'true';
         const benchmarkSettings = isCI
           ? { maxTime: 30, minTime: 5, minSamples: 1, initCount: 1 } // CI settings
-          : { maxTime: 8, minTime: 2, minSamples: 1, initCount: 1 }; // Local settings
+          : isQuick
+            ? { maxTime: 1, minTime: 0.1, minSamples: 1, initCount: 1 } // Quick validation
+            : { maxTime: 8, minTime: 2, minSamples: 1, initCount: 1 }; // Local settings
 
         console.log(
           `Benchmark mode: ${isCI ? 'CI (comprehensive)' : 'Local (fast validation)'}`,
@@ -569,42 +570,39 @@ describe('EDA Workspace Performance Tests', () => {
           const fileName = path.basename(file.filePath);
 
           suite.add(`File ${i + 1}: ${fileName}`, {
-            defer: true,
             ...benchmarkSettings,
-            fn: async (deferred: { resolve: () => void }) => {
+            fn: async () => {
               const listener = new ApexSymbolCollectorListener();
               compilerService.compile(content, file.filePath, listener, {
                 includeComments: false,
                 enableReferenceCorrection: true,
               });
-              deferred.resolve();
             },
           });
         }
 
-        let suiteCompleted = false;
-        const isQuick = process.env.QUICK === 'true';
-        const timeoutMs = isQuick ? 15_000 : 120_000; // 15s for quick, 2min for full
+        const benchmarkCount = Math.min(10, apexFiles.length);
+        const timeoutMs = Math.ceil(
+          benchmarkCount *
+            (benchmarkSettings.maxTime + benchmarkSettings.minTime) *
+            1_000 +
+            30_000,
+        );
         const timeoutId = setTimeout(() => {
-          if (!suiteCompleted) {
-            console.warn('\n⚠️  Benchmark suite timeout - aborting...');
-            suite.abort();
-            suiteCompleted = true;
-          }
+          console.warn('\n⚠️  Benchmark suite timeout - aborting...');
+          suite.abort();
         }, timeoutMs);
 
-        await new Promise<void>((resolve) => {
-          suite
-            .on('cycle', function (event: Benchmark.Event) {
-              const benchmark = event.target as Benchmark.Target;
+        try {
+          await suite
+            .on('cycle', function (event: { target: BenchmarkTarget }) {
+              const benchmark = event.target;
               if (benchmark.name) {
                 results[benchmark.name] = benchmark;
               }
               console.log(String(benchmark));
             })
-            .on('complete', function (this: Benchmark.Suite) {
-              clearTimeout(timeoutId);
-              suiteCompleted = true;
+            .on('complete', function (this: VitestBenchmarkSuite) {
               const avgTime =
                 Object.values(results).reduce(
                   (sum, b) => sum + (b.stats?.mean || 0),
@@ -613,11 +611,11 @@ describe('EDA Workspace Performance Tests', () => {
               console.log(
                 `\nAverage time per file: ${(avgTime * 1000).toFixed(2)}ms`,
               );
-              suite.abort();
-              resolve();
             })
-            .run({ async: true });
-        });
+            .run();
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         const finalMemory = measureMemoryUsage();
 
@@ -629,17 +627,17 @@ describe('EDA Workspace Performance Tests', () => {
         expect(Object.keys(results).length).toBeGreaterThan(0);
       },
       process.env.QUICK === 'true'
-        ? 20_000
+        ? 30_000
         : process.env.CI === 'true'
-          ? 300_000
-          : 120_000,
-    ); // 20s for quick, 5min for CI, 2min for local
+          ? 410_000
+          : 130_000,
+    );
   });
 
   describe('Layered Listener Performance Comparison', () => {
     const config: TestConfig = {
       ...DEFAULT_CONFIG,
-      // QUICK: 3 files (can use Benchmark.js), Local: 10 files, CI: 50 files
+      // QUICK: 3 files, Local: 10 files, CI: 50 files
       maxFiles:
         process.env.QUICK === 'true' ? 3 : process.env.CI === 'true' ? 50 : 10,
       batchSize: process.env.QUICK === 'true' ? 10 : DEFAULT_CONFIG.batchSize,
@@ -647,7 +645,7 @@ describe('EDA Workspace Performance Tests', () => {
 
     it(
       'should compare performance of layered vs full listener',
-      async () => {
+      async ({ bench, signal }: { bench: Bench; signal: AbortSignal }) => {
         if (!checkEDARepositoryExists(EDA_REPO_PATH)) {
           console.log('Skipping test: EDA repository not found');
           return;
@@ -683,10 +681,12 @@ describe('EDA Workspace Performance Tests', () => {
             ? { maxTime: 1, minTime: 0.1, minSamples: 1, initCount: 1 }
             : { maxTime: 10, minTime: 2, minSamples: 1, initCount: 1 };
 
-        const suite = new Benchmark.Suite(
+        const suite = new VitestBenchmarkSuite(
+          bench,
           'Layered vs Full Listener Comparison',
+          signal,
         );
-        const results: Record<string, Benchmark.Target> = {};
+        const results: Record<string, BenchmarkTarget> = {};
         const memorySnapshots: Record<string, MemorySnapshot[]> = {};
 
         // Test configurations
@@ -734,9 +734,8 @@ describe('EDA Workspace Performance Tests', () => {
           memorySnapshots[testConfig.name] = [initialMemory];
 
           suite.add(testConfig.name, {
-            defer: true,
             ...benchmarkSettings,
-            fn: async (deferred: { resolve: () => void }) => {
+            fn: async () => {
               if (testConfig.multiListener) {
                 // Multi-layer compilation
                 const listeners =
@@ -788,42 +787,34 @@ describe('EDA Workspace Performance Tests', () => {
                 const snapshot = measureMemoryUsage();
                 memorySnapshots[testConfig.name].push(snapshot);
               }
-
-              deferred.resolve();
             },
           });
         }
 
-        let suiteCompleted = false;
         const timeoutMs = isQuick ? 60_000 : 600_000; // 1min for quick, 10min for full
         const timeoutId = setTimeout(() => {
-          if (!suiteCompleted) {
-            console.warn('\n⚠️  Benchmark suite timeout - aborting...');
-            suite.abort();
-            suiteCompleted = true;
-          }
+          console.warn('\n⚠️  Benchmark suite timeout - aborting...');
+          suite.abort();
         }, timeoutMs);
 
-        await new Promise<void>((resolve) => {
-          suite
-            .on('cycle', function (event: Benchmark.Event) {
-              const benchmark = event.target as Benchmark.Target;
+        try {
+          await suite
+            .on('cycle', function (event: { target: BenchmarkTarget }) {
+              const benchmark = event.target;
               if (benchmark.name) {
                 results[benchmark.name] = benchmark;
               }
               console.log(String(benchmark));
             })
-            .on('complete', function (this: Benchmark.Suite) {
-              clearTimeout(timeoutId);
-              suiteCompleted = true;
+            .on('complete', function (this: VitestBenchmarkSuite) {
               console.log(
                 `\nFastest approach: ${this.filter('fastest').map('name').join(', ')}`,
               );
-              suite.abort();
-              resolve();
             })
-            .run({ async: true });
-        });
+            .run();
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         // Generate comprehensive comparison report
         console.log('\n' + '='.repeat(100));
@@ -1215,7 +1206,7 @@ describe('EDA Workspace Performance Tests', () => {
 
     it(
       'should measure incremental cost of each layer',
-      async () => {
+      async ({ bench, signal }: { bench: Bench; signal: AbortSignal }) => {
         if (!checkEDARepositoryExists(EDA_REPO_PATH)) {
           console.log('Skipping test: EDA repository not found');
           return;
@@ -1247,8 +1238,12 @@ describe('EDA Workspace Performance Tests', () => {
             ? { maxTime: 1, minTime: 0.1, minSamples: 1, initCount: 1 }
             : { maxTime: 8, minTime: 2, minSamples: 1, initCount: 1 };
 
-        const suite = new Benchmark.Suite('Incremental Layer Cost');
-        const results: Record<string, Benchmark.Target> = {};
+        const suite = new VitestBenchmarkSuite(
+          bench,
+          'Incremental Layer Cost',
+          signal,
+        );
+        const results: Record<string, BenchmarkTarget> = {};
 
         // Test each layer incrementally
         const layerTests = [
@@ -1349,41 +1344,32 @@ describe('EDA Workspace Performance Tests', () => {
         // Create benchmark for each layer
         for (const layerTest of layerTests) {
           suite.add(layerTest.name, {
-            defer: true,
             ...benchmarkSettings,
-            fn: async (deferred: { resolve: () => void }) => {
+            fn: async () => {
               // Compile all files with this layer configuration
               for (const file of fileContents) {
                 await layerTest.compile(file);
               }
-              deferred.resolve();
             },
           });
         }
 
-        let suiteCompleted = false;
         const timeoutMs = isQuick ? 30_000 : 300_000; // 30s for quick, 5min for full
         const timeoutId = setTimeout(() => {
-          if (!suiteCompleted) {
-            console.warn('\n⚠️  Benchmark suite timeout - aborting...');
-            suite.abort();
-            suiteCompleted = true;
-          }
+          console.warn('\n⚠️  Benchmark suite timeout - aborting...');
+          suite.abort();
         }, timeoutMs);
 
-        await new Promise<void>((resolve) => {
-          suite
-            .on('cycle', function (event: Benchmark.Event) {
-              const benchmark = event.target as Benchmark.Target;
+        try {
+          await suite
+            .on('cycle', function (event: { target: BenchmarkTarget }) {
+              const benchmark = event.target;
               if (benchmark.name) {
                 results[benchmark.name] = benchmark;
               }
               console.log(String(benchmark));
             })
-            .on('complete', function (this: Benchmark.Suite) {
-              clearTimeout(timeoutId);
-              suiteCompleted = true;
-
+            .on('complete', function (this: VitestBenchmarkSuite) {
               // Calculate incremental costs
               console.log('\n' + '='.repeat(80));
               console.log('INCREMENTAL LAYER COST ANALYSIS');
@@ -1418,12 +1404,11 @@ describe('EDA Workspace Performance Tests', () => {
                   `Layer 3 percentage: ${(((l3Time - l2Time) / l3Time) * 100).toFixed(1)}%`,
                 );
               }
-
-              suite.abort();
-              resolve();
             })
-            .run({ async: true });
-        });
+            .run();
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         expect(Object.keys(results).length).toBe(layerTests.length);
       },

@@ -113,5 +113,10 @@ jobs:
       extensions-root: 'packages'
       vsix-artifact-name: 'vsix-packages'
       required-ci-checks: '["CI Complete","Package / Package","Test Quality (ubuntu-latest, lts/*)"]'
+      package-manager: 'pnpm'
+      package-manager-version: '12.11.2'
+      cache-dependency-path: 'pnpm-lock.yaml'
+      lockfile-path: 'pnpm-lock.yaml'
+      install-command: 'pnpm install --frozen-lockfile'
       dry-run: ${{ inputs.dry-run }}
     secrets: inherit

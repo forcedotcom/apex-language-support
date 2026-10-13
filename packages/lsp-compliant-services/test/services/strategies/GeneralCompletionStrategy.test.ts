@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import { Effect } from 'effect';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { ApexSymbolManager } from '@salesforce/apex-lsp-parser-ast';
@@ -122,7 +123,7 @@ describe('GeneralCompletionStrategy', () => {
     });
 
     it('uses only the lexer token prefix before a cursor inside an identifier', async () => {
-      const resolveSymbol = jest.spyOn(symbolManager, 'resolveSymbol');
+      const resolveSymbol = vi.spyOn(symbolManager, 'resolveSymbol');
       const doc = makeTextDocument(
         '    getStaSuffix',
         'file:///test/TestClass.cls',
@@ -147,8 +148,8 @@ describe('GeneralCompletionStrategy', () => {
     ])(
       'does not derive semantic completions from a string or comment token: %s',
       async (content, character) => {
-        const resolveSymbol = jest.spyOn(symbolManager, 'resolveSymbol');
-        const allSymbols = jest.spyOn(
+        const resolveSymbol = vi.spyOn(symbolManager, 'resolveSymbol');
+        const allSymbols = vi.spyOn(
           symbolManager,
           'getAllSymbolsForCompletion',
         );
@@ -168,7 +169,7 @@ describe('GeneralCompletionStrategy', () => {
     );
 
     it('preserves an incomplete identifier prefix in syntactically malformed source', async () => {
-      const resolveSymbol = jest.spyOn(symbolManager, 'resolveSymbol');
+      const resolveSymbol = vi.spyOn(symbolManager, 'resolveSymbol');
       const content = 'public class Broken { void run() { getSta';
       const doc = makeTextDocument(content, 'file:///test/Broken.cls');
       const context = makeCompletionContext(doc, 0, content.length);

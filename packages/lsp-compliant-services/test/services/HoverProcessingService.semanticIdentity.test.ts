@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock, MockInstance } from 'vitest';
+import { vi } from 'vitest';
 import { Effect } from 'effect';
 import type { HoverParams } from 'vscode-languageserver-protocol';
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -23,9 +25,9 @@ import {
 } from '../../src/services/HoverProcessingService';
 import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 
-jest.mock('../../src/storage/ApexStorageManager', () => ({
+vi.mock('../../src/storage/ApexStorageManager', () => ({
   ApexStorageManager: {
-    getInstance: jest.fn(),
+    getInstance: vi.fn(),
   },
 }));
 
@@ -82,27 +84,25 @@ const symbol = (
   }) as unknown as ApexSymbol;
 
 describe('HoverProcessingService semantic identity after enrichment', () => {
-  let getSettingsSpy: jest.SpyInstance;
+  let getSettingsSpy: MockInstance;
 
   beforeEach(() => {
     const settingsManager = ApexSettingsManager.getInstance();
     const settings = settingsManager.getSettings();
-    getSettingsSpy = jest
-      .spyOn(settingsManager, 'getSettings')
-      .mockReturnValue({
-        ...settings,
-        apex: {
-          ...settings.apex,
-          findMissingArtifact: {
-            ...settings.apex.findMissingArtifact,
-            enabled: false,
-          },
+    getSettingsSpy = vi.spyOn(settingsManager, 'getSettings').mockReturnValue({
+      ...settings,
+      apex: {
+        ...settings.apex,
+        findMissingArtifact: {
+          ...settings.apex.findMissingArtifact,
+          enabled: false,
         },
-      });
+      },
+    });
 
-    (ApexStorageManager.getInstance as jest.Mock).mockReturnValue({
+    (ApexStorageManager.getInstance as Mock).mockReturnValue({
       getStorage: () => ({
-        getDocument: jest
+        getDocument: vi
           .fn()
           .mockResolvedValue(
             TextDocument.create(uri, 'apex', 1, 'class SemanticIdentity {}'),
@@ -113,7 +113,7 @@ describe('HoverProcessingService semantic identity after enrichment', () => {
 
   afterEach(() => {
     getSettingsSpy.mockRestore();
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   const managerFor = (
@@ -122,12 +122,14 @@ describe('HoverProcessingService semantic identity after enrichment', () => {
     globalNameCandidates: ApexSymbol[],
   ): ISymbolManager => {
     const manager = {
-      getReferencesAtPosition: jest.fn().mockResolvedValue(refs),
-      getSymbolAtPosition: jest.fn().mockResolvedValue(null),
-      findSymbolsInFile: jest.fn().mockResolvedValue(fileSymbols),
-      getSymbol: jest.fn().mockResolvedValue(null),
-      findSymbolByName: jest.fn().mockResolvedValue(globalNameCandidates),
-      resolveWithEnrichment: jest.fn(
+      getReferencesAtPosition: vi.fn().mockResolvedValue(refs),
+      getSymbolAtPosition: vi.fn().mockResolvedValue(null),
+      findSymbolsInFile: vi.fn().mockResolvedValue(fileSymbols),
+      getSymbol: vi.fn().mockResolvedValue(null),
+      constructFQN: vi.fn(async (candidate: ApexSymbol) => candidate.name),
+      getContainingType: vi.fn().mockResolvedValue(null),
+      findSymbolByName: vi.fn().mockResolvedValue(globalNameCandidates),
+      resolveWithEnrichment: vi.fn(
         (_fileUri: string, _text: string, resolver: () => Promise<unknown>) =>
           Effect.promise(resolver),
       ),
@@ -156,6 +158,81 @@ describe('HoverProcessingService semantic identity after enrichment', () => {
     expect(result).toBeNull();
     expect(manager.resolveWithEnrichment).toHaveBeenCalledTimes(1);
     expect(manager.findSymbolByName).not.toHaveBeenCalled();
+  });
+
+  it('enriches a selected chained method when precise lookup only finds its receiver', async () => {
+    const settings = ApexSettingsManager.getInstance().getSettings();
+    getSettingsSpy.mockReturnValue({
+      ...settings,
+      apex: {
+        ...settings.apex,
+        findMissingArtifact: {
+          ...settings.apex.findMissingArtifact,
+          enabled: true,
+        },
+      },
+    });
+
+    const receiver = symbol('class:Utility', 'Utility', SymbolKind.Class);
+    const method = symbol(
+      'method:Utility.run',
+      'run',
+      SymbolKind.Method,
+      receiver.id,
+    );
+    const receiverRange = {
+      startLine: 2,
+      startColumn: 0,
+      endLine: 2,
+      endColumn: 6,
+    };
+    const methodRange = {
+      startLine: 2,
+      startColumn: 7,
+      endLine: 2,
+      endColumn: 10,
+    };
+    const methodCall: SymbolReference = {
+      ...reference('run', ReferenceContext.METHOD_CALL),
+      chainNodes: [
+        {
+          ...reference('Utility', ReferenceContext.CLASS_REFERENCE),
+          location: {
+            identifierRange: receiverRange,
+            symbolRange: receiverRange,
+          },
+          resolvedSymbolId: receiver.id,
+        },
+        {
+          ...reference('run', ReferenceContext.METHOD_CALL),
+          location: {
+            identifierRange: methodRange,
+            symbolRange: methodRange,
+          },
+        },
+      ],
+    };
+    const manager = managerFor([methodCall], [], []);
+    let enriched = false;
+    vi.mocked(manager.getSymbolAtPosition).mockImplementation(async () =>
+      enriched ? method : receiver,
+    );
+    vi.mocked(manager.resolveWithEnrichment).mockImplementation(
+      (_fileUri, _text, resolver) => {
+        enriched = true;
+        return Effect.promise(resolver as () => Promise<unknown>);
+      },
+    );
+
+    const result = await new HoverProcessingService(
+      getLogger(),
+      manager,
+    ).processHover(params);
+
+    expect(manager.resolveWithEnrichment).toHaveBeenCalledTimes(1);
+    expect(result).not.toBeNull();
+    expect(isSearchingHover(result)).toBe(false);
+    expect(JSON.stringify(result)).toContain('run(');
   });
 
   it('does not select the first file-wide same-named local when lexical resolution misses', async () => {
@@ -236,7 +313,7 @@ describe('HoverProcessingService semantic identity after enrichment', () => {
     };
     const manager = managerFor([broadReference], [], []);
     const service = new HoverProcessingService(getLogger(), manager);
-    const backgroundLookup = jest.fn();
+    const backgroundLookup = vi.fn();
     (
       service as unknown as {
         missingArtifactUtils: {

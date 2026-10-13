@@ -9,12 +9,9 @@
 export * from './notification';
 export * from './types';
 export * from './storage/StorageInterface';
-export * from './utils/CorrelatedMessage';
 export * from './utils/Environment';
-export * from './utils/BrowserUtils';
 export * from './utils/ErrorUtils';
 export * from './utils/Logging';
-export * from './factories/ConnectionFactory';
 export * from './communication/Interfaces';
 export * from './server/ApexLanguageServerSettings';
 
@@ -32,9 +29,6 @@ export {
 } from './optimizedEnumUtils';
 
 export * from './logger';
-
-export * from './testing/performance-utils';
-export * from './testing/performance-metrics';
 
 // Export smaller numeric types for memory optimization
 export * from './smallNumericTypes';

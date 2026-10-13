@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 /**
  * Integration tests for TIER 2 validation at the missing-artifact boundary.
  *
@@ -51,15 +53,15 @@ import { join } from 'path';
 
 // Minimal mocks - only mock external LSP client connection and settings
 // Use real services for compilation, symbol management, and storage
-jest.mock('@salesforce/apex-lsp-shared', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
+vi.mock('@salesforce/apex-lsp-shared', async () => {
+  const actual = await vi.importActual('@salesforce/apex-lsp-shared');
   return {
     ...actual,
     LSPConfigurationManager: {
-      getInstance: jest.fn(),
+      getInstance: vi.fn(),
     },
     ApexSettingsManager: {
-      getInstance: jest.fn(),
+      getInstance: vi.fn(),
     },
   };
 });
@@ -81,7 +83,7 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
   });
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     logger = getLogger();
 
@@ -101,23 +103,23 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
 
     // Setup mock connection (external LSP client)
     mockConnection = {
-      sendRequest: jest.fn(),
+      sendRequest: vi.fn(),
     };
 
     // Setup mock config manager (provides LSP connection)
     mockConfigManager = {
-      getConnection: jest.fn().mockReturnValue(mockConnection),
-      getClientCapabilities: jest.fn().mockReturnValue(undefined),
-      isClientCapabilityAdvertised: jest.fn().mockReturnValue(false),
+      getConnection: vi.fn().mockReturnValue(mockConnection),
+      getClientCapabilities: vi.fn().mockReturnValue(undefined),
+      isClientCapabilityAdvertised: vi.fn().mockReturnValue(false),
     };
 
-    (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue(
+    (LSPConfigurationManager.getInstance as Mock).mockReturnValue(
       mockConfigManager,
     );
 
     // Setup mock settings manager (only for settings, not compilation)
     mockSettingsManager = {
-      getSettings: jest.fn().mockReturnValue({
+      getSettings: vi.fn().mockReturnValue({
         apex: {
           findMissingArtifact: {
             enabled: true,
@@ -152,7 +154,7 @@ describe('DiagnosticProcessingService - Artifact Loading Integration', () => {
       }),
     };
 
-    (ApexSettingsManager.getInstance as jest.Mock).mockReturnValue(
+    (ApexSettingsManager.getInstance as Mock).mockReturnValue(
       mockSettingsManager,
     );
 

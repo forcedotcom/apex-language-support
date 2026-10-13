@@ -87,7 +87,7 @@ The workflows use TypeScript-based release scripts located in `.github/scripts/`
 - name: Determine changes and version bumps
   env:
     IS_NIGHTLY: 'true'
-    VERSION_BUMP: 'auto'   # overridden by commit analysis in ext-change-detector
+    VERSION_BUMP: 'auto' # overridden by commit analysis in ext-change-detector
     PRE_RELEASE: 'true'
     IS_PROMOTION: 'false'
     SELECTED_EXTENSIONS: ${{ inputs.extensions }}
@@ -285,14 +285,14 @@ graph LR
 - Push to main
 - Pull requests to main
 
-**Purpose:** Run LSP performance benchmarks and track performance over time.
+**Purpose:** Run LSP performance benchmarks for both supported server implementations.
 
 **Features:**
 
-- Uses `benchmark-action/github-action-benchmark` for performance tracking
-- Stores results for main branch pushes
-- Compares results in PRs without storing
-- Alerts on 130% performance regression
+- Runs native Vitest benchmark suites on push and pull request
+- Uses CI-mode sampling settings
+- Fails when benchmark setup or execution fails
+- Benchmark output is available in the workflow logs
 
 #### Validate PR (`validatePR.yml`)
 

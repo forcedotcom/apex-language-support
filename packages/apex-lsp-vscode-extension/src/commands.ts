@@ -285,21 +285,12 @@ export const registerProfilingCommands = (
     return;
   }
 
-  // Get client from language-server module
-  const getClient = () => {
-    try {
-      const { getClient } = require('./language-server');
-      return getClient();
-    } catch (_error) {
-      return undefined;
-    }
-  };
-
   // Register apex.profiling.start
   const startCommand = vscode.commands.registerCommand(
     'apex.profiling.start',
     async () => {
       try {
+        const { getClient } = await import('./language-server');
         const client = getClient();
         if (!client) {
           vscode.window.showErrorMessage(
@@ -351,6 +342,7 @@ export const registerProfilingCommands = (
     'apex.profiling.stop',
     async () => {
       try {
+        const { getClient } = await import('./language-server');
         const client = getClient();
         if (!client) {
           vscode.window.showErrorMessage(
@@ -401,6 +393,7 @@ export const registerProfilingCommands = (
     'apex.profiling.status',
     async () => {
       try {
+        const { getClient } = await import('./language-server');
         const client = getClient();
         if (!client) {
           vscode.window.showErrorMessage(

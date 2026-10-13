@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 import {
   CodeActionParams,
   CodeAction,
@@ -31,9 +33,9 @@ import { ApexStorageManager } from '../../src/storage/ApexStorageManager';
 // Logger is handled by the shared library's global logging system
 
 // Mock ApexStorageManager
-jest.mock('../../src/storage/ApexStorageManager', () => ({
+vi.mock('../../src/storage/ApexStorageManager', () => ({
   ApexStorageManager: {
-    getInstance: jest.fn(),
+    getInstance: vi.fn(),
   },
 }));
 
@@ -45,24 +47,24 @@ describe('CodeActionProcessingService', () => {
 
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Setup logger
     logger = getLogger();
 
     // Setup mock storage
     mockStorage = {
-      getDocument: jest.fn(),
+      getDocument: vi.fn(),
     };
 
-    (ApexStorageManager.getInstance as jest.Mock).mockReturnValue({
-      getStorage: jest.fn().mockReturnValue(mockStorage),
+    (ApexStorageManager.getInstance as Mock).mockReturnValue({
+      getStorage: vi.fn().mockReturnValue(mockStorage),
     });
 
     // Setup mock document
     mockDocument = {
       uri: 'file:///test/TestClass.cls',
-      getText: jest.fn().mockReturnValue(`
+      getText: vi.fn().mockReturnValue(`
         public class TestClass {
           public void doSomething() {
             String testVar = 'test';
@@ -70,9 +72,9 @@ describe('CodeActionProcessingService', () => {
           }
         }
       `),
-      offsetAt: jest.fn().mockReturnValue(100),
-      positionAt: jest.fn(),
-      lineCount: jest.fn().mockReturnValue(10),
+      offsetAt: vi.fn().mockReturnValue(100),
+      positionAt: vi.fn(),
+      lineCount: vi.fn().mockReturnValue(10),
     } as any;
 
     // Create service instance
@@ -213,7 +215,7 @@ describe('CodeActionProcessingService', () => {
   describe('context analysis', () => {
     it('derives context from the symbol manager result', async () => {
       const symbolManager = (service as any).symbolManager;
-      jest.spyOn(symbolManager, 'getSymbolAtPosition').mockResolvedValue({
+      vi.spyOn(symbolManager, 'getSymbolAtPosition').mockResolvedValue({
         name: 'testVar',
         kind: SymbolKind.Variable,
         parentId: 'method-scope',
@@ -373,13 +375,13 @@ describe('CodeActionProcessingService', () => {
         fileUri: 'file:///ns1/Duplicate.cls',
       };
       const symbolManager = {
-        findSymbolByName: jest.fn().mockResolvedValue([sameName, selected]),
-        findReferencesTo: jest
+        findSymbolByName: vi.fn().mockResolvedValue([sameName, selected]),
+        findReferencesTo: vi
           .fn()
           .mockImplementation((symbol) =>
             Promise.resolve(symbol === selected ? [{}] : [{}, {}]),
           ),
-        analyzeDependencies: jest.fn().mockResolvedValue({
+        analyzeDependencies: vi.fn().mockResolvedValue({
           dependencies: [],
           dependents: [],
         }),
@@ -434,7 +436,7 @@ describe('CodeActionProcessingService', () => {
         start: doc.positionAt(startOffset),
         end: doc.positionAt(startOffset + selection.length),
       };
-      (mockStorage.getDocument as jest.Mock).mockResolvedValue(doc);
+      (mockStorage.getDocument as Mock).mockResolvedValue(doc);
       return {
         params: {
           textDocument: { uri },
@@ -580,7 +582,7 @@ describe('CodeActionProcessingService', () => {
       const doc = TextDocument.create(uri, 'apex', 1, source);
       const caretOffset = source.indexOf('2 * 3') + 1;
       const caret = doc.positionAt(caretOffset);
-      (mockStorage.getDocument as jest.Mock).mockResolvedValue(doc);
+      (mockStorage.getDocument as Mock).mockResolvedValue(doc);
       const params: CodeActionParams = {
         textDocument: { uri },
         range: { start: caret, end: caret },
@@ -888,9 +890,9 @@ describe('CodeActionProcessingService', () => {
         1,
         callerSource,
       );
-      (ApexStorageManager.getInstance as jest.Mock).mockReturnValue({
-        getStorage: jest.fn().mockReturnValue({
-          getDocument: jest
+      (ApexStorageManager.getInstance as Mock).mockReturnValue({
+        getStorage: vi.fn().mockReturnValue({
+          getDocument: vi
             .fn()
             .mockImplementation((uri: string) =>
               Promise.resolve(uri === CALLER_URI ? callerDoc : null),
@@ -1081,9 +1083,9 @@ describe('CodeActionProcessingService', () => {
         },
       } as any;
       const symbolManager = {
-        getSymbolAtPosition: jest.fn().mockResolvedValue(receiverVariable),
-        findSymbolByFQN: jest.fn().mockResolvedValue(null),
-        findSymbolByName: jest.fn().mockResolvedValue([ns1Target, ns2Target]),
+        getSymbolAtPosition: vi.fn().mockResolvedValue(receiverVariable),
+        findSymbolByFQN: vi.fn().mockResolvedValue(null),
+        findSymbolByName: vi.fn().mockResolvedValue([ns1Target, ns2Target]),
       } as any;
       const exactService = new CodeActionProcessingService(
         getLogger(),

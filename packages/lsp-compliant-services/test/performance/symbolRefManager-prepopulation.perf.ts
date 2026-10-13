@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 /**
  * Symbol Ref Manager Pre-population Performance Tests
  *
@@ -39,15 +41,15 @@ import {
 import { cleanupTestResources } from '../helpers/test-cleanup';
 
 // Minimal mocks - only mock external dependencies
-jest.mock('@salesforce/apex-lsp-shared', () => {
-  const actual = jest.requireActual('@salesforce/apex-lsp-shared');
+vi.mock('@salesforce/apex-lsp-shared', async () => {
+  const actual = await vi.importActual('@salesforce/apex-lsp-shared');
   return {
     ...actual,
     LSPConfigurationManager: {
-      getInstance: jest.fn(),
+      getInstance: vi.fn(),
     },
     ApexSettingsManager: {
-      getInstance: jest.fn(),
+      getInstance: vi.fn(),
     },
   };
 });
@@ -59,8 +61,7 @@ interface PrePopulationResult {
   avgPerClass: number;
 }
 
-// TODO: Convert these Jest tests to proper Benchmark.js format
-// These tests still use Jest assertions and timeouts instead of Benchmark.js
+// TODO: Convert these assertions to native Vitest benchmark registrations.
 describe.skip('Symbol Ref Manager Pre-population Performance', () => {
   let logger: LoggerInterface;
   let symbolManager: ApexSymbolManager;
@@ -74,7 +75,7 @@ describe.skip('Symbol Ref Manager Pre-population Performance', () => {
 
     // Mock settings manager
     const mockSettingsManager = {
-      getSettings: jest.fn().mockReturnValue({
+      getSettings: vi.fn().mockReturnValue({
         apex: {
           scheduler: {
             queueCapacity: 200,
@@ -107,10 +108,10 @@ describe.skip('Symbol Ref Manager Pre-population Performance', () => {
       }),
     };
 
-    (ApexSettingsManager.getInstance as jest.Mock).mockReturnValue(
+    (ApexSettingsManager.getInstance as Mock).mockReturnValue(
       mockSettingsManager,
     );
-    (LSPConfigurationManager.getInstance as jest.Mock).mockReturnValue({});
+    (LSPConfigurationManager.getInstance as Mock).mockReturnValue({});
 
     // Initialize scheduler
     await SchedulerInitializationService.getInstance().ensureInitialized();

@@ -206,8 +206,8 @@ export const createApexServerStatusItem = (
   apexServerStatusItem = vscode.languages.createLanguageStatusItem(
     'apex-ls-ts.serverStatus',
     {
+      // Web workspaces use memfs URIs; readiness must be visible there too.
       language: 'apex',
-      scheme: 'file',
     },
   );
   apexServerStatusItem.name = 'Apex-LS-TS Language Server Status';
@@ -403,8 +403,7 @@ export const updateProfilingToggleItem = async (): Promise<void> => {
 
   // Show status item
   try {
-    // Get client from language-server module
-    const { getClient } = require('./language-server');
+    const { getClient } = await import('./language-server');
     const client = getClient();
 
     if (!client || client.isDisposed()) {
@@ -512,8 +511,7 @@ export const registerProfilingToggleCommand = (
     'apex-ls-ts.profiling.toggle',
     async () => {
       try {
-        // Get client from language-server module
-        const { getClient } = require('./language-server');
+        const { getClient } = await import('./language-server');
         const client = getClient();
 
         if (!client || client.isDisposed()) {

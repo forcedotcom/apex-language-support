@@ -67,13 +67,11 @@ import {
 import { Effect } from 'effect';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
-const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
+const WORKER_ENTRY = path.resolve(__dirname, '../../dist/worker.platform.js');
 const LOG_LEVEL = 'error';
 const COMPILATION_POOL_SIZE = 2;
 const workerLayerFactory = (role: WorkerRole) =>
-  makeNodeWorkerLayer(WORKER_TS_ENTRY, {
-    ...TSX_OPTIONS,
+  makeNodeWorkerLayer(WORKER_ENTRY, {
     workerData: {
       role,
       compilationPoolSize: COMPILATION_POOL_SIZE,
@@ -899,7 +897,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         [`    ${expression}`, "    String marker = 'after';"].join('\n'),
       );
     const resolvedSource = sourceWithExpression('property.Beds__c');
-    const submitSpy = jest
+    const submitSpy = vi
       .spyOn(LSPQueueManager.prototype, 'submitFindMissingArtifactRequest')
       .mockResolvedValue({
         artifacts: [
@@ -991,7 +989,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         };
       };
 
-      const completionPhases = [];
+      const completionPhases: Awaited<ReturnType<typeof complete>>[] = [];
       completionPhases.push(yield* Effect.promise(() => complete('prop', 2)));
       completionPhases.push(yield* Effect.promise(() => complete('proper', 3)));
       completionPhases.push(
@@ -1132,7 +1130,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
       '}',
     ].join('\n');
     const uri = 'file:///test/PropertyConsumer.cls';
-    const submitSpy = jest
+    const submitSpy = vi
       .spyOn(LSPQueueManager.prototype, 'submitFindMissingArtifactRequest')
       .mockResolvedValue({
         artifacts: [

@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   enableConsoleLogging,
   setLogLevel,
@@ -27,32 +27,32 @@ const makeMockConnection = (): MockConnection => {
   const requestHandlers = new Map<string, (params: unknown) => unknown>();
   const notificationHandlers = new Map<string, (params: unknown) => void>();
 
-  const sendRequest = jest.fn(
+  const sendRequest = vi.fn(
     (_method: string, _params?: unknown): Promise<unknown> =>
       Promise.resolve(undefined),
   );
-  const sendNotification = jest.fn(
+  const sendNotification = vi.fn(
     (_method: string, _params?: unknown): void => undefined,
   );
-  const onRequest = jest.fn(
+  const onRequest = vi.fn(
     (method: string, handler: (params: unknown) => unknown): Disposable => {
       requestHandlers.set(method, handler);
-      return { dispose: jest.fn() };
+      return { dispose: vi.fn() };
     },
   );
-  const onNotification = jest.fn(
+  const onNotification = vi.fn(
     (method: string, handler: (params: unknown) => void): Disposable => {
       notificationHandlers.set(method, handler);
-      return { dispose: jest.fn() };
+      return { dispose: vi.fn() };
     },
   );
-  const onError = jest.fn((_handler: (e: Error) => void): Disposable => ({
-    dispose: jest.fn(),
+  const onError = vi.fn((_handler: (e: Error) => void): Disposable => ({
+    dispose: vi.fn(),
   }));
-  const onClose = jest.fn((_handler: () => void): Disposable => ({
-    dispose: jest.fn(),
+  const onClose = vi.fn((_handler: () => void): Disposable => ({
+    dispose: vi.fn(),
   }));
-  const dispose = jest.fn((): void => undefined);
+  const dispose = vi.fn((): void => undefined);
 
   return {
     sendRequest,
@@ -181,11 +181,11 @@ describe('ApexClientCore incoming middleware chain (D1)', () => {
     expect(observed).toHaveLength(0); // No notifications dispatched yet
   });
 
-  it('incoming notification chain: middleware suppresses notification', () => {
+  it('incoming notification chain: middleware suppresses notification', async () => {
     // Directly test the compose function for suppression (covered in
     // composeMiddleware.test.ts). This verifies the contract.
     const { composeNotificationChain: compose } =
-      require('../src/middleware/composeMiddleware') as typeof import('../src/middleware/composeMiddleware');
+      await import('../src/middleware/composeMiddleware');
 
     const mw: ApexClientMiddleware = {
       onNotification: () => {
@@ -193,7 +193,7 @@ describe('ApexClientCore incoming middleware chain (D1)', () => {
       },
     };
 
-    const rawHandler = jest.fn((_p: unknown) => undefined);
+    const rawHandler = vi.fn((_p: unknown) => undefined);
     compose([mw], rawHandler, 'incoming', 'test/notif', { data: 1 });
     expect(rawHandler).not.toHaveBeenCalled();
   });

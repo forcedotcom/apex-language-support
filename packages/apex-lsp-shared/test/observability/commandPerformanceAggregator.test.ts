@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { CommandPerformanceAggregator } from '../../src/observability/commandPerformanceAggregator';
 
 describe('CommandPerformanceAggregator', () => {

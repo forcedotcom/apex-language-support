@@ -19,47 +19,6 @@ import {
 import type { Connection } from 'vscode-languageserver';
 
 // =============================================================================
-// LOGGING UTILITIES
-// =============================================================================
-
-/**
- * Unified logging utilities that work across all environments
- */
-export class LoggingUtils {
-  /**
-   * Logs a message to console with appropriate formatting
-   */
-  static logToConsole(messageType: LogMessageType, message: string): void {
-    const timestamp = new Date().toISOString();
-    const formattedMessage = `[${timestamp}] ${message}`;
-
-    switch (messageType) {
-      case 'error':
-        console.error(formattedMessage);
-        break;
-      case 'warning':
-        console.warn(formattedMessage);
-        break;
-      case 'info':
-        console.info(formattedMessage);
-        break;
-      case 'debug':
-        console.debug(formattedMessage);
-        break;
-      default:
-        console.log(formattedMessage);
-    }
-  }
-
-  /**
-   * Gets correlation ID for message tracking
-   */
-  static generateCorrelationId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  }
-}
-
-// =============================================================================
 // UNIFIED LOGGER IMPLEMENTATION
 // =============================================================================
 

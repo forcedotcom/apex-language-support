@@ -6,7 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import type { Mock } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   enableConsoleLogging,
   setLogLevel,
@@ -23,31 +24,31 @@ interface MockConnection extends RpcConnection {
 const makeMockConnection = (): MockConnection => {
   const requestHandlers = new Map<string, (params: unknown) => unknown>();
 
-  const sendRequest = jest.fn(
+  const sendRequest = vi.fn(
     (_method: string, _params?: unknown): Promise<unknown> =>
       Promise.resolve({ mocked: true }),
   );
-  const sendNotification = jest.fn(
+  const sendNotification = vi.fn(
     (_method: string, _params?: unknown): void => undefined,
   );
-  const onRequest = jest.fn(
+  const onRequest = vi.fn(
     (method: string, handler: (params: unknown) => unknown): Disposable => {
       requestHandlers.set(method, handler);
-      return { dispose: jest.fn() };
+      return { dispose: vi.fn() };
     },
   );
-  const onNotification = jest.fn(
+  const onNotification = vi.fn(
     (_method: string, _handler: (params: unknown) => void): Disposable => ({
-      dispose: jest.fn(),
+      dispose: vi.fn(),
     }),
   );
-  const onError = jest.fn((_handler: (e: Error) => void): Disposable => ({
-    dispose: jest.fn(),
+  const onError = vi.fn((_handler: (e: Error) => void): Disposable => ({
+    dispose: vi.fn(),
   }));
-  const onClose = jest.fn((_handler: () => void): Disposable => ({
-    dispose: jest.fn(),
+  const onClose = vi.fn((_handler: () => void): Disposable => ({
+    dispose: vi.fn(),
   }));
-  const dispose = jest.fn((): void => undefined);
+  const dispose = vi.fn((): void => undefined);
 
   return {
     sendRequest,
@@ -77,7 +78,7 @@ describe('ApexClientCore pass-through methods', () => {
         foo: 'bar',
       });
 
-      const sendReq = connection.sendRequest as jest.Mock;
+      const sendReq = connection.sendRequest as Mock;
       expect(sendReq).toHaveBeenCalledWith('custom/method', { foo: 'bar' });
       expect(result).toEqual({ mocked: true });
 
@@ -99,7 +100,7 @@ describe('ApexClientCore pass-through methods', () => {
       const core = await ApexClientCore.create(connection);
       core.notify('custom/notification', { data: 1 });
 
-      const sendNotif = connection.sendNotification as jest.Mock;
+      const sendNotif = connection.sendNotification as Mock;
       expect(sendNotif).toHaveBeenCalledWith('custom/notification', {
         data: 1,
       });
@@ -125,7 +126,7 @@ describe('ApexClientCore pass-through methods', () => {
         position: { line: 0, character: 5 },
       });
 
-      const sendReq = connection.sendRequest as jest.Mock;
+      const sendReq = connection.sendRequest as Mock;
       expect(sendReq).toHaveBeenCalledWith('textDocument/hover', {
         textDocument: { uri: 'file:///x.cls' },
         position: { line: 0, character: 5 },
@@ -143,7 +144,7 @@ describe('ApexClientCore pass-through methods', () => {
         position: { line: 1, character: 10 },
       });
 
-      const sendReq = connection.sendRequest as jest.Mock;
+      const sendReq = connection.sendRequest as Mock;
       expect(sendReq).toHaveBeenCalledWith('textDocument/completion', {
         textDocument: { uri: 'file:///x.cls' },
         position: { line: 1, character: 10 },
@@ -161,7 +162,7 @@ describe('ApexClientCore pass-through methods', () => {
         position: { line: 5, character: 3 },
       });
 
-      const sendReq = connection.sendRequest as jest.Mock;
+      const sendReq = connection.sendRequest as Mock;
       expect(sendReq).toHaveBeenCalledWith('textDocument/definition', {
         textDocument: { uri: 'file:///y.cls' },
         position: { line: 5, character: 3 },
@@ -178,7 +179,7 @@ describe('ApexClientCore pass-through methods', () => {
         textDocument: { uri: 'file:///z.cls' },
       });
 
-      const sendReq = connection.sendRequest as jest.Mock;
+      const sendReq = connection.sendRequest as Mock;
       expect(sendReq).toHaveBeenCalledWith('textDocument/documentSymbol', {
         textDocument: { uri: 'file:///z.cls' },
       });

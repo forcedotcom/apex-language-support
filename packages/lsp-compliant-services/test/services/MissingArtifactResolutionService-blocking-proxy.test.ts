@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import {
   LSPConfigurationManager,
   getLogger,
@@ -114,9 +115,7 @@ describe('MissingArtifactResolutionService — blocking assistance proxy', () =>
   });
 
   it('sanitizes params before forwarding through the assistance proxy', async () => {
-    const proxy = jest
-      .fn()
-      .mockResolvedValue({ opened: ['file:///Found.cls'] });
+    const proxy = vi.fn().mockResolvedValue({ opened: ['file:///Found.cls'] });
     EnhancedMissingArtifactResolutionService.setAssistanceProxy(proxy);
 
     const result = await service.resolveBlocking(makeParams());
@@ -141,7 +140,7 @@ describe('MissingArtifactResolutionService — blocking assistance proxy', () =>
 
   it('returns timeout when the proxy never settles', async () => {
     // A proxy that hangs forever.
-    const proxy = jest.fn().mockReturnValue(new Promise(() => {}));
+    const proxy = vi.fn().mockReturnValue(new Promise(() => {}));
     EnhancedMissingArtifactResolutionService.setAssistanceProxy(proxy);
 
     // Tight budget so the test is fast.
@@ -167,7 +166,7 @@ describe('MissingArtifactResolutionService — blocking assistance proxy', () =>
         definitionTarget: { uri: 'org://Invoice__c' },
       },
     };
-    const proxy = jest.fn().mockResolvedValue({ artifacts: [artifact] });
+    const proxy = vi.fn().mockResolvedValue({ artifacts: [artifact] });
     EnhancedMissingArtifactResolutionService.setAssistanceProxy(proxy);
 
     const result = await service.resolveBlocking({
@@ -195,7 +194,7 @@ describe('MissingArtifactResolutionService — blocking assistance proxy', () =>
         definitionTarget: { uri: 'org://Account' },
       },
     };
-    const proxy = jest
+    const proxy = vi
       .fn()
       .mockImplementation(async (params: ReturnType<typeof makeParams>) =>
         params.identifiers[0].identifierType === 'sobject'

@@ -234,20 +234,28 @@ export const waitForWorkspaceIngestion = async (
   const isDesktopMode = isDesktop();
   const defaultTimeout = timeout ?? (isDesktopMode ? 45_000 : 30_000);
 
-  // Poll the status bar for the ready state. The extension shows
-  // "Apex-LS-TS Server Ready" when workspace ingestion is complete,
-  // and various loading messages during ingestion (with $(sync~spin) icon).
-  // We wait for the status bar to show the ready message or at least
-  // NOT contain loading/spinning indicators.
+  // The strict cross-file gate requires the extension's explicit ready state.
+  // The ordinary editor language label also says "Apex", so accepting that
+  // label would let a definition request race workspace ingestion.
+  // Keep the legacy best-effort check for callers that do not require ingestion.
   try {
     await page.waitForFunction(
-      () => {
+      ({ strictReady }) => {
         const statusBar = document.querySelector(
           '[id="workbench.parts.statusbar"]',
         );
         if (!statusBar) return false;
 
         const statusText = statusBar.textContent || '';
+        const languageStatus = document.getElementById('status.languageStatus');
+        const languageStatusLabel =
+          languageStatus?.getAttribute('aria-label') || '';
+        if (strictReady) {
+          return (
+            statusText.includes('Apex-LS-TS Server Ready') ||
+            languageStatusLabel.includes('Apex-LS-TS Server Ready')
+          );
+        }
         // Look for the Apex LSP status item
         // Ready state: "Apex-LS-TS Server Ready" (with $(check) icon)
         // Loading states: various messages with $(sync~spin) icon
@@ -274,6 +282,7 @@ export const waitForWorkspaceIngestion = async (
             !apexStatus.toLowerCase().includes('batches'))
         );
       },
+      { strictReady: strict },
       { timeout: defaultTimeout },
     );
   } catch {
@@ -282,7 +291,11 @@ export const waitForWorkspaceIngestion = async (
       const statusBar = document.querySelector(
         '[id="workbench.parts.statusbar"]',
       );
-      return statusBar?.textContent || 'STATUS BAR NOT FOUND';
+      const languageStatus = document.getElementById('status.languageStatus');
+      const statusText = statusBar?.textContent || 'STATUS BAR NOT FOUND';
+      const languageStatusLabel =
+        languageStatus?.getAttribute('aria-label') || 'NOT FOUND';
+      return `${statusText}; language status: ${languageStatusLabel}`;
     });
     const message = `Workspace ingestion wait timed out after ${defaultTimeout}ms. Status bar: "${statusBarText}"`;
     if (strict) {

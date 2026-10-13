@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock } from 'vitest';
+import { vi } from 'vitest';
 /**
  * Unit coverage for the references-enrichment dependent-prefetch helper.
  *
@@ -47,23 +49,23 @@ const serializedTableFor = (fileUri: string) => ({
 });
 
 describe('loadDependentsForReferences', () => {
-  let addSymbolTable: jest.Mock;
-  let resolveCrossFileReferencesForFile: jest.Mock;
+  let addSymbolTable: Mock;
+  let resolveCrossFileReferencesForFile: Mock;
   let svc: RequestServices;
 
   beforeEach(() => {
-    addSymbolTable = jest.fn(() => Effect.void);
+    addSymbolTable = vi.fn(() => Effect.void);
     // After ingesting each dependent, the helper resolves that file's own
     // cross-file references so its implements/extends edges enter the local
     // reverse index (what find-implementation / find-references read).
-    resolveCrossFileReferencesForFile = jest.fn(() => Effect.void);
+    resolveCrossFileReferencesForFile = vi.fn(() => Effect.void);
     svc = {
       symbolManager: { addSymbolTable, resolveCrossFileReferencesForFile },
     } as unknown as RequestServices;
   });
 
   it('ingests every dependent table and returns the count', async () => {
-    const fetchDependents = jest.fn().mockResolvedValue({
+    const fetchDependents = vi.fn().mockResolvedValue({
       entries: {
         [CALLER_A_URI]: serializedTableFor(CALLER_A_URI),
         [CALLER_B_URI]: serializedTableFor(CALLER_B_URI),
@@ -108,7 +110,7 @@ describe('loadDependentsForReferences', () => {
   });
 
   it('threads the optional symbolName narrowing through to the request', async () => {
-    const fetchDependents = jest.fn().mockResolvedValue({ entries: {} });
+    const fetchDependents = vi.fn().mockResolvedValue({ entries: {} });
 
     await loadDependentsForReferences(
       svc,
@@ -125,7 +127,7 @@ describe('loadDependentsForReferences', () => {
   });
 
   it('skips null entries and counts only ingested tables', async () => {
-    const fetchDependents = jest.fn().mockResolvedValue({
+    const fetchDependents = vi.fn().mockResolvedValue({
       entries: {
         [CALLER_A_URI]: serializedTableFor(CALLER_A_URI),
         [CALLER_B_URI]: null,
@@ -155,7 +157,7 @@ describe('loadDependentsForReferences', () => {
   });
 
   it('returns 0 when the data-owner reports no dependents', async () => {
-    const fetchDependents = jest.fn().mockResolvedValue({ entries: {} });
+    const fetchDependents = vi.fn().mockResolvedValue({ entries: {} });
 
     const ingested = await loadDependentsForReferences(
       svc,
@@ -169,7 +171,7 @@ describe('loadDependentsForReferences', () => {
   });
 
   it('returns 0 when the response has no entries field', async () => {
-    const fetchDependents = jest.fn().mockResolvedValue({});
+    const fetchDependents = vi.fn().mockResolvedValue({});
 
     const ingested = await loadDependentsForReferences(
       svc,
@@ -183,7 +185,7 @@ describe('loadDependentsForReferences', () => {
   });
 
   it('best-effort: swallows a failed assistance fetch and returns 0', async () => {
-    const fetchDependents = jest
+    const fetchDependents = vi
       .fn()
       .mockRejectedValue(new Error('assistance bus unavailable'));
 
@@ -204,7 +206,7 @@ describe('loadDependentsForReferences', () => {
     addSymbolTable.mockImplementationOnce(() =>
       Effect.fail(new Error('symbol manager rejected the table')),
     );
-    const fetchDependents = jest.fn().mockResolvedValue({
+    const fetchDependents = vi.fn().mockResolvedValue({
       entries: { [CALLER_A_URI]: serializedTableFor(CALLER_A_URI) },
     });
 
@@ -224,7 +226,7 @@ describe('loadDependentsForReferences', () => {
     resolveCrossFileReferencesForFile.mockImplementationOnce(() =>
       Effect.fail(new Error('cross-file resolution rejected')),
     );
-    const fetchDependents = jest.fn().mockResolvedValue({
+    const fetchDependents = vi.fn().mockResolvedValue({
       entries: { [CALLER_A_URI]: serializedTableFor(CALLER_A_URI) },
     });
 

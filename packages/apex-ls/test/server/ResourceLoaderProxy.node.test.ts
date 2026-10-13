@@ -6,6 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import { vi } from 'vitest';
 import * as path from 'path';
 import {
   initializeTopology,
@@ -16,8 +17,7 @@ import { Effect, Exit, Scope } from 'effect';
 import type { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import type { WorkerTopology } from '../../src/server/WorkerCoordinator';
 
-const WORKER_TS_ENTRY = path.resolve(__dirname, '../../src/worker.platform.ts');
-const TSX_OPTIONS = { execArgv: ['--import', 'tsx'] };
+const WORKER_ENTRY = path.resolve(__dirname, '../../dist/worker.platform.js');
 
 function createSpyLogger(): LoggerInterface {
   const noop = () => {};
@@ -45,7 +45,7 @@ describe('ResourceLoaderProxy (Step 9)', () => {
         enableResourceLoader: true,
         logger,
       });
-    }).pipe(Effect.provide(makeNodeWorkerLayer(WORKER_TS_ENTRY, TSX_OPTIONS)));
+    }).pipe(Effect.provide(makeNodeWorkerLayer(WORKER_ENTRY)));
 
     topology = await Effect.runPromise(
       Effect.provideService(program, Scope.Scope, scope),
@@ -65,7 +65,7 @@ describe('ResourceLoaderProxy (Step 9)', () => {
 
   it('reuses completed immutable stdlib loads across callers', async () => {
     const worker = topology.resourceLoader!;
-    const executeSpy = jest.spyOn(worker, 'executeEffect');
+    const executeSpy = vi.spyOn(worker, 'executeEffect');
     const proxy = new ResourceLoaderProxy(worker, logger);
 
     const first = await proxy.getSymbolTable('System/String.cls');

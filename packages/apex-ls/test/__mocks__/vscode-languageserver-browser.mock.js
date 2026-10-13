@@ -1,35 +1,43 @@
+/*
+ * Copyright (c) 2025, salesforce.com, inc.
+ * All rights reserved.
+ * Licensed under the BSD 3-Clause license.
+ * For full license text, see LICENSE.txt file in the
+ * repo root or https://opensource.org/licenses/BSD-3-Clause
+ */
+
 // Mock VSCode Language Server Browser implementation for Jest testing
 
 const mockConnection = {
-  onInitialize: jest.fn(),
-  onInitialized: jest.fn(),
-  onShutdown: jest.fn(),
-  onExit: jest.fn(),
-  onCompletion: jest.fn(),
-  onHover: jest.fn(),
-  onDocumentSymbol: jest.fn(),
-  onFoldingRanges: jest.fn(),
-  onRequest: jest.fn(),
-  listen: jest.fn(),
+  onInitialize: vi.fn(),
+  onInitialized: vi.fn(),
+  onShutdown: vi.fn(),
+  onExit: vi.fn(),
+  onCompletion: vi.fn(),
+  onHover: vi.fn(),
+  onDocumentSymbol: vi.fn(),
+  onFoldingRanges: vi.fn(),
+  onRequest: vi.fn(),
+  listen: vi.fn(),
   console: {
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
   },
-  sendNotification: jest.fn(),
-  sendDiagnostic: jest.fn(),
-  sendDiagnostics: jest.fn(),
+  sendNotification: vi.fn(),
+  sendDiagnostic: vi.fn(),
+  sendDiagnostics: vi.fn(),
 };
 
 module.exports = {
-  createConnection: jest.fn(() => mockConnection),
-  BrowserMessageReader: jest.fn(() => ({
-    listen: jest.fn(),
-    dispose: jest.fn(),
+  createConnection: vi.fn(() => mockConnection),
+  BrowserMessageReader: vi.fn(() => ({
+    listen: vi.fn(),
+    dispose: vi.fn(),
   })),
-  BrowserMessageWriter: jest.fn(() => ({
-    write: jest.fn(),
-    dispose: jest.fn(),
+  BrowserMessageWriter: vi.fn(() => ({
+    write: vi.fn(),
+    dispose: vi.fn(),
   })),
   LogMessageNotification: { type: 'logMessage' },
   InitializedNotification: { type: 'initialized' },
@@ -38,18 +46,22 @@ module.exports = {
     Warning: 2,
     Error: 1,
   },
-  TextDocuments: jest.fn().mockImplementation(() => ({
-    listen: jest.fn(),
-    get: jest.fn(),
-    set: jest.fn(),
-    delete: jest.fn(),
-    all: jest.fn(),
-    onDidChangeContent: jest.fn(),
-    onDidClose: jest.fn(),
-    onDidOpen: jest.fn(),
-    onDidSave: jest.fn(),
-  })),
-  TextDocument: jest.fn(),
+  TextDocuments: class {
+    constructor() {
+      return {
+        listen: vi.fn(),
+        get: vi.fn(),
+        set: vi.fn(),
+        delete: vi.fn(),
+        all: vi.fn(),
+        onDidChangeContent: vi.fn(),
+        onDidClose: vi.fn(),
+        onDidOpen: vi.fn(),
+        onDidSave: vi.fn(),
+      };
+    }
+  },
+  TextDocument: vi.fn(),
   // ResponseError is a VALUE (constructor), not just a type — production code
   // (LCSAdapter.onRenameRequest, W-23631080) does `throw new ResponseError(...)`.
   // The real module exports it as a class; the mock must too, or any suite that

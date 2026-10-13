@@ -5,6 +5,9 @@
  * For full license text, see LICENSE.txt file in the
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
+
+import type { Mocked } from 'vitest';
+import { vi } from 'vitest';
 import {
   ApexSymbol,
   CompilerService,
@@ -21,20 +24,20 @@ import { ApexStorageInterface } from '../../src/storage/ApexStorageInterface';
 // Use real compiler for service-side test
 
 describe('DefaultApexReferencesUpserter', () => {
-  let mockStorage: jest.Mocked<ApexStorageInterface>;
+  let mockStorage: Mocked<ApexStorageInterface>;
   let _mockGlobalSymbols: ApexSymbol[];
   let upserter: DefaultApexReferencesUpserter;
 
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     // Setup mock storage
     mockStorage = {
-      getDocument: jest.fn(),
-      getReferences: jest.fn().mockResolvedValue([]),
-      setReferences: jest.fn(),
-    } as unknown as jest.Mocked<ApexStorageInterface>;
+      getDocument: vi.fn(),
+      getReferences: vi.fn().mockResolvedValue([]),
+      setReferences: vi.fn(),
+    } as unknown as Mocked<ApexStorageInterface>;
 
     _mockGlobalSymbols = [];
     // upserter will be created per test after compiling symbols
@@ -63,8 +66,8 @@ describe('DefaultApexReferencesUpserter', () => {
         positionAt: () => ({ line: 0, character: 0 }),
         offsetAt: () => 0,
         lineCount: 1,
-        getLineRange: jest.fn(),
-        getEOLCharacters: jest.fn(),
+        getLineRange: vi.fn(),
+        getEOLCharacters: vi.fn(),
       },
     };
 
@@ -108,8 +111,8 @@ describe('DefaultApexReferencesUpserter', () => {
         positionAt: () => ({ line: 0, character: 0 }),
         offsetAt: () => 0,
         lineCount: 1,
-        getLineRange: jest.fn(),
-        getEOLCharacters: jest.fn(),
+        getLineRange: vi.fn(),
+        getEOLCharacters: vi.fn(),
       },
     };
 

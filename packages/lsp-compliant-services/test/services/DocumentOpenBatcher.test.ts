@@ -6,6 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
+import type { Mock, Mocked } from 'vitest';
+import { vi } from 'vitest';
 import { TextDocumentChangeEvent } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -14,46 +16,46 @@ import { makeDocumentOpenBatcher } from '../../src/services/DocumentOpenBatcher'
 import { DocumentProcessingService } from '../../src/services/DocumentProcessingService';
 
 // Mock the logger
-jest.mock('@salesforce/apex-lsp-shared', () => ({
-  getLogger: jest.fn(() => ({
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
+vi.mock('@salesforce/apex-lsp-shared', () => ({
+  getLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
   })),
 }));
 
 // Mock DocumentProcessingService
-jest.mock('../../src/services/DocumentProcessingService', () => ({
-  DocumentProcessingService: jest.fn().mockImplementation(() => ({
-    processDocumentOpen: jest.fn().mockResolvedValue([]),
-    processDocumentOpenInternal: jest.fn().mockResolvedValue([]),
-    processDocumentOpenBatch: jest.fn().mockResolvedValue([]),
+vi.mock('../../src/services/DocumentProcessingService', () => ({
+  DocumentProcessingService: vi.fn().mockImplementation(() => ({
+    processDocumentOpen: vi.fn().mockResolvedValue([]),
+    processDocumentOpenInternal: vi.fn().mockResolvedValue([]),
+    processDocumentOpenBatch: vi.fn().mockResolvedValue([]),
   })),
 }));
 
 describe('DocumentOpenBatcher', () => {
   let mockLogger: any;
-  let mockDocumentProcessingService: jest.Mocked<DocumentProcessingService>;
+  let mockDocumentProcessingService: Mocked<DocumentProcessingService>;
   let batcher: any;
   let shutdown: Effect.Effect<void, never>;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.useFakeTimers();
+    vi.clearAllMocks();
+    vi.useFakeTimers();
 
     mockLogger = {
-      debug: jest.fn(),
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
     };
-    (getLogger as jest.Mock).mockReturnValue(mockLogger);
+    (getLogger as Mock).mockReturnValue(mockLogger);
 
     mockDocumentProcessingService = {
-      processDocumentOpen: jest.fn().mockResolvedValue([]),
-      processDocumentOpenInternal: jest.fn().mockResolvedValue([]),
-      processDocumentOpenBatch: jest.fn().mockResolvedValue([]),
+      processDocumentOpen: vi.fn().mockResolvedValue([]),
+      processDocumentOpenInternal: vi.fn().mockResolvedValue([]),
+      processDocumentOpenBatch: vi.fn().mockResolvedValue([]),
     } as any;
 
     // Create a new batcher instance for each test
@@ -65,7 +67,7 @@ describe('DocumentOpenBatcher', () => {
   });
 
   afterEach(async () => {
-    jest.useRealTimers();
+    vi.useRealTimers();
     // Clean up shutdown
     await Effect.runPromise(shutdown);
   });
@@ -78,14 +80,14 @@ describe('DocumentOpenBatcher', () => {
       uri,
       languageId: 'apex',
       version,
-      getText: jest.fn().mockReturnValue('public class Test {}'),
+      getText: vi.fn().mockReturnValue('public class Test {}'),
     } as any,
   });
 
   describe('addDocumentOpen', () => {
     it('should process single document immediately when batchSizeThreshold is 1', async () => {
       // Use real timers for this test since we want immediate processing
-      jest.useRealTimers();
+      vi.useRealTimers();
 
       const result = Effect.runSync(
         makeDocumentOpenBatcher(mockLogger, mockDocumentProcessingService, {
@@ -113,7 +115,7 @@ describe('DocumentOpenBatcher', () => {
       await Effect.runPromise(result.shutdown);
 
       // Restore fake timers
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     });
 
     it('should batch multiple documents when threshold is reached', async () => {
@@ -166,7 +168,7 @@ describe('DocumentOpenBatcher', () => {
       // keeps the runtime alive throughout its lifetime.
 
       // Use real timers for this test since Effect.sleep doesn't work with fake timers
-      jest.useRealTimers();
+      vi.useRealTimers();
 
       const result = Effect.runSync(
         makeDocumentOpenBatcher(mockLogger, mockDocumentProcessingService, {
@@ -207,7 +209,7 @@ describe('DocumentOpenBatcher', () => {
       await Effect.runPromise(result.shutdown);
 
       // Restore fake timers
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     }, 10000); // Increase test timeout
 
     it('should flush immediately when maxBatchSize is reached', async () => {
@@ -286,7 +288,7 @@ describe('DocumentOpenBatcher', () => {
 
     it('should process single document individually if batch fails', async () => {
       // Use real timers for this test
-      jest.useRealTimers();
+      vi.useRealTimers();
 
       const result = Effect.runSync(
         makeDocumentOpenBatcher(mockLogger, mockDocumentProcessingService, {
@@ -308,12 +310,12 @@ describe('DocumentOpenBatcher', () => {
       await Effect.runPromise(result.shutdown);
 
       // Restore fake timers
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     });
 
     it('should not batch when already flushing', async () => {
       // Use real timers for this test to avoid timing issues
-      jest.useRealTimers();
+      vi.useRealTimers();
 
       // Use a batcher with threshold 2 for this test
       const result = Effect.runSync(
@@ -367,7 +369,7 @@ describe('DocumentOpenBatcher', () => {
       await Effect.runPromise(result.shutdown);
 
       // Restore fake timers
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     });
   });
 

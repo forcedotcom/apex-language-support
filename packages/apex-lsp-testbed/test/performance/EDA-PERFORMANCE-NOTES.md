@@ -2,9 +2,9 @@
 
 ## Problem
 
-The EDA workspace performance tests were using **large file counts** (10-100+ files) with **Benchmark.js**, which is designed for micro-benchmarks with many iterations. This made the tests impractically slow:
+The EDA workspace performance tests must avoid using large file counts (10-100+ files) with repeated benchmark sampling. This combination makes the tests impractically slow:
 
-- **Benchmark.js iterations**: Requires multiple runs for statistical significance
+- **Repeated samples**: Require multiple runs for statistical significance
 - **Large codebase**: EDA has 100+ Apex files
 - **Multiplication effect**: 100 files × 5 iterations × 3 test scenarios = 1500+ compilations
 - **Result**: Tests would take hours even in "QUICK" mode
@@ -15,13 +15,13 @@ Changed the approach based on test type:
 
 ### 1. **Micro-benchmarks (Small file counts)**
 
-- Use Benchmark.js for statistical analysis
+- Use native Vitest benchmarks for statistical analysis
 - File count: 3-5 files maximum
 - Example: Layered listener comparison with 3 files
 
 ### 2. **Integration measurements (Large file counts)**
 
-- Use **single-run direct timing** (NOT Benchmark.js)
+- Use **single-run direct timing** (not repeated sampling)
 - Focus on absolute time and scaling characteristics
 - Example: Full workspace load, batch compilation
 
@@ -83,7 +83,7 @@ All tests run in QUICK mode with minimal file counts (3-5 files):
 
 ## Key Principles
 
-1. **Benchmark.js for micro-benchmarks only** (< 5 files, fast operations)
+1. **Vitest benchmarks for micro-benchmarks only** (< 5 files, fast operations)
 2. **Direct timing for integration tests** (many files, slow operations)
 3. **QUICK mode = verification**, all tests run with minimal data
 4. **LOCAL mode = investigation**, balanced for development workflow
