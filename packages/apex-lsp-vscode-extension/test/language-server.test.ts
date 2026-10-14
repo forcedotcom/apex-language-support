@@ -637,4 +637,10 @@ describe('createWebDocumentSelector', () => {
       'debug',
     );
   });
+
+  it('uses shared CodeLens middleware in web clients', () => {
+    const options = createWebClientOptions(DEFAULT_APEX_SETTINGS);
+
+    expect(options.middleware?.provideCodeLenses).toEqual(expect.any(Function));
+  });
 });

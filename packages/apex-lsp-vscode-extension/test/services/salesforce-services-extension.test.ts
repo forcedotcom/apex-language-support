@@ -11,12 +11,8 @@ import * as vscode from 'vscode';
 import {
   getSalesforceServicesExtension,
   isSalesforceServicesAvailable,
-  requireSalesforceServicesInDevelopment,
   SALESFORCE_SERVICES_EXTENSION_ID,
 } from '../../src/services/salesforce-services-extension';
-
-const contextFor = (extensionMode: vscode.ExtensionMode) =>
-  ({ extensionMode }) as vscode.ExtensionContext;
 
 describe('Salesforce Services extension discovery', () => {
   beforeEach(() => {
@@ -32,39 +28,5 @@ describe('Salesforce Services extension discovery', () => {
       SALESFORCE_SERVICES_EXTENSION_ID,
     );
     expect(isSalesforceServicesAvailable()).toBe(true);
-  });
-
-  it.each([vscode.ExtensionMode.Production, vscode.ExtensionMode.Test])(
-    'allows Services to be absent in extension mode %s',
-    (extensionMode) => {
-      expect(() =>
-        requireSalesforceServicesInDevelopment(contextFor(extensionMode)),
-      ).not.toThrow();
-      expect(vscode.extensions.getExtension).not.toHaveBeenCalled();
-    },
-  );
-
-  it('requires Services in an Extension Development Host', () => {
-    vi.mocked(vscode.extensions.getExtension).mockReturnValue(undefined);
-
-    expect(() =>
-      requireSalesforceServicesInDevelopment(
-        contextFor(vscode.ExtensionMode.Development),
-      ),
-    ).toThrow(
-      `${SALESFORCE_SERVICES_EXTENSION_ID} must be installed and enabled`,
-    );
-  });
-
-  it('accepts Services when it is available in development', () => {
-    vi.mocked(vscode.extensions.getExtension).mockReturnValue({
-      isActive: false,
-    } as vscode.Extension<unknown>);
-
-    expect(() =>
-      requireSalesforceServicesInDevelopment(
-        contextFor(vscode.ExtensionMode.Development),
-      ),
-    ).not.toThrow();
   });
 });

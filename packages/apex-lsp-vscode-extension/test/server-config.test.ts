@@ -603,6 +603,14 @@ describe('Server Config Module', () => {
       expect(typeof clientOptions.errorHandler!.closed).toBe('function');
     });
 
+    it('should use shared CodeLens middleware', () => {
+      const clientOptions = createClientOptions({});
+
+      expect(clientOptions.middleware?.provideCodeLenses).toEqual(
+        expect.any(Function),
+      );
+    });
+
     it('should include workspace settings in initialization options', () => {
       const testSettings = {
         apex: {

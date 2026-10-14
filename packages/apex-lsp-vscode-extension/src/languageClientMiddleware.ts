@@ -10,13 +10,68 @@ import type { LanguageClientOptions } from 'vscode-languageclient';
 import { formattedError } from '@salesforce/apex-lsp-shared';
 import { logToOutputChannel } from './logging';
 
-export const createHoverMiddleware = (): NonNullable<
+export const CODE_LENS_COMMANDS: Readonly<
+  Record<
+    string,
+    {
+      readonly command: string;
+    }
+  >
+> = {
+  'sf.anon.apex.run.delegate': {
+    command: 'apex-ls-ts.codelens.executeAnonymous',
+  },
+  'sf.anon.apex.debug.delegate': {
+    command: 'apex-ls-ts.codelens.debugAnonymous',
+  },
+  'sf.apex.test.class.run.delegate': {
+    command: 'apex-ls-ts.codelens.runTestClass',
+  },
+  'sf.apex.test.class.debug.delegate': {
+    command: 'apex-ls-ts.codelens.debugTestClass',
+  },
+  'sf.apex.test.method.run.delegate': {
+    command: 'apex-ls-ts.codelens.runTestMethod',
+  },
+  'sf.apex.test.method.debug.delegate': {
+    command: 'apex-ls-ts.codelens.debugTestMethod',
+  },
+};
+
+export const createLanguageClientMiddleware = (): NonNullable<
   LanguageClientOptions['middleware']
 > => {
   let hoverSequence = 0;
   const inFlightSupersede = new Map<number, () => void>();
 
   return {
+    provideCodeLenses: async (document, token, next) => {
+      const lenses = await next(document, token);
+      if (!lenses) {
+        return lenses;
+      }
+
+      return lenses.flatMap((lens) => {
+        if (!lens.command) {
+          return [lens];
+        }
+
+        const binding = CODE_LENS_COMMANDS[lens.command.command];
+        if (!binding) {
+          return [];
+        }
+
+        return [
+          {
+            ...lens,
+            command: {
+              ...lens.command,
+              command: binding.command,
+            },
+          },
+        ];
+      });
+    },
     provideHover: async (document, position, token, next) => {
       const requestSequence = ++hoverSequence;
       for (const [sequence, resolveSupersede] of inFlightSupersede.entries()) {
