@@ -48,7 +48,10 @@ export const createCodeLensCallbackRegistry = (): CodeLensCallbackRegistry => {
   const callbacks = new Map<CodeLensAction, CodeLensCallback[]>();
 
   return {
-    register<Action extends CodeLensAction>(action: Action, callback: CodeLensCallback<Action>) {
+    register<Action extends CodeLensAction>(
+      action: Action,
+      callback: CodeLensCallback<Action>,
+    ) {
       const actionCallbacks = callbacks.get(action) ?? [];
       callbacks.set(action, [...actionCallbacks, callback as CodeLensCallback]);
       return new vscode.Disposable(() => {
