@@ -398,13 +398,11 @@ All typed senders reject with `ApexClientDisposedError` after `dispose()`. All
   type and its direction enum.
 - `loggingMiddleware` — the default observability middleware.
 
-## Intentional orphan state
+## Extension Integration
 
-As of W-23163195 (4.1) this package ships `JsonRpcConnection`,
-`LanguageClientConnection`, the Node-stdio and Web-Worker connection helpers, and
-`createHeadlessClient`. It is deliberately NOT yet listed in any other package's
-`dependencies`. TypeScript project `references`/`paths` affect compilation only,
-not runtime consumability. A follow-up work item will wire the extension's
-`language-server.ts` to consume `LanguageClientConnection` from this SDK,
-replacing the inline `ClientInterface` implementations. The absence of a parent
-consumer here is by design, not an omission.
+The VS Code extension consumes this package through its declared workspace
+dependency. It exposes the materialized `ApexClient` through its
+`ApexExtensionApi.client` for companion extensions that need typed language-server
+operations. The extension's host-specific capabilities, including CodeLens action
+providers, remain part of the extension API rather than this transport-agnostic
+client SDK.
