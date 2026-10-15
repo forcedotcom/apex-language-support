@@ -9,7 +9,6 @@
 import {
   transformLspToParserPosition,
   transformParserToLspPosition,
-  isPositionInRange,
   formatPosition,
   ParserPosition,
 } from '../../src/utils/positionUtils';
@@ -47,7 +46,6 @@ describe('Position Utilities', () => {
       });
     });
   });
-
   describe('transformParserToLspPosition', () => {
     it('should transform parser position (1-based line, 0-based column) to LSP position (0-based)', () => {
       const parserPosition: ParserPosition = { line: 1, character: 5 };
@@ -77,79 +75,6 @@ describe('Position Utilities', () => {
         line: 5, // 6 - 1 = 5
         character: 0, // Keep 0-based
       });
-    });
-  });
-
-  describe('isPositionInRange', () => {
-    it('should return true for position within range', () => {
-      const position: ParserPosition = { line: 5, character: 10 };
-      const result = isPositionInRange(position, 3, 5, 7, 15);
-
-      expect(result).toBe(true);
-    });
-
-    it('should return false for position before range', () => {
-      const position: ParserPosition = { line: 2, character: 5 };
-      const result = isPositionInRange(position, 3, 5, 7, 15);
-
-      expect(result).toBe(false);
-    });
-
-    it('should return false for position after range', () => {
-      const position: ParserPosition = { line: 8, character: 5 };
-      const result = isPositionInRange(position, 3, 5, 7, 15);
-
-      expect(result).toBe(false);
-    });
-
-    it('should return false for position at start line but before start column', () => {
-      const position: ParserPosition = { line: 3, character: 3 };
-      const result = isPositionInRange(position, 3, 5, 7, 15);
-
-      expect(result).toBe(false);
-    });
-
-    it('should return false for position at end line but after end column', () => {
-      const position: ParserPosition = { line: 7, character: 20 };
-      const result = isPositionInRange(position, 3, 5, 7, 15);
-
-      expect(result).toBe(false);
-    });
-
-    it('should return true for position at exact start of range', () => {
-      const position: ParserPosition = { line: 3, character: 5 };
-      const result = isPositionInRange(position, 3, 5, 7, 15);
-
-      expect(result).toBe(true);
-    });
-
-    it('should return true for position at exact end of range', () => {
-      const position: ParserPosition = { line: 7, character: 15 };
-      const result = isPositionInRange(position, 3, 5, 7, 15);
-
-      expect(result).toBe(true);
-    });
-
-    it('should handle edge case: position at start line but after start column', () => {
-      // Test the specific scenario from the debug test
-      // Position: { line: 1, character: 21 }
-      // Symbol location: { startLine: 1, startColumn: 20, endLine: 1, endColumn: 40 }
-      const position: ParserPosition = { line: 1, character: 21 };
-      const result = isPositionInRange(position, 1, 20, 1, 40);
-
-      // This should be true: position is at start line (1) but after start column (20)
-      expect(result).toBe(true);
-    });
-
-    it('should handle edge case: position at end line but before end column (ApexSymbolManager bounds check)', () => {
-      // Test the reverse scenario
-      // Position: { line: 1, character: 39 }
-      // Symbol location: { startLine: 1, startColumn: 20, endLine: 1, endColumn: 40 }
-      const position: ParserPosition = { line: 1, character: 39 };
-      const result = isPositionInRange(position, 1, 20, 1, 40);
-
-      // This should be true: position is at end line (1) but before end column (40)
-      expect(result).toBe(true);
     });
   });
 
@@ -231,68 +156,6 @@ describe('Position Utilities', () => {
       expect(position.line < symbolLocation.endLine).toBe(false);
       expect(position.line === symbolLocation.endLine).toBe(true);
       expect(position.character <= symbolLocation.endColumn).toBe(true);
-    });
-
-    it('should handle various boundary conditions correctly', () => {
-      const testCases = [
-        {
-          position: { line: 1, character: 20 }, // At start column
-          symbolLocation: {
-            startLine: 1,
-            startColumn: 20,
-            endLine: 1,
-            endColumn: 40,
-          },
-          expected: true,
-          description: 'position at exact start column',
-        },
-        {
-          position: { line: 1, character: 40 }, // At end column
-          symbolLocation: {
-            startLine: 1,
-            startColumn: 20,
-            endLine: 1,
-            endColumn: 40,
-          },
-          expected: true,
-          description: 'position at exact end column',
-        },
-        {
-          position: { line: 1, character: 19 }, // Before start column
-          symbolLocation: {
-            startLine: 1,
-            startColumn: 20,
-            endLine: 1,
-            endColumn: 40,
-          },
-          expected: false,
-          description: 'position before start column',
-        },
-        {
-          position: { line: 1, character: 41 }, // After end column
-          symbolLocation: {
-            startLine: 1,
-            startColumn: 20,
-            endLine: 1,
-            endColumn: 40,
-          },
-          expected: false,
-          description: 'position after end column',
-        },
-      ];
-
-      testCases.forEach(
-        ({ position, symbolLocation, expected, description }) => {
-          const result = isPositionInRange(
-            { line: position.line, character: position.character },
-            symbolLocation.startLine,
-            symbolLocation.startColumn,
-            symbolLocation.endLine,
-            symbolLocation.endColumn,
-          );
-          expect(result).toBe(expected);
-        },
-      );
     });
   });
 });

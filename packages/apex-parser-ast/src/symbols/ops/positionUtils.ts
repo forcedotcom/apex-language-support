@@ -9,7 +9,6 @@
 import type {
   ApexSymbol,
   SymbolLocation,
-  Position,
   Range,
   SymbolTable,
 } from '../../types/symbol';
@@ -23,29 +22,6 @@ import {
   isBlockSymbol,
   inTypeSymbolGroup,
 } from '../../utils/symbolNarrowing';
-
-/** Check if a position falls within a symbol's symbolRange */
-export function isPositionWithinSymbol(
-  symbol: ApexSymbol,
-  position: Position,
-): boolean {
-  if (!symbol.location) return false;
-
-  const { startLine, startColumn, endLine, endColumn } =
-    symbol.location.symbolRange;
-
-  if (position.line < startLine || position.line > endLine) {
-    return false;
-  }
-  if (position.line === startLine && position.character < startColumn) {
-    return false;
-  }
-  if (position.line === endLine && position.character > endColumn) {
-    return false;
-  }
-
-  return true;
-}
 
 /** Check if a position is within a symbol's identifierRange */
 export function isPositionInIdentifierRange(

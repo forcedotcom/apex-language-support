@@ -51,38 +51,6 @@ export function transformParserToLspPosition(
 }
 
 /**
- * Check if a position is within a given range
- *
- * @param position The position to check
- * @param startLine Start line (inclusive)
- * @param startColumn Start column (inclusive)
- * @param endLine End line (inclusive)
- * @param endColumn End column (inclusive)
- * @returns True if the position is within the range
- */
-export function isPositionInRange(
-  position: ParserPosition,
-  startLine: number,
-  startColumn: number,
-  endLine: number,
-  endColumn: number,
-): boolean {
-  if (position.line < startLine || position.line > endLine) {
-    return false;
-  }
-
-  if (position.line === startLine && position.character < startColumn) {
-    return false;
-  }
-
-  if (position.line === endLine && position.character > endColumn) {
-    return false;
-  }
-
-  return true;
-}
-
-/**
  * Create a debug string representation of a position
  *
  * @param position The position to format
