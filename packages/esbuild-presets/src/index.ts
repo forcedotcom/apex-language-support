@@ -39,7 +39,6 @@ export const COMMON_EXTERNAL = [
 export const INTERNAL_PACKAGES = [
   '@salesforce/apex-lsp-shared',
   '@salesforce/apex-lsp-parser-ast',
-  '@salesforce/apex-lsp-custom-services',
   '@salesforce/apex-lsp-compliant-services',
 ];
 

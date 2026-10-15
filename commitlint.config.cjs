@@ -14,7 +14,6 @@ module.exports = {
       [
         'apex-lsp-parser-ast',
         'apex-lsp-client',
-        'apex-lsp-custom-services',
         'apex-lsp-compliant-services',
         'apex-lsp-extension',
         'apex-lsp-web',

@@ -1060,7 +1060,7 @@ Return {verdict: 'plan'} when done.`
 
 const effectPlanReviewPrompt = (chosen, identity) => {
   const { wt } = pathsFor(identity, chosen)
-  return `Review the plan at ${wt}/.claude/plans/${chosen.name}.md (mode: plan review). Identify Effect-TS smells the plan would introduce — hand-rolled retry/timeout/cache, untyped errors, ad-hoc PubSub, services that already exist in packages/custom-services or packages/lsp-compliant-services, etc.
+  return `Review the plan at ${wt}/.claude/plans/${chosen.name}.md (mode: plan review). Identify Effect-TS smells the plan would introduce — hand-rolled retry/timeout/cache, untyped errors, ad-hoc PubSub, services that already exist in packages/lsp-compliant-services, etc.
 
 Return ONLY the structured result.`
 }

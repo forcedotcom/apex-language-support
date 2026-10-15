@@ -12,7 +12,6 @@ This package implements services that conform to the LSP specification, providin
 - Code completion
 - Hover information
 - Document symbols
-- Document formatting
 - Persistent storage interface for AST, symbol tables, and references
 - Platform-agnostic capabilities system with mode-based optimization
 - Per-listener parse result caching for optimal performance
@@ -20,7 +19,6 @@ This package implements services that conform to the LSP specification, providin
 ## Dependencies
 
 - `@salesforce/apex-lsp-parser-ast`: Apex language parser and AST functionality from this monorepo
-- `@salesforce/apex-lsp-custom-services`: Custom services from this monorepo
 - `vscode-languageserver`: VSCode Language Server implementation
 - `vscode-languageserver-protocol`: LSP protocol definitions
 
