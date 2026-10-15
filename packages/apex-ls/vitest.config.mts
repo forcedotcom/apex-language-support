@@ -30,10 +30,6 @@ const baseConfig = defineConfig({
         replacement: fromRoot('packages/lsp-compliant-services/src/index.ts'),
       },
       {
-        find: '@salesforce/apex-lsp-custom-services',
-        replacement: fromRoot('packages/custom-services/src/index.ts'),
-      },
-      {
         find: '@salesforce/apex-ls',
         replacement: fileURLToPath(new URL('./src/index.ts', import.meta.url)),
       },

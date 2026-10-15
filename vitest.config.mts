@@ -9,7 +9,6 @@ export default defineConfig({
       'packages/apex-lsp-testbed/vitest.config.mts',
       'packages/apex-lsp-vscode-extension/vitest.config.mts',
       'packages/apex-parser-ast/vitest.config.mts',
-      'packages/custom-services/vitest.config.mts',
       'packages/lsp-compliant-services/vitest.config.mts',
     ],
     coverage: {
