@@ -17,7 +17,6 @@ const packages = [
   'apex-lsp-testbed',
   'apex-lsp-vscode-extension',
   'apex-parser-ast',
-  'custom-services',
   'lsp-compliant-services',
 ];
 

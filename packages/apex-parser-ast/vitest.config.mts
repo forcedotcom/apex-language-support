@@ -15,7 +15,6 @@ export default defineConfig({
       { find: '@salesforce/apex-lsp-shared', replacement: fromRoot('packages/apex-lsp-shared/src/index.ts') },
       { find: '@salesforce/apex-lsp-parser-ast', replacement: fileURLToPath(new URL('./src/index.ts', import.meta.url)) },
       { find: '@salesforce/apex-lsp-compliant-services', replacement: fromRoot('packages/lsp-compliant-services/src/index.ts') },
-      { find: '@salesforce/apex-lsp-custom-services', replacement: fromRoot('packages/custom-services/src/index.ts') },
       { find: '@salesforce/apex-lsp-testbed', replacement: fromRoot('packages/apex-lsp-testbed/src/index.ts') },
     ],
   },

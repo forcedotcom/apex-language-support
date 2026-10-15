@@ -19,7 +19,6 @@ on:
           - apex-parser-ast
           - apex-ls
           - lsp-compliant-services
-          - custom-services
           - apex-lsp-testbed
       dry-run:
         description: 'Run in dry-run mode (no actual publishing)'

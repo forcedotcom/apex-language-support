@@ -40,11 +40,6 @@
       "@salesforce/apex-lsp-testbed": ["packages/apex-lsp-testbed/out"],
       "@salesforce/apex-lsp-testbed/*": ["packages/apex-lsp-testbed/out/*"],
 
-      "@salesforce/apex-lsp-custom-services": ["packages/custom-services/out"],
-      "@salesforce/apex-lsp-custom-services/*": [
-        "packages/custom-services/out/*"
-      ],
-
       "@salesforce/apex-ls": ["packages/apex-ls/out"],
       "@salesforce/apex-ls/*": ["packages/apex-ls/out/*"],
 
@@ -66,7 +61,6 @@
     { "path": "./packages/apex-lsp-client" },
     { "path": "./packages/apex-parser-ast" },
     { "path": "./packages/lsp-compliant-services" },
-    { "path": "./packages/custom-services" },
     { "path": "./packages/apex-ls" },
     { "path": "./packages/apex-lsp-testbed" },
     { "path": "./packages/apex-lsp-vscode-extension" },
