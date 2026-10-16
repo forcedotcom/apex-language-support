@@ -438,13 +438,12 @@ sequenceDiagram
 
 ## Package Classification
 
-### NPM Packages (7 total)
+### NPM Packages (6 total)
 
 - `apex-lsp-shared`
 - `apex-parser-ast`
 - `apex-ls`
 - `lsp-compliant-services`
-- `custom-services`
 - `apex-lsp-vscode-extension`
 - `apex-lsp-testbed`
 

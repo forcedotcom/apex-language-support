@@ -160,7 +160,6 @@
         "./packages/apex-parser-ast:compile:tsc",
         "./packages/apex-parser-ast:generate:stdlib-cache",
         "./packages/lsp-compliant-services:compile",
-        "./packages/custom-services:compile",
         "./packages/apex-lsp-testbed:compile",
         "./packages/apex-lsp-vscode-extension:compile",
         "./packages/esbuild-presets:compile"
@@ -174,7 +173,6 @@
         "./packages/apex-lsp-client:bundle",
         "./packages/apex-parser-ast:bundle",
         "./packages/lsp-compliant-services:bundle",
-        "./packages/custom-services:bundle",
         "./packages/apex-lsp-vscode-extension:bundle"
       ]
     },
@@ -204,7 +202,6 @@
         "./packages/apex-lsp-testbed:test",
         "./packages/apex-lsp-vscode-extension:test",
         "./packages/apex-parser-ast:test",
-        "./packages/custom-services:test",
         "./packages/lsp-compliant-services:test"
       ]
     },
@@ -228,7 +225,6 @@
         "./packages/apex-lsp-testbed:test:coverage",
         "./packages/apex-lsp-vscode-extension:test:coverage",
         "./packages/apex-parser-ast:test:coverage",
-        "./packages/custom-services:test:coverage",
         "./packages/lsp-compliant-services:test:coverage"
       ]
     },
@@ -304,7 +300,6 @@
         "./packages/apex-lsp-client:lint",
         "./packages/apex-parser-ast:lint",
         "./packages/lsp-compliant-services:lint",
-        "./packages/custom-services:lint",
         "./packages/apex-lsp-testbed:lint",
         "./packages/apex-lsp-vscode-extension:lint",
         "./e2e-tests:lint"
@@ -320,7 +315,6 @@
         "./packages/apex-lsp-client:lint:fix",
         "./packages/apex-parser-ast:lint:fix",
         "./packages/lsp-compliant-services:lint:fix",
-        "./packages/custom-services:lint:fix",
         "./packages/apex-lsp-testbed:lint:fix",
         "./packages/apex-lsp-vscode-extension:lint:fix",
         "./e2e-tests:lint:fix"

@@ -42,7 +42,6 @@ packages/
 ├── apex-parser-ast/              # Core AST parsing functionality
 ├── apex-lsp-shared/             # Centralized logging utilities
 ├── lsp-compliant-services/       # Standard LSP protocol implementations
-├── custom-services/              # Custom language server services
 ├── apex-ls/                      # Language server implementation
 ├── apex-lsp-vscode-extension/    # VS Code extension (desktop & web)
 └── apex-lsp-testbed/             # Testing utilities and benchmarks
@@ -56,7 +55,6 @@ packages/
 
 2. **Service Layer**:
    - `lsp-compliant-services`: Standard LSP services (hover, completion, etc.)
-   - `custom-services`: Salesforce-specific language features
 
 3. **Server Layer**:
    - `apex-ls`: Language server implementation for Node.js, browser, and web worker environments
@@ -153,7 +151,7 @@ apex-lsp-shared (foundation)
          ↓
 apex-parser-ast (core parsing)
          ↓
-lsp-compliant-services + custom-services (services)
+lsp-compliant-services (services)
          ↓
 apex-ls (unified server)
          ↓
@@ -203,15 +201,12 @@ Each package supports these build targets:
 graph TD
     A[apex-lsp-shared] --> B[apex-parser-ast]
     A --> C[lsp-compliant-services]
-    A --> D[custom-services]
     A --> E[apex-ls]
 
     B --> C
-    B --> D
     B --> E
 
     C --> E
-    D --> E
 
     E --> H[apex-lsp-vscode-extension]
 
@@ -381,7 +376,6 @@ commit is accepted.
 The scope specifies the part of the codebase your change affects. For this project, valid scopes include:
 
 - **apex-parser-ast**: Changes to the parser/AST package
-- **custom-services**: Changes to custom language services
 - **lsp-compliant-services**: Changes to standard LSP services
 - **apex-ls**: Changes to the language server
 - **apex-lsp-vscode-extension**: Changes to VS Code extension

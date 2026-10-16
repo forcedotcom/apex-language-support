@@ -6,10 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import {
-  CaseInsensitiveString,
-  createCaseInsensitiveString,
-} from '../../src/utils/CaseInsensitiveString';
+import { CaseInsensitiveString } from '../../src/utils/CaseInsensitiveString';
 
 describe('CaseInsensitiveString', () => {
   describe('basic functionality', () => {
@@ -19,17 +16,9 @@ describe('CaseInsensitiveString', () => {
       expect(str.toString()).toBe('Hello World');
       expect(str.valueOf()).toBe('Hello World');
     });
-
     it('should provide length', () => {
       const str = new CaseInsensitiveString('Hello');
       expect(str.length).toBe(5);
-    });
-
-    it('should support bracket notation with proxy', () => {
-      const str = createCaseInsensitiveString('Hello');
-      expect(str[0]).toBe('H');
-      expect(str[1]).toBe('e');
-      expect(str[4]).toBe('o');
     });
   });
 

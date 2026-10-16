@@ -114,10 +114,10 @@ export const READONLY_SYNTHETIC_SCHEMES: readonly string[] = [
 ] as const;
 
 /**
- * Immutable default schemes for CodeLens capability
- * Excludes `apexlib` because standard-library virtual resources do not support
- * actionable CodeLens operations. This derives from the general capability set,
- * not {@link MUTABLE_DOCUMENT_SCHEMES}: CodeLens support is a capability policy,
+ * Default schemes for CodeLens capability. Excludes `apexlib` because
+ * standard-library virtual resources do not support actionable CodeLens
+ * operations. This derives from the general capability set, not
+ * {@link MUTABLE_DOCUMENT_SCHEMES}: CodeLens support is a capability policy,
  * not a mutability classification.
  */
 export const DEFAULT_SCHEMES_FOR_CODELENS: readonly string[] =
@@ -204,10 +204,7 @@ export function getDefaultSchemesForCapability(
   if (capability === 'all') {
     // For 'all', return the union of all schemes
     return [
-      ...new Set([
-        ...DEFAULT_SCHEMES_FOR_MOST,
-        ...DEFAULT_SCHEMES_FOR_CODELENS,
-      ]),
+      ...new Set([...DEFAULT_SCHEMES_FOR_MOST, ...MUTABLE_DOCUMENT_SCHEMES]),
     ];
   }
   // For all other capabilities, use the default schemes
