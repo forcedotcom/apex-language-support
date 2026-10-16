@@ -118,4 +118,20 @@ describe('CodeLens middleware', () => {
       ).resolves.toBe(result);
     },
   );
+
+  it('filters commands that are not CodeLens delegates', async () => {
+    const middleware = createLanguageClientMiddleware();
+
+    await expect(
+      middleware.provideCodeLenses!(
+        {} as vscode.TextDocument,
+        {} as vscode.CancellationToken,
+        vi
+          .fn()
+          .mockResolvedValue([
+            { command: { command: 'constructor', title: 'Unknown' } },
+          ]),
+      ),
+    ).resolves.toEqual([]);
+  });
 });

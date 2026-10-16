@@ -907,7 +907,7 @@
       ]
     },
     "test": {
-      "command": "vitest run --reporter=json --outputFile=.wireit/test-results.json",
+      "command": "vitest run --reporter=default --reporter=json --outputFile.json=.wireit/test-results.json",
       "dependencies": [
         "compile"
       ],
@@ -968,7 +968,6 @@
     "@salesforce/apex-lsp-compliant-services": "workspace:*",
     "@salesforce/apex-lsp-shared": "workspace:*",
     "effect": "^3.22.1",
-    "fflate": "^0.8.3",
     "vscode-languageclient": "^9.0.1",
     "vscode-jsonrpc": "^8.2.1",
     "web-worker": "^1.5.0"

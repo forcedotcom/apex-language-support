@@ -43,8 +43,10 @@ import {
   stopLanguageServer,
   getClient,
 } from './language-server';
-import type { ApexClient } from '@salesforce/apex-lsp-client';
-import type { CodeLensCallbackRegistry } from './codeLensCommandHandlers';
+import type {
+  ApexClient,
+  CodeLensCallbackRegistry,
+} from '@salesforce/apex-lsp-client';
 
 /** Public extension API for consumers that depend on this extension. */
 export type ApexExtensionApi = {
@@ -64,7 +66,7 @@ import {
   registerOrgArtifactFileSystem,
 } from './services/org-artifact-fs';
 import {
-  createCodeLensCallbackRegistry,
+  createVsCodeCodeLensCallbackRegistry,
   registerCodeLensCommandHandlers,
 } from './codeLensCommandHandlers';
 
@@ -99,7 +101,7 @@ export function activate(
 async function activateExtension(
   context: vscode.ExtensionContext,
 ): Promise<ApexExtensionApi> {
-  const codeLens = createCodeLensCallbackRegistry();
+  const codeLens = createVsCodeCodeLensCallbackRegistry();
   // Initialize simple extension logging
   initializeExtensionLogging(context);
   registerOrgArtifactFileSystem(context);

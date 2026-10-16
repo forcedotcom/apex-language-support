@@ -7,6 +7,10 @@
  */
 
 import type { SalesforceVSCodeServicesApi } from '@salesforce/vscode-services';
+import type {
+  OrgArtifactRequest,
+  OrgArtifactSearchResult,
+} from '@salesforce/apex-lsp-client';
 import * as Context from 'effect/Context';
 import * as Effect from 'effect/Effect';
 import type * as Stream from 'effect/Stream';
@@ -15,60 +19,10 @@ import { getSalesforceServicesExtension } from './salesforce-services-extension'
 export const MAX_CONCURRENT_ORG_ARTIFACT_SEARCHES = 4;
 export const ORG_ARTIFACT_NOT_FOUND_TTL_MS = 3_000;
 
-export type OrgArtifactRequest =
-  | {
-      readonly kind: 'sobject';
-      readonly name: string;
-      readonly generation?: number;
-    }
-  | {
-      readonly kind: 'apex-class';
-      readonly name: string;
-      readonly generation?: number;
-    }
-  | {
-      readonly kind: 'trigger';
-      readonly name: string;
-      readonly generation?: number;
-    };
-
-export type OrgArtifactSearchResult =
-  | {
-      readonly kind: 'sobject-describe';
-      readonly name: string;
-      readonly describe: unknown;
-    }
-  | {
-      readonly kind: 'apex-source';
-      readonly id: string;
-      readonly name: string;
-      readonly namespace?: string;
-      readonly source: string;
-    }
-  | {
-      readonly kind: 'trigger-source';
-      readonly id: string;
-      readonly name: string;
-      readonly namespace?: string;
-      readonly source: string;
-    }
-  | {
-      readonly kind: 'not-found';
-      readonly artifactKind: OrgArtifactRequest['kind'];
-      readonly name: string;
-    }
-  | {
-      readonly kind: 'unavailable';
-      readonly artifactKind: OrgArtifactRequest['kind'];
-      readonly name: string;
-      readonly reason:
-        | 'services-extension-unavailable'
-        | 'no-active-org'
-        | 'authorization-failed'
-        | 'protected-source'
-        | 'request-failed';
-      readonly message?: string;
-    };
+export type {
+  OrgArtifactRequest,
+  OrgArtifactSearchResult,
+} from '@salesforce/apex-lsp-client';
 
 interface ToolingQueryResult<T> {
   readonly records: readonly T[];

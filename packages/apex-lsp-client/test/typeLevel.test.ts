@@ -20,8 +20,38 @@
 import { describe, it } from 'vitest';
 import type { Effect } from 'effect';
 import type * as PublicAPI from '../src/index';
+import * as BrowserPublicAPI from '../src/browser';
 
 describe('Type-level assertions', () => {
+  it('exports host-neutral contracts from the browser entry', () => {
+    const apexClient: BrowserPublicAPI.ApexClient | undefined = undefined;
+    const methodSurface: BrowserPublicAPI.ApexMethodSurface | undefined =
+      undefined;
+    const methodSenders: BrowserPublicAPI.ApexMethodSenders | undefined =
+      undefined;
+    const methodHandlers: BrowserPublicAPI.ApexMethodHandlers | undefined =
+      undefined;
+    const hoverParams: BrowserPublicAPI.HoverParams | undefined = undefined;
+    const definitionParams: BrowserPublicAPI.DefinitionParams | undefined =
+      undefined;
+    const createWorkspaceBatches: typeof BrowserPublicAPI.createWorkspaceFileBatches =
+      BrowserPublicAPI.createWorkspaceFileBatches;
+    const compressWorkspaceBatch: typeof BrowserPublicAPI.compressWorkspaceFileBatch =
+      BrowserPublicAPI.compressWorkspaceFileBatch;
+    const encodeWorkspaceBatch: typeof BrowserPublicAPI.encodeWorkspaceBatchForTransport =
+      BrowserPublicAPI.encodeWorkspaceBatchForTransport;
+
+    expect(apexClient).toBeUndefined();
+    expect(methodSurface).toBeUndefined();
+    expect(methodSenders).toBeUndefined();
+    expect(methodHandlers).toBeUndefined();
+    expect(hoverParams).toBeUndefined();
+    expect(definitionParams).toBeUndefined();
+    expect(createWorkspaceBatches).toBeTypeOf('function');
+    expect(compressWorkspaceBatch).toBeTypeOf('function');
+    expect(encodeWorkspaceBatch).toBeTypeOf('function');
+  });
+
   it('no Effect types exported in public surface', () => {
     // This is a compile-time check. If Effect types leak into the public API,
     // the type assertions below will fail with a compile error.

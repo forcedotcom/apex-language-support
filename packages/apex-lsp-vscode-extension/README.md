@@ -70,15 +70,19 @@ standard command transport, so consumers should not send LSP commands directly.
 
 ### CodeLens Action Providers
 
-The extension exposes CodeLens actions through `ApexExtensionApi.codeLens` so a
-companion extension can provide the UI- or host-specific implementation. This
-allows the browser extension to render CodeLens while delegating anonymous Apex
-execution and test actions to an installed provider.
+The extension exposes the host-neutral `CodeLensCallbackRegistry` from
+`@salesforce/apex-lsp-client` through `ApexExtensionApi.codeLens`. Companion
+extensions should register on this activated registry rather than construct a
+separate one or register language-server command IDs directly. This allows the
+browser and desktop extension hosts to render CodeLens while delegating anonymous
+Apex execution and test actions to an installed provider.
 
 Register a callback after activating the language-server extension. The returned
 `Disposable` unregisters that provider. Multiple providers for the same action
-are invoked in registration order; failures are logged without preventing later
-providers from running.
+are invoked in registration order. The extension adapts the shared registry with
+VS Code behavior: unavailable actions show an error message, provider failures
+are logged to the Apex Language Server output channel, and later providers still
+run after a failure.
 
 ```typescript
 import * as vscode from 'vscode';
@@ -108,7 +112,9 @@ Available actions and their callback arguments are:
 If no provider is registered for an invoked action, the extension displays an
 error explaining that the action is unavailable. These actions are semantic API
 names; providers should use `ApexExtensionApi.codeLens` rather than registering
-the underlying language-server commands directly.
+the underlying language-server commands directly. The extension translates
+recognized language-server delegate commands to these semantic actions before
+dispatching them, consistently for desktop and browser hosts.
 
 ## Configuration
 

@@ -26,10 +26,55 @@ export type {
   ApexClientCoreOptions,
   ApexClientInitializeParams,
 } from './apexClientCore';
+export type { ApexClient } from './apexClient';
+export {
+  CODE_LENS_ACTIONS,
+  createCodeLensCallbackRegistry,
+} from './codeLensCallbacks';
+export type {
+  CodeLensAction,
+  CodeLensActionArguments,
+  CodeLensCallback,
+  CodeLensCallbackRegistry,
+  CodeLensCallbackRegistryOptions,
+} from './codeLensCallbacks';
+export {
+  compressWorkspaceFileBatch,
+  createWorkspaceFileBatches,
+  encodeWorkspaceBatchForTransport,
+} from './workspaceBatchCodec';
+export type { WorkspaceFileInput } from './workspaceBatchCodec';
+export { resolveMissingArtifacts } from './orgArtifactResolver';
+export type {
+  OrgArtifactRequest,
+  OrgArtifactResolverProvider,
+  OrgArtifactSearchResult,
+  SObjectAdaptationResult,
+  WorkspaceArtifactResolution,
+} from './orgArtifactResolver';
+export type {
+  ApexMethodSurface,
+  ApexMethodSenders,
+  ApexMethodHandlers,
+} from './apexMethods';
 export type {
   ExceptionBreakpointInfo,
   LineBreakpointInfo,
 } from '@salesforce/apex-lsp-shared';
+export type {
+  CompletionItem,
+  CompletionList,
+  CompletionParams,
+  Definition,
+  DefinitionParams,
+  DocumentSymbol,
+  DocumentSymbolParams,
+  Hover,
+  HoverParams,
+  Location,
+  LocationLink,
+  SymbolInformation,
+} from './lspPassThroughs';
 export { JsonRpcConnection } from './transports/jsonRpcConnection';
 export { LanguageClientConnection } from './transports/languageClientConnection';
 

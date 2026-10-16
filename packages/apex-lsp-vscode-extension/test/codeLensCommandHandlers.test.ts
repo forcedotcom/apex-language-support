@@ -9,8 +9,9 @@
 import { vi } from 'vitest';
 import * as vscode from 'vscode';
 import {
-  createCodeLensCallbackRegistry,
+  createVsCodeCodeLensCallbackRegistry,
   registerCodeLensCommandHandlers,
+  type CodeLensAction,
 } from '../src/codeLensCommandHandlers';
 
 const context = {
@@ -23,7 +24,10 @@ describe('CodeLens command handlers', () => {
   });
 
   it('registers stable commands that dispatch semantic actions', () => {
-    registerCodeLensCommandHandlers(context, createCodeLensCallbackRegistry());
+    registerCodeLensCommandHandlers(
+      context,
+      createVsCodeCodeLensCallbackRegistry(),
+    );
 
     expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
       'apex-ls-ts.codelens.runTestClass',
@@ -35,44 +39,55 @@ describe('CodeLens command handlers', () => {
     );
   });
 
+  it.each([
+    ['apex-ls-ts.codelens.executeAnonymous', 'executeAnonymous', []],
+    ['apex-ls-ts.codelens.debugAnonymous', 'debugAnonymous', []],
+    ['apex-ls-ts.codelens.runTestClass', 'runTestClass', ['ExampleTest']],
+    ['apex-ls-ts.codelens.debugTestClass', 'debugTestClass', ['ExampleTest']],
+    [
+      'apex-ls-ts.codelens.runTestMethod',
+      'runTestMethod',
+      ['ExampleTest.exampleMethod'],
+    ],
+    [
+      'apex-ls-ts.codelens.debugTestMethod',
+      'debugTestMethod',
+      ['ExampleTest.exampleMethod'],
+    ],
+  ] as const)(
+    'dispatches %s as %s',
+    async (
+      command: string,
+      action: CodeLensAction,
+      arguments_: readonly string[],
+    ) => {
+      const registry = createVsCodeCodeLensCallbackRegistry();
+      const callback = vi.fn();
+      registry.register(action, callback);
+      registerCodeLensCommandHandlers(context, registry);
+
+      const handler = vi
+        .mocked(vscode.commands.registerCommand)
+        .mock.calls.find(
+          ([registeredCommand]) => registeredCommand === command,
+        )?.[1];
+      expect(handler).toBeTypeOf('function');
+      if (typeof handler !== 'function') {
+        return;
+      }
+      await handler(...arguments_);
+
+      expect(callback).toHaveBeenCalledWith(arguments_);
+    },
+  );
+
   it('reports when no providers are registered for an action', async () => {
-    const registry = createCodeLensCallbackRegistry();
+    const registry = createVsCodeCodeLensCallbackRegistry();
 
     await registry.dispatch('runTestClass', ['ExampleTest']);
 
     expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
       'runTestClass is unavailable because no providers are registered.',
     );
-  });
-
-  it('invokes every provider in registration order', async () => {
-    const registry = createCodeLensCallbackRegistry();
-    const calls: string[] = [];
-    const first = vi.fn(async () => {
-      calls.push('first');
-    });
-    const second = vi.fn(async () => {
-      calls.push('second');
-    });
-    registry.register('debugTestMethod', first);
-    registry.register('debugTestMethod', second);
-
-    await registry.dispatch('debugTestMethod', ['ExampleTest.exampleMethod']);
-
-    expect(first).toHaveBeenCalledWith(['ExampleTest.exampleMethod']);
-    expect(second).toHaveBeenCalledWith(['ExampleTest.exampleMethod']);
-    expect(calls).toEqual(['first', 'second']);
-  });
-
-  it('removes a provider when its registration is disposed', async () => {
-    const registry = createCodeLensCallbackRegistry();
-    const callback = vi.fn();
-    const registration = registry.register('executeAnonymous', callback);
-    registration.dispose();
-
-    await registry.dispatch('executeAnonymous', []);
-
-    expect(callback).not.toHaveBeenCalled();
-    expect(vscode.window.showErrorMessage).toHaveBeenCalled();
   });
 });

@@ -83,8 +83,8 @@ export const DEFAULT_SCHEMES_FOR_MOST: readonly string[] = [
  * generated SObjects (`apex-sobject`) — which back non-editable virtual
  * documents. This is the source-of-truth for "can the user edit this file?"
  * decisions (e.g. rename provenance), so a synthetic scheme is never treated as
- * user-owned. Note this intentionally differs from {@link getAllImmutableSchemes},
- * which INCLUDES `apexlib`.
+ * user-owned. Note this intentionally differs from
+ * {@link getAllRequiredDefaultSchemes}, which INCLUDES `apexlib`.
  */
 export const MUTABLE_DOCUMENT_SCHEMES: readonly string[] = [
   'file',
@@ -115,28 +115,31 @@ export const READONLY_SYNTHETIC_SCHEMES: readonly string[] = [
 
 /**
  * Immutable default schemes for CodeLens capability
- * Excludes 'apexlib' as CodeLens should not operate on standard library files.
- * Same set as {@link MUTABLE_DOCUMENT_SCHEMES} (both mean "real editable files").
+ * Excludes `apexlib` because standard-library virtual resources do not support
+ * actionable CodeLens operations. This derives from the general capability set,
+ * not {@link MUTABLE_DOCUMENT_SCHEMES}: CodeLens support is a capability policy,
+ * not a mutability classification.
  */
 export const DEFAULT_SCHEMES_FOR_CODELENS: readonly string[] =
-  MUTABLE_DOCUMENT_SCHEMES;
+  DEFAULT_SCHEMES_FOR_MOST.filter((scheme) => scheme !== 'apexlib');
 
 /**
- * Get all immutable scheme names (union of all default schemes)
- * These schemes cannot be excluded or removed
+ * Get the built-in scheme names required by one or more default capability
+ * selectors. Configuration cannot add or exclude these schemes.
  */
-export function getAllImmutableSchemes(): readonly string[] {
-  return [
-    ...new Set([...DEFAULT_SCHEMES_FOR_MOST, ...DEFAULT_SCHEMES_FOR_CODELENS]),
-  ];
+export function getAllRequiredDefaultSchemes(): readonly string[] {
+  return DEFAULT_SCHEMES_FOR_MOST;
 }
+
+/** @deprecated Use {@link getAllRequiredDefaultSchemes}. */
+export const getAllImmutableSchemes = getAllRequiredDefaultSchemes;
 
 /**
  * Validate additional document schemes configuration
- * Checks for attempts to add or exclude immutable schemes
+ * Checks for attempts to add or exclude required default schemes
  * @param additionalSchemes Array of additional scheme configurations to validate
  * @param logger Optional logger instance for warnings
- * @returns Validation result with warnings if immutable schemes are detected
+ * @returns Validation result with warnings if required default schemes are detected
  */
 export function validateAdditionalDocumentSchemes(
   additionalSchemes?: Array<{
@@ -149,7 +152,8 @@ export function validateAdditionalDocumentSchemes(
   warnings: string[];
 } {
   const warnings: string[] = [];
-  const immutableSchemesSet = new Set(getAllImmutableSchemes());
+  const requiredDefaultSchemes = getAllRequiredDefaultSchemes();
+  const requiredDefaultSchemesSet = new Set(requiredDefaultSchemes);
   const loggerInstance = logger ?? getLogger();
 
   if (!additionalSchemes || additionalSchemes.length === 0) {
@@ -157,22 +161,22 @@ export function validateAdditionalDocumentSchemes(
   }
 
   for (const config of additionalSchemes) {
-    if (immutableSchemesSet.has(config.scheme)) {
+    if (requiredDefaultSchemesSet.has(config.scheme)) {
       const hasExclusions =
         config.excludeCapabilities && config.excludeCapabilities.length > 0;
 
       if (hasExclusions && config.excludeCapabilities) {
         const warning =
-          `Cannot exclude immutable scheme '${config.scheme}' ` +
+          `Cannot exclude required default scheme '${config.scheme}' ` +
           `from capabilities [${config.excludeCapabilities.join(', ')}]. ` +
-          `Immutable schemes (${getAllImmutableSchemes().join(', ')}) ` +
+          `Required default schemes (${requiredDefaultSchemes.join(', ')}) ` +
           'are always included for all capabilities and cannot be excluded.';
         warnings.push(warning);
         loggerInstance.warn(() => `⚠️ ${warning}`);
       } else {
         const warning =
-          `Immutable scheme '${config.scheme}' cannot be added as additional scheme. ` +
-          `Immutable schemes (${getAllImmutableSchemes().join(', ')}) ` +
+          `Required default scheme '${config.scheme}' cannot be added as additional scheme. ` +
+          `Required default schemes (${requiredDefaultSchemes.join(', ')}) ` +
           'are always included and cannot be modified.';
         warnings.push(warning);
         loggerInstance.warn(() => `⚠️ ${warning}`);
@@ -240,22 +244,21 @@ export function getDocumentSelectorsForCapability(
   additionalSchemes?: AdditionalSchemeConfig[],
 ): DocumentSelector {
   const logger = getLogger();
-  const immutableSchemesArray = getAllImmutableSchemes();
-  const immutableSchemes = new Set(immutableSchemesArray);
+  const requiredDefaultSchemesArray = getAllRequiredDefaultSchemes();
+  const requiredDefaultSchemes = new Set(requiredDefaultSchemesArray);
 
   // Get default schemes for this capability
   const defaultSchemes = getDefaultSchemesForCapability(capability);
 
-  // Start with default schemes (immutable - always included)
+  // Start with the built-in schemes required for this capability.
   const allSchemes = new Set<string>(defaultSchemes);
 
   // Add additional schemes if provided and not excluded for this capability
   if (additionalSchemes) {
     for (const config of additionalSchemes) {
-      // Runtime validation: Prevent adding or excluding immutable schemes
-      // Immutable schemes are always included in defaults and cannot be modified
-      if (immutableSchemes.has(config.scheme)) {
-        // Check if user is trying to exclude this immutable scheme
+      // Required defaults are always included and cannot be modified.
+      if (requiredDefaultSchemes.has(config.scheme)) {
+        // Check if user is trying to exclude this required default scheme.
         const hasExclusions =
           config.excludeCapabilities && config.excludeCapabilities.length > 0;
         const isTryingToExclude =
@@ -267,20 +270,20 @@ export function getDocumentSelectorsForCapability(
         if (isTryingToExclude) {
           logger.warn(
             () =>
-              `⚠️ Cannot exclude immutable scheme '${config.scheme}' from capability '${capability}'. ` +
-              `Immutable schemes (${immutableSchemesArray.join(', ')}) ` +
+              `⚠️ Cannot exclude required default scheme '${config.scheme}' from capability '${capability}'. ` +
+              `Required default schemes (${requiredDefaultSchemesArray.join(', ')}) ` +
               'are always included for all capabilities and cannot be excluded. ' +
               `The excludeCapabilities setting for '${config.scheme}' is ignored.`,
           );
         } else {
           logger.warn(
             () =>
-              `⚠️ Immutable scheme '${config.scheme}' cannot be added as additional scheme. ` +
-              `Immutable schemes (${immutableSchemesArray.join(', ')}) ` +
+              `⚠️ Required default scheme '${config.scheme}' cannot be added as additional scheme. ` +
+              `Required default schemes (${requiredDefaultSchemesArray.join(', ')}) ` +
               'are always included for all capabilities and cannot be modified.',
           );
         }
-        // Skip - immutable schemes are already included in defaults
+        // Skip - required default schemes are already included in selectors.
         continue;
       }
 

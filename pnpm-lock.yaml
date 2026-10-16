@@ -542,6 +542,9 @@ importers:
       effect:
         specifier: ^3.22.1
         version: 3.22.2
+      fflate:
+        specifier: ^0.8.3
+        version: 0.8.3
       vscode-jsonrpc:
         specifier: ^8.2.1
         version: 8.2.1
@@ -650,9 +653,6 @@ importers:
       effect:
         specifier: ^3.22.1
         version: 3.22.2
-      fflate:
-        specifier: ^0.8.3
-        version: 0.8.3
       vscode-jsonrpc:
         specifier: ^8.2.1
         version: 8.2.1
