@@ -22,6 +22,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  desktop-smoke-changes:
+    name: Detect Desktop Smoke Changes
+    runs-on: ubuntu-latest
+    outputs:
+      required: ${{ steps.changes.outputs.required }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            required:
+              - 'packages/apex-ls/**'
+              - 'packages/lsp-compliant-services/**'
+              - 'packages/apex-lsp-vscode-extension/**'
+              - 'e2e-tests/fixtures/**'
+              - 'e2e-tests/pages/**'
+              - 'e2e-tests/shared/**'
+              - 'e2e-tests/tests/apex-hover.spec.ts'
+              - 'e2e-tests/tests/apex-goto-definition-advanced.spec.ts'
+              - 'e2e-tests/tests/apex-rename-symbol.spec.ts'
+
   e2e-tests-web:
     name: E2E ${{ matrix.test_file }} (Web)
     runs-on: ubuntu-latest
@@ -243,6 +265,89 @@ jobs:
             e2e-tests/test-results/**/*.webm
           retention-days: 30
           if-no-files-found: ignore
+
+  desktop-semantic-smoke:
+    name: Desktop Semantic Smoke (${{ matrix.name }})
+    needs: desktop-smoke-changes
+    if: ${{ github.event_name == 'pull_request' && needs.desktop-smoke-changes.outputs.required == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Cross-file hover
+            test_file: apex-hover.spec.ts
+            test_title: should show hover for static method defined in another workspace file
+          - name: Cross-file definition
+            test_file: apex-goto-definition-advanced.spec.ts
+            test_title: should navigate to static method defined in another workspace file
+          - name: Cross-file rename
+            test_file: apex-rename-symbol.spec.ts
+            test_title: renames a field across files
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages and extension
+        run: |
+          pnpm run compile
+          pnpm run bundle
+
+      - name: Install Playwright browsers
+        run: pnpm --dir e2e-tests exec playwright install --with-deps chromium
+
+      - name: Run Desktop semantic smoke - ${{ matrix.test_file }}
+        id: desktop-smoke
+        continue-on-error: true
+        run: |
+          pnpm --dir e2e-tests exec playwright test tests/${{ matrix.test_file }} \
+            --config=playwright.config.desktop.ts \
+            --grep "${{ matrix.test_title }}" \
+            --reporter=line,junit,json
+        env:
+          CI: true
+          TEST_MODE: desktop
+          E2E_SEQUENTIAL: 1
+          PLAYWRIGHT_JUNIT_OUTPUT_FILE: test-results/${{ matrix.test_file }}/junit.xml
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/${{ matrix.test_file }}/results.json
+
+      - name: Retry failed Desktop semantic smoke tests
+        if: steps.desktop-smoke.outcome == 'failure'
+        run: |
+          pnpm --dir e2e-tests exec playwright test tests/${{ matrix.test_file }} \
+            --config=playwright.config.desktop.ts \
+            --last-failed \
+            --grep "${{ matrix.test_title }}" \
+            --reporter=line,junit,json
+        env:
+          CI: true
+          TEST_MODE: desktop
+          E2E_SEQUENTIAL: 1
+          PLAYWRIGHT_JUNIT_OUTPUT_FILE: test-results/${{ matrix.test_file }}/junit.xml
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/${{ matrix.test_file }}/results.json
+
+      - name: Upload Desktop semantic smoke results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-desktop-smoke-${{ matrix.test_file }}-${{ github.run_number }}
+          path: e2e-tests/test-results/
+          retention-days: 30
+          if-no-files-found: warn
 
   test-summary:
     name: Test Summary
