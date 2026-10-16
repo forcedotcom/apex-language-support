@@ -321,6 +321,10 @@ test.describe('Apex Hover - Cross-File Workspace Types', () => {
       await apexEditor.waitForWorkspaceReady();
     });
 
+    await test.step('Resolve the cross-file owner class', async () => {
+      await hoverHelper.hoverAtWithResolution(11, 27, 'CrossFileUtility');
+    });
+
     await test.step('Hover on cross-file static method reference', async () => {
       const content = await hoverHelper.hoverAtWithResolution(
         11,

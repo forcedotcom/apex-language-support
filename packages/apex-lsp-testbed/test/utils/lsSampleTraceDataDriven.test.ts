@@ -9,8 +9,26 @@
 import fs from 'fs';
 import path from 'path';
 
-import type { LSPMessage } from '../../src/utils/lspTraceParser';
 import { normalizeTraceData } from '../../src/test-utils/traceDataUtils';
+
+interface LSPMessage {
+  type: 'request' | 'notification' | 'response';
+  method: string;
+  id?: number;
+  params?: unknown;
+  result?: unknown;
+  telemetry?: {
+    properties?: Record<string, string>;
+    measures?: Record<string, number>;
+  };
+  performance?: {
+    duration?: number;
+    memory?: {
+      total?: number;
+      used?: number;
+    };
+  };
+}
 
 describe('LSP trace log data-driven tests', () => {
   // Load the JSON map of test cases
