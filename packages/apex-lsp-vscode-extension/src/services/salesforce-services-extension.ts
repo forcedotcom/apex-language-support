@@ -19,23 +19,3 @@ export const getSalesforceServicesExtension = () =>
 
 export const isSalesforceServicesAvailable = (): boolean =>
   getSalesforceServicesExtension() !== undefined;
-
-/**
- * Production installs may run without Salesforce Services. Development hosts
- * require it so missing integration wiring is discovered immediately rather
- * than being mistaken for an artifact-resolution failure.
- */
-export const requireSalesforceServicesInDevelopment = (
-  context: vscode.ExtensionContext,
-): void => {
-  if (context.extensionMode !== vscode.ExtensionMode.Development) {
-    return;
-  }
-
-  if (!getSalesforceServicesExtension()) {
-    throw new Error(
-      `${SALESFORCE_SERVICES_EXTENSION_ID} must be installed and enabled ` +
-        'when running the Apex Language Server extension in development mode',
-    );
-  }
-};

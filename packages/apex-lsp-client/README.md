@@ -398,13 +398,131 @@ All typed senders reject with `ApexClientDisposedError` after `dispose()`. All
   type and its direction enum.
 - `loggingMiddleware` — the default observability middleware.
 
-## Intentional orphan state
+### CodeLens Callback Registry
 
-As of W-23163195 (4.1) this package ships `JsonRpcConnection`,
-`LanguageClientConnection`, the Node-stdio and Web-Worker connection helpers, and
-`createHeadlessClient`. It is deliberately NOT yet listed in any other package's
-`dependencies`. TypeScript project `references`/`paths` affect compilation only,
-not runtime consumability. A follow-up work item will wire the extension's
-`language-server.ts` to consume `LanguageClientConnection` from this SDK,
-replacing the inline `ClientInterface` implementations. The absence of a parent
-consumer here is by design, not an omission.
+The host-neutral CodeLens callback registry is exported from both
+`@salesforce/apex-lsp-client` and `@salesforce/apex-lsp-client/browser`. It has
+no VS Code dependency, allowing each host to supply its own command wiring and
+user-facing error behavior.
+
+```typescript
+import {
+  createCodeLensCallbackRegistry,
+  type CodeLensCallbackRegistryOptions,
+} from '@salesforce/apex-lsp-client';
+
+const options: CodeLensCallbackRegistryOptions = {
+  onUnavailable: (action) => showUnavailableAction(action),
+  onProviderError: (action, error) => logProviderError(action, error),
+};
+const codeLens = createCodeLensCallbackRegistry(options);
+
+const registration = codeLens.register(
+  'runTestMethod',
+  async ([qualifiedMethodName]) => {
+    await runApexTest(qualifiedMethodName);
+  },
+);
+
+registration.dispose();
+```
+
+The API exports `CODE_LENS_ACTIONS`, `CodeLensAction`,
+`CodeLensActionArguments`, `CodeLensCallback`, `CodeLensCallbackRegistry`,
+`CodeLensCallbackRegistryOptions`, and `createCodeLensCallbackRegistry`.
+
+- `executeAnonymous` and `debugAnonymous` receive no arguments.
+- `runTestClass` and `debugTestClass` receive `[className: string]`.
+- `runTestMethod` and `debugTestMethod` receive
+  `[qualifiedMethodName: string]`.
+- `register(action, callback)` returns a `Disposable`; disposing it unregisters
+  the callback.
+- `dispatch(action, arguments)` invokes callbacks sequentially in registration
+  order.
+- When no callbacks are registered, `dispatch` invokes `onUnavailable` when
+  configured.
+- Provider failures invoke `onProviderError` when configured without preventing
+  later callbacks from running. Without that hook, or if the hook fails,
+  `dispatch` rejects after all callbacks have been attempted.
+
+### Workspace Batch Codec
+
+The client SDK prepares workspace file content for the typed
+`sendWorkspaceBatch` request. The codec is exported from both
+`@salesforce/apex-lsp-client` and `@salesforce/apex-lsp-client/browser`; it
+accepts host-neutral string URIs, so hosts remain responsible for workspace file
+discovery and reading.
+
+```typescript
+import {
+  compressWorkspaceFileBatch,
+  createWorkspaceFileBatches,
+  encodeWorkspaceBatchForTransport,
+} from '@salesforce/apex-lsp-client';
+
+const [batch] = createWorkspaceFileBatches(
+  [
+    {
+      uri: 'file:///workspace/classes/Example.cls',
+      version: 1,
+      content: 'public class Example {}',
+    },
+  ],
+  100,
+);
+const compressed = compressWorkspaceFileBatch(batch);
+const compressedData = encodeWorkspaceBatchForTransport(compressed);
+```
+
+`createWorkspaceFileBatches` returns indexed `WorkspaceFileBatch` values.
+`compressWorkspaceFileBatch` preserves the server archive contract: each file is
+stored under its URI and the ZIP contains `__metadata.json`. The encoder returns
+the Base64 string used as `SendWorkspaceBatchParams.compressedData`.
+
+### Org Artifact Resolver
+
+`resolveMissingArtifacts` is the host-neutral orchestration for the server's
+`apex/findMissingArtifact` request. It is exported from both
+`@salesforce/apex-lsp-client` and `@salesforce/apex-lsp-client/browser`. Hosts
+supply an `OrgArtifactResolverProvider` for workspace lookup, org search,
+source materialization, document opening, and host-specific telemetry or error
+handling.
+
+```typescript
+import {
+  resolveMissingArtifacts,
+  type OrgArtifactResolverProvider,
+} from '@salesforce/apex-lsp-client';
+
+declare const provider: OrgArtifactResolverProvider;
+
+const result = await resolveMissingArtifacts(
+  {
+    identifiers: [{ name: 'Example', identifierType: 'apex-class' }],
+    mode: 'blocking',
+  },
+  provider,
+);
+```
+
+The resolver deduplicates identifiers by normalized type and name, preferring
+entries with resolution hints. It resolves workspace artifacts first, then
+searches the org only for unresolved identifiers. sObject describes are returned
+as artifact payloads; Apex classes and triggers are materialized and opened by
+the host. It returns `{ artifacts }`, `{ opened }`, both, or `{ notFound: true }`.
+Provider failures are reported through `onError` when configured and resolve to
+`{ notFound: true }`; unavailable providers invoke `onUnavailable` instead of
+searching.
+
+The API exports `resolveMissingArtifacts`, `OrgArtifactRequest`,
+`OrgArtifactResolverProvider`, `OrgArtifactSearchResult`,
+`SObjectAdaptationResult`, and `WorkspaceArtifactResolution`.
+
+## Extension Integration
+
+The VS Code extension consumes this package through its declared workspace
+dependency. It exposes the materialized `ApexClient` through its
+`ApexExtensionApi.client` for companion extensions that need typed language-server
+operations. The generic CodeLens callback registry is part of this
+transport-agnostic client SDK; the extension supplies its VS Code-specific command
+wiring and error presentation through `ApexExtensionApi.codeLens`.

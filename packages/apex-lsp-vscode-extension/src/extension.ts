@@ -43,12 +43,17 @@ import {
   stopLanguageServer,
   getClient,
 } from './language-server';
-import type { ApexClient } from '@salesforce/apex-lsp-client';
+import type {
+  ApexClient,
+  CodeLensCallbackRegistry,
+} from '@salesforce/apex-lsp-client';
 
 /** Public extension API for consumers that depend on this extension. */
 export type ApexExtensionApi = {
   /** Materialized language-server client, ready when activate() resolves. */
   readonly client: ApexClient;
+  /** Semantic CodeLens actions that companion extensions can provide. */
+  readonly codeLens: CodeLensCallbackRegistry;
 };
 import { getWorkspaceSettings } from './configuration';
 import { formattedError } from '@salesforce/apex-lsp-shared';
@@ -60,7 +65,10 @@ import {
   getOrgArtifactFileSystem,
   registerOrgArtifactFileSystem,
 } from './services/org-artifact-fs';
-import { requireSalesforceServicesInDevelopment } from './services/salesforce-services-extension';
+import {
+  createVsCodeCodeLensCallbackRegistry,
+  registerCodeLensCommandHandlers,
+} from './codeLensCommandHandlers';
 
 /**
  * Wrapper function for restart that matches the expected signature
@@ -93,9 +101,9 @@ export function activate(
 async function activateExtension(
   context: vscode.ExtensionContext,
 ): Promise<ApexExtensionApi> {
+  const codeLens = createVsCodeCodeLensCallbackRegistry();
   // Initialize simple extension logging
   initializeExtensionLogging(context);
-  requireSalesforceServicesInDevelopment(context);
   registerOrgArtifactFileSystem(context);
 
   const extensionMode =
@@ -123,6 +131,9 @@ async function activateExtension(
 
   registerLogLevelCommands(context);
   logToOutputChannel('📝 Log level commands registered', 'debug');
+
+  registerCodeLensCommandHandlers(context, codeLens);
+  logToOutputChannel('📝 CodeLens command handlers registered', 'debug');
 
   // Register graph command
   registerGraphCommand(context);
@@ -231,6 +242,7 @@ async function activateExtension(
 
   return {
     client,
+    codeLens,
   };
 }
 

@@ -10,7 +10,7 @@ A Visual Studio Code extension providing comprehensive Apex language support pow
 - **Real-time Diagnostics**: Instant error detection and validation as you type
 - **Code Intelligence**: Hover information, go-to-definition, find references, and more
 - **Document Symbols**: Quick navigation through class members and methods
-- **Code Lens**: Inline actionable insights for test methods and class references
+- **Code Lens**: Browser and desktop CodeLens support for anonymous Apex and Apex test actions
 - **Folding Ranges**: Smart code folding based on structure and comments
 - **Auto-completion**: Context-aware code completion (development mode)
 
@@ -67,6 +67,54 @@ The URI must identify a document loaded by the language server. Line results use
 a display label and optional source URI. Treat `typeref` as opaque and pass it
 through unchanged. The client translates these calls to the language server's
 standard command transport, so consumers should not send LSP commands directly.
+
+### CodeLens Action Providers
+
+The extension exposes the host-neutral `CodeLensCallbackRegistry` from
+`@salesforce/apex-lsp-client` through `ApexExtensionApi.codeLens`. Companion
+extensions should register on this activated registry rather than construct a
+separate one or register language-server command IDs directly. This allows the
+browser and desktop extension hosts to render CodeLens while delegating anonymous
+Apex execution and test actions to an installed provider.
+
+Register a callback after activating the language-server extension. The returned
+`Disposable` unregisters that provider. Multiple providers for the same action
+are invoked in registration order. The extension adapts the shared registry with
+VS Code behavior: unavailable actions show an error message, provider failures
+are logged to the Apex Language Server output channel, and later providers still
+run after a failure.
+
+```typescript
+import * as vscode from 'vscode';
+import type { ApexExtensionApi } from 'apex-language-server-extension';
+
+const apexExtension = vscode.extensions.getExtension<ApexExtensionApi>(
+  'salesforce.apex-language-server-extension',
+);
+if (!apexExtension) {
+  throw new Error('Salesforce Apex Language Server extension is unavailable');
+}
+
+const apex = await apexExtension.activate();
+context.subscriptions.push(
+  apex.codeLens.register('runTestMethod', async ([qualifiedMethodName]) => {
+    await runApexTest(qualifiedMethodName);
+  }),
+);
+```
+
+Available actions and their callback arguments are:
+
+- `executeAnonymous` and `debugAnonymous`: no arguments.
+- `runTestClass` and `debugTestClass`: the Apex class name.
+- `runTestMethod` and `debugTestMethod`: the qualified Apex method name.
+
+If no provider is registered for an invoked action, the extension displays an
+error explaining that the action is unavailable. These actions are semantic API
+names; providers should use `ApexExtensionApi.codeLens` rather than registering
+the underlying language-server commands directly. The extension translates
+recognized language-server delegate commands to these semantic actions before
+dispatching them, consistently for desktop and browser hosts.
 
 ## Configuration
 

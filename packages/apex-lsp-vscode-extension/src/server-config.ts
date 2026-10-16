@@ -32,7 +32,7 @@ import {
 } from '@salesforce/apex-lsp-shared';
 import { getOrgArtifactSourceDocumentSelectors } from './services/org-artifact-fs';
 import type { TextDocumentFilter } from 'vscode-languageserver-protocol';
-import { createHoverMiddleware } from './hoverMiddleware';
+import { createLanguageClientMiddleware } from './languageClientMiddleware';
 
 /**
  * Determines debug options based on VS Code configuration
@@ -331,7 +331,7 @@ export const createClientOptions = (
       error: handleClientError,
       closed: () => handleClientClosed(),
     },
-    middleware: createHoverMiddleware(),
+    middleware: createLanguageClientMiddleware(),
     initializationOptions,
     workspaceFolder: vscode.workspace.workspaceFolders?.[0],
   };

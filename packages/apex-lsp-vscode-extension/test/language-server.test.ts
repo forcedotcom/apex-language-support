@@ -37,9 +37,13 @@ vi.mock('../src/logging', () => ({
   getWorkerServerOutputChannel: vi.fn(),
 }));
 
-const coreCreate = vi.fn();
-const connectionConstructor = vi.fn();
-const apexLibInitialize = vi.fn();
+const { coreCreate, connectionConstructor, apexLibInitialize } = vi.hoisted(
+  () => ({
+    coreCreate: vi.fn(),
+    connectionConstructor: vi.fn(),
+    apexLibInitialize: vi.fn(),
+  }),
+);
 
 vi.mock('@salesforce/apex-lsp-client', () => ({
   ApexClientCore: { create: coreCreate },
@@ -57,6 +61,15 @@ vi.mock('@salesforce/apex-lsp-client/browser', () => ({
       connectionConstructor(client);
     }
   },
+  CODE_LENS_ACTIONS: [
+    'executeAnonymous',
+    'debugAnonymous',
+    'runTestClass',
+    'debugTestClass',
+    'runTestMethod',
+    'debugTestMethod',
+  ],
+  createCodeLensCallbackRegistry: vi.fn(),
 }));
 
 vi.mock('@salesforce/apex-lsp-compliant-services', () => ({
@@ -636,5 +649,11 @@ describe('createWebDocumentSelector', () => {
       ),
       'debug',
     );
+  });
+
+  it('uses shared CodeLens middleware in web clients', () => {
+    const options = createWebClientOptions(DEFAULT_APEX_SETTINGS);
+
+    expect(options.middleware?.provideCodeLenses).toEqual(expect.any(Function));
   });
 });

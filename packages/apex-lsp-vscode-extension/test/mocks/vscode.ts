@@ -33,6 +33,7 @@ export const window = {
 export const commands = {
   registerCommand: vi.fn(),
   executeCommand: vi.fn(),
+  getCommands: vi.fn(),
 };
 
 export const workspace = {

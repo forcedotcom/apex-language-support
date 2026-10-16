@@ -51,7 +51,7 @@ type CapabilityPath =
 export const WEB_DISABLED_CAPABILITIES: ReadonlySet<CapabilityPath> = new Set([
   'experimental.profilingProvider', // Requires Node.js inspector API
   // publishDiagnostics and diagnosticProvider are intentionally absent here:
-  // production web already has them as false/undefined in PRODUCTION_CAPABILITIES,
+  // production web already has them as false/undefined in PRODUCTION_WEB_CAPABILITIES,
   // and development web needs diagnostics enabled.
 ]);
 
@@ -159,7 +159,7 @@ export const PRODUCTION_DESKTOP_CAPABILITIES: ExtendedServerCapabilities = {
  * Production capabilities for web (browser) environments.
  * Exposes the full set of released language features available on the web platform.
  */
-export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
+export const PRODUCTION_WEB_CAPABILITIES: ExtendedServerCapabilities = {
   publishDiagnostics: false,
   textDocumentSync: {
     openClose: true,
@@ -173,7 +173,9 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
   foldingRangeProvider: true,
   hoverProvider: true,
   definitionProvider: true,
-  codeLensProvider: undefined,
+  codeLensProvider: {
+    resolveProvider: false,
+  },
   diagnosticProvider: undefined, // TDX26: production never gets diagnostics
   workspace: {
     workspaceFolders: {
@@ -238,7 +240,7 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
  * Includes both released and implemented features for testing
  */
 export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
-  ...PRODUCTION_CAPABILITIES,
+  ...PRODUCTION_WEB_CAPABILITIES,
   publishDiagnostics: true,
   completionProvider: {
     resolveProvider: false,
@@ -301,7 +303,7 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
  * Complete capability configuration for all modes
  */
 export const CAPABILITIES_CONFIGURATION: CapabilitiesConfiguration = {
-  production: PRODUCTION_CAPABILITIES,
+  production: PRODUCTION_WEB_CAPABILITIES,
   productionDesktop: PRODUCTION_DESKTOP_CAPABILITIES,
   development: DEVELOPMENT_CAPABILITIES,
 };

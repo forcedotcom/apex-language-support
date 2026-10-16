@@ -48,6 +48,37 @@ export type {
 } from './apexClientCore';
 export type { ApexClient } from './apexClient';
 
+// Host-neutral semantic CodeLens provider registry.
+export {
+  CODE_LENS_ACTIONS,
+  createCodeLensCallbackRegistry,
+} from './codeLensCallbacks';
+export type {
+  CodeLensAction,
+  CodeLensActionArguments,
+  CodeLensCallback,
+  CodeLensCallbackRegistry,
+  CodeLensCallbackRegistryOptions,
+} from './codeLensCallbacks';
+
+// Host-neutral workspace batch serialization for typed workspace-load RPCs.
+export {
+  compressWorkspaceFileBatch,
+  createWorkspaceFileBatches,
+  encodeWorkspaceBatchForTransport,
+} from './workspaceBatchCodec';
+export type { WorkspaceFileInput } from './workspaceBatchCodec';
+
+// Host-neutral orchestration for server-initiated missing artifact resolution.
+export { resolveMissingArtifacts } from './orgArtifactResolver';
+export type {
+  OrgArtifactRequest,
+  OrgArtifactResolverProvider,
+  OrgArtifactSearchResult,
+  SObjectAdaptationResult,
+  WorkspaceArtifactResolution,
+} from './orgArtifactResolver';
+
 // Typed apex/* method surface types — public API for typed sender/handler usage.
 // Note: ApexMethodSurfaceOptions is intentionally NOT exported — it is an
 // internal factory dependency that exposes raw middleware closures and Effect

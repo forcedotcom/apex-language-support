@@ -65,7 +65,7 @@ import {
   WorkspaceLoaderServiceLive,
   WorkspaceStateLive,
 } from './workspace-load-handler';
-import { createHoverMiddleware } from './hoverMiddleware';
+import { createLanguageClientMiddleware } from './languageClientMiddleware';
 
 export { detectEnvironment };
 
@@ -422,7 +422,7 @@ export const createWebClientOptions = (
   synchronize: {
     configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
   },
-  middleware: createHoverMiddleware(),
+  middleware: createLanguageClientMiddleware(),
   initializationOptions,
   outputChannel: (() => {
     const channel = getWorkerServerOutputChannel();
