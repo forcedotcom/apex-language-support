@@ -12,31 +12,16 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 import { ApexError, isStandardApexUri } from '@salesforce/apex-lsp-parser-ast';
 import { transformParserToLspPosition } from './positionUtils';
 
-/**
- * Utility function to log handler errors consistently
- * @param handlerName The name of the handler that encountered the error
- * @param error The error that occurred
- * @param context Optional context information about the error
- */
-export function logHandlerError(
-  handlerName: string,
-  error: Error,
-  context?: string,
-): void {
+function logHandlerError(errorContext: string, error: Error): void {
   const logger = getLogger();
 
-  const contextInfo = context ? ` (${context})` : '';
-  const baseMessage = `Error in ${handlerName}${contextInfo}: ${error.message}`;
-
-  let fullMessage = baseMessage;
+  let fullMessage = `Error in dispatch (${errorContext}): ${error.message}`;
 
   if (error.stack) {
     fullMessage += `\nStack trace:\n${error.stack}`;
   }
 
-  if (context) {
-    fullMessage += `\nError context: ${context}`;
-  }
+  fullMessage += `\nError context: ${errorContext}`;
 
   logger.log('error', fullMessage);
 }
@@ -54,7 +39,7 @@ export async function dispatch<T>(
   try {
     return await promise;
   } catch (error) {
-    logHandlerError('dispatch', error as Error, errorContext);
+    logHandlerError(errorContext, error as Error);
     throw error;
   }
 }

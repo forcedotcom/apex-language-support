@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Context, Effect } from 'effect';
+import { Effect } from 'effect';
 import type { ApexSymbol, SymbolTable } from '../../types/symbol';
 import type { SymbolReference } from '../../types/symbolReference';
 import type { GenericTypeSubstitutionMap } from '../../utils/genericTypeSubstitution';
@@ -63,11 +63,6 @@ export interface SymbolResolverShape {
   /** Check if a name represents a standard Apex class */
   readonly isStandardApexClass: (name: string) => Effect.Effect<boolean>;
 }
-
-export class SymbolResolver extends Context.Tag('SymbolResolver')<
-  SymbolResolver,
-  SymbolResolverShape
->() {}
 
 /**
  * Structural interface satisfied by ApexSymbolManager.

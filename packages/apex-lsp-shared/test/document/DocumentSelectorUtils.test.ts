@@ -14,7 +14,7 @@ import {
   getAllImmutableSchemes,
   validateAdditionalDocumentSchemes,
   DEFAULT_SCHEMES_FOR_MOST,
-  DEFAULT_SCHEMES_FOR_CODELENS,
+  MUTABLE_DOCUMENT_SCHEMES,
   DEFAULT_LANGUAGES,
 } from '../../src/document/DocumentSelectorUtils';
 import type { ApexLanguageServerSettings } from '../../src/server/ApexLanguageServerSettings';
@@ -43,7 +43,7 @@ describe('DocumentSelectorUtils', () => {
 
     it('should return correct schemes for codeLens (excludes apexlib)', () => {
       const schemes = getDefaultSchemesForCapability('codeLens');
-      expect(schemes).toEqual(DEFAULT_SCHEMES_FOR_CODELENS);
+      expect(schemes).toEqual(MUTABLE_DOCUMENT_SCHEMES);
       expect(schemes).toContain('file');
       expect(schemes).toContain('vscode-test-web');
       expect(schemes).not.toContain('apexlib');

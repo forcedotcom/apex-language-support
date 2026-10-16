@@ -358,19 +358,3 @@ export class CaseInsensitiveString {
     return aLower.localeCompare(bLower);
   }
 }
-
-// Proxy to enable bracket notation access
-export function createCaseInsensitiveString(
-  value: string,
-): CaseInsensitiveString & { [index: number]: string } {
-  const instance = new CaseInsensitiveString(value);
-
-  return new Proxy(instance, {
-    get(target, prop) {
-      if (typeof prop === 'string' && !isNaN(Number(prop))) {
-        return target.value[Number(prop)];
-      }
-      return (target as any)[prop];
-    },
-  }) as CaseInsensitiveString & { [index: number]: string };
-}

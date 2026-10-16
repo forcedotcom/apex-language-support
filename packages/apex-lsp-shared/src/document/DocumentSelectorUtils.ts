@@ -114,20 +114,12 @@ export const READONLY_SYNTHETIC_SCHEMES: readonly string[] = [
 ] as const;
 
 /**
- * Immutable default schemes for CodeLens capability
- * Excludes 'apexlib' as CodeLens should not operate on standard library files.
- * Same set as {@link MUTABLE_DOCUMENT_SCHEMES} (both mean "real editable files").
- */
-export const DEFAULT_SCHEMES_FOR_CODELENS: readonly string[] =
-  MUTABLE_DOCUMENT_SCHEMES;
-
-/**
  * Get all immutable scheme names (union of all default schemes)
  * These schemes cannot be excluded or removed
  */
 export function getAllImmutableSchemes(): readonly string[] {
   return [
-    ...new Set([...DEFAULT_SCHEMES_FOR_MOST, ...DEFAULT_SCHEMES_FOR_CODELENS]),
+    ...new Set([...DEFAULT_SCHEMES_FOR_MOST, ...MUTABLE_DOCUMENT_SCHEMES]),
   ];
 }
 
@@ -195,15 +187,12 @@ export function getDefaultSchemesForCapability(
   capability: LSPCapability,
 ): readonly string[] {
   if (capability === 'codeLens') {
-    return DEFAULT_SCHEMES_FOR_CODELENS;
+    return MUTABLE_DOCUMENT_SCHEMES;
   }
   if (capability === 'all') {
     // For 'all', return the union of all schemes
     return [
-      ...new Set([
-        ...DEFAULT_SCHEMES_FOR_MOST,
-        ...DEFAULT_SCHEMES_FOR_CODELENS,
-      ]),
+      ...new Set([...DEFAULT_SCHEMES_FOR_MOST, ...MUTABLE_DOCUMENT_SCHEMES]),
     ];
   }
   // For all other capabilities, use the default schemes
