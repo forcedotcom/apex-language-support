@@ -57,6 +57,9 @@
         "test/**/*.ts",
         "tsconfig.json",
         "test/tsconfig.json"
+      ],
+      "output": [
+        ".wireit/typecheck.tsbuildinfo"
       ]
     },
     "bundle": {

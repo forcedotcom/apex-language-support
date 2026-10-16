@@ -209,10 +209,14 @@
       ]
     },
     "test:eslint-rules": {
-      "command": "node --test eslint-rules/parser-owned-semantics.test.mjs",
+      "command": "node scripts/test-eslint-rules.js",
       "files": [
+        "scripts/test-eslint-rules.js",
         "eslint-rules/index.mjs",
         "eslint-rules/parser-owned-semantics.test.mjs"
+      ],
+      "output": [
+        ".wireit/test-eslint-rules"
       ]
     },
     "test:coverage": {
