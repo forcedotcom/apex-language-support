@@ -398,8 +398,8 @@ importers:
         specifier: ^4.63.3
         version: 4.64.0
       '@rollup/rollup-linux-x64-musl':
-        specifier: ^4.63.1
-        version: 4.64.0
+        specifier: ^4.64.3
+        version: 4.64.3
 
   e2e-tests:
     devDependencies:
@@ -2345,8 +2345,8 @@ packages:
     os: [linux]
     libc: [glibc]
 
-  '@rollup/rollup-linux-x64-musl@4.64.0':
-    resolution: {integrity: sha512-3XHTvoo2hKkh0MiOfS7SkhHjMaaWF7P4F3drocZZaho/Z8w7h/jpnuBHm91BOQLfvrKHs1yR+zir4E8RI3XzTQ==}
+  '@rollup/rollup-linux-x64-musl@4.64.3':
+    resolution: {integrity: sha512-PpiKU+sWbqDGc0U0su8oXiyeyqm0UQjmaaPKHktX+DaLe6YKJwW2YVD0f2AXHdVvblZbRqpwRVClWP2F5HCqrQ==}
     cpu: [x64]
     os: [linux]
     libc: [musl]
@@ -8486,7 +8486,7 @@ snapshots:
   '@rollup/rollup-linux-x64-gnu@4.64.0':
     optional: true
 
-  '@rollup/rollup-linux-x64-musl@4.64.0':
+  '@rollup/rollup-linux-x64-musl@4.64.3':
     optional: true
 
   '@rtsao/scc@1.1.0': {}
