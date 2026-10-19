@@ -18,7 +18,6 @@ describe('apex-parser-ast exports', () => {
     // Verify type exports
     expect(apexParserAst.SymbolKind).toBeDefined();
     expect(apexParserAst.SymbolVisibility).toBeDefined();
-    expect(apexParserAst.QName).toBeDefined();
     expect(apexParserAst.SymbolTable).toBeDefined();
     expect(apexParserAst.ScopeSymbol).toBeDefined();
     expect(apexParserAst.createPrimitiveType).toBeDefined();
@@ -39,7 +38,6 @@ describe('apex-parser-ast exports', () => {
     expect(typeof apexParserAst.SymbolVisibility).toBe('object');
 
     // Check that classes are functions
-    expect(typeof apexParserAst.QName).toBe('function');
     expect(typeof apexParserAst.CompilerService).toBe('function');
     expect(typeof apexParserAst.SymbolTable).toBe('function');
 
