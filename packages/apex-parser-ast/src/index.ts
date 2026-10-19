@@ -44,7 +44,6 @@ export * from './types/typeInfo';
 export * from './types/symbol';
 export * from './types/symbolReference';
 export * from './types/referenceVertex';
-export * from './types/qname';
 export * from './types/source';
 export * from './types/unitType';
 export * from './types/classInfo';
