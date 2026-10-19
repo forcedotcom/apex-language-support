@@ -222,7 +222,6 @@
         "./packages/apex-ls:test:coverage",
         "./packages/apex-lsp-shared:test:coverage",
         "./packages/apex-lsp-client:test:coverage",
-        "./packages/apex-lsp-testbed:test:coverage",
         "./packages/apex-lsp-vscode-extension:test:coverage",
         "./packages/apex-parser-ast:test:coverage",
         "./packages/lsp-compliant-services:test:coverage"

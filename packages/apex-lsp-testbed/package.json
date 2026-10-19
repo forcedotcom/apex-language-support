@@ -224,8 +224,7 @@
     }
   },
   "dependencies": {
-    "@salesforce/apex-lsp-client": "workspace:*",
-    "data-structure-typed": "^2.6.4"
+    "@salesforce/apex-lsp-client": "workspace:*"
   },
   "devDependencies": {
     "@salesforce/apex-lsp-parser-ast": "workspace:*",

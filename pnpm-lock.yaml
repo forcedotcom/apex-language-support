@@ -613,9 +613,6 @@ importers:
       '@salesforce/apex-lsp-client':
         specifier: workspace:*
         version: link:../apex-lsp-client
-      data-structure-typed:
-        specifier: ^2.6.4
-        version: 2.6.4
     devDependencies:
       '@salesforce/apex-lsp-parser-ast':
         specifier: workspace:*

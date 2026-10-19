@@ -102,13 +102,12 @@ export const waitForSalesforceServicesActivation = async (
     timeout,
   });
 
-  const runningExtensionsTab = page
-    .getByRole('tab', { name: /Running Extensions/i })
-    .first();
-  await page.keyboard.press('Escape');
-  await runningExtensionsTab.click({ timeout: 5000, force: true });
+  // VS Code Web does not consistently expose this editor's tab through the tab
+  // role. Focus its rendered surface so the close shortcut targets the editor,
+  // not the VS Code window on macOS.
+  await runningExtensions.click({ force: true });
   await page.keyboard.press(getModifierShortcut('W'));
-  await runningExtensionsTab.waitFor({ state: 'detached', timeout: 5000 });
+  await runningExtensions.waitFor({ state: 'detached', timeout: 5000 });
 };
 
 /**
