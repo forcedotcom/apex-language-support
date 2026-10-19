@@ -1710,6 +1710,9 @@ export class LCSAdapter {
 
     // Get all capabilities from manager based on mode
     const allCapabilities = configManager.getCapabilities();
+    const featureStates = configManager
+      .getCapabilitiesManager()
+      .getFeatureStates();
 
     // Register hover handler when capability is enabled (capability-driven)
     if (allCapabilities.hoverProvider) {
@@ -1727,7 +1730,10 @@ export class LCSAdapter {
       textDocumentSync: allCapabilities.textDocumentSync,
       workspace: allCapabilities.workspace,
       // Include experimental capabilities
-      experimental: allCapabilities.experimental,
+      experimental: {
+        ...allCapabilities.experimental,
+        featureStateProvider: featureStates,
+      },
     };
 
     // Log textDocumentSync capabilities being negotiated

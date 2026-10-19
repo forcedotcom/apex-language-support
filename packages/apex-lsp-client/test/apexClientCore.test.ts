@@ -108,6 +108,21 @@ describe('ApexClientCore', () => {
       await core.dispose();
     });
 
+    it('does not replace host handlers for standard LSP log notifications', async () => {
+      const core = await ApexClientCore.create(connection);
+
+      expect(connection.onNotification).not.toHaveBeenCalledWith(
+        'window/logMessage',
+        expect.any(Function),
+      );
+      expect(connection.onNotification).not.toHaveBeenCalledWith(
+        '$/logMessage',
+        expect.any(Function),
+      );
+
+      await core.dispose();
+    });
+
     it('handler-before-traffic: onRequest fires before the first sendRequest(initialize)', async () => {
       const core = await ApexClientCore.create(connection);
       await core.initialize();

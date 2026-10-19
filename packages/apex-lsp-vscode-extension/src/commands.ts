@@ -14,6 +14,11 @@ import { showGraph } from './graph/showGraph';
 import { showQueueState } from './queue/showQueueState';
 import { showPerformanceSettings } from './settings/showPerformanceSettings';
 import {
+  getProfilingStatus,
+  startProfiling,
+  stopProfiling,
+} from './extensionServerOperations';
+import {
   updateProfilingToggleItem,
   getProfilingTag,
   updateLogLevelStatusItems,
@@ -311,7 +316,7 @@ export const registerProfilingCommands = (
           'info',
         );
 
-        const result = await client.profilingStart({ type: profilingType });
+        const result = await startProfiling(client, { type: profilingType });
 
         if (result.success) {
           vscode.window.showInformationMessage(
@@ -356,7 +361,7 @@ export const registerProfilingCommands = (
         // Get tag from workspace settings (no prompt)
         const tag = getProfilingTag();
 
-        const result = await client.profilingStop({ tag: tag || undefined });
+        const result = await stopProfiling(client, { tag: tag || undefined });
 
         if (result.success) {
           const filesMessage = result.files
@@ -402,7 +407,7 @@ export const registerProfilingCommands = (
           return;
         }
 
-        const status = await client.profilingStatus({});
+        const status = await getProfilingStatus(client, {});
 
         const statusMessage = status.isProfiling
           ? `Profiling is active (type: ${status.type})`

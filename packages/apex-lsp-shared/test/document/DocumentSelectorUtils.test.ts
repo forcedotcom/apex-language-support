@@ -16,6 +16,7 @@ import {
   DEFAULT_SCHEMES_FOR_MOST,
   DEFAULT_SCHEMES_FOR_CODELENS,
   DEFAULT_LANGUAGES,
+  ORG_CATALOG_APEX_DOCUMENT_SELECTORS,
 } from '../../src/document/DocumentSelectorUtils';
 import type { ApexLanguageServerSettings } from '../../src/server/ApexLanguageServerSettings';
 import { getLogger } from '../../src/logger';
@@ -29,6 +30,7 @@ describe('DocumentSelectorUtils', () => {
       expect(schemes).toContain('vscode-test-web');
       expect(schemes).toContain('memfs');
       expect(schemes).toContain('reefs');
+      expect(schemes).toContain('sf-org-metadata');
     });
   });
 
@@ -64,7 +66,8 @@ describe('DocumentSelectorUtils', () => {
     it('should return default selectors for most capabilities', () => {
       const selectors = getDocumentSelectorsForCapability('documentSymbol');
       expect(selectors.length).toBe(
-        DEFAULT_SCHEMES_FOR_MOST.length * DEFAULT_LANGUAGES.length,
+        DEFAULT_SCHEMES_FOR_MOST.length * DEFAULT_LANGUAGES.length +
+          ORG_CATALOG_APEX_DOCUMENT_SELECTORS.length,
       );
       expect(selectors).toContainEqual({ scheme: 'file', language: 'apex' });
       expect(selectors).toContainEqual({
@@ -81,6 +84,26 @@ describe('DocumentSelectorUtils', () => {
         scheme: 'apexlib',
         language: 'apex',
       });
+    });
+
+    it('routes only Org Catalog Apex source artifacts to interactive features', () => {
+      const selectors = getDocumentSelectorsForCapability('codeLens');
+
+      expect(selectors).toEqual(
+        expect.arrayContaining([...ORG_CATALOG_APEX_DOCUMENT_SELECTORS]),
+      );
+      expect(selectors).not.toContainEqual({
+        scheme: 'sf-org-metadata',
+        language: 'apex',
+      });
+    });
+
+    it('excludes Org Catalog artifacts from diagnostics', () => {
+      const selectors = getDocumentSelectorsForCapability('diagnostic');
+
+      expect(selectors).not.toContainEqual(
+        expect.objectContaining({ scheme: 'sf-org-metadata' }),
+      );
     });
 
     it('should add additional schemes when provided', () => {
@@ -199,7 +222,8 @@ describe('DocumentSelectorUtils', () => {
     it('should return default selectors when settings are undefined', () => {
       const selectors = getDocumentSelectorsFromSettings('documentSymbol');
       expect(selectors.length).toBe(
-        DEFAULT_SCHEMES_FOR_MOST.length * DEFAULT_LANGUAGES.length,
+        DEFAULT_SCHEMES_FOR_MOST.length * DEFAULT_LANGUAGES.length +
+          ORG_CATALOG_APEX_DOCUMENT_SELECTORS.length,
       );
     });
 

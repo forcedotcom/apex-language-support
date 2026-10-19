@@ -6,7 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { DocumentSelector } from 'vscode-languageserver-protocol';
+import type {
+  DocumentFilter,
+  DocumentSelector,
+} from 'vscode-languageserver-protocol';
 import type { ApexLanguageServerSettings } from '../server/ApexLanguageServerSettings';
 import { getLogger } from '../logger';
 
@@ -124,11 +127,31 @@ export const DEFAULT_SCHEMES_FOR_CODELENS: readonly string[] =
   DEFAULT_SCHEMES_FOR_MOST.filter((scheme) => scheme !== 'apexlib');
 
 /**
+ * Virtual Org Catalog Apex sources supplied by the services extension. These
+ * filters intentionally include only source artifacts: Org Catalog also owns
+ * non-Apex metadata under this scheme, which must not be synchronized to LS.
+ */
+export const ORG_CATALOG_APEX_DOCUMENT_SELECTORS: readonly DocumentFilter[] = [
+  {
+    scheme: 'sf-org-metadata',
+    language: 'apex',
+    pattern: '**/*.cls',
+  },
+  {
+    scheme: 'sf-org-metadata',
+    language: 'apex',
+    pattern: '**/*.trigger',
+  },
+] as const;
+
+const ORG_CATALOG_APEX_SCHEME = 'sf-org-metadata';
+
+/**
  * Get the built-in scheme names required by one or more default capability
  * selectors. Configuration cannot add or exclude these schemes.
  */
 export function getAllRequiredDefaultSchemes(): readonly string[] {
-  return DEFAULT_SCHEMES_FOR_MOST;
+  return [...DEFAULT_SCHEMES_FOR_MOST, ORG_CATALOG_APEX_SCHEME];
 }
 
 /** @deprecated Use {@link getAllRequiredDefaultSchemes}. */
@@ -230,6 +253,14 @@ function buildDocumentSelectors(
   return selectors;
 }
 
+function getWellKnownArtifactSelectors(
+  capability: LSPCapability,
+): readonly DocumentFilter[] {
+  // Org Catalog source is remote metadata, so diagnostics should remain scoped
+  // to workspace files while interactive language features still work.
+  return capability === 'diagnostic' ? [] : ORG_CATALOG_APEX_DOCUMENT_SELECTORS;
+}
+
 /**
  * Get document selectors for a specific capability with optional additional schemes
  * @param capability The LSP capability name
@@ -295,8 +326,10 @@ export function getDocumentSelectorsForCapability(
     }
   }
 
-  // Build and return document selectors
-  return buildDocumentSelectors(Array.from(allSchemes), DEFAULT_LANGUAGES);
+  return [
+    ...buildDocumentSelectors(Array.from(allSchemes), DEFAULT_LANGUAGES),
+    ...getWellKnownArtifactSelectors(capability),
+  ];
 }
 
 /**

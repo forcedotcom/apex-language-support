@@ -614,6 +614,21 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
       getSettingsManager: vi.fn().mockReturnValue({}),
       getCapabilitiesManager: vi.fn().mockReturnValue({
         getMode: vi.fn().mockReturnValue('production'),
+        getFeatureStates: vi.fn().mockReturnValue({
+          completion: { supported: true, enabled: true },
+          definition: { supported: true, enabled: true },
+          diagnostic: { supported: true, enabled: true },
+          documentSymbol: { supported: true, enabled: true },
+          foldingRange: { supported: true, enabled: true },
+          hover: { supported: true, enabled: true },
+          implementation: { supported: true, enabled: true },
+          codeAction: { supported: true, enabled: true },
+          codeLens: { supported: true, enabled: true },
+          references: { supported: true, enabled: true },
+          rename: { supported: true, enabled: true },
+          semanticTokens: { supported: false, enabled: false },
+          inlayHint: { supported: false, enabled: false },
+        }),
       }),
       getRuntimePlatform: vi.fn().mockReturnValue('desktop'),
       getSettings: vi.fn().mockReturnValue({

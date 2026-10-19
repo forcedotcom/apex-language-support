@@ -286,18 +286,51 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
       const containingType =
         await this.symbolManager.getContainingType(methodSymbol);
       if (containingType) {
-        return `${containingType.name}.${methodSymbol.name}`;
+        return getQualifiedTestMethodName(containingType, methodSymbol.name);
       }
 
-      // If we can't find the parent, just return the method name
-      // This might not work for the extension, but it's better than nothing
+      // Worker symbol tables can omit parent links during incremental loading.
+      // Recover the innermost class whose source range contains the method.
+      const containingClasses = (
+        await this.symbolManager.findSymbolsInFile(methodSymbol.fileUri)
+      )
+        .filter(isClassSymbol)
+        .filter(
+          (symbol) =>
+            symbol.location.symbolRange.startLine <=
+              methodSymbol.location.symbolRange.startLine &&
+            symbol.location.symbolRange.endLine >=
+              methodSymbol.location.symbolRange.endLine,
+        );
+      const containingClass = [...containingClasses].sort(
+        (left, right) =>
+          right.location.symbolRange.startLine -
+          left.location.symbolRange.startLine,
+      )[0];
+      if (containingClass) {
+        return getQualifiedTestMethodName(containingClass, methodSymbol.name);
+      }
+
       this.logger.warn(
         () => `Could not find parent class for method ${methodSymbol.name}`,
       );
-      return methodSymbol.name;
+      return null;
     } catch (error) {
       this.logger.error(() => `Error getting qualified method name: ${error}`);
       return null;
     }
   }
 }
+
+const getQualifiedTestMethodName = (
+  containingType: ApexSymbol,
+  methodName: string,
+): string => {
+  const namespace =
+    typeof containingType.namespace === 'string'
+      ? containingType.namespace
+      : containingType.namespace?.toString();
+  return [namespace, containingType.name, methodName]
+    .filter((part): part is string => !!part)
+    .join('.');
+};

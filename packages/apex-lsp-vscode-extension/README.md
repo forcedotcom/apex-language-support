@@ -315,7 +315,11 @@ Set Node.js heap size for large workspaces. Example: `4` for 4GB.
 **Type**: `Array<{ scheme: string, excludeCapabilities?: string[] }>`  
 **Default**: `[]`
 
-Add custom URI schemes for language server support beyond default schemes (`file`, `apexlib`, `vscode-test-web`).
+Add custom URI schemes for language server support beyond the required default
+schemes (`file`, `apexlib`, `vscode-test-web`, `memfs`, `reefs`, and
+`sf-org-metadata`). `sf-org-metadata` is reserved for Org Catalog Apex source
+artifacts and is always included; it cannot be added, removed, or excluded
+through this setting.
 
 **Example**:
 

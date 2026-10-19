@@ -133,6 +133,35 @@ describe('ApexCapabilitiesManager', () => {
     });
   });
 
+  describe('Feature States', () => {
+    it('distinguishes supported features from desktop production enabled features', () => {
+      manager.setPlatform('desktop');
+      manager.setMode('production');
+
+      const states = manager.getFeatureStates();
+
+      expect(states.hover).toEqual({ supported: true, enabled: false });
+      expect(states.documentSymbol).toEqual({
+        supported: true,
+        enabled: true,
+      });
+      expect(states.semanticTokens).toEqual({
+        supported: false,
+        enabled: false,
+      });
+    });
+
+    it('reports web production enabled features', () => {
+      manager.setPlatform('web');
+      manager.setMode('production');
+
+      expect(manager.getFeatureStates().codeLens).toEqual({
+        supported: true,
+        enabled: true,
+      });
+    });
+  });
+
   describe('TDX26 Diagnostics Matrix', () => {
     it('should disable diagnostics for production/web', () => {
       const caps = manager.getCapabilitiesForModeAndPlatform(

@@ -16,20 +16,12 @@ import {
   type ExceptionBreakpointInfo,
   type FindMissingArtifactParams,
   type FindMissingArtifactResult,
-  type GraphDataParams,
-  type GraphDataResult,
   type InitializeParams,
   type InitializeResult,
   type LineBreakpointInfo,
   type PingResponse,
   type ProcessWorkspaceBatchesParams,
   type ProcessWorkspaceBatchesResult,
-  type ProfilingStartParams,
-  type ProfilingStartResult,
-  type ProfilingStatusParams,
-  type ProfilingStatusResult,
-  type ProfilingStopParams,
-  type ProfilingStopResult,
   type QueueStateChangedParams,
   type QueueStateParams,
   type QueueStateResult,
@@ -40,6 +32,11 @@ import {
   type WorkspaceLoadCompleteParams,
   type WorkspaceLoadFailedParams,
 } from '@salesforce/apex-lsp-shared';
+import {
+  getServerFeatureState,
+  type ApexServerFeatureState,
+  type ApexServerFeatureStates,
+} from './serverFeatureState';
 import type { RpcConnection } from './rpcConnection';
 import type { ApexClientMiddleware } from './apexClientMiddleware';
 import {
@@ -119,6 +116,10 @@ interface CoreHandle {
   readonly ping: () => Promise<PingResponse>;
   readonly isDisposed: () => boolean;
   readonly dispose: () => Promise<void>;
+  readonly getFeatureState: (feature: string) => ApexServerFeatureState;
+  readonly setFeatureStatesFromInitializeResult: (
+    result: InitializeResult | undefined,
+  ) => void;
 
   // --- Typed debugger command senders ---
   readonly getLineBreakpointInfo: (
@@ -138,16 +139,6 @@ interface CoreHandle {
   readonly workspaceLoadComplete: (params: WorkspaceLoadCompleteParams) => void;
   readonly workspaceLoadFailed: (params: WorkspaceLoadFailedParams) => void;
   readonly queueState: (params: QueueStateParams) => Promise<QueueStateResult>;
-  readonly graphData: (params: GraphDataParams) => Promise<GraphDataResult>;
-  readonly profilingStart: (
-    params: ProfilingStartParams,
-  ) => Promise<ProfilingStartResult>;
-  readonly profilingStop: (
-    params: ProfilingStopParams,
-  ) => Promise<ProfilingStopResult>;
-  readonly profilingStatus: (
-    params: ProfilingStatusParams,
-  ) => Promise<ProfilingStatusResult>;
 
   // --- Typed apex/* handler registrations (4 serverToClient) ---
   readonly onFindMissingArtifact: (
@@ -321,26 +312,6 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
     runtime,
   });
 
-  // Register LSP log notification handlers so they flow through middleware.
-  // Default no-op handlers allow middleware to capture without requiring user
-  // registration. These are the standard LSP logging notifications that servers
-  // send to clients; both must be registered for test suites to capture them.
-  const windowLogDisposable = _registerIncomingNotification(
-    'window/logMessage',
-    () => {
-      /* no-op: middleware captures if installed */
-    },
-  );
-  yield* Ref.update(cleanupRef, (ds) => [...ds, windowLogDisposable]);
-
-  const dollarLogDisposable = _registerIncomingNotification(
-    '$/logMessage',
-    () => {
-      /* no-op: middleware captures if installed */
-    },
-  );
-  yield* Ref.update(cleanupRef, (ds) => [...ds, dollarLogDisposable]);
-
   // Register handler/middleware cleanup LAST so LIFO runs it FIRST (before the
   // transport is torn down).
   yield* Effect.addFinalizer(() =>
@@ -373,6 +344,9 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
   // later callers see the memoized result.
   const initResultRef = yield* Ref.make<Option.Option<InitializeResult>>(
     Option.none(),
+  );
+  const featureStatesRef = yield* Ref.make<ApexServerFeatureStates | undefined>(
+    undefined,
   );
   const initMutex = yield* Effect.makeSemaphore(1);
 
@@ -426,6 +400,14 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
           // Record success only — failures above never reach here, so they are
           // not memoized and a later call can retry.
           yield* Ref.set(initResultRef, Option.some(result));
+          const featureStates = (
+            result.capabilities.experimental as
+              | {
+                  featureStateProvider?: ApexServerFeatureStates;
+                }
+              | undefined
+          )?.featureStateProvider;
+          yield* Ref.set(featureStatesRef, featureStates);
           return result;
         }),
       )
@@ -440,6 +422,25 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
         Effect.zipRight(runInitialize(settings, params)),
       ),
     );
+
+  const getFeatureState = (feature: string): ApexServerFeatureState =>
+    getServerFeatureState(
+      Runtime.runSync(runtime)(Ref.get(featureStatesRef)),
+      feature,
+    );
+
+  const setFeatureStatesFromInitializeResult = (
+    result: InitializeResult | undefined,
+  ): void => {
+    const featureStates = (
+      result?.capabilities.experimental as
+        | {
+            featureStateProvider?: ApexServerFeatureStates;
+          }
+        | undefined
+    )?.featureStateProvider;
+    Runtime.runSync(runtime)(Ref.set(featureStatesRef, featureStates));
+  };
 
   // Idempotent shutdown: shutdown request then exit notification, sequentially.
   // Memoizes success only (same rationale as initialize) and serializes via a
@@ -542,6 +543,8 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
     request,
     notify,
     ping,
+    getFeatureState,
+    setFeatureStatesFromInitializeResult,
     getLineBreakpointInfo,
     getExceptionBreakpointInfo,
     isDisposed,
@@ -634,6 +637,9 @@ export class ApexClientCore implements ApexClient {
       ping: built.ping,
       isDisposed: built.isDisposed,
       dispose: closeScope,
+      getFeatureState: built.getFeatureState,
+      setFeatureStatesFromInitializeResult:
+        built.setFeatureStatesFromInitializeResult,
       getLineBreakpointInfo: built.getLineBreakpointInfo,
       getExceptionBreakpointInfo: built.getExceptionBreakpointInfo,
       // Typed apex/* senders
@@ -642,10 +648,6 @@ export class ApexClientCore implements ApexClient {
       workspaceLoadComplete: built.apexSurface.workspaceLoadComplete,
       workspaceLoadFailed: built.apexSurface.workspaceLoadFailed,
       queueState: built.apexSurface.queueState,
-      graphData: built.apexSurface.graphData,
-      profilingStart: built.apexSurface.profilingStart,
-      profilingStop: built.apexSurface.profilingStop,
-      profilingStatus: built.apexSurface.profilingStatus,
       // Typed apex/* handler registrations
       onFindMissingArtifact: built.apexSurface.onFindMissingArtifact,
       onRequestWorkspaceLoad: built.apexSurface.onRequestWorkspaceLoad,
@@ -673,6 +675,25 @@ export class ApexClientCore implements ApexClient {
     params?: ApexClientInitializeParams,
   ): Promise<InitializeResult> {
     return this.handle.initialize(settings, params);
+  }
+
+  /**
+   * Return server-declared support and current enabled state for `feature`.
+   * Unknown names and calls before initialize return `{ supported: false,
+   * enabled: false }`.
+   */
+  getFeatureState(feature: string): ApexServerFeatureState {
+    return this.handle.getFeatureState(feature);
+  }
+
+  /**
+   * Record feature states from an initialization handshake owned by an embedded
+   * host such as `vscode-languageclient`, without sending another handshake.
+   */
+  setFeatureStatesFromInitializeResult(
+    result: InitializeResult | undefined,
+  ): void {
+    this.handle.setFeatureStatesFromInitializeResult(result);
   }
 
   /**
@@ -810,36 +831,6 @@ export class ApexClientCore implements ApexClient {
    */
   queueState(params: QueueStateParams): Promise<QueueStateResult> {
     return this.handle.queueState(params);
-  }
-
-  /**
-   * Send `apex/graphData` through the middleware chain.
-   */
-  graphData(params: GraphDataParams): Promise<GraphDataResult> {
-    return this.handle.graphData(params);
-  }
-
-  /**
-   * Send `apex/profiling/start` through the middleware chain.
-   */
-  profilingStart(params: ProfilingStartParams): Promise<ProfilingStartResult> {
-    return this.handle.profilingStart(params);
-  }
-
-  /**
-   * Send `apex/profiling/stop` through the middleware chain.
-   */
-  profilingStop(params: ProfilingStopParams): Promise<ProfilingStopResult> {
-    return this.handle.profilingStop(params);
-  }
-
-  /**
-   * Send `apex/profiling/status` through the middleware chain.
-   */
-  profilingStatus(
-    params: ProfilingStatusParams,
-  ): Promise<ProfilingStatusResult> {
-    return this.handle.profilingStatus(params);
   }
 
   // --- Typed apex/* handler registrations (4 serverToClient) ---

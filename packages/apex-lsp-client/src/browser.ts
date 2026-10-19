@@ -27,6 +27,10 @@ export type {
   ApexClientInitializeParams,
 } from './apexClientCore';
 export type { ApexClient } from './apexClient';
+export type {
+  ApexServerFeatureState,
+  ApexServerFeatureStates,
+} from './serverFeatureState';
 export {
   CODE_LENS_ACTIONS,
   createCodeLensCallbackRegistry,

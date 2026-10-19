@@ -152,6 +152,13 @@ To modify or extend the testbed:
 2. Run `npm run build` to compile the changes
 3. Test with `npm run start:demo` or `npm run start:jorje`
 
+### Test Commands
+
+- `npm test` runs the standard test suite.
+- `npm run test:integration` runs integration tests.
+- `npm run test:accuracy` runs semantic-accuracy tests separately from the
+  integration suite.
+
 ## Java Debugging
 
 To debug the Java-based language server (jorje), you can use the `--suspend` flag or the convenience scripts with `debug` suffix:

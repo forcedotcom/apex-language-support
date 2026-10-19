@@ -97,15 +97,26 @@ describe('createClientState', () => {
     connectionConstructor.mockReset();
   });
 
-  it('constructs the core before starting the raw language client without a second handshake', async () => {
+  it('hydrates the core feature states from the raw client initialization result', async () => {
     const events: string[] = [];
     const rawClient = {
       start: vi.fn(async () => {
         events.push('start');
       }),
+      onDidChangeState: vi.fn(),
+      initializeResult: {
+        capabilities: {
+          experimental: {
+            featureStateProvider: {
+              codeLens: { supported: true, enabled: true },
+            },
+          },
+        },
+      },
     };
     const core = {
       initialize: vi.fn(),
+      setFeatureStatesFromInitializeResult: vi.fn(),
       shutdown: vi.fn(),
       dispose: vi.fn(),
     };
@@ -121,12 +132,63 @@ describe('createClientState', () => {
     expect(connectionConstructor).toHaveBeenCalledWith(rawClient);
     expect(events).toEqual(['core', 'handlers', 'start']);
     expect(core.initialize).not.toHaveBeenCalled();
+    expect(core.setFeatureStatesFromInitializeResult).toHaveBeenCalledWith(
+      rawClient.initializeResult,
+    );
+    expect(rawClient.onDidChangeState).toHaveBeenCalledTimes(1);
     expect(core.shutdown).not.toHaveBeenCalled();
     expect(state).toEqual({
       rawClient,
       core,
       workspaceLoadScope: expect.any(Object),
     });
+    await Effect.runPromise(Scope.close(state.workspaceLoadScope!, Exit.void));
+  });
+
+  it('refreshes feature states after the raw language client restarts', async () => {
+    let stateListener: ((event: { newState: number }) => void) | undefined;
+    const rawClient = {
+      start: vi.fn(),
+      onDidChangeState: vi.fn((listener) => {
+        stateListener = listener;
+        return { dispose: vi.fn() };
+      }),
+      initializeResult: {
+        capabilities: {
+          experimental: {
+            featureStateProvider: {
+              codeLens: { supported: true, enabled: true },
+            },
+          },
+        },
+      },
+    };
+    const core = {
+      setFeatureStatesFromInitializeResult: vi.fn(),
+      dispose: vi.fn(),
+    };
+    coreCreate.mockResolvedValue(core);
+
+    const state = await createClientState(
+      rawClient as never,
+      'desktop',
+      vi.fn(),
+    );
+    rawClient.initializeResult = {
+      capabilities: {
+        experimental: {
+          featureStateProvider: {
+            codeLens: { supported: true, enabled: false },
+          },
+        },
+      },
+    };
+    stateListener!({ newState: 3 });
+
+    expect(core.setFeatureStatesFromInitializeResult).toHaveBeenLastCalledWith(
+      rawClient.initializeResult,
+    );
+    state.featureStateListener?.dispose();
     await Effect.runPromise(Scope.close(state.workspaceLoadScope!, Exit.void));
   });
 

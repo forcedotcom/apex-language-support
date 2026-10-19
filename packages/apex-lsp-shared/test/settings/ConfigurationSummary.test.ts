@@ -129,6 +129,9 @@ describe('ConfigurationSummary', () => {
         'Queue Concurrency: CRITICAL=99, HIGH=50, NORMAL=25',
       );
       expect(summary).toContain('Missing Artifact Finder: enabled');
+      expect(summary).toContain(
+        'Document schemes: file, apexlib, vscode-test-web, memfs, reefs, sf-org-metadata',
+      );
       expect(summary).toContain('Max Comment File Size: 100KB');
       expect(summary).toContain('Document Change Debounce: 300ms');
     });

@@ -11,6 +11,7 @@ import { vi } from 'vitest';
 
 import * as vscode from 'vscode';
 import {
+  createApexLanguageStatusActions,
   createApexServerStatusItem,
   updateApexServerStatusStarting,
   updateApexServerStatusReady,
@@ -97,5 +98,78 @@ describe('Apex Server Status LanguageStatusItem', () => {
     expect(mockStatusItem.detail).toContain('error');
     expect(mockStatusItem.severity).toBe(vscode.LanguageStatusSeverity.Error);
     expect(mockStatusItem.busy).toBe(false);
+  });
+});
+
+describe('Apex log level LanguageStatusItems', () => {
+  let mockContext: vscode.ExtensionContext;
+  let mockLogLevelItems: any[];
+  let createdLogLevelItems: any[];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockLogLevelItems = Array.from({ length: 4 }, () => ({
+      name: '',
+      text: '',
+      detail: '',
+      severity: vscode.LanguageStatusSeverity.Information,
+      command: undefined,
+      dispose: vi.fn(),
+    }));
+    createdLogLevelItems = [...mockLogLevelItems];
+    vi.spyOn(vscode.languages, 'createLanguageStatusItem').mockImplementation(
+      () => mockLogLevelItems.shift()!,
+    );
+    mockContext = { subscriptions: [] } as unknown as vscode.ExtensionContext;
+  });
+
+  it('creates log level actions for every Apex document scheme', () => {
+    createApexLanguageStatusActions(
+      mockContext,
+      () => 'error',
+      vi.fn().mockResolvedValue(undefined),
+      vi.fn().mockResolvedValue(undefined),
+    );
+
+    expect(vscode.languages.createLanguageStatusItem).toHaveBeenNthCalledWith(
+      1,
+      'ApexLSTSLSPLogLevel1Debug',
+      { language: 'apex' },
+    );
+    expect(vscode.languages.createLanguageStatusItem).toHaveBeenNthCalledWith(
+      2,
+      'ApexLSTSLSPLogLevel2Info',
+      { language: 'apex' },
+    );
+    expect(vscode.languages.createLanguageStatusItem).toHaveBeenNthCalledWith(
+      3,
+      'ApexLSTSLSPLogLevel3Warning',
+      { language: 'apex' },
+    );
+    expect(vscode.languages.createLanguageStatusItem).toHaveBeenNthCalledWith(
+      4,
+      'ApexLSTSLSPLogLevel4Error',
+      { language: 'apex' },
+    );
+    expect(createdLogLevelItems.map((item) => item.command)).toEqual([
+      {
+        title: 'SFDX: Set Apex-LS-TS Log Level: Debug',
+        command: 'apex-ls-ts.setLogLevel.debug',
+      },
+      {
+        title: 'SFDX: Set Apex-LS-TS Log Level: Info',
+        command: 'apex-ls-ts.setLogLevel.info',
+      },
+      {
+        title: 'SFDX: Set Apex-LS-TS Log Level: Warning',
+        command: 'apex-ls-ts.setLogLevel.warning',
+      },
+      {
+        title: 'SFDX: Set Apex-LS-TS Log Level: Error',
+        command: 'apex-ls-ts.setLogLevel.error',
+      },
+    ]);
+    expect(mockContext.subscriptions).toEqual(createdLogLevelItems);
+    expect(mockLogLevelItems).toHaveLength(0);
   });
 });

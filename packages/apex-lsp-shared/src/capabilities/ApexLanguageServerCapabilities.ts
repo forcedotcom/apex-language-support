@@ -69,7 +69,7 @@ export const DESKTOP_DISABLED_CAPABILITIES: ReadonlySet<CapabilityPath> =
 /**
  * Configuration for different server modes
  */
-export interface CapabilitiesConfiguration {
+export type CapabilitiesConfiguration = {
   /** Production mode capabilities for web environments */
   production: ExtendedServerCapabilities;
 
@@ -78,13 +78,13 @@ export interface CapabilitiesConfiguration {
 
   /** Development mode capabilities - full feature set */
   development: ExtendedServerCapabilities;
-}
+};
 
-export interface ImplicitCapabilties {
+export type ImplicitCapabilties = {
   publishDiagnostics: boolean;
-}
+};
 
-export interface FindMissingArtifactCapability {
+export type FindMissingArtifactCapability = {
   /** Whether the server/client supports finding missing artifacts */
   enabled: boolean;
   /** Supported resolution modes */
@@ -93,18 +93,23 @@ export interface FindMissingArtifactCapability {
   maxCandidatesToOpen?: number;
   /** Default timeout hint in milliseconds */
   timeoutMsHint?: number;
-}
+};
 
 /**
  * Profiling capability configuration.
  * Profiling is only available in desktop environments (requires Node.js inspector API).
  */
-export interface ProfilingCapability {
+export type ProfilingCapability = {
   /** Whether profiling handlers should be registered */
   enabled: boolean;
-}
+};
 
-export interface ExperimentalCapabilities {
+export type ExperimentalCapabilities = {
+  /** Normalized support and enabled state for Apex language features. */
+  featureStateProvider?: Record<
+    string,
+    { readonly supported: boolean; readonly enabled: boolean }
+  >;
   /** Missing artifact resolution capability */
   findMissingArtifactProvider?: FindMissingArtifactCapability;
   /**
@@ -118,19 +123,19 @@ export interface ExperimentalCapabilities {
   requestWorkspaceLoadProvider?: { enabled: boolean };
   /** Client supports apex/queueStateChanged notifications (development mode only) */
   queueStateProvider?: { enabled: boolean };
-}
+};
 
 /**
  * Configuration for client capabilities in different server modes
  * Mirrors CapabilitiesConfiguration structure for the client side
  */
-export interface ClientCapabilitiesConfiguration {
+export type ClientCapabilitiesConfiguration = {
   /** Production mode client capabilities */
   production: ClientCapabilities;
 
   /** Development mode client capabilities */
   development: ClientCapabilities;
-}
+};
 
 /**
  * Production capabilities for desktop environments.

@@ -16,14 +16,13 @@ import type { HeadlessClientResult } from '../../src/hosts/headlessHost';
 /**
  * Integration test for apex/* methods against the real Node language server.
  *
- * Tests the full round-trip of all apex/* typed senders and handlers, including:
+ * Tests the full round-trip of public typed apex/* senders and handlers, plus
+ * extension-private protocol operations through the generic request boundary.
  * - apex/sendWorkspaceBatch
  * - apex/processWorkspaceBatches
  * - apex/workspaceLoadComplete
  * - apex/workspaceLoadFailed
  * - apex/queueState
- * - apex/graphData
- * - apex/profiling/*
  * - apex/findMissingArtifact (handler)
  *
  * Gated: requires `RUN_INTEGRATION=1` AND the server binary must exist.
@@ -149,37 +148,38 @@ describeIntegration('apex/* methods real-server integration', () => {
     });
   });
 
-  describe('queue and graph operations', () => {
+  describe('queue operations', () => {
     it('queueState round-trip', async () => {
       expect(result).toBeDefined();
 
       await expectRoundTrip(() => result!.core.queueState({}));
     }, 30000);
-
-    it('graphData round-trip', async () => {
-      expect(result).toBeDefined();
-
-      await expectRoundTrip(() => result!.core.graphData({ type: 'all' }));
-    }, 30000);
   });
 
-  describe('profiling operations', () => {
-    it('profilingStart round-trip', async () => {
+  describe('extension-private operations', () => {
+    it('graphData round-trips through the generic request boundary', async () => {
       expect(result).toBeDefined();
 
-      await expectRoundTrip(() => result!.core.profilingStart({}), 'success');
+      await expectRoundTrip(() =>
+        result!.core.request('apex/graphData', { type: 'all' }),
+      );
     }, 30000);
 
-    it('profilingStop round-trip', async () => {
+    it('profiling operations round-trip through the generic request boundary', async () => {
       expect(result).toBeDefined();
 
-      await expectRoundTrip(() => result!.core.profilingStop({}), 'success');
-    }, 30000);
-
-    it('profilingStatus round-trip', async () => {
-      expect(result).toBeDefined();
-
-      await expectRoundTrip(() => result!.core.profilingStatus({}), 'enabled');
+      await expectRoundTrip(
+        () => result!.core.request('apex/profiling/start', {}),
+        'success',
+      );
+      await expectRoundTrip(
+        () => result!.core.request('apex/profiling/stop', {}),
+        'success',
+      );
+      await expectRoundTrip(
+        () => result!.core.request('apex/profiling/status', {}),
+        'enabled',
+      );
     }, 30000);
   });
 
