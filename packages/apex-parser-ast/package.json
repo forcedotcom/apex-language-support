@@ -129,7 +129,7 @@
       ]
     },
     "test": {
-      "command": "vitest run --reporter=json --outputFile=.wireit/test-results.json",
+      "command": "vitest run --reporter=json --reporter=tree --outputFile=.wireit/test-results.json",
       "dependencies": [
         "compile"
       ],
