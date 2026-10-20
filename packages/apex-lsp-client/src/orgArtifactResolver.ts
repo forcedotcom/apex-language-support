@@ -6,13 +6,14 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type {
-  FindMissingArtifactParams,
-  FindMissingArtifactResult,
-  MissingArtifactIdentifierType,
-  MissingArtifactPayload,
-  SObjectDescribe,
-  WireIdentifierSpec,
+import {
+  workspaceIdentifierKey,
+  type FindMissingArtifactParams,
+  type FindMissingArtifactResult,
+  type MissingArtifactIdentifierType,
+  type MissingArtifactPayload,
+  type SObjectDescribe,
+  type WireIdentifierSpec,
 } from '@salesforce/apex-lsp-shared';
 
 export type OrgArtifactRequest =
@@ -176,10 +177,6 @@ function dedupeByTypedIdentifier(
   return Array.from(byName.values());
 }
 
-function workspaceIdentifierKey(identifier: WireIdentifierSpec): string {
-  return `${identifierType(identifier)}:${identifier.name.trim().toLowerCase()}`;
-}
-
 async function resolveFromWorkspace(
   params: FindMissingArtifactParams,
   identifiers: readonly WireIdentifierSpec[],
@@ -203,6 +200,9 @@ async function resolveFromWorkspace(
     const resolution = resolutions.get(workspaceIdentifierKey(identifier));
     if (resolution?.kind === 'sobject') {
       artifacts.push(resolution.artifact);
+      continue;
+    }
+    if (resolution?.kind === 'source' && opened.has(resolution.uri)) {
       continue;
     }
     if (
@@ -229,15 +229,28 @@ async function resolveFromOrg(
 }> {
   const artifacts: MissingArtifactPayload[] = [];
   const opened: string[] = [];
-  for (const identifier of identifiers) {
-    const generation = provider.generation();
-    const request: OrgArtifactRequest = {
-      kind: identifierType(identifier),
-      name: identifier.name,
-      generation,
-    };
-    const startedAt = Date.now();
-    const result = await provider.searchOrg(request);
+  const results = await Promise.allSettled(
+    identifiers.map(async (identifier) => {
+      const generation = provider.generation();
+      const request: OrgArtifactRequest = {
+        kind: identifierType(identifier),
+        name: identifier.name,
+        generation,
+      };
+      return {
+        generation,
+        request,
+        startedAt: Date.now(),
+        result: await provider.searchOrg(request),
+      };
+    }),
+  );
+  for (const settled of results) {
+    if (settled.status === 'rejected') {
+      provider.onError?.(settled.reason);
+      continue;
+    }
+    const { generation, request, startedAt, result } = settled.value;
     if (result.kind === 'sobject-describe') {
       const adapted = provider.adaptSObject(result.describe, generation);
       if (adapted.status === 'ok') {

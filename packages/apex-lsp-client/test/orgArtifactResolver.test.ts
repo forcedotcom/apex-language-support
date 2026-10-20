@@ -130,6 +130,86 @@ describe('org artifact resolver', () => {
     );
   });
 
+  it('opens a workspace source URI once when multiple identifiers resolve to it', async () => {
+    const openDocument = vi.fn(async () => true);
+    const searchOrg = vi.fn();
+    const result = await resolveMissingArtifacts(
+      params([
+        identifier('One', 'apex-class'),
+        identifier('Two', 'apex-class'),
+      ]),
+      provider({
+        openDocument,
+        searchOrg,
+        resolveWorkspace: async () =>
+          new Map([
+            ['apex-class:one', { kind: 'source', uri: 'file:///Shared.cls' }],
+            ['apex-class:two', { kind: 'source', uri: 'file:///Shared.cls' }],
+          ]),
+      }),
+    );
+
+    expect(result).toEqual({ opened: ['file:///Shared.cls'] });
+    expect(openDocument).toHaveBeenCalledTimes(1);
+    expect(searchOrg).not.toHaveBeenCalled();
+  });
+
+  it('starts independent org searches before earlier searches finish', async () => {
+    let releaseFirst: (() => void) | undefined;
+    const firstSearch = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const searchOrg = vi.fn(async (request: { name: string; kind: string }) => {
+      if (request.name === 'First') await firstSearch;
+      return {
+        kind: 'not-found' as const,
+        artifactKind: request.kind,
+        name: request.name,
+      };
+    });
+
+    const resolving = resolveMissingArtifacts(
+      params([
+        identifier('First', 'apex-class'),
+        identifier('Second', 'apex-class'),
+      ]),
+      provider({ searchOrg }),
+    );
+
+    await vi.waitFor(() => expect(searchOrg).toHaveBeenCalledTimes(2));
+    releaseFirst?.();
+    await resolving;
+  });
+
+  it('continues resolving successful org searches when another search rejects', async () => {
+    const openDocument = vi.fn(async () => true);
+    const result = await resolveMissingArtifacts(
+      params([
+        identifier('Rejected', 'apex-class'),
+        identifier('Resolved', 'apex-class'),
+      ]),
+      provider({
+        openDocument,
+        searchOrg: async (request) => {
+          if (request.name === 'Rejected') throw new Error('request failed');
+          return {
+            kind: 'apex-source',
+            id: '01p',
+            name: 'Resolved',
+            source: 'public class Resolved {}',
+          };
+        },
+        materializeSource: () => 'sf-org-metadata:///Resolved.cls',
+      }),
+    );
+
+    expect(result).toEqual({ opened: ['sf-org-metadata:///Resolved.cls'] });
+    expect(openDocument).toHaveBeenCalledWith(
+      'sf-org-metadata:///Resolved.cls',
+      'background',
+    );
+  });
+
   it('does not open stale source materialization', async () => {
     const openDocument = vi.fn(async () => true);
     const result = await resolveMissingArtifacts(

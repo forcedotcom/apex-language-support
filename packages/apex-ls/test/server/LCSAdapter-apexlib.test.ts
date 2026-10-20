@@ -63,6 +63,14 @@ vi.mock('@salesforce/apex-lsp-shared', () => ({
     type: 'startup_snapshot',
     sessionId: 'mock-session',
   }),
+  CODE_LENS_SERVER_COMMANDS: {
+    executeAnonymous: 'sf.anon.apex.run.delegate',
+    debugAnonymous: 'sf.anon.apex.debug.delegate',
+    runTestClass: 'sf.apex.test.class.run.delegate',
+    debugTestClass: 'sf.apex.debug.class.run.delegate',
+    runTestMethod: 'sf.apex.test.method.run.delegate',
+    debugTestMethod: 'sf.apex.debug.method.run.delegate',
+  },
 }));
 
 // Skip DiagnosticProcessor mock since it's not essential for this test

@@ -14,7 +14,7 @@ import type {
   WorkspaceLoadReason,
 } from '@salesforce/apex-lsp-shared';
 import type { ApexClientCore } from '@salesforce/apex-lsp-client';
-import { getDefaultDocumentSelectors } from '@salesforce/apex-lsp-shared';
+import { getDocumentSynchronizationSelectors } from '@salesforce/apex-lsp-shared';
 import type { DocumentSelector } from 'vscode-languageserver-protocol';
 import { loadWorkspaceForServer } from './workspace-loader';
 
@@ -91,7 +91,7 @@ export const resetWorkspaceState = (state: WorkspaceState) =>
 export const resetSharedWorkspaceState = resetWorkspaceState(sharedState);
 
 const validateDocumentSelector = Effect.succeed(
-  getDefaultDocumentSelectors('all'),
+  getDocumentSynchronizationSelectors(),
 );
 
 // Loader

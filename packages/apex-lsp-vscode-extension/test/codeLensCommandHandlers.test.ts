@@ -86,8 +86,8 @@ describe('CodeLens command handlers', () => {
 
     await registry.dispatch('runTestClass', ['ExampleTest']);
 
-    expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
-      'runTestClass is unavailable because no providers are registered.',
+    expect(vscode.window.showWarningMessage).toHaveBeenCalledWith(
+      'The runTestClass CodeLens action is unavailable because no extension has registered a handler for it.',
     );
   });
 });

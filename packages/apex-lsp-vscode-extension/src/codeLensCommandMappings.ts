@@ -7,37 +7,38 @@
  */
 
 import { CODE_LENS_ACTIONS } from '@salesforce/apex-lsp-client/browser';
+import { CODE_LENS_SERVER_COMMANDS } from '@salesforce/apex-lsp-shared';
 import type { CodeLensAction } from '@salesforce/apex-lsp-client/browser';
 
 export const CODE_LENS_COMMAND_MAPPINGS = [
   {
     action: 'executeAnonymous',
-    serverCommand: 'sf.anon.apex.run.delegate',
+    serverCommand: CODE_LENS_SERVER_COMMANDS.executeAnonymous,
     clientCommand: 'apex-ls-ts.codelens.executeAnonymous',
   },
   {
     action: 'debugAnonymous',
-    serverCommand: 'sf.anon.apex.debug.delegate',
+    serverCommand: CODE_LENS_SERVER_COMMANDS.debugAnonymous,
     clientCommand: 'apex-ls-ts.codelens.debugAnonymous',
   },
   {
     action: 'runTestClass',
-    serverCommand: 'sf.apex.test.class.run.delegate',
+    serverCommand: CODE_LENS_SERVER_COMMANDS.runTestClass,
     clientCommand: 'apex-ls-ts.codelens.runTestClass',
   },
   {
     action: 'debugTestClass',
-    serverCommand: 'sf.apex.test.class.debug.delegate',
+    serverCommand: CODE_LENS_SERVER_COMMANDS.debugTestClass,
     clientCommand: 'apex-ls-ts.codelens.debugTestClass',
   },
   {
     action: 'runTestMethod',
-    serverCommand: 'sf.apex.test.method.run.delegate',
+    serverCommand: CODE_LENS_SERVER_COMMANDS.runTestMethod,
     clientCommand: 'apex-ls-ts.codelens.runTestMethod',
   },
   {
     action: 'debugTestMethod',
-    serverCommand: 'sf.apex.test.method.debug.delegate',
+    serverCommand: CODE_LENS_SERVER_COMMANDS.debugTestMethod,
     clientCommand: 'apex-ls-ts.codelens.debugTestMethod',
   },
 ] as const;

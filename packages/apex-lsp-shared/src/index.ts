@@ -55,6 +55,7 @@ export * from './methods/ApexCustomMethods';
 
 // Standard LSP command contracts used by Apex debugger clients.
 export * from './commands/ApexDebuggerCommands';
+export * from './commands/CodeLensCommands';
 
 // Export priority types
 export * from './types/priority';
@@ -493,6 +494,7 @@ export {
   createApexOrgArtifactUri,
   type ApexOrgArtifactKind,
 } from './utils/ApexOrgArtifactUri';
+export { workspaceIdentifierKey } from './utils/WorkspaceIdentifierKey';
 
 // Worker wire schemas — internal worker IPC contract (Option B)
 export {

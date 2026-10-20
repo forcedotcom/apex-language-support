@@ -138,29 +138,6 @@ export type ClientCapabilitiesConfiguration = {
 };
 
 /**
- * Production capabilities for desktop environments.
- * Intentionally minimal — only document symbols are released for desktop production.
- * Other features (hover, definition, etc.) require further validation before desktop release.
- */
-export const PRODUCTION_DESKTOP_CAPABILITIES: ExtendedServerCapabilities = {
-  publishDiagnostics: false,
-  textDocumentSync: {
-    openClose: true,
-    change: 1,
-    save: true,
-    willSave: false,
-    willSaveWaitUntil: false,
-  },
-  documentSymbolProvider: true,
-  workspace: {
-    workspaceFolders: {
-      supported: true,
-      changeNotifications: true,
-    },
-  },
-};
-
-/**
  * Production capabilities for web (browser) environments.
  * Exposes the full set of released language features available on the web platform.
  */
@@ -236,6 +213,29 @@ export const PRODUCTION_WEB_CAPABILITIES: ExtendedServerCapabilities = {
     },
     requestWorkspaceLoadProvider: {
       enabled: true,
+    },
+  },
+};
+
+/**
+ * Production capabilities for desktop environments.
+ * Intentionally minimal — only document symbols are released for desktop production.
+ * Other features (hover, definition, etc.) require further validation before desktop release.
+ */
+export const PRODUCTION_DESKTOP_CAPABILITIES: ExtendedServerCapabilities = {
+  publishDiagnostics: false,
+  textDocumentSync: {
+    openClose: true,
+    change: 1,
+    save: true,
+    willSave: false,
+    willSaveWaitUntil: false,
+  },
+  documentSymbolProvider: true,
+  workspace: {
+    workspaceFolders: {
+      supported: true,
+      changeNotifications: true,
     },
   },
 };

@@ -27,7 +27,7 @@ import { DEBUG_CONFIG, EXTENSION_CONSTANTS } from './constants';
 import { ServerMode } from './utils/serverUtils';
 import {
   formattedError,
-  getDocumentSelectorsFromSettings,
+  getDocumentSynchronizationSelectorsFromSettings,
   type ApexLanguageServerSettings,
 } from '@salesforce/apex-lsp-shared';
 import { getOrgArtifactSourceDocumentSelectors } from './services/org-artifact-fs';
@@ -314,8 +314,7 @@ export const createClientOptions = (
   const rawChannel = getWorkerServerOutputChannel();
   // The shared selector builder returns only text-document filters for this
   // capability, although its protocol type also permits notebook filters.
-  const baseSelectors = getDocumentSelectorsFromSettings(
-    'all',
+  const baseSelectors = getDocumentSynchronizationSelectorsFromSettings(
     initializationOptions,
   ) as TextDocumentFilter[];
   return {

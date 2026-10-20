@@ -25,8 +25,7 @@ export type LSPCapability =
   | 'definition'
   | 'implementation'
   | 'codeLens'
-  | 'executeCommand'
-  | 'all';
+  | 'executeCommand';
 
 /**
  * Valid LSP capability names for validation
@@ -41,7 +40,6 @@ const VALID_LSP_CAPABILITIES: readonly string[] = [
   'implementation',
   'codeLens',
   'executeCommand',
-  'all',
 ] as const;
 
 /**
@@ -51,7 +49,7 @@ export interface AdditionalSchemeConfig {
   /** The scheme name to add */
   scheme: string;
   /** Optional array of capabilities to exclude this scheme from */
-  excludeCapabilities?: LSPCapability[];
+  excludeCapabilities?: Array<LSPCapability | 'all'>;
 }
 
 /**
@@ -224,12 +222,6 @@ export function getDefaultSchemesForCapability(
   if (capability === 'codeLens') {
     return DEFAULT_SCHEMES_FOR_CODELENS;
   }
-  if (capability === 'all') {
-    // For 'all', return the union of all schemes
-    return [
-      ...new Set([...DEFAULT_SCHEMES_FOR_MOST, ...MUTABLE_DOCUMENT_SCHEMES]),
-    ];
-  }
   // For all other capabilities, use the default schemes
   return DEFAULT_SCHEMES_FOR_MOST;
 }
@@ -254,11 +246,11 @@ function buildDocumentSelectors(
 }
 
 function getWellKnownArtifactSelectors(
-  capability: LSPCapability,
+  includeOrgCatalogSources: boolean,
 ): readonly DocumentFilter[] {
-  // Org Catalog source is remote metadata, so diagnostics should remain scoped
-  // to workspace files while interactive language features still work.
-  return capability === 'diagnostic' ? [] : ORG_CATALOG_APEX_DOCUMENT_SELECTORS;
+  // Org Catalog source is remote metadata. Only CodeLens consumes it directly;
+  // retain it in the aggregate selector so the client synchronizes the source.
+  return includeOrgCatalogSources ? ORG_CATALOG_APEX_DOCUMENT_SELECTORS : [];
 }
 
 /**
@@ -291,8 +283,7 @@ export function getDocumentSelectorsForCapability(
           config.excludeCapabilities && config.excludeCapabilities.length > 0;
         const isTryingToExclude =
           hasExclusions &&
-          (capability === 'all' ||
-            config.excludeCapabilities?.includes(capability) ||
+          (config.excludeCapabilities?.includes(capability) ||
             config.excludeCapabilities?.includes('all'));
 
         if (isTryingToExclude) {
@@ -316,9 +307,7 @@ export function getDocumentSelectorsForCapability(
       }
 
       // Check if this scheme is excluded for this capability
-      const isExcluded =
-        capability !== 'all' &&
-        config.excludeCapabilities?.includes(capability);
+      const isExcluded = config.excludeCapabilities?.includes(capability);
 
       if (!isExcluded) {
         allSchemes.add(config.scheme);
@@ -328,7 +317,30 @@ export function getDocumentSelectorsForCapability(
 
   return [
     ...buildDocumentSelectors(Array.from(allSchemes), DEFAULT_LANGUAGES),
-    ...getWellKnownArtifactSelectors(capability),
+    ...getWellKnownArtifactSelectors(capability === 'codeLens'),
+  ];
+}
+
+/**
+ * Gets the document selectors used to synchronize workspace and Org Catalog
+ * source documents to the language server. This is transport scope, not a
+ * language-feature capability.
+ */
+export function getDocumentSynchronizationSelectors(
+  additionalSchemes?: AdditionalSchemeConfig[],
+): DocumentSelector {
+  const schemes = new Set([
+    ...DEFAULT_SCHEMES_FOR_MOST,
+    ...MUTABLE_DOCUMENT_SCHEMES,
+  ]);
+  for (const config of additionalSchemes ?? []) {
+    if (!getAllRequiredDefaultSchemes().includes(config.scheme)) {
+      schemes.add(config.scheme);
+    }
+  }
+  return [
+    ...buildDocumentSelectors(Array.from(schemes), DEFAULT_LANGUAGES),
+    ...getWellKnownArtifactSelectors(true),
   ];
 }
 
@@ -345,26 +357,36 @@ export function getDocumentSelectorsFromSettings(
   const additionalSchemesConfig =
     settings?.apex?.environment?.additionalDocumentSchemes;
 
-  // Convert settings format to utility format (string[] to LSPCapability[])
+  // Convert settings format to utility format.
   // Settings use string[] for excludeCapabilities, but we validate against LSPCapability
   const additionalSchemes: AdditionalSchemeConfig[] | undefined =
     additionalSchemesConfig?.map((config) => ({
       scheme: config.scheme,
       excludeCapabilities: config.excludeCapabilities?.filter((cap) =>
         VALID_LSP_CAPABILITIES.includes(cap),
-      ) as LSPCapability[] | undefined,
+      ) as Array<LSPCapability | 'all'> | undefined,
     }));
 
   return getDocumentSelectorsForCapability(capability, additionalSchemes);
 }
 
+/** Gets synchronization selectors with configured additional schemes. */
+export function getDocumentSynchronizationSelectorsFromSettings(
+  settings?: ApexLanguageServerSettings,
+): DocumentSelector {
+  const additionalSchemes =
+    settings?.apex?.environment?.additionalDocumentSchemes?.map((config) => ({
+      scheme: config.scheme,
+    }));
+  return getDocumentSynchronizationSelectors(additionalSchemes);
+}
+
 /**
- * Get default document selectors for a capability (without additional schemes)
- * @param capability Optional capability name (defaults to 'all')
+ * Get default document selectors for a capability (without additional schemes).
  * @returns Array of default document selectors
  */
 export function getDefaultDocumentSelectors(
-  capability: LSPCapability = 'all',
+  capability: LSPCapability,
 ): DocumentSelector {
   return getDocumentSelectorsForCapability(capability);
 }

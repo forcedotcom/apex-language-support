@@ -9,7 +9,7 @@
 import { vi } from 'vitest';
 import * as vscode from 'vscode';
 import { DidOpenTextDocumentFeature } from 'vscode-languageclient/lib/common/textSynchronization';
-import { getDocumentSelectorsForCapability } from '@salesforce/apex-lsp-shared';
+import { getDocumentSynchronizationSelectors } from '@salesforce/apex-lsp-shared';
 import { getOrgArtifactSourceDocumentSelectors } from '../src/services/org-artifact-fs';
 
 describe('org artifact language-client synchronization', () => {
@@ -128,7 +128,7 @@ describe('org artifact language-client synchronization', () => {
       {
         resolvedTextDocumentSync: { openClose: true },
       } as never,
-      getDocumentSelectorsForCapability('all'),
+      getDocumentSynchronizationSelectors(),
     );
 
     expect(sendNotification).toHaveBeenCalledTimes(1);

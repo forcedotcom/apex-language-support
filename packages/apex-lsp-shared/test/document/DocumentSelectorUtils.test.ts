@@ -9,6 +9,8 @@
 import {
   getDefaultSchemesForCapability,
   getDocumentSelectorsForCapability,
+  getDocumentSynchronizationSelectors,
+  getDocumentSynchronizationSelectorsFromSettings,
   getDocumentSelectorsFromSettings,
   getDefaultDocumentSelectors,
   getAllRequiredDefaultSchemes,
@@ -53,21 +55,13 @@ describe('DocumentSelectorUtils', () => {
       expect(schemes).toContain('vscode-test-web');
       expect(schemes).not.toContain('apexlib');
     });
-
-    it('should return all schemes for "all" capability', () => {
-      const schemes = getDefaultSchemesForCapability('all');
-      expect(schemes).toContain('file');
-      expect(schemes).toContain('apexlib');
-      expect(schemes).toContain('vscode-test-web');
-    });
   });
 
   describe('getDocumentSelectorsForCapability', () => {
     it('should return default selectors for most capabilities', () => {
       const selectors = getDocumentSelectorsForCapability('documentSymbol');
       expect(selectors.length).toBe(
-        DEFAULT_SCHEMES_FOR_MOST.length * DEFAULT_LANGUAGES.length +
-          ORG_CATALOG_APEX_DOCUMENT_SELECTORS.length,
+        DEFAULT_SCHEMES_FOR_MOST.length * DEFAULT_LANGUAGES.length,
       );
       expect(selectors).toContainEqual({ scheme: 'file', language: 'apex' });
       expect(selectors).toContainEqual({
@@ -86,7 +80,7 @@ describe('DocumentSelectorUtils', () => {
       });
     });
 
-    it('routes only Org Catalog Apex source artifacts to interactive features', () => {
+    it('routes only Org Catalog Apex source artifacts to CodeLens', () => {
       const selectors = getDocumentSelectorsForCapability('codeLens');
 
       expect(selectors).toEqual(
@@ -96,6 +90,14 @@ describe('DocumentSelectorUtils', () => {
         scheme: 'sf-org-metadata',
         language: 'apex',
       });
+    });
+
+    it('keeps Org Catalog sources in the synchronization selector', () => {
+      const selectors = getDocumentSynchronizationSelectors();
+
+      expect(selectors).toEqual(
+        expect.arrayContaining([...ORG_CATALOG_APEX_DOCUMENT_SELECTORS]),
+      );
     });
 
     it('excludes Org Catalog artifacts from diagnostics', () => {
@@ -165,6 +167,18 @@ describe('DocumentSelectorUtils', () => {
     });
   });
 
+  describe('getDocumentSynchronizationSelectorsFromSettings', () => {
+    it('includes all default and mutable schemes', () => {
+      const selectors = getDocumentSynchronizationSelectorsFromSettings();
+
+      expect(selectors).toContainEqual({ scheme: 'file', language: 'apex' });
+      expect(selectors).toContainEqual({
+        scheme: 'apexlib',
+        language: 'apex',
+      });
+    });
+  });
+
   describe('validateAdditionalDocumentSchemes', () => {
     it('should return valid for empty array', () => {
       const result = validateAdditionalDocumentSchemes([]);
@@ -222,8 +236,7 @@ describe('DocumentSelectorUtils', () => {
     it('should return default selectors when settings are undefined', () => {
       const selectors = getDocumentSelectorsFromSettings('documentSymbol');
       expect(selectors.length).toBe(
-        DEFAULT_SCHEMES_FOR_MOST.length * DEFAULT_LANGUAGES.length +
-          ORG_CATALOG_APEX_DOCUMENT_SELECTORS.length,
+        DEFAULT_SCHEMES_FOR_MOST.length * DEFAULT_LANGUAGES.length,
       );
     });
 
@@ -302,11 +315,6 @@ describe('DocumentSelectorUtils', () => {
   });
 
   describe('getDefaultDocumentSelectors', () => {
-    it('should return default selectors for all capabilities when no capability specified', () => {
-      const selectors = getDefaultDocumentSelectors();
-      expect(selectors.length).toBeGreaterThan(0);
-    });
-
     it('should return default selectors for specific capability', () => {
       const selectors = getDefaultDocumentSelectors('codeLens');
       expect(selectors).not.toContainEqual({

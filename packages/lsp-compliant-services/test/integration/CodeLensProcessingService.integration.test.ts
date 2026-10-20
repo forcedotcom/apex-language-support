@@ -130,6 +130,10 @@ public class ApexTestExample {
         'sf.apex.test.class.run.delegate',
       );
       expect(runAllTests?.command?.arguments).toContain('ApexTestExample');
+      expect(
+        classLenses.find((lens) => lens.command?.title === 'Debug All Tests')
+          ?.command?.command,
+      ).toBe('sf.apex.debug.class.run.delegate');
 
       // Check for method-level code lenses
       const methodLenses = result.filter(
@@ -168,6 +172,13 @@ public class ApexTestExample {
       // Apex Testing requires the fully qualified class and method name.
       const methodArg = String(runTestLens?.command?.arguments?.[0]);
       expect(methodArg).toBe('ApexTestExample.testAddition');
+      expect(
+        result.find(
+          (lens) =>
+            lens.command?.title === 'Debug Test' &&
+            lens.command.arguments?.[0] === 'ApexTestExample.testAddition',
+        )?.command?.command,
+      ).toBe('sf.apex.debug.method.run.delegate');
     });
 
     it('includes the namespace in test method CodeLens arguments', async () => {

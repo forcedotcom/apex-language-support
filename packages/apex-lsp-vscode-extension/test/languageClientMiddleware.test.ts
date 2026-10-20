@@ -22,7 +22,7 @@ const lenses = [
   },
   {
     command: {
-      command: 'sf.apex.test.class.debug.delegate',
+      command: 'sf.apex.debug.class.run.delegate',
       title: 'Debug All Tests',
       arguments: ['ExampleTest'],
     },
@@ -36,7 +36,7 @@ const lenses = [
   },
   {
     command: {
-      command: 'sf.apex.test.method.debug.delegate',
+      command: 'sf.apex.debug.method.run.delegate',
       title: 'Debug Test',
       arguments: ['ExampleTest.exampleMethod'],
     },
@@ -103,9 +103,9 @@ describe('CodeLens middleware', () => {
     ]);
   });
 
-  it.each([null, undefined])(
+  it.each([null, undefined] as const)(
     'preserves an empty CodeLens response of %s',
-    async (result) => {
+    async (result: null | undefined) => {
       const middleware = createLanguageClientMiddleware();
       const next = vi.fn().mockResolvedValue(result);
 

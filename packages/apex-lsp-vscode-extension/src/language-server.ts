@@ -16,7 +16,7 @@ import type {
 } from '@salesforce/apex-lsp-shared';
 import {
   formattedError,
-  getDocumentSelectorsFromSettings,
+  getDocumentSynchronizationSelectorsFromSettings,
   WORKSPACE_LOAD_REASON_MESSAGE,
 } from '@salesforce/apex-lsp-shared';
 import type { ApexClientCore } from '@salesforce/apex-lsp-client';
@@ -148,8 +148,7 @@ const cleanupAfterStartupFailure = async (
 export function createWebDocumentSelector(
   initializationOptions: ApexLanguageServerSettings,
 ): TextDocumentFilter[] {
-  const selectors = getDocumentSelectorsFromSettings(
-    'all',
+  const selectors = getDocumentSynchronizationSelectorsFromSettings(
     initializationOptions,
   ) as TextDocumentFilter[];
   return [...selectors, ...getOrgArtifactSourceDocumentSelectors()];

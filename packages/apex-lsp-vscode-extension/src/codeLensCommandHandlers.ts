@@ -23,8 +23,8 @@ export const createVsCodeCodeLensCallbackRegistry =
   (): CodeLensCallbackRegistry =>
     createCodeLensCallbackRegistry({
       onUnavailable: async (action) => {
-        await vscode.window.showErrorMessage(
-          `${action} is unavailable because no providers are registered.`,
+        await vscode.window.showWarningMessage(
+          `The ${action} CodeLens action is unavailable because no extension has registered a handler for it.`,
         );
       },
       onProviderError: (action, error) => {
