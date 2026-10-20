@@ -8,31 +8,14 @@
 
 import {
   TextDocumentChangeEvent,
-  DocumentSymbolParams,
-  SymbolInformation,
-  DocumentSymbol,
-  HoverParams,
-  Hover,
-  DefinitionParams,
-  ImplementationParams,
-  Location,
-  CodeLensParams,
-  CodeLens,
   DeleteFilesParams,
   Connection,
 } from 'vscode-languageserver';
-import type {
-  FindMissingArtifactParams,
-  FindMissingArtifactResult,
-} from '@salesforce/apex-lsp-shared';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { ApexSettingsManager, getLogger } from '@salesforce/apex-lsp-shared';
 import { HandlerFactory } from './factories/HandlerFactory';
-import { dispatchProcessOnDiagnostic } from './handlers/DiagnosticHandler';
-import { dispatchProcessOnFoldingRange } from './handlers/FoldingRangeHandler';
 import { dispatchProcessOnResolve } from './handlers/ApexLibResolveHandler';
-import { HoverHandler } from './handlers/HoverHandler';
 import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
 import { LSPQueueManager, LSPQueueManagerDependencies } from './queue';
 import { ServiceFactory } from './factories/ServiceFactory';
@@ -57,16 +40,8 @@ export * from './handlers/DidChangeDocumentHandler';
 export * from './handlers/DidSaveDocumentHandler';
 export * from './handlers/DidCloseDocumentHandler';
 export * from './handlers/DidDeleteDocumentHandler';
-export * from './handlers/DocumentSymbolHandler';
-export * from './handlers/DefinitionHandler';
-export * from './handlers/ImplementationHandler';
-export * from './handlers/FoldingRangeHandler';
 export * from './handlers/ApexLibResolveHandler';
 export * from './handlers/LogNotificationHandler';
-export * from './handlers/DiagnosticHandler';
-export * from './handlers/HoverHandler';
-export * from './handlers/MissingArtifactHandler';
-export * from './handlers/CodeLensHandler';
 export * from './handlers/QueueStateHandler';
 export * from './handlers/GraphDataHandler';
 export * from './handlers/WorkspaceSymbolHandler';
@@ -297,115 +272,7 @@ export const dispatchProcessOnDeleteDocument = async (
   return await handler.handleDocumentDelete(event);
 };
 
-/**
- * Dispatch function for document symbol requests
- * @param params The document symbol parameters
- * @returns Promise resolving to symbol information or document symbols
- */
-export const dispatchProcessOnDocumentSymbol = async (
-  params: DocumentSymbolParams,
-): Promise<SymbolInformation[] | DocumentSymbol[] | null> => {
-  const handler = HandlerFactory.createDocumentSymbolHandler();
-  return await handler.handleDocumentSymbol(params);
-};
-
-// Singleton HoverHandler instance to ensure consistent symbol manager usage
-let hoverHandlerInstance: HoverHandler | null = null;
-
-/**
- * Dispatch function for hover requests
- * @param params The hover parameters
- * @returns Promise resolving to hover information or null
- */
-export const dispatchProcessOnHover = async (
-  params: HoverParams,
-): Promise<Hover | null> => {
-  const logger = getLogger();
-  logger.debug(
-    `🔍 [dispatchProcessOnHover] Dispatching hover request for ${
-      params.textDocument.uri
-    } at ${params.position.line}:${params.position.character}`,
-  );
-
-  // Use singleton pattern to ensure same symbol manager instance
-  // Creating new handlers every time causes empty symbol managers
-  if (!hoverHandlerInstance) {
-    logger.debug(
-      '🔧 [dispatchProcessOnHover] Creating new hover handler instance',
-    );
-    hoverHandlerInstance = HandlerFactory.createHoverHandler();
-  }
-  const result = await hoverHandlerInstance.handleHover(params);
-  logger.debug(
-    `✅ [dispatchProcessOnHover] Hover dispatch completed for ${
-      params.textDocument.uri
-    }: ${result ? 'success' : 'null'}`,
-  );
-  return result;
-};
-
-/**
- * Dispatch function for definition requests
- * @param params The definition parameters
- * @returns Promise resolving to definition locations or null
- */
-export const dispatchProcessOnDefinition = async (
-  params: DefinitionParams,
-): Promise<Location[] | null> => {
-  const handler = HandlerFactory.createDefinitionHandler();
-  return await handler.handleDefinition(params);
-};
-
-/**
- * Dispatch function for implementation requests
- * @param params The implementation parameters
- * @returns Promise resolving to implementation locations or null
- */
-export const dispatchProcessOnImplementation = async (
-  params: ImplementationParams,
-): Promise<Location[] | null> => {
-  const handler = HandlerFactory.createImplementationHandler();
-  return await handler.handleImplementation(params);
-};
-
-/**
- * Dispatch function for apex/findMissingArtifact custom requests
- * @param params The missing artifact parameters
- * @returns Promise resolving to missing artifact result
- */
-export const dispatchProcessOnFindMissingArtifact = async (
-  params: FindMissingArtifactParams,
-): Promise<FindMissingArtifactResult> => {
-  // Import the function dynamically to avoid circular dependencies
-  const { processApexFindMissingArtifact } =
-    await import('./handlers/MissingArtifactHandler');
-  return await processApexFindMissingArtifact(params);
-};
-
-/**
- * Dispatch function for code lens requests
- * @param params The code lens parameters
- * @returns Promise resolving to array of code lenses
- */
-export const dispatchProcessOnCodeLens = async (
-  params: CodeLensParams,
-): Promise<CodeLens[]> => {
-  const logger = getLogger();
-  logger.debug(
-    () => `Dispatching code lens request for ${params.textDocument.uri}`,
-  );
-  const handler = HandlerFactory.createCodeLensHandler();
-  const result = await handler.handleCodeLens(params);
-  logger.debug(() => `Handler returned ${result.length} code lenses`);
-  return result;
-};
-
-// Re-export the existing dispatch functions
-export {
-  dispatchProcessOnDiagnostic,
-  dispatchProcessOnFoldingRange,
-  dispatchProcessOnResolve,
-};
+export { dispatchProcessOnResolve };
 
 // Export dispatch functions from handlerUtil
 export { dispatchProcessOnQueueState } from './utils/handlerUtil';
