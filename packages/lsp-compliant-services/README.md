@@ -226,7 +226,12 @@ The server looks for configuration in these sections (in order of precedence):
   - **`scheme`** (string, required): The URI scheme name.
   - **`excludeCapabilities`** (array, optional): LSP capabilities to exclude. Valid values: `"documentSymbol"`, `"hover"`, `"foldingRange"`, `"diagnostic"`, `"completion"`, `"definition"`, `"codeLens"`, `"executeCommand"`.
 
-  Default schemes (`"file"`, `"apexlib"`, `"vscode-test-web"`) are always included and cannot be modified. Additional schemes apply to all capabilities unless explicitly excluded.
+  Required default schemes (`"file"`, `"apexlib"`, `"vscode-test-web"`,
+  `"memfs"`, `"reefs"`, and `"sf-org-metadata"`) are always included and
+  cannot be modified. `sf-org-metadata` is reserved for Org Catalog Apex class
+  and trigger source documents; non-Apex metadata under that scheme is not
+  selected for Apex language services. Additional schemes apply to all
+  capabilities unless explicitly excluded.
 
 ### VS Code Configuration Example
 

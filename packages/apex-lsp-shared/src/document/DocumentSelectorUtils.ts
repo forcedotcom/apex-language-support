@@ -6,7 +6,10 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { DocumentSelector } from 'vscode-languageserver-protocol';
+import type {
+  DocumentFilter,
+  DocumentSelector,
+} from 'vscode-languageserver-protocol';
 import type { ApexLanguageServerSettings } from '../server/ApexLanguageServerSettings';
 import { getLogger } from '../logger';
 
@@ -22,8 +25,7 @@ export type LSPCapability =
   | 'definition'
   | 'implementation'
   | 'codeLens'
-  | 'executeCommand'
-  | 'all';
+  | 'executeCommand';
 
 /**
  * Valid LSP capability names for validation
@@ -38,7 +40,6 @@ const VALID_LSP_CAPABILITIES: readonly string[] = [
   'implementation',
   'codeLens',
   'executeCommand',
-  'all',
 ] as const;
 
 /**
@@ -48,7 +49,7 @@ export interface AdditionalSchemeConfig {
   /** The scheme name to add */
   scheme: string;
   /** Optional array of capabilities to exclude this scheme from */
-  excludeCapabilities?: LSPCapability[];
+  excludeCapabilities?: Array<LSPCapability | 'all'>;
 }
 
 /**
@@ -83,8 +84,8 @@ export const DEFAULT_SCHEMES_FOR_MOST: readonly string[] = [
  * generated SObjects (`apex-sobject`) — which back non-editable virtual
  * documents. This is the source-of-truth for "can the user edit this file?"
  * decisions (e.g. rename provenance), so a synthetic scheme is never treated as
- * user-owned. Note this intentionally differs from {@link getAllImmutableSchemes},
- * which INCLUDES `apexlib`.
+ * user-owned. Note this intentionally differs from
+ * {@link getAllRequiredDefaultSchemes}, which INCLUDES `apexlib`.
  */
 export const MUTABLE_DOCUMENT_SCHEMES: readonly string[] = [
   'file',
@@ -114,21 +115,52 @@ export const READONLY_SYNTHETIC_SCHEMES: readonly string[] = [
 ] as const;
 
 /**
- * Get all immutable scheme names (union of all default schemes)
- * These schemes cannot be excluded or removed
+ * Default schemes for CodeLens capability. Excludes `apexlib` because
+ * standard-library virtual resources do not support actionable CodeLens
+ * operations. This derives from the general capability set, not
+ * {@link MUTABLE_DOCUMENT_SCHEMES}: CodeLens support is a capability policy,
+ * not a mutability classification.
  */
-export function getAllImmutableSchemes(): readonly string[] {
-  return [
-    ...new Set([...DEFAULT_SCHEMES_FOR_MOST, ...MUTABLE_DOCUMENT_SCHEMES]),
-  ];
+export const DEFAULT_SCHEMES_FOR_CODELENS: readonly string[] =
+  DEFAULT_SCHEMES_FOR_MOST.filter((scheme) => scheme !== 'apexlib');
+
+/**
+ * Virtual Org Catalog Apex sources supplied by the services extension. These
+ * filters intentionally include only source artifacts: Org Catalog also owns
+ * non-Apex metadata under this scheme, which must not be synchronized to LS.
+ */
+export const ORG_CATALOG_APEX_DOCUMENT_SELECTORS: readonly DocumentFilter[] = [
+  {
+    scheme: 'sf-org-metadata',
+    language: 'apex',
+    pattern: '**/*.cls',
+  },
+  {
+    scheme: 'sf-org-metadata',
+    language: 'apex',
+    pattern: '**/*.trigger',
+  },
+] as const;
+
+const ORG_CATALOG_APEX_SCHEME = 'sf-org-metadata';
+
+/**
+ * Get the built-in scheme names required by one or more default capability
+ * selectors. Configuration cannot add or exclude these schemes.
+ */
+export function getAllRequiredDefaultSchemes(): readonly string[] {
+  return [...DEFAULT_SCHEMES_FOR_MOST, ORG_CATALOG_APEX_SCHEME];
 }
+
+/** @deprecated Use {@link getAllRequiredDefaultSchemes}. */
+export const getAllImmutableSchemes = getAllRequiredDefaultSchemes;
 
 /**
  * Validate additional document schemes configuration
- * Checks for attempts to add or exclude immutable schemes
+ * Checks for attempts to add or exclude required default schemes
  * @param additionalSchemes Array of additional scheme configurations to validate
  * @param logger Optional logger instance for warnings
- * @returns Validation result with warnings if immutable schemes are detected
+ * @returns Validation result with warnings if required default schemes are detected
  */
 export function validateAdditionalDocumentSchemes(
   additionalSchemes?: Array<{
@@ -141,7 +173,8 @@ export function validateAdditionalDocumentSchemes(
   warnings: string[];
 } {
   const warnings: string[] = [];
-  const immutableSchemesSet = new Set(getAllImmutableSchemes());
+  const requiredDefaultSchemes = getAllRequiredDefaultSchemes();
+  const requiredDefaultSchemesSet = new Set(requiredDefaultSchemes);
   const loggerInstance = logger ?? getLogger();
 
   if (!additionalSchemes || additionalSchemes.length === 0) {
@@ -149,22 +182,22 @@ export function validateAdditionalDocumentSchemes(
   }
 
   for (const config of additionalSchemes) {
-    if (immutableSchemesSet.has(config.scheme)) {
+    if (requiredDefaultSchemesSet.has(config.scheme)) {
       const hasExclusions =
         config.excludeCapabilities && config.excludeCapabilities.length > 0;
 
       if (hasExclusions && config.excludeCapabilities) {
         const warning =
-          `Cannot exclude immutable scheme '${config.scheme}' ` +
+          `Cannot exclude required default scheme '${config.scheme}' ` +
           `from capabilities [${config.excludeCapabilities.join(', ')}]. ` +
-          `Immutable schemes (${getAllImmutableSchemes().join(', ')}) ` +
+          `Required default schemes (${requiredDefaultSchemes.join(', ')}) ` +
           'are always included for all capabilities and cannot be excluded.';
         warnings.push(warning);
         loggerInstance.warn(() => `⚠️ ${warning}`);
       } else {
         const warning =
-          `Immutable scheme '${config.scheme}' cannot be added as additional scheme. ` +
-          `Immutable schemes (${getAllImmutableSchemes().join(', ')}) ` +
+          `Required default scheme '${config.scheme}' cannot be added as additional scheme. ` +
+          `Required default schemes (${requiredDefaultSchemes.join(', ')}) ` +
           'are always included and cannot be modified.';
         warnings.push(warning);
         loggerInstance.warn(() => `⚠️ ${warning}`);
@@ -187,13 +220,7 @@ export function getDefaultSchemesForCapability(
   capability: LSPCapability,
 ): readonly string[] {
   if (capability === 'codeLens') {
-    return MUTABLE_DOCUMENT_SCHEMES;
-  }
-  if (capability === 'all') {
-    // For 'all', return the union of all schemes
-    return [
-      ...new Set([...DEFAULT_SCHEMES_FOR_MOST, ...MUTABLE_DOCUMENT_SCHEMES]),
-    ];
+    return DEFAULT_SCHEMES_FOR_CODELENS;
   }
   // For all other capabilities, use the default schemes
   return DEFAULT_SCHEMES_FOR_MOST;
@@ -218,6 +245,14 @@ function buildDocumentSelectors(
   return selectors;
 }
 
+function getWellKnownArtifactSelectors(
+  includeOrgCatalogSources: boolean,
+): readonly DocumentFilter[] {
+  // Org Catalog source is remote metadata. Only CodeLens consumes it directly;
+  // retain it in the aggregate selector so the client synchronizes the source.
+  return includeOrgCatalogSources ? ORG_CATALOG_APEX_DOCUMENT_SELECTORS : [];
+}
+
 /**
  * Get document selectors for a specific capability with optional additional schemes
  * @param capability The LSP capability name
@@ -229,54 +264,50 @@ export function getDocumentSelectorsForCapability(
   additionalSchemes?: AdditionalSchemeConfig[],
 ): DocumentSelector {
   const logger = getLogger();
-  const immutableSchemesArray = getAllImmutableSchemes();
-  const immutableSchemes = new Set(immutableSchemesArray);
+  const requiredDefaultSchemesArray = getAllRequiredDefaultSchemes();
+  const requiredDefaultSchemes = new Set(requiredDefaultSchemesArray);
 
   // Get default schemes for this capability
   const defaultSchemes = getDefaultSchemesForCapability(capability);
 
-  // Start with default schemes (immutable - always included)
+  // Start with the built-in schemes required for this capability.
   const allSchemes = new Set<string>(defaultSchemes);
 
   // Add additional schemes if provided and not excluded for this capability
   if (additionalSchemes) {
     for (const config of additionalSchemes) {
-      // Runtime validation: Prevent adding or excluding immutable schemes
-      // Immutable schemes are always included in defaults and cannot be modified
-      if (immutableSchemes.has(config.scheme)) {
-        // Check if user is trying to exclude this immutable scheme
+      // Required defaults are always included and cannot be modified.
+      if (requiredDefaultSchemes.has(config.scheme)) {
+        // Check if user is trying to exclude this required default scheme.
         const hasExclusions =
           config.excludeCapabilities && config.excludeCapabilities.length > 0;
         const isTryingToExclude =
           hasExclusions &&
-          (capability === 'all' ||
-            config.excludeCapabilities?.includes(capability) ||
+          (config.excludeCapabilities?.includes(capability) ||
             config.excludeCapabilities?.includes('all'));
 
         if (isTryingToExclude) {
           logger.warn(
             () =>
-              `⚠️ Cannot exclude immutable scheme '${config.scheme}' from capability '${capability}'. ` +
-              `Immutable schemes (${immutableSchemesArray.join(', ')}) ` +
+              `⚠️ Cannot exclude required default scheme '${config.scheme}' from capability '${capability}'. ` +
+              `Required default schemes (${requiredDefaultSchemesArray.join(', ')}) ` +
               'are always included for all capabilities and cannot be excluded. ' +
               `The excludeCapabilities setting for '${config.scheme}' is ignored.`,
           );
         } else {
           logger.warn(
             () =>
-              `⚠️ Immutable scheme '${config.scheme}' cannot be added as additional scheme. ` +
-              `Immutable schemes (${immutableSchemesArray.join(', ')}) ` +
+              `⚠️ Required default scheme '${config.scheme}' cannot be added as additional scheme. ` +
+              `Required default schemes (${requiredDefaultSchemesArray.join(', ')}) ` +
               'are always included for all capabilities and cannot be modified.',
           );
         }
-        // Skip - immutable schemes are already included in defaults
+        // Skip - required default schemes are already included in selectors.
         continue;
       }
 
       // Check if this scheme is excluded for this capability
-      const isExcluded =
-        capability !== 'all' &&
-        config.excludeCapabilities?.includes(capability);
+      const isExcluded = config.excludeCapabilities?.includes(capability);
 
       if (!isExcluded) {
         allSchemes.add(config.scheme);
@@ -284,8 +315,33 @@ export function getDocumentSelectorsForCapability(
     }
   }
 
-  // Build and return document selectors
-  return buildDocumentSelectors(Array.from(allSchemes), DEFAULT_LANGUAGES);
+  return [
+    ...buildDocumentSelectors(Array.from(allSchemes), DEFAULT_LANGUAGES),
+    ...getWellKnownArtifactSelectors(capability === 'codeLens'),
+  ];
+}
+
+/**
+ * Gets the document selectors used to synchronize workspace and Org Catalog
+ * source documents to the language server. This is transport scope, not a
+ * language-feature capability.
+ */
+export function getDocumentSynchronizationSelectors(
+  additionalSchemes?: AdditionalSchemeConfig[],
+): DocumentSelector {
+  const schemes = new Set([
+    ...DEFAULT_SCHEMES_FOR_MOST,
+    ...MUTABLE_DOCUMENT_SCHEMES,
+  ]);
+  for (const config of additionalSchemes ?? []) {
+    if (!getAllRequiredDefaultSchemes().includes(config.scheme)) {
+      schemes.add(config.scheme);
+    }
+  }
+  return [
+    ...buildDocumentSelectors(Array.from(schemes), DEFAULT_LANGUAGES),
+    ...getWellKnownArtifactSelectors(true),
+  ];
 }
 
 /**
@@ -301,26 +357,36 @@ export function getDocumentSelectorsFromSettings(
   const additionalSchemesConfig =
     settings?.apex?.environment?.additionalDocumentSchemes;
 
-  // Convert settings format to utility format (string[] to LSPCapability[])
+  // Convert settings format to utility format.
   // Settings use string[] for excludeCapabilities, but we validate against LSPCapability
   const additionalSchemes: AdditionalSchemeConfig[] | undefined =
     additionalSchemesConfig?.map((config) => ({
       scheme: config.scheme,
       excludeCapabilities: config.excludeCapabilities?.filter((cap) =>
         VALID_LSP_CAPABILITIES.includes(cap),
-      ) as LSPCapability[] | undefined,
+      ) as Array<LSPCapability | 'all'> | undefined,
     }));
 
   return getDocumentSelectorsForCapability(capability, additionalSchemes);
 }
 
+/** Gets synchronization selectors with configured additional schemes. */
+export function getDocumentSynchronizationSelectorsFromSettings(
+  settings?: ApexLanguageServerSettings,
+): DocumentSelector {
+  const additionalSchemes =
+    settings?.apex?.environment?.additionalDocumentSchemes?.map((config) => ({
+      scheme: config.scheme,
+    }));
+  return getDocumentSynchronizationSelectors(additionalSchemes);
+}
+
 /**
- * Get default document selectors for a capability (without additional schemes)
- * @param capability Optional capability name (defaults to 'all')
+ * Get default document selectors for a capability (without additional schemes).
  * @returns Array of default document selectors
  */
 export function getDefaultDocumentSelectors(
-  capability: LSPCapability = 'all',
+  capability: LSPCapability,
 ): DocumentSelector {
   return getDocumentSelectorsForCapability(capability);
 }

@@ -50,9 +50,6 @@ describe('Apex Language Server Extension ()', () => {
       getLineBreakpointInfo: vi.fn().mockResolvedValue([]),
       getExceptionBreakpointInfo: vi.fn().mockResolvedValue([]),
     } as any);
-    vi.mocked(vscode.extensions.getExtension).mockReturnValue({
-      isActive: true,
-    } as vscode.Extension<unknown>);
 
     mockContext = {
       subscriptions: [],
@@ -74,7 +71,20 @@ describe('Apex Language Server Extension ()', () => {
       'apex-ls-ts.restart.server',
       expect.any(Function),
     );
+    expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
+      'apex-ls-ts.codelens.runTestClass',
+      expect.any(Function),
+    );
+    expect(api.codeLens).toBeDefined();
     expect(api.client).toBeDefined();
+  });
+
+  it('activates in a development host without Salesforce Services', async () => {
+    vi.mocked(vscode.extensions.getExtension).mockReturnValue(undefined);
+
+    await expect(activate(mockContext)).resolves.toEqual(
+      expect.objectContaining({ client: expect.anything() }),
+    );
   });
 
   it('exposes the materialized client through the activation API', async () => {

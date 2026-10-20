@@ -268,7 +268,7 @@ The extension does **not** directly call Salesforce REST/SOAP APIs. Customer org
 **Affected files:**
 
 - `packages/apex-ls/src/server/WorkspaceBatchHandler.ts` -- receives and processes batches
-- `packages/apex-lsp-vscode-extension/src/workspace/workspace-batch-compressor.ts` -- creates batches
+- `packages/apex-lsp-client/src/workspaceBatchCodec.ts` -- creates batches
 
 **Current mitigations:**
 

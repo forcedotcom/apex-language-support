@@ -8,7 +8,7 @@
 
 import { ApexCapabilitiesManager } from '../../src/capabilities/ApexCapabilitiesManager';
 import {
-  PRODUCTION_CAPABILITIES,
+  PRODUCTION_WEB_CAPABILITIES,
   DEVELOPMENT_CAPABILITIES,
 } from '../../src/capabilities/ApexLanguageServerCapabilities';
 
@@ -61,13 +61,13 @@ describe('ApexCapabilitiesManager', () => {
     it('should return raw production capabilities by default', () => {
       // getRawCapabilities returns unfiltered capabilities for comparison with definitions
       const capabilities = manager.getRawCapabilities();
-      expect(capabilities).toEqual(PRODUCTION_CAPABILITIES);
+      expect(capabilities).toEqual(PRODUCTION_WEB_CAPABILITIES);
     });
 
     it('should return correct raw capabilities for each mode', () => {
       // Test production mode
       manager.setMode('production');
-      expect(manager.getRawCapabilities()).toEqual(PRODUCTION_CAPABILITIES);
+      expect(manager.getRawCapabilities()).toEqual(PRODUCTION_WEB_CAPABILITIES);
 
       // Test development mode
       manager.setMode('development');
@@ -76,7 +76,7 @@ describe('ApexCapabilitiesManager', () => {
 
     it('should return raw capabilities for specific modes', () => {
       expect(manager.getRawCapabilitiesForMode('production')).toEqual(
-        PRODUCTION_CAPABILITIES,
+        PRODUCTION_WEB_CAPABILITIES,
       );
       expect(manager.getRawCapabilitiesForMode('development')).toEqual(
         DEVELOPMENT_CAPABILITIES,
@@ -87,7 +87,7 @@ describe('ApexCapabilitiesManager', () => {
       const allCapabilities = manager.getAllCapabilities();
       expect(allCapabilities).toHaveProperty('production');
       expect(allCapabilities).toHaveProperty('development');
-      expect(allCapabilities.production).toEqual(PRODUCTION_CAPABILITIES);
+      expect(allCapabilities.production).toEqual(PRODUCTION_WEB_CAPABILITIES);
       expect(allCapabilities.development).toEqual(DEVELOPMENT_CAPABILITIES);
     });
 
@@ -119,6 +119,46 @@ describe('ApexCapabilitiesManager', () => {
       // Diagnostics ARE enabled for development/web
       expect(capabilities.publishDiagnostics).toBe(true);
       expect(capabilities.diagnosticProvider).toBeDefined();
+    });
+
+    it('should enable CodeLens only for production web', () => {
+      expect(
+        manager.getCapabilitiesForModeAndPlatform('production', 'web')
+          .codeLensProvider,
+      ).toEqual({ resolveProvider: false });
+      expect(
+        manager.getCapabilitiesForModeAndPlatform('production', 'desktop')
+          .codeLensProvider,
+      ).toBeUndefined();
+    });
+  });
+
+  describe('Feature States', () => {
+    it('distinguishes supported features from desktop production enabled features', () => {
+      manager.setPlatform('desktop');
+      manager.setMode('production');
+
+      const states = manager.getFeatureStates();
+
+      expect(states.hover).toEqual({ supported: true, enabled: false });
+      expect(states.documentSymbol).toEqual({
+        supported: true,
+        enabled: true,
+      });
+      expect(states.semanticTokens).toEqual({
+        supported: false,
+        enabled: false,
+      });
+    });
+
+    it('reports web production enabled features', () => {
+      manager.setPlatform('web');
+      manager.setMode('production');
+
+      expect(manager.getFeatureStates().codeLens).toEqual({
+        supported: true,
+        enabled: true,
+      });
     });
   });
 
@@ -310,7 +350,7 @@ describe('ApexCapabilitiesManager', () => {
       // Start in production
       manager.setMode('production');
       const productionCapabilities = manager.getRawCapabilities();
-      expect(productionCapabilities).toEqual(PRODUCTION_CAPABILITIES);
+      expect(productionCapabilities).toEqual(PRODUCTION_WEB_CAPABILITIES);
 
       // Switch to development
       manager.setMode('development');
@@ -320,7 +360,7 @@ describe('ApexCapabilitiesManager', () => {
       // Switch back to production
       manager.setMode('production');
       const productionCapabilitiesAgain = manager.getRawCapabilities();
-      expect(productionCapabilitiesAgain).toEqual(PRODUCTION_CAPABILITIES);
+      expect(productionCapabilitiesAgain).toEqual(PRODUCTION_WEB_CAPABILITIES);
     });
 
     it('should maintain platform consistency when switching modes', () => {

@@ -277,14 +277,8 @@ describe('Commands Module', () => {
       mockClient = {
         isDisposed: vi.fn().mockReturnValue(false),
         languageClient: mockLanguageClient,
-        profilingStart: vi.fn((params) =>
-          mockLanguageClient.sendRequest('apex/profiling/start', params),
-        ),
-        profilingStop: vi.fn((params) =>
-          mockLanguageClient.sendRequest('apex/profiling/stop', params),
-        ),
-        profilingStatus: vi.fn((params) =>
-          mockLanguageClient.sendRequest('apex/profiling/status', params),
+        request: vi.fn((method, params) =>
+          mockLanguageClient.sendRequest(method, params),
         ),
       };
 

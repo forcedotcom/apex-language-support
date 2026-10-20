@@ -21,6 +21,7 @@ import {
   getLogger,
 } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
+import { vi } from 'vitest';
 import { cleanupTestResources } from '../helpers/test-cleanup';
 
 describe('CodeLensProcessingService Integration Tests', () => {
@@ -129,6 +130,10 @@ public class ApexTestExample {
         'sf.apex.test.class.run.delegate',
       );
       expect(runAllTests?.command?.arguments).toContain('ApexTestExample');
+      expect(
+        classLenses.find((lens) => lens.command?.title === 'Debug All Tests')
+          ?.command?.command,
+      ).toBe('sf.apex.debug.class.run.delegate');
 
       // Check for method-level code lenses
       const methodLenses = result.filter(
@@ -164,9 +169,45 @@ public class ApexTestExample {
       expect(runTestLens?.command?.command).toBe(
         'sf.apex.test.method.run.delegate',
       );
-      // The argument format might be just the method name or ClassName.methodName
+      // Apex Testing requires the fully qualified class and method name.
       const methodArg = String(runTestLens?.command?.arguments?.[0]);
-      expect(methodArg).toMatch(/testAddition/);
+      expect(methodArg).toBe('ApexTestExample.testAddition');
+      expect(
+        result.find(
+          (lens) =>
+            lens.command?.title === 'Debug Test' &&
+            lens.command.arguments?.[0] === 'ApexTestExample.testAddition',
+        )?.command?.command,
+      ).toBe('sf.apex.debug.method.run.delegate');
+    });
+
+    it('includes the namespace in test method CodeLens arguments', async () => {
+      const symbols = await symbolManager.findSymbolsInFile(
+        testClassDocument.uri,
+      );
+      const testClass = symbols.find(
+        (symbol) => symbol.name === 'ApexTestExample',
+      );
+      expect(testClass).toBeDefined();
+      if (!testClass) {
+        return;
+      }
+      vi.spyOn(symbolManager, 'getContainingType').mockResolvedValue({
+        ...testClass,
+        namespace: 'MyNamespace',
+      });
+
+      const result = await codeLensService.processCodeLens({
+        textDocument: { uri: testClassDocument.uri },
+      });
+      const runTestLens = result.find(
+        (lens) =>
+          lens.command?.command === 'sf.apex.test.method.run.delegate' &&
+          lens.command.arguments?.[0] ===
+            'MyNamespace.ApexTestExample.testAddition',
+      );
+
+      expect(runTestLens).toBeDefined();
     });
   });
 

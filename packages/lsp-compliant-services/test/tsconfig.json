@@ -2,6 +2,8 @@
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
+    "incremental": true,
+    "tsBuildInfoFile": "../.wireit/typecheck.tsbuildinfo",
     "rootDir": "..",
     "types": ["node"],
     "noImplicitAny": false

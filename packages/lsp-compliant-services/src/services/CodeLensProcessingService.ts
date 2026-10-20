@@ -12,7 +12,11 @@ import {
   Position,
   Range,
 } from 'vscode-languageserver';
-import { LoggerInterface, formattedError } from '@salesforce/apex-lsp-shared';
+import {
+  CODE_LENS_SERVER_COMMANDS,
+  LoggerInterface,
+  formattedError,
+} from '@salesforce/apex-lsp-shared';
 import {
   ApexSymbolProcessingManager,
   ISymbolManager,
@@ -25,12 +29,14 @@ import {
  * Command IDs that match the VSCode extension commands
  * These must match the commands registered in salesforcedx-vscode-core
  */
-const TEST_CLASS_RUN = 'sf.apex.test.class.run.delegate';
-const TEST_CLASS_DEBUG = 'sf.apex.test.class.debug.delegate';
-const TEST_METHOD_RUN = 'sf.apex.test.method.run.delegate';
-const TEST_METHOD_DEBUG = 'sf.apex.test.method.debug.delegate';
-const ANON_RUN = 'sf.anon.apex.run.delegate';
-const ANON_DEBUG = 'sf.anon.apex.debug.delegate';
+const {
+  runTestClass: TEST_CLASS_RUN,
+  debugTestClass: TEST_CLASS_DEBUG,
+  runTestMethod: TEST_METHOD_RUN,
+  debugTestMethod: TEST_METHOD_DEBUG,
+  executeAnonymous: ANON_RUN,
+  debugAnonymous: ANON_DEBUG,
+} = CODE_LENS_SERVER_COMMANDS;
 
 /**
  * Labels for code lens commands
@@ -189,7 +195,7 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
    * @returns Array of code lenses for Run All Tests and Debug All Tests
    */
   private createTestClassCodeLenses(classSymbol: ApexSymbol): CodeLens[] {
-    if (!classSymbol.location) {
+    if (!classSymbol.location?.symbolRange) {
       return [];
     }
 
@@ -230,7 +236,7 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
   private async createTestMethodCodeLenses(
     methodSymbol: ApexSymbol,
   ): Promise<CodeLens[]> {
-    if (!methodSymbol.location) {
+    if (!methodSymbol.location?.symbolRange) {
       return [];
     }
 
@@ -286,18 +292,52 @@ export class CodeLensProcessingService implements ICodeLensProcessor {
       const containingType =
         await this.symbolManager.getContainingType(methodSymbol);
       if (containingType) {
-        return `${containingType.name}.${methodSymbol.name}`;
+        return getQualifiedTestMethodName(containingType, methodSymbol.name);
       }
 
-      // If we can't find the parent, just return the method name
-      // This might not work for the extension, but it's better than nothing
+      // Worker symbol tables can omit parent links during incremental loading.
+      // Recover the innermost class whose source range contains the method.
+      const containingClasses = (
+        await this.symbolManager.findSymbolsInFile(methodSymbol.fileUri)
+      )
+        .filter(isClassSymbol)
+        .filter(
+          (symbol) =>
+            symbol.location?.symbolRange &&
+            symbol.location.symbolRange.startLine <=
+              methodSymbol.location.symbolRange.startLine &&
+            symbol.location.symbolRange.endLine >=
+              methodSymbol.location.symbolRange.endLine,
+        );
+      const containingClass = [...containingClasses].sort(
+        (left, right) =>
+          right.location!.symbolRange.startLine -
+          left.location!.symbolRange.startLine,
+      )[0];
+      if (containingClass) {
+        return getQualifiedTestMethodName(containingClass, methodSymbol.name);
+      }
+
       this.logger.warn(
         () => `Could not find parent class for method ${methodSymbol.name}`,
       );
-      return methodSymbol.name;
+      return null;
     } catch (error) {
       this.logger.error(() => `Error getting qualified method name: ${error}`);
       return null;
     }
   }
 }
+
+const getQualifiedTestMethodName = (
+  containingType: ApexSymbol,
+  methodName: string,
+): string => {
+  const namespace =
+    typeof containingType.namespace === 'string'
+      ? containingType.namespace
+      : containingType.namespace?.toString();
+  return [namespace, containingType.name, methodName]
+    .filter((part): part is string => !!part)
+    .join('.');
+};

@@ -9,7 +9,7 @@
 import { CodeActionKind } from 'vscode-languageserver-protocol';
 
 import {
-  PRODUCTION_CAPABILITIES,
+  PRODUCTION_WEB_CAPABILITIES,
   DEVELOPMENT_CAPABILITIES,
   CAPABILITIES_CONFIGURATION,
 } from '../../src/capabilities/ApexLanguageServerCapabilities';
@@ -24,7 +24,7 @@ import { ApexCapabilitiesManager } from '../../src/capabilities/ApexCapabilities
 describe('Capabilities Alignment Tests', () => {
   describe('Server Capabilities Configuration', () => {
     it('should have consistent production capabilities', () => {
-      expect(PRODUCTION_CAPABILITIES).toMatchSnapshot(
+      expect(PRODUCTION_WEB_CAPABILITIES).toMatchSnapshot(
         'production-server-capabilities',
       );
     });
@@ -101,7 +101,7 @@ describe('Capabilities Alignment Tests', () => {
       // Test production mode (capabilities are deep copied, so use toEqual instead of toBe)
       capabilitiesManager.setMode('production');
       const productionCaps = capabilitiesManager.getRawCapabilities();
-      expect(productionCaps).toEqual(PRODUCTION_CAPABILITIES);
+      expect(productionCaps).toEqual(PRODUCTION_WEB_CAPABILITIES);
 
       // Test development mode
       capabilitiesManager.setMode('development');
@@ -256,7 +256,7 @@ describe('Capabilities Alignment Tests', () => {
 
   describe('Capability Feature Alignment', () => {
     it('should have consistent text document sync capabilities', () => {
-      const productionServer = PRODUCTION_CAPABILITIES;
+      const productionServer = PRODUCTION_WEB_CAPABILITIES;
       const developmentServer = DEVELOPMENT_CAPABILITIES;
 
       expect(productionServer.textDocumentSync).toMatchSnapshot(
@@ -268,7 +268,7 @@ describe('Capabilities Alignment Tests', () => {
     });
 
     it('should have consistent workspace capabilities', () => {
-      const productionServer = PRODUCTION_CAPABILITIES;
+      const productionServer = PRODUCTION_WEB_CAPABILITIES;
       const developmentServer = DEVELOPMENT_CAPABILITIES;
 
       expect(productionServer.workspace).toMatchSnapshot(
@@ -280,7 +280,7 @@ describe('Capabilities Alignment Tests', () => {
     });
 
     it('should have consistent provider capabilities', () => {
-      const productionServer = PRODUCTION_CAPABILITIES;
+      const productionServer = PRODUCTION_WEB_CAPABILITIES;
       const developmentServer = DEVELOPMENT_CAPABILITIES;
 
       const providerComparison = {
@@ -310,7 +310,7 @@ describe('Capabilities Alignment Tests', () => {
     it('should advertise codeActionProvider only in development', () => {
       // Production enablement is a separate story (W-23389340); production
       // must continue to report no codeActionProvider.
-      expect(PRODUCTION_CAPABILITIES.codeActionProvider).toBeUndefined();
+      expect(PRODUCTION_WEB_CAPABILITIES.codeActionProvider).toBeUndefined();
 
       // Development advertises quick-fix + refactor.extract kinds.
       expect(DEVELOPMENT_CAPABILITIES.codeActionProvider).toEqual({
@@ -333,7 +333,7 @@ describe('Capabilities Alignment Tests', () => {
       {
         mode: 'production' as const,
         client: PRODUCTION_CLIENT_CAPABILITIES,
-        server: PRODUCTION_CAPABILITIES,
+        server: PRODUCTION_WEB_CAPABILITIES,
       },
       {
         mode: 'development' as const,
@@ -393,7 +393,7 @@ describe('Capabilities Alignment Tests', () => {
     it('should maintain consistent configuration structure', () => {
       const configComparison = {
         serverCapabilities: {
-          production: PRODUCTION_CAPABILITIES,
+          production: PRODUCTION_WEB_CAPABILITIES,
           development: DEVELOPMENT_CAPABILITIES,
         },
         clientCapabilities: {
@@ -413,7 +413,7 @@ describe('Capabilities Alignment Tests', () => {
       const modeTests = [
         {
           mode: 'production' as const,
-          expectedServer: PRODUCTION_CAPABILITIES,
+          expectedServer: PRODUCTION_WEB_CAPABILITIES,
           expectedClient: PRODUCTION_CLIENT_CAPABILITIES,
         },
         {

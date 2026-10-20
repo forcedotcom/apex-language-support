@@ -9,6 +9,11 @@
 import * as vscode from 'vscode';
 import { formattedError, getLogLevel } from '@salesforce/apex-lsp-shared';
 import { logToOutputChannel } from './logging';
+import {
+  getProfilingStatus,
+  startProfiling,
+  stopProfiling,
+} from './extensionServerOperations';
 
 /**
  * Language status items for log levels and restart
@@ -82,28 +87,24 @@ export const createApexLanguageStatusActions = (
       'ApexLSTSLSPLogLevel1Debug',
       {
         language: 'apex',
-        scheme: 'file',
       },
     ),
     info: vscode.languages.createLanguageStatusItem(
       'ApexLSTSLSPLogLevel2Info',
       {
         language: 'apex',
-        scheme: 'file',
       },
     ),
     warning: vscode.languages.createLanguageStatusItem(
       'ApexLSTSLSPLogLevel3Warning',
       {
         language: 'apex',
-        scheme: 'file',
       },
     ),
     error: vscode.languages.createLanguageStatusItem(
       'ApexLSTSLSPLogLevel4Error',
       {
         language: 'apex',
-        scheme: 'file',
       },
     ),
   };
@@ -416,7 +417,7 @@ export const updateProfilingToggleItem = async (): Promise<void> => {
 
     // Query server for profiling status
     try {
-      const status = await client.profilingStatus({});
+      const status = await getProfilingStatus(client, {});
 
       // Check if status response is valid
       if (!status || typeof status !== 'object') {
@@ -533,7 +534,7 @@ export const registerProfilingToggleCommand = (
         };
 
         try {
-          currentStatus = await client.profilingStatus({});
+          currentStatus = await getProfilingStatus(client, {});
         } catch (_error) {
           // Status not available
           vscode.window.showErrorMessage(
@@ -548,7 +549,7 @@ export const registerProfilingToggleCommand = (
           try {
             const tag = getProfilingTag();
 
-            const result = await client.profilingStop({
+            const result = await stopProfiling(client, {
               tag: tag || undefined,
             });
 
@@ -574,7 +575,7 @@ export const registerProfilingToggleCommand = (
           const preferredType = getPreferredProfilingType();
 
           try {
-            const result = await client.profilingStart({
+            const result = await startProfiling(client, {
               type: preferredType,
             });
 

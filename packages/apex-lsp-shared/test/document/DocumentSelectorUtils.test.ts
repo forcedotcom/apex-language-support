@@ -9,26 +9,30 @@
 import {
   getDefaultSchemesForCapability,
   getDocumentSelectorsForCapability,
+  getDocumentSynchronizationSelectors,
+  getDocumentSynchronizationSelectorsFromSettings,
   getDocumentSelectorsFromSettings,
   getDefaultDocumentSelectors,
-  getAllImmutableSchemes,
+  getAllRequiredDefaultSchemes,
   validateAdditionalDocumentSchemes,
   DEFAULT_SCHEMES_FOR_MOST,
-  MUTABLE_DOCUMENT_SCHEMES,
+  DEFAULT_SCHEMES_FOR_CODELENS,
   DEFAULT_LANGUAGES,
+  ORG_CATALOG_APEX_DOCUMENT_SELECTORS,
 } from '../../src/document/DocumentSelectorUtils';
 import type { ApexLanguageServerSettings } from '../../src/server/ApexLanguageServerSettings';
 import { getLogger } from '../../src/logger';
 
 describe('DocumentSelectorUtils', () => {
-  describe('getAllImmutableSchemes', () => {
-    it('should return all immutable schemes', () => {
-      const schemes = getAllImmutableSchemes();
+  describe('getAllRequiredDefaultSchemes', () => {
+    it('should return all required default schemes', () => {
+      const schemes = getAllRequiredDefaultSchemes();
       expect(schemes).toContain('file');
       expect(schemes).toContain('apexlib');
       expect(schemes).toContain('vscode-test-web');
       expect(schemes).toContain('memfs');
       expect(schemes).toContain('reefs');
+      expect(schemes).toContain('sf-org-metadata');
     });
   });
 
@@ -41,19 +45,15 @@ describe('DocumentSelectorUtils', () => {
       expect(schemes).toContain('vscode-test-web');
     });
 
-    it('should return correct schemes for codeLens (excludes apexlib)', () => {
+    it('should return the general schemes except apexlib for codeLens', () => {
       const schemes = getDefaultSchemesForCapability('codeLens');
-      expect(schemes).toEqual(MUTABLE_DOCUMENT_SCHEMES);
+      expect(schemes).toEqual(DEFAULT_SCHEMES_FOR_CODELENS);
+      expect(schemes).toEqual(
+        DEFAULT_SCHEMES_FOR_MOST.filter((scheme) => scheme !== 'apexlib'),
+      );
       expect(schemes).toContain('file');
       expect(schemes).toContain('vscode-test-web');
       expect(schemes).not.toContain('apexlib');
-    });
-
-    it('should return all schemes for "all" capability', () => {
-      const schemes = getDefaultSchemesForCapability('all');
-      expect(schemes).toContain('file');
-      expect(schemes).toContain('apexlib');
-      expect(schemes).toContain('vscode-test-web');
     });
   });
 
@@ -80,6 +80,34 @@ describe('DocumentSelectorUtils', () => {
       });
     });
 
+    it('routes only Org Catalog Apex source artifacts to CodeLens', () => {
+      const selectors = getDocumentSelectorsForCapability('codeLens');
+
+      expect(selectors).toEqual(
+        expect.arrayContaining([...ORG_CATALOG_APEX_DOCUMENT_SELECTORS]),
+      );
+      expect(selectors).not.toContainEqual({
+        scheme: 'sf-org-metadata',
+        language: 'apex',
+      });
+    });
+
+    it('keeps Org Catalog sources in the synchronization selector', () => {
+      const selectors = getDocumentSynchronizationSelectors();
+
+      expect(selectors).toEqual(
+        expect.arrayContaining([...ORG_CATALOG_APEX_DOCUMENT_SELECTORS]),
+      );
+    });
+
+    it('excludes Org Catalog artifacts from diagnostics', () => {
+      const selectors = getDocumentSelectorsForCapability('diagnostic');
+
+      expect(selectors).not.toContainEqual(
+        expect.objectContaining({ scheme: 'sf-org-metadata' }),
+      );
+    });
+
     it('should add additional schemes when provided', () => {
       const selectors = getDocumentSelectorsForCapability('documentSymbol', [
         { scheme: 'custom-scheme' },
@@ -104,12 +132,12 @@ describe('DocumentSelectorUtils', () => {
       });
     });
 
-    it('should warn and skip immutable schemes when added as additional', () => {
+    it('should warn and skip required default schemes when added as additional', () => {
       const logger = getLogger();
       const warnSpy = vi.spyOn(logger, 'warn');
 
       const selectors = getDocumentSelectorsForCapability('documentSymbol', [
-        { scheme: 'file' }, // immutable scheme
+        { scheme: 'file' }, // required default scheme
       ]);
 
       // Should still include 'file' from defaults
@@ -119,7 +147,7 @@ describe('DocumentSelectorUtils', () => {
       warnSpy.mockRestore();
     });
 
-    it('should warn when trying to exclude immutable scheme', () => {
+    it('should warn when trying to exclude required default scheme', () => {
       const logger = getLogger();
       const warnSpy = vi.spyOn(logger, 'warn');
 
@@ -132,10 +160,22 @@ describe('DocumentSelectorUtils', () => {
       // Should have warned about exclusion attempt
       expect(warnSpy).toHaveBeenCalledWith(expect.any(Function));
       const warnCall = warnSpy.mock.calls.find((call) =>
-        call[0]().includes('Cannot exclude immutable scheme'),
+        call[0]().includes('Cannot exclude required default scheme'),
       );
       expect(warnCall).toBeDefined();
       warnSpy.mockRestore();
+    });
+  });
+
+  describe('getDocumentSynchronizationSelectorsFromSettings', () => {
+    it('includes all default and mutable schemes', () => {
+      const selectors = getDocumentSynchronizationSelectorsFromSettings();
+
+      expect(selectors).toContainEqual({ scheme: 'file', language: 'apex' });
+      expect(selectors).toContainEqual({
+        scheme: 'apexlib',
+        language: 'apex',
+      });
     });
   });
 
@@ -152,7 +192,7 @@ describe('DocumentSelectorUtils', () => {
       expect(result.warnings).toHaveLength(0);
     });
 
-    it('should warn when trying to add immutable scheme', () => {
+    it('should warn when trying to add a required default scheme', () => {
       const logger = getLogger();
       const warnSpy = vi.spyOn(logger, 'warn');
 
@@ -164,7 +204,7 @@ describe('DocumentSelectorUtils', () => {
       warnSpy.mockRestore();
     });
 
-    it('should warn when trying to exclude immutable scheme', () => {
+    it('should warn when trying to exclude a required default scheme', () => {
       const logger = getLogger();
       const warnSpy = vi.spyOn(logger, 'warn');
 
@@ -174,7 +214,9 @@ describe('DocumentSelectorUtils', () => {
 
       expect(result.isValid).toBe(false);
       expect(result.warnings.length).toBeGreaterThan(0);
-      expect(result.warnings[0]).toContain('Cannot exclude immutable scheme');
+      expect(result.warnings[0]).toContain(
+        'Cannot exclude required default scheme',
+      );
       expect(warnSpy).toHaveBeenCalled();
       warnSpy.mockRestore();
     });
@@ -273,11 +315,6 @@ describe('DocumentSelectorUtils', () => {
   });
 
   describe('getDefaultDocumentSelectors', () => {
-    it('should return default selectors for all capabilities when no capability specified', () => {
-      const selectors = getDefaultDocumentSelectors();
-      expect(selectors.length).toBeGreaterThan(0);
-    });
-
     it('should return default selectors for specific capability', () => {
       const selectors = getDefaultDocumentSelectors('codeLens');
       expect(selectors).not.toContainEqual({

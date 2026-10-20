@@ -8,15 +8,45 @@
 
 import type { LanguageClientOptions } from 'vscode-languageclient';
 import { formattedError } from '@salesforce/apex-lsp-shared';
+import { CODE_LENS_SERVER_TO_CLIENT_COMMANDS } from './codeLensCommandMappings';
 import { logToOutputChannel } from './logging';
 
-export const createHoverMiddleware = (): NonNullable<
+export const createLanguageClientMiddleware = (): NonNullable<
   LanguageClientOptions['middleware']
 > => {
   let hoverSequence = 0;
   const inFlightSupersede = new Map<number, () => void>();
 
   return {
+    provideCodeLenses: async (document, token, next) => {
+      const lenses = await next(document, token);
+      if (!lenses) {
+        return lenses;
+      }
+
+      return lenses.flatMap((lens) => {
+        if (!lens.command) {
+          return [lens];
+        }
+
+        const clientCommand = CODE_LENS_SERVER_TO_CLIENT_COMMANDS.get(
+          lens.command.command,
+        );
+        if (!clientCommand) {
+          return [];
+        }
+
+        return [
+          {
+            ...lens,
+            command: {
+              ...lens.command,
+              command: clientCommand,
+            },
+          },
+        ];
+      });
+    },
     provideHover: async (document, position, token, next) => {
       const requestSequence = ++hoverSequence;
       for (const [sequence, resolveSupersede] of inFlightSupersede.entries()) {

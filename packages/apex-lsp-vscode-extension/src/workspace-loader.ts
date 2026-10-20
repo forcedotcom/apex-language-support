@@ -24,13 +24,13 @@ import {
   type WorkspaceLoadReason,
 } from '@salesforce/apex-lsp-shared';
 import { getWorkspaceSettings } from './configuration';
-import type { ApexClientCore } from '@salesforce/apex-lsp-client';
 import {
-  createFileBatches,
-  compressBatch,
-  encodeBatchForTransport,
-  type FileData,
-} from './workspace-batch-compressor';
+  compressWorkspaceFileBatch,
+  createWorkspaceFileBatches,
+  encodeWorkspaceBatchForTransport,
+  type ApexClientCore,
+  type WorkspaceFileInput,
+} from '@salesforce/apex-lsp-client';
 import {
   updateApexServerStatusLoading,
   updateApexServerStatusReady,
@@ -70,7 +70,7 @@ const readFileContent = (uri: vscode.Uri, namespace?: string) =>
       const fileData = await vscode.workspace.fs.readFile(uri);
       const decoder = new TextDecoder();
       const content = decoder.decode(fileData);
-      return { uri, version: 1, content, namespace };
+      return { uri: uri.toString(), version: 1, content, namespace };
     },
     catch: (err: unknown) =>
       new Error(
@@ -242,8 +242,9 @@ export async function loadWorkspaceForServer(
     throwIfAborted();
 
     // Filter out any failed reads (they return void on error)
-    const validFiles: FileData[] = fileDataArray.filter(
-      (file: FileData | undefined): file is FileData => file !== undefined,
+    const validFiles: WorkspaceFileInput[] = fileDataArray.filter(
+      (file: WorkspaceFileInput | undefined): file is WorkspaceFileInput =>
+        file !== undefined,
     );
 
     logToOutputChannel(
@@ -258,7 +259,7 @@ export async function loadWorkspaceForServer(
           'workspace.file_count': validFiles.length,
           'workspace.batch_size': batchSize,
         },
-      })(createFileBatches(validFiles, batchSize)),
+      })(Effect.sync(() => createWorkspaceFileBatches(validFiles, batchSize))),
     );
 
     logToOutputChannel(
@@ -309,10 +310,16 @@ export async function loadWorkspaceForServer(
               Effect.gen(function* () {
                 throwIfAborted();
                 // Compress batch
-                const compressed = yield* compressBatch(batch);
+                const compressed = yield* Effect.try({
+                  try: () => compressWorkspaceFileBatch(batch),
+                  catch: (error) => error,
+                });
 
                 // Encode for transport
-                const encodedData = yield* encodeBatchForTransport(compressed);
+                const encodedData = yield* Effect.try({
+                  try: () => encodeWorkspaceBatchForTransport(compressed),
+                  catch: (error) => error,
+                });
                 throwIfAborted();
 
                 // Update progress during compression (LSP only — status bar phase message set above)

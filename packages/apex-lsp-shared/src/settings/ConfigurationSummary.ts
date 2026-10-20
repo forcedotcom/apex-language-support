@@ -8,24 +8,18 @@
 
 import type { ApexLanguageServerSettings } from '../server/ApexLanguageServerSettings';
 import type { ExtendedServerCapabilities } from '../capabilities/ApexLanguageServerCapabilities';
-
-const DEFAULT_DOCUMENT_SCHEMES = [
-  'file',
-  'apexlib',
-  'vscode-test-web',
-  'memfs',
-  'reefs',
-];
+import { getAllRequiredDefaultSchemes } from '../document/DocumentSelectorUtils';
 
 function status(enabled: boolean): string {
   return enabled ? 'enabled' : 'disabled';
 }
 
 function buildDocumentSchemes(additionalSchemes?: string[]): string[] {
+  const defaultSchemes = getAllRequiredDefaultSchemes();
   if (!additionalSchemes || additionalSchemes.length === 0) {
-    return DEFAULT_DOCUMENT_SCHEMES;
+    return [...defaultSchemes];
   }
-  return [...new Set([...DEFAULT_DOCUMENT_SCHEMES, ...additionalSchemes])];
+  return [...new Set([...defaultSchemes, ...additionalSchemes])];
 }
 
 /**

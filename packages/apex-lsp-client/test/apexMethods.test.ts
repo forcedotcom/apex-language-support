@@ -194,51 +194,6 @@ describe('ApexMethods typed surface', () => {
 
       await core.dispose();
     });
-
-    it('profilingStart sends apex/profiling/start', async () => {
-      const core = await ApexClientCore.create(connection);
-      const params = { type: 'cpu' as const };
-
-      await core.profilingStart(params);
-
-      const sendReq = connection.sendRequest as Mock;
-      expect(sendReq).toHaveBeenCalledWith(
-        APEX_METHODS.profilingStart.method,
-        params,
-      );
-
-      await core.dispose();
-    });
-
-    it('profilingStop sends apex/profiling/stop', async () => {
-      const core = await ApexClientCore.create(connection);
-      const params = { tag: 'test-run' };
-
-      await core.profilingStop(params);
-
-      const sendReq = connection.sendRequest as Mock;
-      expect(sendReq).toHaveBeenCalledWith(
-        APEX_METHODS.profilingStop.method,
-        params,
-      );
-
-      await core.dispose();
-    });
-
-    it('profilingStatus sends apex/profiling/status', async () => {
-      const core = await ApexClientCore.create(connection);
-      const params = {} as Record<string, never>;
-
-      await core.profilingStatus(params);
-
-      const sendReq = connection.sendRequest as Mock;
-      expect(sendReq).toHaveBeenCalledWith(
-        APEX_METHODS.profilingStatus.method,
-        params,
-      );
-
-      await core.dispose();
-    });
   });
 
   describe('onFindMissingArtifact', () => {

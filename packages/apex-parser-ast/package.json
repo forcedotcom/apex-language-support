@@ -53,6 +53,9 @@
         "resources/apex-stdlib.pb.gz",
         "resources/apex-type-registry.pb.gz",
         "resources/apex-fqn-index.pb.gz",
+        "resources/apex-stdlib.pb.gz.md5",
+        "resources/apex-type-registry.pb.gz.md5",
+        "resources/apex-fqn-index.pb.gz.md5",
         "resources/apex-stdlib.sha256"
       ],
       "files": [
@@ -129,7 +132,7 @@
       ]
     },
     "test": {
-      "command": "vitest run --reporter=json --reporter=tree --outputFile=.wireit/test-results.json",
+      "command": "vitest run --reporter=default --reporter=json --outputFile.json=.wireit/test-results.json",
       "dependencies": [
         "compile"
       ],

@@ -571,6 +571,29 @@ describe('Server Config Module', () => {
       );
     });
 
+    it('synchronizes only Apex source artifacts from the Org Catalog scheme', () => {
+      const clientOptions = createClientOptions({});
+      const orgCatalogSelectors = (
+        clientOptions.documentSelector as vscode.DocumentSelector
+      ).filter(
+        (selector): selector is vscode.DocumentFilter =>
+          typeof selector !== 'string' && selector.scheme === 'sf-org-metadata',
+      );
+
+      expect(orgCatalogSelectors).toEqual([
+        {
+          scheme: 'sf-org-metadata',
+          language: 'apex',
+          pattern: '**/*.cls',
+        },
+        {
+          scheme: 'sf-org-metadata',
+          language: 'apex',
+          pattern: '**/*.trigger',
+        },
+      ]);
+    });
+
     it('should support both file and apexlib schemes for comprehensive Apex support', () => {
       const initializationOptions = {
         enableDocumentSymbols: true,
@@ -601,6 +624,14 @@ describe('Server Config Module', () => {
       expect(clientOptions.errorHandler).toBeDefined();
       expect(typeof clientOptions.errorHandler!.error).toBe('function');
       expect(typeof clientOptions.errorHandler!.closed).toBe('function');
+    });
+
+    it('should use shared CodeLens middleware', () => {
+      const clientOptions = createClientOptions({});
+
+      expect(clientOptions.middleware?.provideCodeLenses).toEqual(
+        expect.any(Function),
+      );
     });
 
     it('should include workspace settings in initialization options', () => {
