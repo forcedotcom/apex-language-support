@@ -103,7 +103,7 @@ import {
   buildReferencesToCacheKey,
   buildReferencesFromCacheKey,
 } from './referenceCacheKey';
-import { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
+import { DetailLevel } from '../types/DetailLevel';
 import { CompilerService } from '../parser/compilerService';
 import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
 import { ErrorType } from '../parser/listeners/ApexErrorListener';

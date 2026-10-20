@@ -37,10 +37,7 @@ import { ApexSymbolCollectorListener } from './listeners/ApexSymbolCollectorList
 import { FullSymbolCollectorListener } from './listeners/FullSymbolCollectorListener';
 import { ApexReferenceCollectorListener } from './listeners/ApexReferenceCollectorListener';
 import { ApexReferenceResolver } from './references/ApexReferenceResolver';
-import {
-  LayeredSymbolListenerBase,
-  DetailLevel,
-} from './listeners/LayeredSymbolListenerBase';
+import { type DetailLevel } from '../types/DetailLevel';
 import { VisibilitySymbolListener } from './listeners/VisibilitySymbolListener';
 import { BlockContentListener } from './listeners/BlockContentListener';
 import { StructureListener } from './listeners/StructureListener';
@@ -764,7 +761,7 @@ export class CompilerService {
   private createListenerForLayer(
     layer: DetailLevel,
     symbolTable: SymbolTable,
-  ): LayeredSymbolListenerBase {
+  ): BaseApexParserListener<SymbolTable> {
     switch (layer) {
       case 'public-api':
         return new VisibilitySymbolListener('public-api', symbolTable);
@@ -775,7 +772,7 @@ export class CompilerService {
       case 'full':
         // For 'full', use ApexSymbolCollectorListener with 'full' detail level
         // This collects all symbols (public, protected, private) in a single walk
-        return new ApexSymbolCollectorListener(symbolTable, 'full') as any;
+        return new ApexSymbolCollectorListener(symbolTable, 'full');
       default:
         throw new Error(`Unknown detail level: ${layer}`);
     }

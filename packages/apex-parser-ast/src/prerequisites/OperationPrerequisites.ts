@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
+import { DetailLevel } from '../types/DetailLevel';
 
 /**
  * Base interface for operation prerequisites
