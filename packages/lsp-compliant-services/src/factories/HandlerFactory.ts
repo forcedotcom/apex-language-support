@@ -17,11 +17,6 @@ import {
   IDocumentChangeProcessor,
   DocumentChangeProcessingService,
 } from '../services/DocumentChangeProcessingService';
-import { DocumentSymbolHandler } from '../handlers/DocumentSymbolHandler';
-import {
-  DocumentSymbolProcessingService,
-  IDocumentSymbolProcessor,
-} from '../services/DocumentSymbolProcessingService';
 import { DidSaveDocumentHandler } from '../handlers/DidSaveDocumentHandler';
 import {
   DocumentSaveProcessingService,
@@ -37,28 +32,8 @@ import {
   DocumentDeleteProcessingService,
   IDocumentDeleteProcessor,
 } from '../services/DocumentDeleteProcessingService';
-import { HoverHandler } from '../handlers/HoverHandler';
-import {
-  HoverProcessingService,
-  IHoverProcessor,
-} from '../services/HoverProcessingService';
-import { DefinitionHandler } from '../handlers/DefinitionHandler';
-import {
-  DefinitionProcessingService,
-  IDefinitionProcessor,
-} from '../services/DefinitionProcessingService';
-import { ImplementationHandler } from '../handlers/ImplementationHandler';
-import {
-  ImplementationProcessingService,
-  IImplementationProcessor,
-} from '../services/ImplementationProcessingService';
 import { DidOpenDocumentHandler } from '../handlers/DidOpenDocumentHandler';
 import { DocumentProcessingService } from '../services/DocumentProcessingService';
-import { CodeLensHandler } from '../handlers/CodeLensHandler';
-import {
-  CodeLensProcessingService,
-  ICodeLensProcessor,
-} from '../services/CodeLensProcessingService';
 import { QueueStateHandler } from '../handlers/QueueStateHandler';
 import {
   QueueStateProcessingService,
@@ -69,8 +44,6 @@ import {
   GraphDataProcessingService,
   IGraphDataProcessor,
 } from '../services/GraphDataProcessingService';
-import { LayerEnrichmentService } from '../services/LayerEnrichmentService';
-import { ApexSymbolProcessingManager } from '@salesforce/apex-lsp-parser-ast';
 
 /**
  * Factory for creating handlers with proper dependency injection
@@ -108,30 +81,6 @@ export class HandlerFactory {
     documentChangeProcessor: IDocumentChangeProcessor,
   ): DidChangeDocumentHandler {
     return new DidChangeDocumentHandler(logger, documentChangeProcessor);
-  }
-
-  /**
-   * Create a DocumentSymbolHandler with default dependencies
-   * @returns A configured DocumentSymbolHandler instance
-   */
-  static createDocumentSymbolHandler(): DocumentSymbolHandler {
-    const logger = getLogger();
-    const documentSymbolProcessor = new DocumentSymbolProcessingService(logger);
-
-    return new DocumentSymbolHandler(logger, documentSymbolProcessor);
-  }
-
-  /**
-   * Create a DocumentSymbolHandler with custom dependencies (for testing)
-   * @param logger Custom logger implementation
-   * @param documentSymbolProcessor Custom document symbol processor implementation
-   * @returns A configured DocumentSymbolHandler instance
-   */
-  static createDocumentSymbolHandlerWithDependencies(
-    logger: LoggerInterface,
-    documentSymbolProcessor: IDocumentSymbolProcessor,
-  ): DocumentSymbolHandler {
-    return new DocumentSymbolHandler(logger, documentSymbolProcessor);
   }
 
   /**
@@ -204,122 +153,6 @@ export class HandlerFactory {
     documentDeleteProcessor: IDocumentDeleteProcessor,
   ): DidDeleteDocumentHandler {
     return new DidDeleteDocumentHandler(logger, documentDeleteProcessor);
-  }
-
-  /**
-   * Create a HoverHandler with default dependencies
-   * @returns A configured HoverHandler instance
-   */
-  static createHoverHandler(): HoverHandler {
-    const logger = getLogger();
-    const symbolManager =
-      ApexSymbolProcessingManager.getInstance().getSymbolManager();
-    const hoverProcessor = new HoverProcessingService(logger, symbolManager);
-
-    // Inject LayerEnrichmentService for on-demand SymbolTable enrichment
-    const layerEnrichmentService = new LayerEnrichmentService(
-      logger,
-      symbolManager,
-    );
-    hoverProcessor.setLayerEnrichmentService(layerEnrichmentService);
-
-    return new HoverHandler(logger, hoverProcessor);
-  }
-
-  /**
-   * Create a HoverHandler with custom dependencies (for testing)
-   * @param logger Custom logger implementation
-   * @param hoverProcessor Custom hover processor implementation
-   * @returns A configured HoverHandler instance
-   */
-  static createHoverHandlerWithDependencies(
-    logger: LoggerInterface,
-    hoverProcessor: IHoverProcessor,
-  ): HoverHandler {
-    return new HoverHandler(logger, hoverProcessor);
-  }
-
-  /**
-   * Create a DefinitionHandler with default dependencies
-   * @returns A configured DefinitionHandler instance
-   */
-  static createDefinitionHandler(): DefinitionHandler {
-    const logger = getLogger();
-    const symbolManager =
-      ApexSymbolProcessingManager.getInstance().getSymbolManager();
-    const definitionProcessor = new DefinitionProcessingService(
-      logger,
-      symbolManager,
-    );
-
-    const layerEnrichmentService = new LayerEnrichmentService(
-      logger,
-      symbolManager,
-    );
-    definitionProcessor.setLayerEnrichmentService(layerEnrichmentService);
-
-    return new DefinitionHandler(logger, definitionProcessor);
-  }
-
-  /**
-   * Create a DefinitionHandler with custom dependencies (for testing)
-   * @param logger Custom logger implementation
-   * @param definitionProcessor Custom definition processor implementation
-   * @returns A configured DefinitionHandler instance
-   */
-  static createDefinitionHandlerWithDependencies(
-    logger: LoggerInterface,
-    definitionProcessor: IDefinitionProcessor,
-  ): DefinitionHandler {
-    return new DefinitionHandler(logger, definitionProcessor);
-  }
-
-  /**
-   * Create an ImplementationHandler with default dependencies
-   * @returns A configured ImplementationHandler instance
-   */
-  static createImplementationHandler(): ImplementationHandler {
-    const logger = getLogger();
-    const implementationProcessor = new ImplementationProcessingService(logger);
-
-    return new ImplementationHandler(logger, implementationProcessor);
-  }
-
-  /**
-   * Create an ImplementationHandler with custom dependencies (for testing)
-   * @param logger Custom logger implementation
-   * @param implementationProcessor Custom implementation processor implementation
-   * @returns A configured ImplementationHandler instance
-   */
-  static createImplementationHandlerWithDependencies(
-    logger: LoggerInterface,
-    implementationProcessor: IImplementationProcessor,
-  ): ImplementationHandler {
-    return new ImplementationHandler(logger, implementationProcessor);
-  }
-
-  /**
-   * Create a CodeLensHandler with default dependencies
-   * @returns A configured CodeLensHandler instance
-   */
-  static createCodeLensHandler(): CodeLensHandler {
-    const logger = getLogger();
-    const codeLensProcessor = new CodeLensProcessingService(logger);
-
-    return new CodeLensHandler(logger, codeLensProcessor);
-  }
-
-  /**
-   * Create a CodeLensHandler with custom dependencies (for testing)
-   * @param logger Custom logger implementation
-   * @param codeLensProcessor Custom code lens processor implementation
-   * @returns A configured CodeLensHandler instance
-   */
-  static createCodeLensHandlerWithDependencies(
-    logger: LoggerInterface,
-    codeLensProcessor: ICodeLensProcessor,
-  ): CodeLensHandler {
-    return new CodeLensHandler(logger, codeLensProcessor);
   }
 
   /**
