@@ -23,7 +23,7 @@ import {
   shutdown,
   SchedulerInitializationService,
 } from '@salesforce/apex-lsp-parser-ast';
-import { Effect, Deferred, Fiber, Cause } from 'effect';
+import { Effect, Deferred, Fiber, Cause, Data } from 'effect';
 import { LSPRequestType, LSPQueueStats } from './LSPRequestQueue';
 import { ServiceRegistry, GenericRequestHandler } from '../registry';
 
@@ -32,10 +32,11 @@ import { ServiceRegistry, GenericRequestHandler } from '../registry';
  * dispatched or while its fiber is in flight. Callers (e.g. the LSP adapter)
  * treat this as "return the empty/null fallback" rather than a real error.
  */
-export class RequestCancelledError extends Error {
+export class RequestCancelledError extends Data.TaggedError(
+  'RequestCancelledError',
+)<{ readonly message: string }> {
   constructor(requestType: LSPRequestType) {
-    super(`LSP ${requestType} request cancelled`);
-    this.name = 'RequestCancelledError';
+    super({ message: `LSP ${requestType} request cancelled` });
   }
 }
 
