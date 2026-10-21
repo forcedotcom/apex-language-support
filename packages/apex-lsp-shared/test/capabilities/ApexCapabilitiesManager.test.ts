@@ -121,15 +121,23 @@ describe('ApexCapabilitiesManager', () => {
       expect(capabilities.diagnosticProvider).toBeDefined();
     });
 
-    it('should enable CodeLens only for production web', () => {
+    it('should enable CodeLens only in development mode', () => {
       expect(
         manager.getCapabilitiesForModeAndPlatform('production', 'web')
           .codeLensProvider,
-      ).toEqual({ resolveProvider: false });
+      ).toBeUndefined();
       expect(
         manager.getCapabilitiesForModeAndPlatform('production', 'desktop')
           .codeLensProvider,
       ).toBeUndefined();
+      expect(
+        manager.getCapabilitiesForModeAndPlatform('development', 'web')
+          .codeLensProvider,
+      ).toEqual({ resolveProvider: false });
+      expect(
+        manager.getCapabilitiesForModeAndPlatform('development', 'desktop')
+          .codeLensProvider,
+      ).toEqual({ resolveProvider: false });
     });
   });
 
@@ -151,13 +159,13 @@ describe('ApexCapabilitiesManager', () => {
       });
     });
 
-    it('reports web production enabled features', () => {
+    it('reports CodeLens as supported but disabled in production', () => {
       manager.setPlatform('web');
       manager.setMode('production');
 
       expect(manager.getFeatureStates().codeLens).toEqual({
         supported: true,
-        enabled: true,
+        enabled: false,
       });
     });
   });

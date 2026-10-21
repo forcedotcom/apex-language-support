@@ -155,9 +155,7 @@ export const PRODUCTION_WEB_CAPABILITIES: ExtendedServerCapabilities = {
   foldingRangeProvider: true,
   hoverProvider: true,
   definitionProvider: true,
-  codeLensProvider: {
-    resolveProvider: false,
-  },
+  codeLensProvider: undefined, // Development-only until production validation is complete
   diagnosticProvider: undefined, // TDX26: production never gets diagnostics
   workspace: {
     workspaceFolders: {
