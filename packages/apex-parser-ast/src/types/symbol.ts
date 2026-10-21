@@ -16,7 +16,7 @@ import {
 import { SymbolReference, ReferenceContext } from './symbolReference';
 import { generateSymbolId, type ParameterInfo } from './UriBasedIdGenerator';
 import { HierarchicalReference } from './hierarchicalReference';
-import { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
+import { DetailLevel } from './DetailLevel';
 
 /**
  * Types of symbols that can be defined in Apex code

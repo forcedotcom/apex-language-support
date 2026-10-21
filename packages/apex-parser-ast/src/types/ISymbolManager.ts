@@ -26,7 +26,7 @@ import type {
 } from '../parser/listeners/ApexCommentCollectorListener';
 import type { GraphData, FileGraphData, TypeGraphData } from '../types/graph';
 import { Effect } from 'effect';
-import type { DetailLevel } from '../parser/listeners/LayeredSymbolListenerBase';
+import type { DetailLevel } from './DetailLevel';
 import type { SymbolProvider } from '../namespace/NamespaceUtils';
 
 /**

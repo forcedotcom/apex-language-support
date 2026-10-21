@@ -26,12 +26,11 @@ import {
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4';
 import { Stack } from 'data-structure-typed';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 import { ApexReferenceCollectorListener } from './ApexReferenceCollectorListener';
 
-import {
-  LayeredSymbolListenerBase,
-  DetailLevel,
-} from './LayeredSymbolListenerBase';
+import { BaseApexParserListener } from './BaseApexParserListener';
+import { type DetailLevel } from '../../types/DetailLevel';
 import { Namespaces, Namespace } from '../../namespace/NamespaceUtils';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
 import { createTypeInfo } from '../../utils/TypeInfoFactory';
@@ -83,9 +82,12 @@ import {
  * - 'private': Private symbols (enriches existing symbols)
  */
 export class VisibilitySymbolListener
-  extends LayeredSymbolListenerBase
+  extends BaseApexParserListener<SymbolTable>
   implements ErrorReporter
 {
+  protected readonly logger = getLogger();
+  protected symbolTable: SymbolTable;
+  protected currentFilePath: string = '';
   private readonly detailLevel: DetailLevel;
   private scopeStack: Stack<ApexSymbol> = new Stack<ApexSymbol>();
   private blockCounter: number = 0;
@@ -95,7 +97,7 @@ export class VisibilitySymbolListener
   protected projectNamespace: string | undefined = undefined;
 
   constructor(detailLevel: DetailLevel, symbolTable?: SymbolTable) {
-    super(symbolTable);
+    super();
     if (
       detailLevel !== 'public-api' &&
       detailLevel !== 'protected' &&
@@ -107,10 +109,51 @@ export class VisibilitySymbolListener
       );
     }
     this.detailLevel = detailLevel;
+    this.symbolTable = symbolTable || new SymbolTable();
   }
 
   getDetailLevel(): DetailLevel {
     return this.detailLevel;
+  }
+
+  getResult(): SymbolTable {
+    return this.symbolTable;
+  }
+
+  setCurrentFileUri(fileUri: string): void {
+    this.currentFilePath = fileUri;
+    this.symbolTable.setFileUri(fileUri);
+    this.logger.debug(() => `Set current file path to: ${fileUri}`);
+  }
+
+  private shouldProcessSymbol(visibility: SymbolVisibility): boolean {
+    switch (this.detailLevel) {
+      case 'public-api':
+        return (
+          visibility === SymbolVisibility.Public ||
+          visibility === SymbolVisibility.Global
+        );
+      case 'protected':
+        return (
+          visibility === SymbolVisibility.Protected ||
+          visibility === SymbolVisibility.Default
+        );
+      case 'private':
+        return visibility === SymbolVisibility.Private;
+    }
+    return false;
+  }
+
+  private addSymbolWithDetailLevel(
+    symbol: ApexSymbol,
+    currentScope?: ApexSymbol | null,
+  ): void {
+    symbol._detailLevel = this.detailLevel;
+    if (currentScope && 'scopeType' in currentScope) {
+      this.symbolTable.addSymbol(symbol, currentScope as any);
+    } else {
+      this.symbolTable.addSymbol(symbol, null);
+    }
   }
 
   /**

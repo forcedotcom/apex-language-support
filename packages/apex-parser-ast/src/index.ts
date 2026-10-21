@@ -22,7 +22,6 @@ export * from './parser/listeners/ApexReferenceCollectorListener';
 export * from './parser/references/ApexReferenceResolver';
 
 // Export layered symbol listeners
-export * from './parser/listeners/LayeredSymbolListenerBase';
 export * from './parser/listeners/VisibilitySymbolListener';
 // Note: ListenerApplicationManager is only used in tests, not exported from public API
 // Export ListenerFactory for creating service-appropriate listeners
@@ -48,6 +47,7 @@ export * from './types/source';
 export * from './types/unitType';
 export * from './types/classInfo';
 export * from './types/ISymbolManager';
+export * from './types/DetailLevel';
 export * from './types/graph';
 
 // Export canonical sObject name classification

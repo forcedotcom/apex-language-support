@@ -180,7 +180,7 @@ import { ResourceLoader } from '../../utils/resourceLoader';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../../constants/constants';
 import { HierarchicalReferenceResolver } from '../../types/hierarchicalReference';
 import { ApexReferenceResolver } from '../references/ApexReferenceResolver';
-import { DetailLevel } from './LayeredSymbolListenerBase';
+import { DetailLevel } from '../../types/DetailLevel';
 import { SObjectRegistry } from '../../sobjects/SObjectRegistry';
 
 interface SemanticError {

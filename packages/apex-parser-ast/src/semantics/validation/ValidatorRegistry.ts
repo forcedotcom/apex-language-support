@@ -12,7 +12,7 @@ import type { ValidationResult } from './ValidationResult';
 import { deduplicateValidationResult } from './ValidationResult';
 import type { ValidationOptions, ValidationTier } from './ValidationTier';
 import type { ValidatorPrerequisites } from '../../prerequisites/OperationPrerequisites';
-import { DetailLevel } from '../../parser/listeners/LayeredSymbolListenerBase';
+import { DetailLevel } from '../../types/DetailLevel';
 import { isStandardApexUri } from '../../types/ProtocolHandler';
 import {
   SymbolTableEnrichmentService,

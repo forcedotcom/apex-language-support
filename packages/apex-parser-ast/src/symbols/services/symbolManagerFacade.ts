@@ -34,7 +34,7 @@ import type {
   FileGraphData,
   TypeGraphData,
 } from '../../types/graph';
-import type { DetailLevel } from '../../parser/listeners/LayeredSymbolListenerBase';
+import type { DetailLevel } from '../../types/DetailLevel';
 import type { FQNOptions } from '../../utils/FQNUtils';
 import { SymbolIndexStore as SymbolIndexStoreTag } from './symbolIndexStore';
 import type { SymbolIndexStore } from './symbolIndexStore';
