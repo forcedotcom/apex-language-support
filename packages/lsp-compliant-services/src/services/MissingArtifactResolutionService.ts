@@ -18,7 +18,7 @@ import type {
   FindMissingArtifactResult,
   MissingArtifactPayload,
 } from '@salesforce/apex-lsp-shared';
-import { Schema } from 'effect';
+import { Cause, Effect, Exit, Option, Schema } from 'effect';
 import { LSPQueueManager } from '../queue';
 import type { Connection } from 'vscode-languageserver';
 import { sanitizeMissingArtifactParams } from '../utils/missingArtifactProvenance';
@@ -39,6 +39,15 @@ export type BlockingResult =
 const blockingStatus = (
   status: Exclude<BlockingResult['status'], 'resolved'>,
 ): BlockingResult => ({ status });
+
+const isTimeoutException = (
+  error: unknown,
+): error is { readonly _tag: 'TimeoutException' } =>
+  Cause.isTimeoutException(error) ||
+  (typeof error === 'object' &&
+    error !== null &&
+    '_tag' in error &&
+    error._tag === 'TimeoutException');
 
 /**
  * Decode a client response and verify that artifact payloads belong to the
@@ -358,8 +367,7 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
           () => `Blocking resolution failed for ${names}: ${error}`,
         );
 
-        // Return timeout if the request timed out
-        if (error instanceof Error && error.message.includes('timeout')) {
+        if (isTimeoutException(error)) {
           EnhancedMissingArtifactResolutionService.recentBlockingTimeouts.set(
             key,
             Date.now(),
@@ -507,22 +515,27 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
   }
 
   /**
-   * Race a promise against a timeout. Rejects with a timeout Error (matched by
-   * the caller's `error.message.includes('timeout')` cooldown handling) if the
-   * budget elapses first.
+   * Bound the assistance proxy without converting Effect's TimeoutException into
+   * a FiberFailure at the Promise boundary.
    */
   private withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-    let timer: ReturnType<typeof setTimeout>;
-    const timeout = new Promise<never>((_resolve, reject) => {
-      timer = setTimeout(
-        () =>
-          reject(new Error(`Blocking resolution timeout after ${timeoutMs}ms`)),
-        timeoutMs,
-      );
+    return Effect.runPromiseExit(
+      Effect.tryPromise({
+        try: () => promise,
+        catch: (error) => error,
+      }).pipe(Effect.timeout(timeoutMs)),
+    ).then((exit) => {
+      if (Exit.isSuccess(exit)) {
+        return exit.value;
+      }
+
+      const failure = Cause.failureOption(exit.cause);
+      if (Option.isSome(failure)) {
+        throw failure.value;
+      }
+
+      throw Cause.squash(exit.cause);
     });
-    return Promise.race([promise, timeout]).finally(() =>
-      clearTimeout(timer),
-    ) as Promise<T>;
   }
 
   /**

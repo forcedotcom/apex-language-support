@@ -24,8 +24,10 @@ import { EnhancedMissingArtifactResolutionService } from '../../src/services/Mis
  */
 describe('MissingArtifactResolutionService — blocking assistance proxy', () => {
   let service: EnhancedMissingArtifactResolutionService;
+  let requestNumber = 0;
 
   beforeEach(() => {
+    requestNumber += 1;
     LSPConfigurationManager.resetInstance();
     ApexSettingsManager.resetInstance();
 
@@ -93,7 +95,7 @@ describe('MissingArtifactResolutionService — blocking assistance proxy', () =>
       {
         name: 'MissingClass',
         provenance: {
-          sourceUri: 'file:///test.cls',
+          sourceUri: `file:///test-${requestNumber}.cls`,
           documentVersion: 1,
           referenceRange: {
             startLine: 0,
@@ -101,7 +103,7 @@ describe('MissingArtifactResolutionService — blocking assistance proxy', () =>
             endLine: 0,
             endColumn: 12,
           },
-          referenceIdentity: 'class-ref|MissingClass|0|0|0|12',
+          referenceIdentity: `class-ref|MissingClass|${requestNumber}|0|0|12`,
           parseCompleteness: 'complete',
         },
         typeReference: new NonCloneableTypeReference(),
@@ -109,7 +111,7 @@ describe('MissingArtifactResolutionService — blocking assistance proxy', () =>
     ],
     mode: 'blocking' as const,
     origin: {
-      uri: 'file:///test.cls',
+      uri: `file:///test-${requestNumber}.cls`,
       requestKind: 'definition' as const,
     },
   });
@@ -149,11 +151,62 @@ describe('MissingArtifactResolutionService — blocking assistance proxy', () =>
       { blockingWaitTimeoutMs: 50, indexingBarrierPollMs: 100 },
     );
 
-    const result = await fastService.resolveBlocking(makeParams());
+    const params = makeParams();
+    const result = await fastService.resolveBlocking(params);
 
     expect(result).toEqual({ status: 'timeout' });
     expect(proxy).toHaveBeenCalledTimes(1);
+    await expect(fastService.resolveBlocking(params)).resolves.toEqual({
+      status: 'timeout',
+    });
+    expect(proxy).toHaveBeenCalledTimes(1);
   });
+
+  it('does not cool down a proxy failure based on its message', async () => {
+    const proxy = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('upstream timeout configuration error'))
+      .mockResolvedValueOnce({ opened: ['file:///Found.cls'] });
+    EnhancedMissingArtifactResolutionService.setAssistanceProxy(proxy);
+    const params = makeParams();
+
+    const first = await service.resolveBlocking(params);
+    const second = await service.resolveBlocking(params);
+    expect(first).toEqual({
+      status: 'not-found',
+    });
+    expect(second).toEqual({
+      status: 'resolved',
+      opened: ['file:///Found.cls'],
+    });
+
+    expect(proxy).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    new Error('timeout configuration error'),
+    { _tag: 'TimeoutException' },
+  ])(
+    'classifies only tagged timeouts from the queue path',
+    async (error: Error | { readonly _tag: 'TimeoutException' }) => {
+      const params = makeParams();
+      const submitRequest = vi.fn().mockRejectedValue(error);
+      const isTimeout = '_tag' in error && error._tag === 'TimeoutException';
+      LSPConfigurationManager.getInstance().setConnection({} as any);
+      vi.spyOn(service as any, 'getQueueManager').mockReturnValue({
+        submitRequest,
+      });
+
+      const first = await service.resolveBlocking(params);
+      const second = await service.resolveBlocking(params);
+
+      expect(first).toEqual({
+        status: isTimeout ? 'timeout' : 'not-found',
+      });
+      expect(second).toEqual(first);
+      expect(submitRequest).toHaveBeenCalledTimes(isTimeout ? 1 : 2);
+    },
+  );
 
   it('preserves a valid sObject artifact in the blocking outcome', async () => {
     const artifact = {
@@ -202,24 +255,22 @@ describe('MissingArtifactResolutionService — blocking assistance proxy', () =>
           : { opened: ['file:///Account.cls'] },
       );
     EnhancedMissingArtifactResolutionService.setAssistanceProxy(proxy);
+    const params = makeParams();
     const common = {
       mode: 'blocking' as const,
-      origin: {
-        uri: 'file:///test.cls',
-        requestKind: 'definition' as const,
-      },
+      origin: params.origin,
     };
 
     const [apexResult, sObjectResult] = await Promise.all([
       service.resolveBlocking({
         ...common,
-        identifiers: [{ ...makeParams().identifiers[0], name: 'Account' }],
+        identifiers: [{ ...params.identifiers[0], name: 'Account' }],
       }),
       service.resolveBlocking({
         ...common,
         identifiers: [
           {
-            ...makeParams().identifiers[0],
+            ...params.identifiers[0],
             name: 'Account',
             identifierType: 'sobject',
           },
