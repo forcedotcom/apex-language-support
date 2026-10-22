@@ -9,6 +9,7 @@
 import { vi } from 'vitest';
 import * as vscode from 'vscode';
 import { DidOpenTextDocumentFeature } from 'vscode-languageclient/lib/common/textSynchronization';
+import { getDocumentSynchronizationSelectors } from '@salesforce/apex-lsp-shared';
 import { getOrgArtifactSourceDocumentSelectors } from '../src/services/org-artifact-fs';
 
 describe('org artifact language-client synchronization', () => {
@@ -84,6 +85,64 @@ describe('org artifact language-client synchronization', () => {
     expect(compilerDidOpen).toHaveBeenCalledWith(apexDocument.uri.toString());
     expect(compilerDidOpen).not.toHaveBeenCalledWith(
       sobjectDocument.uri.toString(),
+    );
+    feature.clear();
+  });
+
+  it('sends opened Org Catalog Apex classes to the language server', () => {
+    const apexClassDocument = {
+      uri: vscode.Uri.parse(
+        'sf-org-metadata:/orgs/00D000000000001/ApexClass/Example.cls',
+      ),
+      languageId: 'apex',
+    };
+    const metadataDocument = {
+      uri: vscode.Uri.parse(
+        'sf-org-metadata:/orgs/00D000000000001/CustomObject/Example.object',
+      ),
+      languageId: 'apex',
+    };
+    (vscode.workspace.textDocuments as unknown[]).push(
+      apexClassDocument,
+      metadataDocument,
+    );
+
+    const sendNotification = vi.fn(() => Promise.resolve());
+    const client = {
+      middleware: {},
+      protocol2CodeConverter: {
+        asDocumentSelector: (selector: unknown) => selector,
+      },
+      code2ProtocolConverter: {
+        asOpenTextDocumentParams: (document: { readonly uri: vscode.Uri }) => ({
+          textDocument: { uri: document.uri.toString() },
+        }),
+      },
+      sendNotification,
+      hasDedicatedTextSynchronizationFeature: () => false,
+      error: vi.fn(),
+    };
+    const feature = new DidOpenTextDocumentFeature(client as never, new Map());
+
+    feature.initialize(
+      {
+        resolvedTextDocumentSync: { openClose: true },
+      } as never,
+      getDocumentSynchronizationSelectors(),
+    );
+
+    expect(sendNotification).toHaveBeenCalledTimes(1);
+    expect(sendNotification).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        textDocument: { uri: apexClassDocument.uri.toString() },
+      }),
+    );
+    expect(sendNotification).not.toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        textDocument: { uri: metadataDocument.uri.toString() },
+      }),
     );
     feature.clear();
   });

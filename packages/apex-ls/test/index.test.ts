@@ -12,9 +12,6 @@ import {
   InitializeParams,
   InitializeResult,
   TextDocumentChangeEvent,
-  DocumentSymbolParams,
-  FoldingRangeParams,
-  FoldingRange,
 } from 'vscode-languageserver/browser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
@@ -31,13 +28,7 @@ type OnDidCloseHandler = (
   params: TextDocumentChangeEvent<TextDocument>,
 ) => void;
 type OnDidSaveHandler = (params: TextDocumentChangeEvent<TextDocument>) => void;
-type OnDocumentSymbolHandler = (
-  params: DocumentSymbolParams,
-) => Promise<any[] | null>;
-type OnFoldingRangeHandler = (
-  params: FoldingRangeParams,
-) => Promise<FoldingRange[] | null>;
-type OnRequestHandler = (params: DocumentSymbolParams) => Promise<any[]>;
+type OnRequestHandler = (params: unknown) => Promise<any[]>;
 type PingHandler = () => Promise<any>;
 
 // Define mock handlers type
@@ -50,8 +41,6 @@ interface MockHandlerStore {
   onDidChangeContent: OnDidChangeContentHandler | null;
   onDidClose: OnDidCloseHandler | null;
   onDidSave: OnDidSaveHandler | null;
-  onDocumentSymbol: OnDocumentSymbolHandler | null;
-  onFoldingRange: OnFoldingRangeHandler | null;
   onRequest: OnRequestHandler | null;
   ping: PingHandler | null;
 }
@@ -66,8 +55,6 @@ const mockHandlers: MockHandlerStore = {
   onDidChangeContent: null,
   onDidClose: null,
   onDidSave: null,
-  onDocumentSymbol: null,
-  onFoldingRange: null,
   onRequest: null,
   ping: null,
 };
@@ -195,20 +182,6 @@ mockConnection.onExit.mockImplementation((handler: VoidHandler) => {
   return mockConnection;
 });
 
-mockConnection.onDocumentSymbol.mockImplementation(
-  (handler: OnDocumentSymbolHandler) => {
-    mockHandlers.onDocumentSymbol = handler;
-    return mockConnection;
-  },
-);
-
-mockConnection.onFoldingRanges.mockImplementation(
-  (handler: OnFoldingRangeHandler) => {
-    mockHandlers.onFoldingRange = handler;
-    return mockConnection;
-  },
-);
-
 mockConnection.onRequest.mockImplementation(
   (method: string, handler: OnRequestHandler) => {
     if (method === 'textDocument/diagnostic') {
@@ -295,18 +268,12 @@ const {
   mockDispatchProcessOnChangeDocument,
   mockDispatchProcessOnCloseDocument,
   mockDispatchProcessOnSaveDocument,
-  mockDispatchProcessOnDocumentSymbol,
-  mockDispatchProcessOnFoldingRange,
-  mockDispatchProcessOnDiagnostic,
 } = vi.hoisted(() => ({
   mockCreateDidOpenDocumentHandler: vi.fn(),
   mockDispatchProcessOnOpenDocument: vi.fn().mockResolvedValue([]),
   mockDispatchProcessOnChangeDocument: vi.fn().mockResolvedValue([]),
   mockDispatchProcessOnCloseDocument: vi.fn().mockResolvedValue([]),
   mockDispatchProcessOnSaveDocument: vi.fn().mockResolvedValue([]),
-  mockDispatchProcessOnDocumentSymbol: vi.fn().mockResolvedValue([]),
-  mockDispatchProcessOnFoldingRange: vi.fn().mockResolvedValue([]),
-  mockDispatchProcessOnDiagnostic: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock('@salesforce/apex-lsp-compliant-services', async () => ({
@@ -315,9 +282,6 @@ vi.mock('@salesforce/apex-lsp-compliant-services', async () => ({
   dispatchProcessOnChangeDocument: mockDispatchProcessOnChangeDocument,
   dispatchProcessOnCloseDocument: mockDispatchProcessOnCloseDocument,
   dispatchProcessOnSaveDocument: mockDispatchProcessOnSaveDocument,
-  dispatchProcessOnDocumentSymbol: mockDispatchProcessOnDocumentSymbol,
-  dispatchProcessOnFoldingRange: mockDispatchProcessOnFoldingRange,
-  dispatchProcessOnDiagnostic: mockDispatchProcessOnDiagnostic,
   HandlerFactory: {
     createDidOpenDocumentHandler: vi.fn(() =>
       mockCreateDidOpenDocumentHandler(),
@@ -342,9 +306,6 @@ vi.mock('@salesforce/apex-lsp-compliant-services', async () => ({
     }),
   },
   initializeLSPQueueManager: vi.fn(),
-  DiagnosticProcessingService: vi.fn().mockImplementation(() => ({
-    processDiagnostic: vi.fn(),
-  })),
   ApexCapabilitiesManager: {
     getInstance: vi.fn().mockReturnValue({
       getCapabilitiesForMode: vi.fn().mockReturnValue({
@@ -506,6 +467,14 @@ vi.mock('@salesforce/apex-lsp-shared', () => ({
     type: 'startup_snapshot',
     sessionId: 'mock-session',
   }),
+  CODE_LENS_SERVER_COMMANDS: {
+    executeAnonymous: 'sf.anon.apex.run.delegate',
+    debugAnonymous: 'sf.anon.apex.debug.delegate',
+    runTestClass: 'sf.apex.test.class.run.delegate',
+    debugTestClass: 'sf.apex.debug.class.run.delegate',
+    runTestMethod: 'sf.apex.test.method.run.delegate',
+    debugTestMethod: 'sf.apex.debug.method.run.delegate',
+  },
 }));
 
 vi.mock('@salesforce/apex-lsp-parser-ast', () => ({
@@ -614,6 +583,21 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
       getSettingsManager: vi.fn().mockReturnValue({}),
       getCapabilitiesManager: vi.fn().mockReturnValue({
         getMode: vi.fn().mockReturnValue('production'),
+        getFeatureStates: vi.fn().mockReturnValue({
+          completion: { supported: true, enabled: true },
+          definition: { supported: true, enabled: true },
+          diagnostic: { supported: true, enabled: true },
+          documentSymbol: { supported: true, enabled: true },
+          foldingRange: { supported: true, enabled: true },
+          hover: { supported: true, enabled: true },
+          implementation: { supported: true, enabled: true },
+          codeAction: { supported: true, enabled: true },
+          codeLens: { supported: true, enabled: true },
+          references: { supported: true, enabled: true },
+          rename: { supported: true, enabled: true },
+          semanticTokens: { supported: false, enabled: false },
+          inlayHint: { supported: false, enabled: false },
+        }),
       }),
       getRuntimePlatform: vi.fn().mockReturnValue('desktop'),
       getSettings: vi.fn().mockReturnValue({

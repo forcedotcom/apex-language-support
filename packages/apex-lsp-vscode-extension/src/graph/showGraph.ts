@@ -10,6 +10,7 @@ import { getGraphWebviewContent } from '../webviews/graphView';
 import { getClient } from '../language-server';
 import { formattedError } from '@salesforce/apex-lsp-shared';
 import type { GraphDataShape } from '@salesforce/apex-lsp-shared';
+import { requestGraphData } from '../extensionServerOperations';
 
 /**
  * Interface for graph node data
@@ -547,7 +548,7 @@ export async function showGraph(context: vscode.ExtensionContext) {
       requestParams.fileUri = fileUri;
     }
 
-    const response = await client.graphData(requestParams);
+    const response = await requestGraphData(client, requestParams);
     console.log('Successfully loaded graph data from language server');
 
     // Extract the actual graph data from the response

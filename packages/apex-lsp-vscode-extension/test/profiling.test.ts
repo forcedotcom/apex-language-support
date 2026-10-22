@@ -91,14 +91,8 @@ describe('Profiling Status Bar', () => {
 
     mockClient = {
       isDisposed: vi.fn().mockReturnValue(false),
-      profilingStatus: vi.fn((params) =>
-        mockLanguageClient.sendRequest('apex/profiling/status', params),
-      ),
-      profilingStart: vi.fn((params) =>
-        mockLanguageClient.sendRequest('apex/profiling/start', params),
-      ),
-      profilingStop: vi.fn((params) =>
-        mockLanguageClient.sendRequest('apex/profiling/stop', params),
+      request: vi.fn((method, params) =>
+        mockLanguageClient.sendRequest(method, params),
       ),
     };
 

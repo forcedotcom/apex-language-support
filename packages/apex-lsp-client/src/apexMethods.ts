@@ -10,7 +10,7 @@
  * Typed sender + handler surface for all 13 canonical `apex/*` methods.
  *
  * Direction-aware:
- * - clientToServer methods get typed SENDER functions (9)
+ * - clientToServer methods get typed SENDER functions (5)
  * - serverToClient methods get typed `on*` handler registrations (4)
  *
  * Factory accepts the existing `_registerIncomingNotification` and
@@ -33,14 +33,6 @@ import {
   type WorkspaceLoadFailedParams,
   type QueueStateParams,
   type QueueStateResult,
-  type GraphDataParams,
-  type GraphDataResult,
-  type ProfilingStartParams,
-  type ProfilingStartResult,
-  type ProfilingStopParams,
-  type ProfilingStopResult,
-  type ProfilingStatusParams,
-  type ProfilingStatusResult,
   type QueueStateChangedParams,
   type WorkspaceIngestionCompleteParams,
 } from '@salesforce/apex-lsp-shared';
@@ -71,24 +63,6 @@ export interface ApexMethodSenders {
 
   /** Send `apex/queueState` request. */
   readonly queueState: (params: QueueStateParams) => Promise<QueueStateResult>;
-
-  /** Send `apex/graphData` request. */
-  readonly graphData: (params: GraphDataParams) => Promise<GraphDataResult>;
-
-  /** Send `apex/profiling/start` request. */
-  readonly profilingStart: (
-    params: ProfilingStartParams,
-  ) => Promise<ProfilingStartResult>;
-
-  /** Send `apex/profiling/stop` request. */
-  readonly profilingStop: (
-    params: ProfilingStopParams,
-  ) => Promise<ProfilingStopResult>;
-
-  /** Send `apex/profiling/status` request. */
-  readonly profilingStatus: (
-    params: ProfilingStatusParams,
-  ) => Promise<ProfilingStatusResult>;
 }
 
 /**
@@ -265,30 +239,6 @@ export const createApexMethodSurface = (
   const queueState = (params: QueueStateParams): Promise<QueueStateResult> =>
     sendRequest<QueueStateResult>(APEX_METHODS.queueState.method, params);
 
-  const graphData = (params: GraphDataParams): Promise<GraphDataResult> =>
-    sendRequest<GraphDataResult>(APEX_METHODS.graphData.method, params);
-
-  const profilingStart = (
-    params: ProfilingStartParams,
-  ): Promise<ProfilingStartResult> =>
-    sendRequest<ProfilingStartResult>(
-      APEX_METHODS.profilingStart.method,
-      params,
-    );
-
-  const profilingStop = (
-    params: ProfilingStopParams,
-  ): Promise<ProfilingStopResult> =>
-    sendRequest<ProfilingStopResult>(APEX_METHODS.profilingStop.method, params);
-
-  const profilingStatus = (
-    params: ProfilingStatusParams,
-  ): Promise<ProfilingStatusResult> =>
-    sendRequest<ProfilingStatusResult>(
-      APEX_METHODS.profilingStatus.method,
-      params,
-    );
-
   // --- serverToClient HANDLER REGISTRATIONS (4) ---
 
   // Track the current findMissingArtifact registration so it can be swapped
@@ -409,10 +359,6 @@ export const createApexMethodSurface = (
     workspaceLoadComplete,
     workspaceLoadFailed,
     queueState,
-    graphData,
-    profilingStart,
-    profilingStop,
-    profilingStatus,
     // Handlers
     onFindMissingArtifact,
     onRequestWorkspaceLoad,

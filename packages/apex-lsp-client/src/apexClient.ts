@@ -10,9 +10,12 @@ import type {
   ExceptionBreakpointInfo,
   LineBreakpointInfo,
 } from '@salesforce/apex-lsp-shared';
+import type { ApexServerFeatureState } from './serverFeatureState';
 
 /** Public Apex language-server client contract for extension consumers. */
 export type ApexClient = {
   getLineBreakpointInfo(uri: string): Promise<LineBreakpointInfo[]>;
   getExceptionBreakpointInfo(uri: string): Promise<ExceptionBreakpointInfo[]>;
+  /** Returns false/false for feature names the server did not define. */
+  getFeatureState(feature: string): ApexServerFeatureState;
 };

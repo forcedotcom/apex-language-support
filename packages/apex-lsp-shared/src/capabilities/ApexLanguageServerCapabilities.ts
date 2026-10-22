@@ -51,7 +51,7 @@ type CapabilityPath =
 export const WEB_DISABLED_CAPABILITIES: ReadonlySet<CapabilityPath> = new Set([
   'experimental.profilingProvider', // Requires Node.js inspector API
   // publishDiagnostics and diagnosticProvider are intentionally absent here:
-  // production web already has them as false/undefined in PRODUCTION_CAPABILITIES,
+  // production web already has them as false/undefined in PRODUCTION_WEB_CAPABILITIES,
   // and development web needs diagnostics enabled.
 ]);
 
@@ -69,7 +69,7 @@ export const DESKTOP_DISABLED_CAPABILITIES: ReadonlySet<CapabilityPath> =
 /**
  * Configuration for different server modes
  */
-export interface CapabilitiesConfiguration {
+export type CapabilitiesConfiguration = {
   /** Production mode capabilities for web environments */
   production: ExtendedServerCapabilities;
 
@@ -78,13 +78,13 @@ export interface CapabilitiesConfiguration {
 
   /** Development mode capabilities - full feature set */
   development: ExtendedServerCapabilities;
-}
+};
 
-export interface ImplicitCapabilties {
+export type ImplicitCapabilties = {
   publishDiagnostics: boolean;
-}
+};
 
-export interface FindMissingArtifactCapability {
+export type FindMissingArtifactCapability = {
   /** Whether the server/client supports finding missing artifacts */
   enabled: boolean;
   /** Supported resolution modes */
@@ -93,18 +93,23 @@ export interface FindMissingArtifactCapability {
   maxCandidatesToOpen?: number;
   /** Default timeout hint in milliseconds */
   timeoutMsHint?: number;
-}
+};
 
 /**
  * Profiling capability configuration.
  * Profiling is only available in desktop environments (requires Node.js inspector API).
  */
-export interface ProfilingCapability {
+export type ProfilingCapability = {
   /** Whether profiling handlers should be registered */
   enabled: boolean;
-}
+};
 
-export interface ExperimentalCapabilities {
+export type ExperimentalCapabilities = {
+  /** Normalized support and enabled state for Apex language features. */
+  featureStateProvider?: Record<
+    string,
+    { readonly supported: boolean; readonly enabled: boolean }
+  >;
   /** Missing artifact resolution capability */
   findMissingArtifactProvider?: FindMissingArtifactCapability;
   /**
@@ -118,48 +123,25 @@ export interface ExperimentalCapabilities {
   requestWorkspaceLoadProvider?: { enabled: boolean };
   /** Client supports apex/queueStateChanged notifications (development mode only) */
   queueStateProvider?: { enabled: boolean };
-}
+};
 
 /**
  * Configuration for client capabilities in different server modes
  * Mirrors CapabilitiesConfiguration structure for the client side
  */
-export interface ClientCapabilitiesConfiguration {
+export type ClientCapabilitiesConfiguration = {
   /** Production mode client capabilities */
   production: ClientCapabilities;
 
   /** Development mode client capabilities */
   development: ClientCapabilities;
-}
-
-/**
- * Production capabilities for desktop environments.
- * Intentionally minimal — only document symbols are released for desktop production.
- * Other features (hover, definition, etc.) require further validation before desktop release.
- */
-export const PRODUCTION_DESKTOP_CAPABILITIES: ExtendedServerCapabilities = {
-  publishDiagnostics: false,
-  textDocumentSync: {
-    openClose: true,
-    change: 1,
-    save: true,
-    willSave: false,
-    willSaveWaitUntil: false,
-  },
-  documentSymbolProvider: true,
-  workspace: {
-    workspaceFolders: {
-      supported: true,
-      changeNotifications: true,
-    },
-  },
 };
 
 /**
  * Production capabilities for web (browser) environments.
  * Exposes the full set of released language features available on the web platform.
  */
-export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
+export const PRODUCTION_WEB_CAPABILITIES: ExtendedServerCapabilities = {
   publishDiagnostics: false,
   textDocumentSync: {
     openClose: true,
@@ -173,7 +155,9 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
   foldingRangeProvider: true,
   hoverProvider: true,
   definitionProvider: true,
-  codeLensProvider: undefined,
+  codeLensProvider: {
+    resolveProvider: false,
+  },
   diagnosticProvider: undefined, // TDX26: production never gets diagnostics
   workspace: {
     workspaceFolders: {
@@ -234,11 +218,34 @@ export const PRODUCTION_CAPABILITIES: ExtendedServerCapabilities = {
 };
 
 /**
+ * Production capabilities for desktop environments.
+ * Intentionally minimal — only document symbols are released for desktop production.
+ * Other features (hover, definition, etc.) require further validation before desktop release.
+ */
+export const PRODUCTION_DESKTOP_CAPABILITIES: ExtendedServerCapabilities = {
+  publishDiagnostics: false,
+  textDocumentSync: {
+    openClose: true,
+    change: 1,
+    save: true,
+    willSave: false,
+    willSaveWaitUntil: false,
+  },
+  documentSymbolProvider: true,
+  workspace: {
+    workspaceFolders: {
+      supported: true,
+      changeNotifications: true,
+    },
+  },
+};
+
+/**
  * Development capabilities - exposes which features are available in development
  * Includes both released and implemented features for testing
  */
 export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
-  ...PRODUCTION_CAPABILITIES,
+  ...PRODUCTION_WEB_CAPABILITIES,
   publishDiagnostics: true,
   completionProvider: {
     resolveProvider: false,
@@ -301,7 +308,7 @@ export const DEVELOPMENT_CAPABILITIES: ExtendedServerCapabilities = {
  * Complete capability configuration for all modes
  */
 export const CAPABILITIES_CONFIGURATION: CapabilitiesConfiguration = {
-  production: PRODUCTION_CAPABILITIES,
+  production: PRODUCTION_WEB_CAPABILITIES,
   productionDesktop: PRODUCTION_DESKTOP_CAPABILITIES,
   development: DEVELOPMENT_CAPABILITIES,
 };

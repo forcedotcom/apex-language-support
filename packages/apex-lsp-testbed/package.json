@@ -21,6 +21,7 @@
     "sync:fixtures": "wireit",
     "test": "wireit",
     "test:integration": "wireit",
+    "test:accuracy": "wireit",
     "test:quality": "wireit",
     "test:coverage": "wireit",
     "test:perf": "wireit",
@@ -82,7 +83,7 @@
       ]
     },
     "test": {
-      "command": "vitest run --reporter=json --outputFile=.wireit/test-results.json",
+      "command": "vitest run --reporter=default --reporter=json --outputFile.json=.wireit/test-results.json",
       "dependencies": [
         "compile",
         "../apex-ls:bundle",
@@ -110,9 +111,25 @@
       "files": [
         "src/**/*.ts",
         "test/integration/**/*.ts",
-        "test/accuracy/**/*.test.ts",
         "vitest.config.mts",
         "vitest.config.integration.mts"
+      ]
+    },
+    "test:accuracy": {
+      "command": "vitest run --config vitest.config.accuracy.mts --reporter=json --outputFile=.wireit/test-results-accuracy.json",
+      "dependencies": [
+        "compile",
+        "../apex-ls:bundle",
+        "sync:fixtures"
+      ],
+      "output": [
+        ".wireit/test-results-accuracy.json"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/accuracy/**/*.ts",
+        "vitest.config.mts",
+        "vitest.config.accuracy.mts"
       ]
     },
     "test:quality": {

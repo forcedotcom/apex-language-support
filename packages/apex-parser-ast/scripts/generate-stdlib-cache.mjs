@@ -43,6 +43,11 @@ const OUTPUT_DIR = join(projectRoot, 'resources');
 // Output file names (no version - library is updated manually by external processes)
 const CACHE_FILE = join(OUTPUT_DIR, 'apex-stdlib.pb.gz');
 const CHECKSUM_FILE = join(OUTPUT_DIR, 'apex-stdlib.sha256');
+const REGISTRY_FILE = join(OUTPUT_DIR, 'apex-type-registry.pb.gz');
+const FQN_INDEX_FILE = join(OUTPUT_DIR, 'apex-fqn-index.pb.gz');
+const CACHE_MD5_FILE = join(OUTPUT_DIR, 'apex-stdlib.pb.gz.md5');
+const REGISTRY_MD5_FILE = join(OUTPUT_DIR, 'apex-type-registry.pb.gz.md5');
+const FQN_INDEX_MD5_FILE = join(OUTPUT_DIR, 'apex-fqn-index.pb.gz.md5');
 
 // List of builtin classes that should be loaded from builtins/ folder
 // Only classes that are physically present in src/resources/builtins/ should be here.
@@ -122,6 +127,18 @@ function calculateSourceChecksum(sourceDir, builtinsDir) {
   }
 
   return hash.digest('hex');
+}
+
+function hasValidCacheOutput(cacheFile, checksumFile) {
+  if (!existsSync(cacheFile) || !existsSync(checksumFile)) {
+    return false;
+  }
+
+  const expectedChecksum = readFileSync(checksumFile, 'utf8').trim().split(/\s+/)[0];
+  const actualChecksum = createHash('md5')
+    .update(readFileSync(cacheFile))
+    .digest('hex');
+  return actualChecksum === expectedChecksum;
 }
 
 /**
@@ -439,14 +456,21 @@ async function main() {
   console.log(`   Checksum: ${sourceChecksum.substring(0, 16)}...`);
 
   // Check if regeneration is needed
-  if (!forceRegenerate && existsSync(CHECKSUM_FILE) && existsSync(CACHE_FILE)) {
+  if (!forceRegenerate && existsSync(CHECKSUM_FILE)) {
     const existingChecksum = readFileSync(CHECKSUM_FILE, 'utf8').trim();
-    if (existingChecksum === sourceChecksum) {
+    const cacheOutputsAreValid = [
+      [CACHE_FILE, CACHE_MD5_FILE],
+      [REGISTRY_FILE, REGISTRY_MD5_FILE],
+      [FQN_INDEX_FILE, FQN_INDEX_MD5_FILE],
+    ].every(([cacheFile, checksumFile]) =>
+      hasValidCacheOutput(cacheFile, checksumFile),
+    );
+    if (existingChecksum === sourceChecksum && cacheOutputsAreValid) {
       console.log('\n✅ Cache is up-to-date, skipping regeneration');
       console.log(`   Use --force to regenerate anyway`);
       return;
     }
-    console.log('   Checksum changed, regenerating cache...');
+    console.log('   Cache output is missing or stale, regenerating cache...');
   }
 
   // Import compiled modules
@@ -600,8 +624,6 @@ async function main() {
 
   // Write output files
   console.log('\n9. Writing output files...');
-  const REGISTRY_FILE = join(OUTPUT_DIR, 'apex-type-registry.pb.gz');
-  const FQN_INDEX_FILE = join(OUTPUT_DIR, 'apex-fqn-index.pb.gz');
   writeFileSync(CACHE_FILE, compressedData);
   writeFileSync(REGISTRY_FILE, compressedRegistry);
   writeFileSync(FQN_INDEX_FILE, compressedFqnIndex);
@@ -622,9 +644,6 @@ async function main() {
     .digest('hex');
 
   // Write MD5 checksum files in standard format: <hash>  <filename>
-  const CACHE_MD5_FILE = join(OUTPUT_DIR, 'apex-stdlib.pb.gz.md5');
-  const REGISTRY_MD5_FILE = join(OUTPUT_DIR, 'apex-type-registry.pb.gz.md5');
-  const FQN_INDEX_MD5_FILE = join(OUTPUT_DIR, 'apex-fqn-index.pb.gz.md5');
   writeFileSync(CACHE_MD5_FILE, `${cacheFileMD5}  apex-stdlib.pb.gz\n`);
   writeFileSync(
     REGISTRY_MD5_FILE,

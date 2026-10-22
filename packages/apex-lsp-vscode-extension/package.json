@@ -3,7 +3,7 @@
   "displayName": "Salesforce Apex Language Server (Typescript)",
   "description": "VSCode extension for Apex Language Server",
   "icon": "resources/ApexTsIcon.png",
-  "version": "0.11.53",
+  "version": "0.11.56",
   "publisher": "salesforce",
   "sideEffects": false,
   "license": "BSD-3-Clause",
@@ -907,7 +907,7 @@
       ]
     },
     "test": {
-      "command": "vitest run --reporter=json --outputFile=.wireit/test-results.json",
+      "command": "vitest run --reporter=default --reporter=json --outputFile.json=.wireit/test-results.json",
       "dependencies": [
         "compile"
       ],
@@ -960,15 +960,12 @@
     }
   },
   "dependencies": {
-    "@effect/platform": "^0.97.1",
-    "@effect/platform-node": "^0.108.1",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/sdk-trace-base": "^2.11.0",
     "@salesforce/apex-lsp-client": "workspace:*",
     "@salesforce/apex-lsp-compliant-services": "workspace:*",
     "@salesforce/apex-lsp-shared": "workspace:*",
     "effect": "^3.22.1",
-    "fflate": "^0.8.3",
     "vscode-languageclient": "^9.0.1",
     "vscode-jsonrpc": "^8.2.1",
     "web-worker": "^1.5.0"
@@ -986,7 +983,6 @@
     "events": "^3.3.0",
     "path-browserify": "^1.0.1",
     "process": "^0.11.10",
-    "shx": "^0.4.0",
     "stream-browserify": "^3.0.0",
     "util": "^0.12.5",
     "vitest": "5.0.1"

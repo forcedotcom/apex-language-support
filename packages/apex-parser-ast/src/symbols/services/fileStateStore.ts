@@ -8,7 +8,7 @@
 
 import { HashMap } from 'data-structure-typed';
 import { Context, Effect, Layer } from 'effect';
-import type { DetailLevel } from '../../parser/listeners/LayeredSymbolListenerBase';
+import type { DetailLevel } from '../../types/DetailLevel';
 import type { CommentAssociation } from '../../parser/listeners/ApexCommentCollectorListener';
 
 /** Per-file tracking metadata */

@@ -1470,6 +1470,37 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
   });
 
   describe('Error Handling', () => {
+    it('exposes a tagged cancellation error that remains an Error', () => {
+      const error = new RequestCancelledError('hover');
+
+      expect(error).toBeInstanceOf(Error);
+      expect(error).toBeInstanceOf(RequestCancelledError);
+      expect(error).toMatchObject({
+        _tag: 'RequestCancelledError',
+        message: 'LSP hover request cancelled',
+        name: 'RequestCancelledError',
+      });
+    });
+
+    it('preserves the native timeout error from a queued request', async () => {
+      const serviceRegistry = (LSPQueueManager.getInstance() as any)
+        .serviceRegistry as ServiceRegistry;
+      serviceRegistry.register({
+        requestType: 'hover' as LSPRequestType,
+        priority: Priority.Immediate,
+        timeout: 10,
+        maxRetries: 0,
+        process: () => new Promise<never>(() => {}),
+      });
+
+      await expect(
+        LSPQueueManager.getInstance().submitHoverRequest({
+          textDocument: { uri: 'test' },
+          position: { line: 0, character: 0 },
+        }),
+      ).rejects.toMatchObject({ _tag: 'TimeoutException' });
+    });
+
     it('should handle errors during request submission', async () => {
       const serviceRegistry = (LSPQueueManager.getInstance() as any)
         .serviceRegistry as ServiceRegistry;

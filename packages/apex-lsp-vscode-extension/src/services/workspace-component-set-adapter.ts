@@ -8,10 +8,11 @@
 
 import * as Effect from 'effect/Effect';
 import * as vscode from 'vscode';
-import type {
-  MissingArtifactPayload,
-  SObjectDescribeField,
-  WireIdentifierSpec,
+import {
+  workspaceIdentifierKey,
+  type MissingArtifactPayload,
+  type SObjectDescribeField,
+  type WireIdentifierSpec,
 } from '@salesforce/apex-lsp-shared';
 import { isWithinSObjectWireLimit } from '@salesforce/apex-lsp-shared';
 import {
@@ -88,13 +89,13 @@ export class WorkspaceComponentSetAdapter {
           components,
         );
         if (isWithinSObjectWireLimit(artifact)) {
-          resolutions.set(identifierKey(identifier), {
+          resolutions.set(workspaceIdentifierKey(identifier), {
             kind: 'sobject',
             artifact,
           });
         }
       } else if (component.content) {
-        resolutions.set(identifierKey(identifier), {
+        resolutions.set(workspaceIdentifierKey(identifier), {
           kind: 'source',
           uri: sourcePathToUri(component.content),
         });
@@ -116,16 +117,6 @@ function componentLookupMembers(
         ]
       : [{ type, fullName }],
   );
-}
-
-export function workspaceIdentifierKey(identifier: WireIdentifierSpec): string {
-  return identifierKey(identifier);
-}
-
-function identifierKey(identifier: WireIdentifierSpec): string {
-  return `${identifier.identifierType ?? 'apex-class'}:${identifier.name
-    .trim()
-    .toLowerCase()}`;
 }
 
 function componentType(identifier: WireIdentifierSpec): string {

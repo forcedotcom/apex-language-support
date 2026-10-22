@@ -96,7 +96,7 @@
       ]
     },
     "test": {
-      "command": "vitest run --reporter=json --outputFile=.wireit/test-results.json",
+      "command": "vitest run --reporter=default --reporter=json --outputFile.json=.wireit/test-results.json",
       "dependencies": [
         "compile"
       ],

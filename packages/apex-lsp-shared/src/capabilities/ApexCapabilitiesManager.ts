@@ -19,6 +19,22 @@ import {
 } from './ApexLanguageServerCapabilities';
 import { getLogger } from '../index';
 
+const FEATURE_CAPABILITY_KEYS = {
+  completion: 'completionProvider',
+  definition: 'definitionProvider',
+  diagnostic: 'diagnosticProvider',
+  documentSymbol: 'documentSymbolProvider',
+  foldingRange: 'foldingRangeProvider',
+  hover: 'hoverProvider',
+  implementation: 'implementationProvider',
+  codeAction: 'codeActionProvider',
+  codeLens: 'codeLensProvider',
+  references: 'referencesProvider',
+  rename: 'renameProvider',
+  semanticTokens: 'semanticTokensProvider',
+  inlayHint: 'inlayHintProvider',
+} as const;
+
 /**
  * Capabilities manager for the Apex Language Server
  *
@@ -146,6 +162,30 @@ export class ApexCapabilitiesManager {
   }
 
   /**
+   * Feature support is the development capability set for this platform;
+   * enabled state is the active mode and settings-derived capability set.
+   */
+  public getFeatureStates(): Record<
+    string,
+    { readonly supported: boolean; readonly enabled: boolean }
+  > {
+    const supported = this.getCapabilitiesForModeAndPlatform(
+      'development',
+      this.currentPlatform,
+    );
+    const enabled = this.getCapabilities();
+    return Object.fromEntries(
+      Object.entries(FEATURE_CAPABILITY_KEYS).map(([feature, key]) => [
+        feature,
+        {
+          supported: isEnabled(supported[key]),
+          enabled: isEnabled(enabled[key]),
+        },
+      ]),
+    );
+  }
+
+  /**
    * Check if a specific capability is enabled for the current mode
    * @param capability - The capability to check
    */
@@ -260,4 +300,8 @@ export class ApexCapabilitiesManager {
     // Safe cast: we're preserving the shape of T, just filtering values
     return result as unknown as T;
   }
+}
+
+function isEnabled(value: unknown): boolean {
+  return value !== undefined && value !== false && value !== null;
 }

@@ -23,12 +23,13 @@ import type { RpcConnection } from '../src/rpcConnection';
  */
 const makeMockConnection = (
   captureInitParams: (params: InitializeParams) => void,
+  initializeResult: unknown = { capabilities: {} },
 ): RpcConnection => {
   const sendRequest = vi.fn(
     (method: string, params?: unknown): Promise<unknown> => {
       if (method === 'initialize') {
         captureInitParams(params as InitializeParams);
-        return Promise.resolve({ capabilities: {} });
+        return Promise.resolve(initializeResult);
       }
       return Promise.resolve(undefined);
     },
@@ -198,6 +199,71 @@ describe('ApexClientCore capability advertisement', () => {
     >;
     // profilingProvider is a SERVER capability, not client
     expect(experimental.profilingProvider).toBeUndefined();
+
+    await core.dispose();
+  });
+
+  it('returns false/false before initialize and for unknown feature names', async () => {
+    const core = await ApexClientCore.create(makeMockConnection(() => {}));
+
+    expect(core.getFeatureState('hover')).toEqual({
+      supported: false,
+      enabled: false,
+    });
+    await core.initialize(DEFAULT_APEX_SETTINGS);
+    expect(core.getFeatureState('not-a-server-feature')).toEqual({
+      supported: false,
+      enabled: false,
+    });
+
+    await core.dispose();
+  });
+
+  it('retains server-reported supported and enabled feature states', async () => {
+    const core = await ApexClientCore.create(
+      makeMockConnection(() => {}, {
+        capabilities: {
+          experimental: {
+            featureStateProvider: {
+              hover: { supported: true, enabled: false },
+              codeLens: { supported: true, enabled: true },
+            },
+          },
+        },
+      }),
+    );
+
+    await core.initialize(DEFAULT_APEX_SETTINGS);
+
+    expect(core.getFeatureState('hover')).toEqual({
+      supported: true,
+      enabled: false,
+    });
+    expect(core.getFeatureState('codeLens')).toEqual({
+      supported: true,
+      enabled: true,
+    });
+
+    await core.dispose();
+  });
+
+  it('accepts feature states from a host-owned initialization handshake', async () => {
+    const core = await ApexClientCore.create(makeMockConnection(() => {}));
+
+    core.setFeatureStatesFromInitializeResult({
+      capabilities: {
+        experimental: {
+          featureStateProvider: {
+            codeLens: { supported: true, enabled: true },
+          },
+        },
+      },
+    });
+
+    expect(core.getFeatureState('codeLens')).toEqual({
+      supported: true,
+      enabled: true,
+    });
 
     await core.dispose();
   });

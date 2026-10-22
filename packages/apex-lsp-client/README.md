@@ -171,8 +171,61 @@ accepted on the params object (see `ApexClientInitializeParams`):
 await core.initialize(mySettings, { rootUri: 'file:///workspace' });
 ```
 
+### Server Feature State
+
+After the initialization handshake, query the server's normalized feature state
+with `getFeatureState(feature)`. `supported` means the server implementation
+supports the feature on the current platform; `enabled` means it is active for
+the current mode and settings. This distinguishes a feature that is implemented
+but disabled from one the server does not support.
+
+```ts
+const hover = core.getFeatureState('hover');
+// { supported: true, enabled: false } on desktop production
+
+const unknown = core.getFeatureState('futureFeature');
+// { supported: false, enabled: false }
+```
+
+The argument is intentionally a string. Feature names not defined by the server,
+and all features queried before the handshake result is recorded, return the
+`false`/`false` fallback instead of requiring every LSP capability to be modeled
+in the SDK.
+
+When an embedded host owns the initialization handshake, do not call
+`core.initialize()` a second time. After the host starts its language client,
+pass its initialization result to `setFeatureStatesFromInitializeResult` so the
+core can expose the negotiated state:
+
+```ts
+await rawClient.start();
+core.setFeatureStatesFromInitializeResult(rawClient.initializeResult);
+```
+
+The host must repeat this after every language-client restart so the exposed
+state reflects the current server session.
+
 Calling a lifecycle method after `dispose()` rejects with
 `ApexClientDisposedError`.
+
+### Document URIs
+
+The SDK accepts canonical document URI strings. In addition to workspace URI
+schemes, the language server supports Org Catalog Apex source documents under
+the `sf-org-metadata` scheme.
+
+Only Apex class (`.cls`) and trigger (`.trigger`) source artifacts under this
+scheme participate in the Apex language-service document selectors. Other Org
+Catalog metadata can share the scheme but is not treated as an Apex document.
+
+```typescript
+const hover = await core.hover({
+  textDocument: {
+    uri: 'sf-org-metadata:/orgs/00D000000000001/ApexClass/Example.cls',
+  },
+  position: { line: 0, character: 0 },
+});
+```
 
 ### LSP pass-through methods
 
@@ -262,10 +315,11 @@ disposable.dispose();
 
 ### Typed apex/* methods
 
-The core exposes typed sender methods for all client-to-server `apex/*`
-requests/notifications, and `on*` registration methods for server-to-client
+The core exposes typed sender methods for its public client-to-server `apex/*`
+workspace operations, and `on*` registration methods for server-to-client
 handlers. These are type-safe alternatives to the generic `request()`/`notify()`
-escape hatches:
+escape hatches. Extension-private operations, including graph and profiling
+requests, use the generic request boundary instead:
 
 ```typescript
 // --- Typed senders (client → server) ---
@@ -279,8 +333,8 @@ const processResult = await core.processWorkspaceBatches({ options: {} });
 // Notify the server that workspace load is complete (void notification)
 core.workspaceLoadComplete({ timestamp: Date.now() });
 
-// Query profiling status
-const status = await core.profilingStatus({ verbose: true });
+// Extension-private request through the generic boundary
+const graph = await core.request('apex/graphData', { type: 'all' });
 
 // --- Handler registrations (server → client) ---
 
@@ -309,6 +363,12 @@ core.onQueueStateChanged((params) => {
 All typed senders reject with `ApexClientDisposedError` after `dispose()`. All
 `on*` registrations throw synchronously if called after `dispose()`.
 
+The typed surface contains five client-to-server operations
+(`sendWorkspaceBatch`, `processWorkspaceBatches`, `workspaceLoadComplete`,
+`workspaceLoadFailed`, and `queueState`) and four server-to-client handler
+registrations (`onFindMissingArtifact`, `onRequestWorkspaceLoad`,
+`onWorkspaceIngestionComplete`, and `onQueueStateChanged`).
+
 ## API Reference
 
 ### Core
@@ -318,6 +378,10 @@ All typed senders reject with `ApexClientDisposedError` after `dispose()`. All
     `RpcConnection`; registers default handlers.
   - `initialize(settings?, params?)` — send `initialize` then `initialized`;
     idempotent on success.
+  - `getFeatureState(feature)` — return the server-declared support and enabled
+    state; unknown features return `{ supported: false, enabled: false }`.
+  - `setFeatureStatesFromInitializeResult(result)` — record feature states after
+    a host-owned initialization handshake without sending another handshake.
   - `shutdown()` — send `shutdown` then `exit`; idempotent on success.
   - `use(mw)` — register a middleware; returns a `Disposable`.
   - `request<R>(method, params?)` — generic request escape hatch; sends through
@@ -342,10 +406,6 @@ All typed senders reject with `ApexClientDisposedError` after `dispose()`. All
   - `workspaceLoadFailed(params)` — send `apex/workspaceLoadFailed`
     notification.
   - `queueState(params)` — send `apex/queueState` request.
-  - `graphData(params)` — send `apex/graphData` request.
-  - `profilingStart(params)` — send `apex/profiling/start` request.
-  - `profilingStop(params)` — send `apex/profiling/stop` request.
-  - `profilingStatus(params)` — send `apex/profiling/status` request.
   - `onFindMissingArtifact(handler)` — register a handler for
     `apex/findMissingArtifact`; returns a `Disposable` that reverts to the
     default `{ notFound: true }` fallback.
@@ -398,13 +458,131 @@ All typed senders reject with `ApexClientDisposedError` after `dispose()`. All
   type and its direction enum.
 - `loggingMiddleware` — the default observability middleware.
 
-## Intentional orphan state
+### CodeLens Callback Registry
 
-As of W-23163195 (4.1) this package ships `JsonRpcConnection`,
-`LanguageClientConnection`, the Node-stdio and Web-Worker connection helpers, and
-`createHeadlessClient`. It is deliberately NOT yet listed in any other package's
-`dependencies`. TypeScript project `references`/`paths` affect compilation only,
-not runtime consumability. A follow-up work item will wire the extension's
-`language-server.ts` to consume `LanguageClientConnection` from this SDK,
-replacing the inline `ClientInterface` implementations. The absence of a parent
-consumer here is by design, not an omission.
+The host-neutral CodeLens callback registry is exported from both
+`@salesforce/apex-lsp-client` and `@salesforce/apex-lsp-client/browser`. It has
+no VS Code dependency, allowing each host to supply its own command wiring and
+user-facing error behavior.
+
+```typescript
+import {
+  createCodeLensCallbackRegistry,
+  type CodeLensCallbackRegistryOptions,
+} from '@salesforce/apex-lsp-client';
+
+const options: CodeLensCallbackRegistryOptions = {
+  onUnavailable: (action) => showUnavailableAction(action),
+  onProviderError: (action, error) => logProviderError(action, error),
+};
+const codeLens = createCodeLensCallbackRegistry(options);
+
+const registration = codeLens.register(
+  'runTestMethod',
+  async ([qualifiedMethodName]) => {
+    await runApexTest(qualifiedMethodName);
+  },
+);
+
+registration.dispose();
+```
+
+The API exports `CODE_LENS_ACTIONS`, `CodeLensAction`,
+`CodeLensActionArguments`, `CodeLensCallback`, `CodeLensCallbackRegistry`,
+`CodeLensCallbackRegistryOptions`, and `createCodeLensCallbackRegistry`.
+
+- `executeAnonymous` and `debugAnonymous` receive no arguments.
+- `runTestClass` and `debugTestClass` receive `[className: string]`.
+- `runTestMethod` and `debugTestMethod` receive
+  `[qualifiedMethodName: string]`.
+- `register(action, callback)` returns a `Disposable`; disposing it unregisters
+  the callback.
+- `dispatch(action, arguments)` invokes callbacks sequentially in registration
+  order.
+- When no callbacks are registered, `dispatch` invokes `onUnavailable` when
+  configured.
+- Provider failures invoke `onProviderError` when configured without preventing
+  later callbacks from running. Without that hook, or if the hook fails,
+  `dispatch` rejects after all callbacks have been attempted.
+
+### Workspace Batch Codec
+
+The client SDK prepares workspace file content for the typed
+`sendWorkspaceBatch` request. The codec is exported from both
+`@salesforce/apex-lsp-client` and `@salesforce/apex-lsp-client/browser`; it
+accepts host-neutral string URIs, so hosts remain responsible for workspace file
+discovery and reading.
+
+```typescript
+import {
+  compressWorkspaceFileBatch,
+  createWorkspaceFileBatches,
+  encodeWorkspaceBatchForTransport,
+} from '@salesforce/apex-lsp-client';
+
+const [batch] = createWorkspaceFileBatches(
+  [
+    {
+      uri: 'file:///workspace/classes/Example.cls',
+      version: 1,
+      content: 'public class Example {}',
+    },
+  ],
+  100,
+);
+const compressed = compressWorkspaceFileBatch(batch);
+const compressedData = encodeWorkspaceBatchForTransport(compressed);
+```
+
+`createWorkspaceFileBatches` returns indexed `WorkspaceFileBatch` values.
+`compressWorkspaceFileBatch` preserves the server archive contract: each file is
+stored under its URI and the ZIP contains `__metadata.json`. The encoder returns
+the Base64 string used as `SendWorkspaceBatchParams.compressedData`.
+
+### Org Artifact Resolver
+
+`resolveMissingArtifacts` is the host-neutral orchestration for the server's
+`apex/findMissingArtifact` request. It is exported from both
+`@salesforce/apex-lsp-client` and `@salesforce/apex-lsp-client/browser`. Hosts
+supply an `OrgArtifactResolverProvider` for workspace lookup, org search,
+source materialization, document opening, and host-specific telemetry or error
+handling.
+
+```typescript
+import {
+  resolveMissingArtifacts,
+  type OrgArtifactResolverProvider,
+} from '@salesforce/apex-lsp-client';
+
+declare const provider: OrgArtifactResolverProvider;
+
+const result = await resolveMissingArtifacts(
+  {
+    identifiers: [{ name: 'Example', identifierType: 'apex-class' }],
+    mode: 'blocking',
+  },
+  provider,
+);
+```
+
+The resolver deduplicates identifiers by normalized type and name, preferring
+entries with resolution hints. It resolves workspace artifacts first, then
+searches the org only for unresolved identifiers. sObject describes are returned
+as artifact payloads; Apex classes and triggers are materialized and opened by
+the host. It returns `{ artifacts }`, `{ opened }`, both, or `{ notFound: true }`.
+Provider failures are reported through `onError` when configured and resolve to
+`{ notFound: true }`; unavailable providers invoke `onUnavailable` instead of
+searching.
+
+The API exports `resolveMissingArtifacts`, `OrgArtifactRequest`,
+`OrgArtifactResolverProvider`, `OrgArtifactSearchResult`,
+`SObjectAdaptationResult`, and `WorkspaceArtifactResolution`.
+
+## Extension Integration
+
+The VS Code extension consumes this package through its declared workspace
+dependency. It exposes the materialized `ApexClient` through its
+`ApexExtensionApi.client` for companion extensions that need typed language-server
+operations. The generic CodeLens callback registry is part of this
+transport-agnostic client SDK; the extension supplies its VS Code-specific command
+wiring and error presentation through `ApexExtensionApi.codeLens`.

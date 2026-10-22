@@ -16,7 +16,7 @@ import type {
 } from '@salesforce/apex-lsp-shared';
 import {
   formattedError,
-  getDocumentSelectorsFromSettings,
+  getDocumentSynchronizationSelectorsFromSettings,
   WORKSPACE_LOAD_REASON_MESSAGE,
 } from '@salesforce/apex-lsp-shared';
 import type { ApexClientCore } from '@salesforce/apex-lsp-client';
@@ -25,7 +25,7 @@ import type {
   BaseLanguageClient,
   LanguageClientOptions,
 } from 'vscode-languageclient';
-import { Trace } from 'vscode-languageclient';
+import { State as LanguageClientState, Trace } from 'vscode-languageclient';
 import { setStartingFlag, resetServerStartRetries } from './commands';
 import {
   getTraceServerConfig,
@@ -65,7 +65,7 @@ import {
   WorkspaceLoaderServiceLive,
   WorkspaceStateLive,
 } from './workspace-load-handler';
-import { createHoverMiddleware } from './hoverMiddleware';
+import { createLanguageClientMiddleware } from './languageClientMiddleware';
 
 export { detectEnvironment };
 
@@ -73,6 +73,7 @@ export interface ClientState {
   readonly rawClient: BaseLanguageClient;
   readonly core: ApexClientCore;
   readonly configurationListener?: vscode.Disposable;
+  readonly featureStateListener?: vscode.Disposable;
   readonly apexLibResources?: readonly vscode.Disposable[];
   readonly workspaceLoadScope?: Scope.CloseableScope;
 }
@@ -96,6 +97,7 @@ const cleanupClientState = async (
 ): Promise<void> => {
   const stages: readonly CleanupStage[] = [
     ['configuration listener', () => state.configurationListener?.dispose()],
+    ['feature state listener', () => state.featureStateListener?.dispose()],
     ...(state.apexLibResources ?? []).map((resource, index): CleanupStage => [
       `ApexLib resource ${index + 1}`,
       () => resource.dispose(),
@@ -146,8 +148,7 @@ const cleanupAfterStartupFailure = async (
 export function createWebDocumentSelector(
   initializationOptions: ApexLanguageServerSettings,
 ): TextDocumentFilter[] {
-  const selectors = getDocumentSelectorsFromSettings(
-    'all',
+  const selectors = getDocumentSynchronizationSelectorsFromSettings(
     initializationOptions,
   ) as TextDocumentFilter[];
   return [...selectors, ...getOrgArtifactSourceDocumentSelectors()];
@@ -207,7 +208,13 @@ export async function createClientState(
   try {
     await registerHandlers(core, workspaceLoadScope);
     await rawClient.start();
-    return { rawClient, core, workspaceLoadScope };
+    core.setFeatureStatesFromInitializeResult(rawClient.initializeResult);
+    const featureStateListener = rawClient.onDidChangeState((event) => {
+      if (event.newState === LanguageClientState.Running) {
+        core.setFeatureStatesFromInitializeResult(rawClient.initializeResult);
+      }
+    });
+    return { rawClient, core, workspaceLoadScope, featureStateListener };
   } catch (error) {
     return cleanupAfterStartupFailure(
       { rawClient, core, workspaceLoadScope },
@@ -422,7 +429,7 @@ export const createWebClientOptions = (
   synchronize: {
     configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
   },
-  middleware: createHoverMiddleware(),
+  middleware: createLanguageClientMiddleware(),
   initializationOptions,
   outputChannel: (() => {
     const channel = getWorkerServerOutputChannel();

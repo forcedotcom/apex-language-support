@@ -6,5 +6,3 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 export * from './types';
-export * from './positionBasedResolution';
-export * from './strategySelection';
