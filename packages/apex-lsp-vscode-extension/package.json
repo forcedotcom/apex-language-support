@@ -544,56 +544,6 @@
               "default": 50,
               "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.initialReferenceBatchSize.description%"
             },
-            "maxRetryAttempts": {
-              "type": "number",
-              "default": 10,
-              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.maxRetryAttempts.description%"
-            },
-            "retryDelayMs": {
-              "type": "number",
-              "default": 100,
-              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.retryDelayMs.description%"
-            },
-            "maxRetryDelayMs": {
-              "type": "number",
-              "default": 5000,
-              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.maxRetryDelayMs.description%"
-            },
-            "queueCapacityThreshold": {
-              "type": "number",
-              "default": 90,
-              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.queueCapacityThreshold.description%"
-            },
-            "queueDrainThreshold": {
-              "type": "number",
-              "default": 75,
-              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.queueDrainThreshold.description%"
-            },
-            "queueFullRetryDelayMs": {
-              "type": "number",
-              "default": 10000,
-              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.queueFullRetryDelayMs.description%"
-            },
-            "maxQueueFullRetryDelayMs": {
-              "type": "number",
-              "default": 30000,
-              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.maxQueueFullRetryDelayMs.description%"
-            },
-            "circuitBreakerFailureThreshold": {
-              "type": "number",
-              "default": 5,
-              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.circuitBreakerFailureThreshold.description%"
-            },
-            "circuitBreakerResetThreshold": {
-              "type": "number",
-              "default": 50,
-              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.circuitBreakerResetThreshold.description%"
-            },
-            "maxDeferredTasksPerSecond": {
-              "type": "number",
-              "default": 10,
-              "description": "%configuration.apex-ls-ts.deferredReferenceProcessing.maxDeferredTasksPerSecond.description%"
-            },
             "enableCrossFileDeferral": {
               "type": "boolean",
               "default": false,

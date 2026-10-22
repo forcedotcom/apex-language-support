@@ -25,23 +25,9 @@ async function saveSettingsToConfig(
 
   // Update deferred reference processing settings
   if (settings.deferredReferenceProcessing) {
-    // Handle maxDeferredTasksPerSecond: if undefined/empty, remove it from config
-    const deferredSettings = { ...settings.deferredReferenceProcessing };
-    if (
-      deferredSettings.maxDeferredTasksPerSecond === undefined ||
-      deferredSettings.maxDeferredTasksPerSecond === null
-    ) {
-      // Remove the setting to use default
-      await apexConfig.update(
-        'deferredReferenceProcessing.maxDeferredTasksPerSecond',
-        undefined,
-        configTarget,
-      );
-      delete deferredSettings.maxDeferredTasksPerSecond;
-    }
     await apexConfig.update(
       'deferredReferenceProcessing',
-      deferredSettings,
+      settings.deferredReferenceProcessing,
       configTarget,
     );
   }

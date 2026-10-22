@@ -202,36 +202,6 @@ export interface DeferredReferenceProcessingSettings {
   /** Batch size for initial reference processing when adding symbol tables (default: 50) */
   initialReferenceBatchSize: number;
 
-  /** Maximum number of retry attempts for deferred references (default: 10) */
-  maxRetryAttempts: number;
-
-  /** Initial retry delay in milliseconds (default: 100) */
-  retryDelayMs: number;
-
-  /** Maximum retry delay in milliseconds for exponential backoff (default: 5000) */
-  maxRetryDelayMs: number;
-
-  /** Queue capacity threshold percentage - don't retry if queue > this % full (default: 90) */
-  queueCapacityThreshold: number;
-
-  /** Queue drain threshold percentage - only retry when queue < this % full (default: 75) */
-  queueDrainThreshold: number;
-
-  /** Delay in milliseconds when queue is full (default: 10000) */
-  queueFullRetryDelayMs: number;
-
-  /** Maximum delay in milliseconds when queue is full (default: 30000) */
-  maxQueueFullRetryDelayMs: number;
-
-  /** Number of consecutive failures before activating circuit breaker (default: 5) */
-  circuitBreakerFailureThreshold: number;
-
-  /** Queue capacity percentage threshold to reset circuit breaker (default: 50) */
-  circuitBreakerResetThreshold: number;
-
-  /** Rate limit for enqueueing deferred tasks per second (default: 10) */
-  maxDeferredTasksPerSecond?: number;
-
   /** Time threshold in milliseconds - if batch processing exceeds this, yield more frequently (default: 50) */
   yieldTimeThresholdMs?: number;
 
