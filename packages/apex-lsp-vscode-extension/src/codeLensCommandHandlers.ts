@@ -11,7 +11,6 @@ import {
   createCodeLensCallbackRegistry,
   type CodeLensCallbackRegistry,
 } from '@salesforce/apex-lsp-client/browser';
-import { CODE_LENS_COMMAND_ACTIONS } from './codeLensCommandMappings';
 import { logToOutputChannel } from './logging';
 
 export {
@@ -20,30 +19,12 @@ export {
 } from '@salesforce/apex-lsp-client/browser';
 
 export const createVsCodeCodeLensCallbackRegistry =
-  (): CodeLensCallbackRegistry =>
+  (): CodeLensCallbackRegistry<vscode.CodeLens> =>
     createCodeLensCallbackRegistry({
-      onUnavailable: async (action) => {
-        await vscode.window.showWarningMessage(
-          `The ${action} CodeLens action is unavailable because no extension has registered a handler for it.`,
-        );
-      },
-      onProviderError: (action, error) => {
+      onCallbackError: (action, error) => {
         logToOutputChannel(
-          `CodeLens ${action} provider failed: ${String(error)}`,
+          `CodeLens ${action} callback failed: ${String(error)}`,
           'error',
         );
       },
     });
-
-export const registerCodeLensCommandHandlers = (
-  context: vscode.ExtensionContext,
-  registry: CodeLensCallbackRegistry,
-): void => {
-  for (const [command, action] of CODE_LENS_COMMAND_ACTIONS) {
-    context.subscriptions.push(
-      vscode.commands.registerCommand(command, (...arguments_) =>
-        registry.dispatch(action, arguments_ as never),
-      ),
-    );
-  }
-};

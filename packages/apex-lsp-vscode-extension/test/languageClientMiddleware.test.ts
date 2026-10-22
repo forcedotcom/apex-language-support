@@ -8,12 +8,26 @@
 
 import { vi } from 'vitest';
 import * as vscode from 'vscode';
-import { createLanguageClientMiddleware } from '../src/languageClientMiddleware';
+import { createCodeLensCallbackRegistry } from '@salesforce/apex-lsp-client/browser';
+import { createLanguageClientMiddlewareWithCodeLensCallbacks } from '../src/languageClientMiddleware';
+
+const range = (line: number): vscode.Range =>
+  ({
+    start: { line, character: 0 },
+    end: { line, character: 0 },
+  }) as vscode.Range;
 
 const lenses = [
-  { command: { command: 'sf.anon.apex.run.delegate', title: 'Execute' } },
-  { command: { command: 'sf.anon.apex.debug.delegate', title: 'Debug' } },
   {
+    range: range(0),
+    command: { command: 'sf.anon.apex.run.delegate', title: 'Execute' },
+  },
+  {
+    range: range(0),
+    command: { command: 'sf.anon.apex.debug.delegate', title: 'Debug' },
+  },
+  {
+    range: range(2),
     command: {
       command: 'sf.apex.test.class.run.delegate',
       title: 'Run All Tests',
@@ -21,6 +35,7 @@ const lenses = [
     },
   },
   {
+    range: range(3),
     command: {
       command: 'sf.apex.debug.class.run.delegate',
       title: 'Debug All Tests',
@@ -28,6 +43,7 @@ const lenses = [
     },
   },
   {
+    range: range(5),
     command: {
       command: 'sf.apex.test.method.run.delegate',
       title: 'Run Test',
@@ -35,13 +51,14 @@ const lenses = [
     },
   },
   {
+    range: range(6),
     command: {
       command: 'sf.apex.debug.method.run.delegate',
       title: 'Debug Test',
       arguments: ['ExampleTest.exampleMethod'],
     },
   },
-  { command: undefined },
+  { range: range(8), command: undefined },
 ] as vscode.CodeLens[];
 
 describe('CodeLens middleware', () => {
@@ -49,8 +66,34 @@ describe('CodeLens middleware', () => {
     vi.clearAllMocks();
   });
 
-  it('replaces delegates with stable CodeLens click commands', async () => {
-    const middleware = createLanguageClientMiddleware();
+  it('delegates each server anchor to its registered lens callback', async () => {
+    const registry = createCodeLensCallbackRegistry<vscode.CodeLens>();
+    registry.register('run', (lens: vscode.CodeLens) =>
+      lens.command?.command === 'sf.apex.test.class.run.delegate'
+        ? {
+            ...lens,
+            command: {
+              command: 'salesforcedx-vscode-apex.runTestClass',
+              title: 'Run Test Class',
+              arguments: ['ExampleTest'],
+            },
+          }
+        : null,
+    );
+    registry.register('debug', (lens: vscode.CodeLens) =>
+      lens.command?.command === 'sf.apex.debug.method.run.delegate'
+        ? {
+            ...lens,
+            command: {
+              command: 'salesforcedx-vscode-apex.debugTestMethod',
+              title: 'Debug Test Method',
+              arguments: ['ExampleTest.exampleMethod'],
+            },
+          }
+        : null,
+    );
+    const middleware =
+      createLanguageClientMiddlewareWithCodeLensCallbacks(registry);
 
     await expect(
       middleware.provideCodeLenses!(
@@ -60,42 +103,18 @@ describe('CodeLens middleware', () => {
       ),
     ).resolves.toEqual([
       {
+        range: lenses[2].range,
         command: {
-          command: 'apex-ls-ts.codelens.executeAnonymous',
-          title: 'Execute',
-        },
-      },
-      {
-        command: {
-          command: 'apex-ls-ts.codelens.debugAnonymous',
-          title: 'Debug',
-        },
-      },
-      {
-        command: {
-          command: 'apex-ls-ts.codelens.runTestClass',
-          title: 'Run All Tests',
+          command: 'salesforcedx-vscode-apex.runTestClass',
+          title: 'Run Test Class',
           arguments: ['ExampleTest'],
         },
       },
       {
+        range: lenses[5].range,
         command: {
-          command: 'apex-ls-ts.codelens.debugTestClass',
-          title: 'Debug All Tests',
-          arguments: ['ExampleTest'],
-        },
-      },
-      {
-        command: {
-          command: 'apex-ls-ts.codelens.runTestMethod',
-          title: 'Run Test',
-          arguments: ['ExampleTest.exampleMethod'],
-        },
-      },
-      {
-        command: {
-          command: 'apex-ls-ts.codelens.debugTestMethod',
-          title: 'Debug Test',
+          command: 'salesforcedx-vscode-apex.debugTestMethod',
+          title: 'Debug Test Method',
           arguments: ['ExampleTest.exampleMethod'],
         },
       },
@@ -106,7 +125,7 @@ describe('CodeLens middleware', () => {
   it.each([null, undefined] as const)(
     'preserves an empty CodeLens response of %s',
     async (result: null | undefined) => {
-      const middleware = createLanguageClientMiddleware();
+      const middleware = createLanguageClientMiddlewareWithCodeLensCallbacks();
       const next = vi.fn().mockResolvedValue(result);
 
       await expect(
@@ -119,8 +138,8 @@ describe('CodeLens middleware', () => {
     },
   );
 
-  it('filters commands that are not CodeLens delegates', async () => {
-    const middleware = createLanguageClientMiddleware();
+  it('suppresses server delegate lenses with no registered callback', async () => {
+    const middleware = createLanguageClientMiddlewareWithCodeLensCallbacks();
 
     await expect(
       middleware.provideCodeLenses!(

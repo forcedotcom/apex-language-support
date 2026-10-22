@@ -52,14 +52,13 @@ export type {
   ApexServerFeatureStates,
 } from './serverFeatureState';
 
-// Host-neutral semantic CodeLens provider registry.
+// Host-neutral semantic CodeLens production registry.
 export {
   CODE_LENS_ACTIONS,
   createCodeLensCallbackRegistry,
 } from './codeLensCallbacks';
 export type {
   CodeLensAction,
-  CodeLensActionArguments,
   CodeLensCallback,
   CodeLensCallbackRegistry,
   CodeLensCallbackRegistryOptions,

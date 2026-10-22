@@ -9,93 +9,78 @@
 import { createCodeLensCallbackRegistry } from '../src/codeLensCallbacks';
 
 describe('CodeLens callback registry', () => {
-  it('reports when no providers are registered for an action', async () => {
-    const onUnavailable = vi.fn();
-    const registry = createCodeLensCallbackRegistry({ onUnavailable });
+  it('returns null when no callback is registered for an action', async () => {
+    const registry = createCodeLensCallbackRegistry<string>();
 
-    await registry.dispatch('runTestClass', ['ExampleTest']);
-
-    expect(onUnavailable).toHaveBeenCalledWith('runTestClass');
+    await expect(registry.resolve('run', 'server lens')).resolves.toBeNull();
   });
 
-  it('invokes every provider in registration order', async () => {
-    const registry = createCodeLensCallbackRegistry();
-    const calls: string[] = [];
-    const first = vi.fn(async () => {
-      calls.push('first');
-    });
-    const second = vi.fn(async () => {
-      calls.push('second');
-    });
-    registry.register('debugTestMethod', first);
-    registry.register('debugTestMethod', second);
+  it('allows independent run and debug callbacks', async () => {
+    const registry = createCodeLensCallbackRegistry<string>();
+    const run = vi.fn((lens: string) => `run ${lens}`);
+    const debug = vi.fn((lens: string) => `debug ${lens}`);
+    registry.register('run', run);
+    registry.register('debug', debug);
 
-    await registry.dispatch('debugTestMethod', ['ExampleTest.exampleMethod']);
-
-    expect(first).toHaveBeenCalledWith(['ExampleTest.exampleMethod']);
-    expect(second).toHaveBeenCalledWith(['ExampleTest.exampleMethod']);
-    expect(calls).toEqual(['first', 'second']);
+    await expect(registry.resolve('run', 'anchor')).resolves.toBe('run anchor');
+    await expect(registry.resolve('debug', 'anchor')).resolves.toBe(
+      'debug anchor',
+    );
+    expect(run).toHaveBeenCalledWith('anchor');
+    expect(debug).toHaveBeenCalledWith('anchor');
   });
 
-  it('removes a provider when its registration is disposed', async () => {
-    const onUnavailable = vi.fn();
-    const registry = createCodeLensCallbackRegistry({ onUnavailable });
-    const callback = vi.fn();
-    const registration = registry.register('executeAnonymous', callback);
+  it('removes a callback when its registration is disposed', async () => {
+    const registry = createCodeLensCallbackRegistry<string>();
+    const callback = vi.fn((lens: string) => lens);
+    const registration = registry.register('run', callback);
     registration.dispose();
 
-    await registry.dispatch('executeAnonymous', []);
+    await expect(registry.resolve('run', 'anchor')).resolves.toBeNull();
 
     expect(callback).not.toHaveBeenCalled();
-    expect(onUnavailable).toHaveBeenCalledWith('executeAnonymous');
   });
 
-  it('reports a provider failure and continues dispatching', async () => {
-    const onProviderError = vi.fn();
-    const registry = createCodeLensCallbackRegistry({ onProviderError });
+  it('replaces the existing callback for an action', async () => {
+    const registry = createCodeLensCallbackRegistry<string>();
+    const first = vi.fn((lens: string) => `first ${lens}`);
+    const second = vi.fn((lens: string) => `second ${lens}`);
+    const firstRegistration = registry.register('run', first);
+    registry.register('run', second);
+    firstRegistration.dispose();
+
+    await expect(registry.resolve('run', 'anchor')).resolves.toBe(
+      'second anchor',
+    );
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledWith('anchor');
+  });
+
+  it('reports a callback failure and suppresses its lens', async () => {
+    const onCallbackError = vi.fn();
+    const registry = createCodeLensCallbackRegistry<string>({
+      onCallbackError,
+    });
     const error = new Error('provider failed');
-    const succeedingCallback = vi.fn();
-    registry.register('runTestClass', async () => {
+    registry.register('run', async () => {
       throw error;
     });
-    registry.register('runTestClass', succeedingCallback);
 
-    await registry.dispatch('runTestClass', ['ExampleTest']);
+    await expect(registry.resolve('run', 'anchor')).resolves.toBeNull();
 
-    expect(onProviderError).toHaveBeenCalledWith('runTestClass', error);
-    expect(succeedingCallback).toHaveBeenCalledWith(['ExampleTest']);
+    expect(onCallbackError).toHaveBeenCalledWith('run', error);
   });
 
-  it('rejects after dispatching remaining providers when failures are unreported', async () => {
-    const registry = createCodeLensCallbackRegistry();
-    const error = new Error('provider failed');
-    const succeedingCallback = vi.fn();
-    registry.register('runTestClass', async () => {
-      throw error;
+  it('suppresses a lens when error reporting fails', async () => {
+    const registry = createCodeLensCallbackRegistry<string>({
+      onCallbackError: async () => {
+        throw new Error('reporting failed');
+      },
     });
-    registry.register('runTestClass', succeedingCallback);
-
-    await expect(
-      registry.dispatch('runTestClass', ['ExampleTest']),
-    ).rejects.toBe(error);
-    expect(succeedingCallback).toHaveBeenCalledWith(['ExampleTest']);
-  });
-
-  it('continues dispatching when error reporting fails', async () => {
-    const reportingError = new Error('reporting failed');
-    const onProviderError = vi.fn(async () => {
-      throw reportingError;
+    registry.register('run', async () => {
+      throw new Error('provider failed');
     });
-    const registry = createCodeLensCallbackRegistry({ onProviderError });
-    const succeedingCallback = vi.fn();
-    registry.register('runTestClass', async () => {
-      throw undefined;
-    });
-    registry.register('runTestClass', succeedingCallback);
 
-    await expect(
-      registry.dispatch('runTestClass', ['ExampleTest']),
-    ).rejects.toBe(reportingError);
-    expect(succeedingCallback).toHaveBeenCalledWith(['ExampleTest']);
+    await expect(registry.resolve('run', 'anchor')).resolves.toBeNull();
   });
 });

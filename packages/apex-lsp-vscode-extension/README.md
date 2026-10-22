@@ -68,21 +68,21 @@ a display label and optional source URI. Treat `typeref` as opaque and pass it
 through unchanged. The client translates these calls to the language server's
 standard command transport, so consumers should not send LSP commands directly.
 
-### CodeLens Action Providers
+### CodeLens Action Callbacks
 
-The extension exposes the host-neutral `CodeLensCallbackRegistry` from
+The extension exposes the host-neutral `CodeLensCallbackRegistry<vscode.CodeLens>` from
 `@salesforce/apex-lsp-client` through `ApexExtensionApi.codeLens`. Companion
 extensions should register on this activated registry rather than construct a
-separate one or register language-server command IDs directly. This allows the
-browser and desktop extension hosts to render CodeLens while delegating anonymous
-Apex execution and test actions to an installed provider.
+separate one. This allows browser and desktop hosts to render server-declared
+CodeLens anchors while companion extensions supply their own commands.
 
-Register a callback after activating the language-server extension. The returned
-`Disposable` unregisters that provider. Multiple providers for the same action
-are invoked in registration order. The extension adapts the shared registry with
-VS Code behavior: unavailable actions show an error message, provider failures
-are logged to the Apex Language Server output channel, and later providers still
-run after a failure.
+Register a callback after activating the language-server extension. Callbacks
+receive the server anchor and return a lens with their command, or `undefined`
+when they do not handle that anchor. The extension preserves the server-provided
+range, so callbacks own command and presentation details but not CodeLens
+placement. There is one callback for each action; a later registration for the
+same action replaces the earlier one. Callback failures are logged to the Apex
+Language Server output channel and suppress that lens.
 
 ```typescript
 import * as vscode from 'vscode';
@@ -97,24 +97,31 @@ if (!apexExtension) {
 
 const apex = await apexExtension.activate();
 context.subscriptions.push(
-  apex.codeLens.register('runTestMethod', async ([qualifiedMethodName]) => {
-    await runApexTest(qualifiedMethodName);
-  }),
+  apex.codeLens.register('run', (anchor) =>
+    anchor.command?.command === 'sf.apex.test.method.run.delegate'
+      ? {
+          ...anchor,
+          command: {
+            command: 'salesforcedx-vscode-apex.runTestMethod',
+            title: 'Run Test',
+            arguments: ['ExampleTest.exampleMethod'],
+          },
+        }
+      : undefined,
+  ),
 );
 ```
 
-Available actions and their callback arguments are:
+Available actions are:
 
-- `executeAnonymous` and `debugAnonymous`: no arguments.
-- `runTestClass` and `debugTestClass`: the Apex class name.
-- `runTestMethod` and `debugTestMethod`: the qualified Apex method name.
+- `run` for execution anchors.
+- `debug` for debugging anchors.
 
-If no provider is registered for an invoked action, the extension displays an
-error explaining that the action is unavailable. These actions are semantic API
-names; providers should use `ApexExtensionApi.codeLens` rather than registering
-the underlying language-server commands directly. The extension translates
-recognized language-server delegate commands to these semantic actions before
-dispatching them, consistently for desktop and browser hosts.
+If no callback is registered for an action, or its callback returns `null`,
+the corresponding server delegate lens is not shown. Providers should use
+`ApexExtensionApi.codeLens` rather than registering language-server command IDs
+directly. The extension maps recognized server delegate commands to these
+actions consistently for desktop and browser hosts.
 
 ## Configuration
 

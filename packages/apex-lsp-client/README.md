@@ -462,8 +462,9 @@ registrations (`onFindMissingArtifact`, `onRequestWorkspaceLoad`,
 
 The host-neutral CodeLens callback registry is exported from both
 `@salesforce/apex-lsp-client` and `@salesforce/apex-lsp-client/browser`. It has
-no VS Code dependency, allowing each host to supply its own command wiring and
-user-facing error behavior.
+no VS Code dependency. A host passes each language-server CodeLens anchor to the
+callback registered for its `run` or `debug` action. The callback returns a
+feature-owned lens, or `null` to suppress that anchor.
 
 ```typescript
 import {
@@ -471,39 +472,43 @@ import {
   type CodeLensCallbackRegistryOptions,
 } from '@salesforce/apex-lsp-client';
 
+type HostCodeLens = { command?: { command: string; title: string } };
+
 const options: CodeLensCallbackRegistryOptions = {
-  onUnavailable: (action) => showUnavailableAction(action),
-  onProviderError: (action, error) => logProviderError(action, error),
+  onCallbackError: (action, error) => logCallbackError(action, error),
 };
-const codeLens = createCodeLensCallbackRegistry(options);
+const codeLens = createCodeLensCallbackRegistry<HostCodeLens>(options);
 
 const registration = codeLens.register(
-  'runTestMethod',
-  async ([qualifiedMethodName]) => {
-    await runApexTest(qualifiedMethodName);
-  },
+  'run',
+  (anchor) =>
+    anchor.command?.command === 'server.test.method.run'
+      ? {
+          ...anchor,
+          command: {
+            command: 'host.runTestMethod',
+            title: 'Run Test',
+          },
+        }
+      : undefined,
 );
 
 registration.dispose();
 ```
 
 The API exports `CODE_LENS_ACTIONS`, `CodeLensAction`,
-`CodeLensActionArguments`, `CodeLensCallback`, `CodeLensCallbackRegistry`,
-`CodeLensCallbackRegistryOptions`, and `createCodeLensCallbackRegistry`.
+`CodeLensCallback`, `CodeLensCallbackRegistry`, `CodeLensCallbackRegistryOptions`,
+and `createCodeLensCallbackRegistry`.
 
-- `executeAnonymous` and `debugAnonymous` receive no arguments.
-- `runTestClass` and `debugTestClass` receive `[className: string]`.
-- `runTestMethod` and `debugTestMethod` receive
-  `[qualifiedMethodName: string]`.
-- `register(action, callback)` returns a `Disposable`; disposing it unregisters
-  the callback.
-- `dispatch(action, arguments)` invokes callbacks sequentially in registration
-  order.
-- When no callbacks are registered, `dispatch` invokes `onUnavailable` when
-  configured.
-- Provider failures invoke `onProviderError` when configured without preventing
-  later callbacks from running. Without that hook, or if the hook fails,
-  `dispatch` rejects after all callbacks have been attempted.
+- `CODE_LENS_ACTIONS` contains `run` and `debug`.
+- One callback may be registered for each action; a later registration replaces
+  the earlier callback.
+- `register(action, callback)` returns a `Disposable`; disposing it removes the
+  callback only if it has not been replaced.
+- `resolve(action, anchor)` returns the callback's lens or `null` when no
+  callback is registered or the callback does not handle that anchor.
+- Callback failures call `onCallbackError` when configured and resolve to
+  `null`; they do not propagate to the caller.
 
 ### Workspace Batch Codec
 
@@ -584,5 +589,5 @@ The VS Code extension consumes this package through its declared workspace
 dependency. It exposes the materialized `ApexClient` through its
 `ApexExtensionApi.client` for companion extensions that need typed language-server
 operations. The generic CodeLens callback registry is part of this
-transport-agnostic client SDK; the extension supplies its VS Code-specific command
-wiring and error presentation through `ApexExtensionApi.codeLens`.
+transport-agnostic client SDK; the extension supplies its VS Code-specific
+CodeLens integration through `ApexExtensionApi.codeLens`.

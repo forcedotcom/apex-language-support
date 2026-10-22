@@ -7,13 +7,19 @@
  */
 
 import type { LanguageClientOptions } from 'vscode-languageclient';
+import type { CodeLensCallbackRegistry } from '@salesforce/apex-lsp-client/browser';
+import type * as vscode from 'vscode';
 import { formattedError } from '@salesforce/apex-lsp-shared';
-import { CODE_LENS_SERVER_TO_CLIENT_COMMANDS } from './codeLensCommandMappings';
+import { CODE_LENS_SERVER_ACTIONS } from './codeLensCommandMappings';
 import { logToOutputChannel } from './logging';
 
 export const createLanguageClientMiddleware = (): NonNullable<
   LanguageClientOptions['middleware']
-> => {
+> => createLanguageClientMiddlewareWithCodeLensCallbacks();
+
+export const createLanguageClientMiddlewareWithCodeLensCallbacks = (
+  codeLensCallbacks?: CodeLensCallbackRegistry<vscode.CodeLens>,
+): NonNullable<LanguageClientOptions['middleware']> => {
   let hoverSequence = 0;
   const inFlightSupersede = new Map<number, () => void>();
 
@@ -24,28 +30,28 @@ export const createLanguageClientMiddleware = (): NonNullable<
         return lenses;
       }
 
-      return lenses.flatMap((lens) => {
-        if (!lens.command) {
-          return [lens];
-        }
+      return Promise.all(
+        lenses.map(async (lens) => {
+          if (!lens.command) {
+            return lens;
+          }
 
-        const clientCommand = CODE_LENS_SERVER_TO_CLIENT_COMMANDS.get(
-          lens.command.command,
-        );
-        if (!clientCommand) {
-          return [];
-        }
+          const action = CODE_LENS_SERVER_ACTIONS.get(lens.command.command);
+          if (!action || !codeLensCallbacks) {
+            return undefined;
+          }
 
-        return [
-          {
+          const resolved = await codeLensCallbacks.resolve(action, lens);
+          if (resolved === null) return undefined;
+
+          return {
             ...lens,
-            command: {
-              ...lens.command,
-              command: clientCommand,
-            },
-          },
-        ];
-      });
+            ...resolved,
+            // The language server owns parser-confirmed CodeLens placement.
+            range: lens.range,
+          };
+        }),
+      ).then((provided) => provided.flatMap((lens) => (lens ? [lens] : [])));
     },
     provideHover: async (document, position, token, next) => {
       const requestSequence = ++hoverSequence;

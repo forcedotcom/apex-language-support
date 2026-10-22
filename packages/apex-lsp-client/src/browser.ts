@@ -37,7 +37,6 @@ export {
 } from './codeLensCallbacks';
 export type {
   CodeLensAction,
-  CodeLensActionArguments,
   CodeLensCallback,
   CodeLensCallbackRegistry,
   CodeLensCallbackRegistryOptions,
