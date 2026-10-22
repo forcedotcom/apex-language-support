@@ -33,16 +33,6 @@ describe('ConfigurationSummary', () => {
         deferredReferenceProcessing: {
           deferredBatchSize: 50,
           initialReferenceBatchSize: 25,
-          maxRetryAttempts: 1,
-          retryDelayMs: 100,
-          maxRetryDelayMs: 5000,
-          queueCapacityThreshold: 90,
-          queueDrainThreshold: 75,
-          queueFullRetryDelayMs: 10000,
-          maxQueueFullRetryDelayMs: 30000,
-          circuitBreakerFailureThreshold: 5,
-          circuitBreakerResetThreshold: 50,
-          maxDeferredTasksPerSecond: 5,
           yieldTimeThresholdMs: 50,
         },
         queueProcessing: {
@@ -124,7 +114,7 @@ describe('ConfigurationSummary', () => {
       expect(summary).toContain(
         'Comment Collection: enabled (associate with symbols)',
       );
-      expect(summary).toContain('Deferred References: batch=50, retries=1');
+      expect(summary).toContain('Deferred References: batch=50');
       expect(summary).toContain(
         'Queue Concurrency: CRITICAL=99, HIGH=50, NORMAL=25',
       );
@@ -253,17 +243,6 @@ describe('ConfigurationSummary', () => {
       const summary = generateChangeSummary(previous, current);
 
       expect(summary).toContain('Deferred Batch Size: 10 → 50');
-    });
-
-    it('should detect max retry attempts change', () => {
-      const previous = createTestSettings();
-      previous.apex.deferredReferenceProcessing!.maxRetryAttempts = 1;
-      const current = createTestSettings();
-      current.apex.deferredReferenceProcessing!.maxRetryAttempts = 5;
-
-      const summary = generateChangeSummary(previous, current);
-
-      expect(summary).toContain('Max Retry Attempts: 1 → 5');
     });
 
     it('should detect queue concurrency changes', () => {

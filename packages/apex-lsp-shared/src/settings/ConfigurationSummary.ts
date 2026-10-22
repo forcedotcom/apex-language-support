@@ -95,9 +95,7 @@ export function generateStartupSummary(
   // Deferred references
   const dr = settings.apex.deferredReferenceProcessing;
   if (dr) {
-    summary.push(
-      `    - Deferred References: batch=${dr.deferredBatchSize}, retries=${dr.maxRetryAttempts}`,
-    );
+    summary.push(`    - Deferred References: batch=${dr.deferredBatchSize}`);
   }
 
   // Queue concurrency (show top 3 priority levels)
@@ -251,12 +249,6 @@ export function generateChangeSummary(
     if (prevDR.deferredBatchSize !== currDR.deferredBatchSize) {
       changes.push(
         `  Deferred Batch Size: ${prevDR.deferredBatchSize} → ${currDR.deferredBatchSize}`,
-      );
-    }
-
-    if (prevDR.maxRetryAttempts !== currDR.maxRetryAttempts) {
-      changes.push(
-        `  Max Retry Attempts: ${prevDR.maxRetryAttempts} → ${currDR.maxRetryAttempts}`,
       );
     }
   }
