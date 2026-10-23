@@ -13,17 +13,12 @@ import {
 } from '@salesforce/apex-lsp-client/browser';
 import { logToOutputChannel } from './logging';
 
-export {
-  CODE_LENS_ACTIONS,
-  type CodeLensAction,
-} from '@salesforce/apex-lsp-client/browser';
-
 export const createVsCodeCodeLensCallbackRegistry =
   (): CodeLensCallbackRegistry<vscode.CodeLens> =>
     createCodeLensCallbackRegistry({
-      onCallbackError: (action, error) => {
+      onCallbackError: (descriptor, error) => {
         logToOutputChannel(
-          `CodeLens ${action} callback failed: ${String(error)}`,
+          `CodeLens ${descriptor} callback failed: ${String(error)}`,
           'error',
         );
       },

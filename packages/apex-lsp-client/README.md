@@ -463,7 +463,7 @@ registrations (`onFindMissingArtifact`, `onRequestWorkspaceLoad`,
 The host-neutral CodeLens callback registry is exported from both
 `@salesforce/apex-lsp-client` and `@salesforce/apex-lsp-client/browser`. It has
 no VS Code dependency. A host passes each language-server CodeLens anchor to the
-callback registered for its `run` or `debug` action. The callback returns a
+callback registered for its descriptor command ID. The callback returns a
 feature-owned lens, or `null` to suppress that anchor.
 
 ```typescript
@@ -475,37 +475,33 @@ import {
 type HostCodeLens = { command?: { command: string; title: string } };
 
 const options: CodeLensCallbackRegistryOptions = {
-  onCallbackError: (action, error) => logCallbackError(action, error),
+  onCallbackError: (descriptor, error) => logCallbackError(descriptor, error),
 };
 const codeLens = createCodeLensCallbackRegistry<HostCodeLens>(options);
 
 const registration = codeLens.register(
-  'run',
-  (anchor) =>
-    anchor.command?.command === 'server.test.method.run'
-      ? {
-          ...anchor,
-          command: {
-            command: 'host.runTestMethod',
-            title: 'Run Test',
-          },
-        }
-      : undefined,
+  'sf.apex.test.method.run.delegate',
+  (anchor) => ({
+    ...anchor,
+    command: {
+      command: 'host.runTestMethod',
+      title: 'Run Test',
+    },
+  }),
 );
 
 registration.dispose();
 ```
 
-The API exports `CODE_LENS_ACTIONS`, `CodeLensAction`,
-`CodeLensCallback`, `CodeLensCallbackRegistry`, `CodeLensCallbackRegistryOptions`,
-and `createCodeLensCallbackRegistry`.
+The API exports `CodeLensDescriptor`, `CodeLensCallback`,
+`CodeLensCallbackRegistry`, `CodeLensCallbackRegistryOptions`, and
+`createCodeLensCallbackRegistry`.
 
-- `CODE_LENS_ACTIONS` contains `run` and `debug`.
-- One callback may be registered for each action; a later registration replaces
+- One callback may be registered for each descriptor; a later registration replaces
   the earlier callback.
-- `register(action, callback)` returns a `Disposable`; disposing it removes the
+- `register(descriptor, callback)` returns a `Disposable`; disposing it removes the
   callback only if it has not been replaced.
-- `resolve(action, anchor)` returns the callback's lens or `null` when no
+- `resolve(descriptor, anchor)` returns the callback's lens or `null` when no
   callback is registered or the callback does not handle that anchor.
 - Callback failures call `onCallbackError` when configured and resolve to
   `null`; they do not propagate to the caller.

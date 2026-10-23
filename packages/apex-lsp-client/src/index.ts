@@ -53,12 +53,9 @@ export type {
 } from './serverFeatureState';
 
 // Host-neutral semantic CodeLens production registry.
-export {
-  CODE_LENS_ACTIONS,
-  createCodeLensCallbackRegistry,
-} from './codeLensCallbacks';
+export { createCodeLensCallbackRegistry } from './codeLensCallbacks';
 export type {
-  CodeLensAction,
+  CodeLensDescriptor,
   CodeLensCallback,
   CodeLensCallbackRegistry,
   CodeLensCallbackRegistryOptions,

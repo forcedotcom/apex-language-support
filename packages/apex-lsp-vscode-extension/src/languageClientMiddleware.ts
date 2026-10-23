@@ -10,7 +10,6 @@ import type { LanguageClientOptions } from 'vscode-languageclient';
 import type { CodeLensCallbackRegistry } from '@salesforce/apex-lsp-client/browser';
 import type * as vscode from 'vscode';
 import { formattedError } from '@salesforce/apex-lsp-shared';
-import { CODE_LENS_SERVER_ACTIONS } from './codeLensCommandMappings';
 import { logToOutputChannel } from './logging';
 
 export const createLanguageClientMiddleware = (): NonNullable<
@@ -36,12 +35,14 @@ export const createLanguageClientMiddlewareWithCodeLensCallbacks = (
             return lens;
           }
 
-          const action = CODE_LENS_SERVER_ACTIONS.get(lens.command.command);
-          if (!action || !codeLensCallbacks) {
+          if (!codeLensCallbacks) {
             return undefined;
           }
 
-          const resolved = await codeLensCallbacks.resolve(action, lens);
+          const resolved = await codeLensCallbacks.resolve(
+            lens.command.command,
+            lens,
+          );
           if (resolved === null) return undefined;
 
           return {

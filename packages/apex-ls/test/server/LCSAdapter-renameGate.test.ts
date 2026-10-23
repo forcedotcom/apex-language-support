@@ -54,14 +54,6 @@ vi.mock('@salesforce/apex-lsp-shared', () => ({
   getDocumentSelectorsFromSettings: vi.fn(() => [
     { scheme: 'file', language: 'apex' },
   ]),
-  CODE_LENS_SERVER_COMMANDS: {
-    executeAnonymous: 'sf.anon.apex.run.delegate',
-    debugAnonymous: 'sf.anon.apex.debug.delegate',
-    runTestClass: 'sf.apex.test.class.run.delegate',
-    debugTestClass: 'sf.apex.debug.class.run.delegate',
-    runTestMethod: 'sf.apex.test.method.run.delegate',
-    debugTestMethod: 'sf.apex.debug.method.run.delegate',
-  },
 }));
 
 // The full connection surface touched by the LCSAdapter constructor + all its

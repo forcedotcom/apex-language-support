@@ -61,7 +61,6 @@ vi.mock('@salesforce/apex-lsp-client/browser', () => ({
       connectionConstructor(client);
     }
   },
-  CODE_LENS_ACTIONS: ['run', 'debug'],
   createCodeLensCallbackRegistry: vi.fn(),
 }));
 

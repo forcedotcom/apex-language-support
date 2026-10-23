@@ -66,32 +66,25 @@ describe('CodeLens middleware', () => {
     vi.clearAllMocks();
   });
 
-  it('delegates each server anchor to its registered lens callback', async () => {
+  it('delegates each server anchor to its registered descriptor callback', async () => {
     const registry = createCodeLensCallbackRegistry<vscode.CodeLens>();
-    registry.register('run', (lens: vscode.CodeLens) =>
-      lens.command?.command === 'sf.apex.test.class.run.delegate'
-        ? {
-            ...lens,
-            command: {
-              command: 'salesforcedx-vscode-apex.runTestClass',
-              title: 'Run Test Class',
-              arguments: ['ExampleTest'],
-            },
-          }
-        : null,
-    );
-    registry.register('debug', (lens: vscode.CodeLens) =>
-      lens.command?.command === 'sf.apex.debug.method.run.delegate'
-        ? {
-            ...lens,
-            command: {
-              command: 'salesforcedx-vscode-apex.debugTestMethod',
-              title: 'Debug Test Method',
-              arguments: ['ExampleTest.exampleMethod'],
-            },
-          }
-        : null,
-    );
+    registry.register('sf.apex.test.class.run.delegate', (lens) => ({
+      ...lens,
+      range: range(99),
+      command: {
+        command: 'salesforcedx-vscode-apex.runTestClass',
+        title: 'Run Test Class',
+        arguments: ['ExampleTest'],
+      },
+    }));
+    registry.register('sf.apex.debug.method.run.delegate', (lens) => ({
+      ...lens,
+      command: {
+        command: 'salesforcedx-vscode-apex.debugTestMethod',
+        title: 'Debug Test Method',
+        arguments: ['ExampleTest.exampleMethod'],
+      },
+    }));
     const middleware =
       createLanguageClientMiddlewareWithCodeLensCallbacks(registry);
 

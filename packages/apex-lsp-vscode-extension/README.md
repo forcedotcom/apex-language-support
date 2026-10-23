@@ -10,7 +10,7 @@ A Visual Studio Code extension providing comprehensive Apex language support pow
 - **Real-time Diagnostics**: Instant error detection and validation as you type
 - **Code Intelligence**: Hover information, go-to-definition, find references, and more
 - **Document Symbols**: Quick navigation through class members and methods
-- **Code Lens**: Browser and desktop CodeLens support for anonymous Apex and Apex test actions
+- **Code Lens**: Browser and desktop CodeLens support for anonymous Apex and Apex test commands
 - **Folding Ranges**: Smart code folding based on structure and comments
 - **Auto-completion**: Context-aware code completion (development mode)
 
@@ -68,7 +68,7 @@ a display label and optional source URI. Treat `typeref` as opaque and pass it
 through unchanged. The client translates these calls to the language server's
 standard command transport, so consumers should not send LSP commands directly.
 
-### CodeLens Action Callbacks
+### CodeLens Callback Registration
 
 The extension exposes the host-neutral `CodeLensCallbackRegistry<vscode.CodeLens>` from
 `@salesforce/apex-lsp-client` through `ApexExtensionApi.codeLens`. Companion
@@ -77,11 +77,12 @@ separate one. This allows browser and desktop hosts to render server-declared
 CodeLens anchors while companion extensions supply their own commands.
 
 Register a callback after activating the language-server extension. Callbacks
-receive the server anchor and return a lens with their command, or `undefined`
-when they do not handle that anchor. The extension preserves the server-provided
-range, so callbacks own command and presentation details but not CodeLens
-placement. There is one callback for each action; a later registration for the
-same action replaces the earlier one. Callback failures are logged to the Apex
+receive the server anchor and return a lens with their command, or `null` to
+suppress that anchor. Register each server descriptor command ID the companion
+extension handles. The extension preserves the server-provided range, so callbacks
+own command and presentation details but not CodeLens placement. There is one
+callback for each descriptor; a later registration for the same descriptor
+replaces the earlier one. Callback failures are logged to the Apex
 Language Server output channel and suppress that lens.
 
 ```typescript
@@ -97,31 +98,21 @@ if (!apexExtension) {
 
 const apex = await apexExtension.activate();
 context.subscriptions.push(
-  apex.codeLens.register('run', (anchor) =>
-    anchor.command?.command === 'sf.apex.test.method.run.delegate'
-      ? {
-          ...anchor,
-          command: {
-            command: 'salesforcedx-vscode-apex.runTestMethod',
-            title: 'Run Test',
-            arguments: ['ExampleTest.exampleMethod'],
-          },
-        }
-      : undefined,
-  ),
+  apex.codeLens.register('sf.apex.test.method.run.delegate', (anchor) => ({
+    ...anchor,
+    command: {
+      command: 'salesforcedx-vscode-apex.runTestMethod',
+      title: 'Run Test',
+      arguments: ['ExampleTest.exampleMethod'],
+    },
+  })),
 );
 ```
 
-Available actions are:
-
-- `run` for execution anchors.
-- `debug` for debugging anchors.
-
-If no callback is registered for an action, or its callback returns `null`,
+If no callback is registered for a descriptor, or its callback returns `null`,
 the corresponding server delegate lens is not shown. Providers should use
 `ApexExtensionApi.codeLens` rather than registering language-server command IDs
-directly. The extension maps recognized server delegate commands to these
-actions consistently for desktop and browser hosts.
+directly.
 
 ## Configuration
 

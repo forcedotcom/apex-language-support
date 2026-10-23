@@ -10,10 +10,9 @@
 export { activate, deactivate } from './extension';
 export type { ApexExtensionApi } from './extension';
 
-// Semantic CodeLens actions available to callback extensions.
-export { CODE_LENS_ACTIONS } from '@salesforce/apex-lsp-client/browser';
+// Semantic CodeLens callback types available to callback extensions.
 export type {
-  CodeLensAction,
+  CodeLensDescriptor,
   CodeLensCallback,
   CodeLensCallbackRegistry,
 } from '@salesforce/apex-lsp-client';

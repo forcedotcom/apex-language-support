@@ -8,30 +8,25 @@
 
 import type { Disposable } from '@salesforce/apex-lsp-shared';
 
-export const CODE_LENS_ACTIONS = ['run', 'debug'] as const;
-
-export type CodeLensAction = (typeof CODE_LENS_ACTIONS)[number];
+export type CodeLensDescriptor = string;
 
 /** Produces a feature-owned lens for a language-server-owned anchor. */
 export type CodeLensCallback<Lens> = (
   lens: Lens,
 ) => Lens | null | Promise<Lens | null>;
 
-/** Registry for feature-owned CodeLens callbacks by server-declared action. */
+/** Registry for feature-owned CodeLens callbacks by server-declared descriptor. */
 export interface CodeLensCallbackRegistry<Lens> {
-  register<Action extends CodeLensAction>(
-    action: Action,
+  register(
+    descriptor: CodeLensDescriptor,
     callback: CodeLensCallback<Lens>,
   ): Disposable;
-  resolve<Action extends CodeLensAction>(
-    action: Action,
-    lens: Lens,
-  ): Promise<Lens | null>;
+  resolve(descriptor: CodeLensDescriptor, lens: Lens): Promise<Lens | null>;
 }
 
 export interface CodeLensCallbackRegistryOptions {
   readonly onCallbackError?: (
-    action: CodeLensAction,
+    descriptor: CodeLensDescriptor,
     error: unknown,
   ) => void | Promise<void>;
 }
@@ -39,34 +34,31 @@ export interface CodeLensCallbackRegistryOptions {
 export const createCodeLensCallbackRegistry = <Lens>(
   options: CodeLensCallbackRegistryOptions = {},
 ): CodeLensCallbackRegistry<Lens> => {
-  const callbacks = new Map<CodeLensAction, CodeLensCallback<Lens>>();
+  const callbacks = new Map<CodeLensDescriptor, CodeLensCallback<Lens>>();
 
   return {
-    register<Action extends CodeLensAction>(
-      action: Action,
-      callback: CodeLensCallback<Lens>,
-    ) {
-      callbacks.set(action, callback);
+    register(descriptor: CodeLensDescriptor, callback: CodeLensCallback<Lens>) {
+      callbacks.set(descriptor, callback);
       return {
         dispose: () => {
-          if (callbacks.get(action) === callback) {
-            callbacks.delete(action);
+          if (callbacks.get(descriptor) === callback) {
+            callbacks.delete(descriptor);
           }
         },
       };
     },
-    async resolve<Action extends CodeLensAction>(
-      action: Action,
+    async resolve(
+      descriptor: CodeLensDescriptor,
       lens: Lens,
     ): Promise<Lens | null> {
-      const callback = callbacks.get(action);
+      const callback = callbacks.get(descriptor);
       if (!callback) return null;
 
       try {
         return await callback(lens);
       } catch (error) {
         try {
-          await options.onCallbackError?.(action, error);
+          await options.onCallbackError?.(descriptor, error);
         } catch {
           // Error reporting cannot make the CodeLens request fail.
         }
