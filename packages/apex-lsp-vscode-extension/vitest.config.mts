@@ -13,6 +13,7 @@ export default defineConfig({
       vscode: fileURLToPath(new URL('./test/mocks/vscode.ts', import.meta.url)),
       '@salesforce/apex-lsp-shared': fromRoot('packages/apex-lsp-shared/out/index.js'),
       '@salesforce/apex-lsp-client/browser': fromRoot('packages/apex-lsp-client/src/browser.ts'),
+      '@salesforce/apex-lsp-client/codeLens': fromRoot('packages/apex-lsp-client/src/codeLens.ts'),
       '@salesforce/apex-lsp-client': fromRoot('packages/apex-lsp-client/src/index.ts'),
       '@salesforce/apex-lsp-compliant-services': fromRoot('packages/lsp-compliant-services/src/index.ts'),
       '@salesforce/apex-ls': fromRoot('packages/apex-ls/src/index.ts'),

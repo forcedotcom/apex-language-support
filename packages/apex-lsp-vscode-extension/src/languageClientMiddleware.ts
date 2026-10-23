@@ -7,7 +7,7 @@
  */
 
 import type { LanguageClientOptions } from 'vscode-languageclient';
-import type { CodeLensCallbackRegistry } from '@salesforce/apex-lsp-client/browser';
+import type { CodeLensCallbackRegistry } from '@salesforce/apex-lsp-client/codeLens';
 import type * as vscode from 'vscode';
 import { formattedError } from '@salesforce/apex-lsp-shared';
 import { logToOutputChannel } from './logging';

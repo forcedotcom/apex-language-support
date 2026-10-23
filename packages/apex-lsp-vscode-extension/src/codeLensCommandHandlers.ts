@@ -10,7 +10,7 @@ import * as vscode from 'vscode';
 import {
   createCodeLensCallbackRegistry,
   type CodeLensCallbackRegistry,
-} from '@salesforce/apex-lsp-client/browser';
+} from '@salesforce/apex-lsp-client/codeLens';
 import { logToOutputChannel } from './logging';
 
 export const createVsCodeCodeLensCallbackRegistry =

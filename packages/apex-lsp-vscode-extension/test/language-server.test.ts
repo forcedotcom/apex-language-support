@@ -61,7 +61,6 @@ vi.mock('@salesforce/apex-lsp-client/browser', () => ({
       connectionConstructor(client);
     }
   },
-  createCodeLensCallbackRegistry: vi.fn(),
 }));
 
 vi.mock('@salesforce/apex-lsp-compliant-services', () => ({
