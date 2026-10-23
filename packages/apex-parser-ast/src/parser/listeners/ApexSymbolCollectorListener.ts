@@ -2300,7 +2300,7 @@ export class ApexSymbolCollectorListener
           return;
         }
       }
-      const modifiers = this.getCurrentModifiers();
+      const modifiers = this.getFormalParameterModifiers(ctx);
 
       // Create parameter symbol using createVariableSymbol method
       const paramSymbol = this.createVariableSymbol(
@@ -2338,6 +2338,21 @@ export class ApexSymbolCollectorListener
       const errorMessage = e instanceof Error ? e.message : String(e);
       this.addError(`Error exiting parameter: ${errorMessage}`, ctx);
     }
+  }
+
+  private getFormalParameterModifiers(
+    ctx: FormalParameterContext,
+  ): SymbolModifiers {
+    const modifiers = this.createDefaultModifiers();
+
+    const modifierContexts = ctx.modifier_list() ?? [];
+
+    for (const modifierContext of modifierContexts) {
+      const modifier = modifierKeywordFromContext(modifierContext);
+      if (modifier) applyModifierKeyword(modifiers, modifier);
+    }
+
+    return modifiers;
   }
 
   /**
@@ -5907,6 +5922,20 @@ export class ApexSymbolCollectorListener
    * Uses ANTLR's direct access methods for accurate positioning
    */
   private getIdentifierRange(ctx: ParserRuleContext): Range | null {
+    if (isContextType(ctx, TriggerUnitContext)) {
+      const identifierNode = ctx.id(0);
+      if (identifierNode?.start && identifierNode?.stop) {
+        return {
+          startLine: identifierNode.start.line,
+          startColumn: identifierNode.start.column,
+          endLine: identifierNode.stop.line,
+          endColumn:
+            identifierNode.stop.column +
+            (identifierNode.stop.text?.length ?? 0),
+        };
+      }
+    }
+
     // Strategy 1: Check if the context has an id() method (most common case)
     if (hasIdMethod(ctx)) {
       const identifierNode = ctx.id();

@@ -50,6 +50,8 @@ public class TestClass {
         // Verify parameters are created correctly without modifier leakage
         expect(params[0].name).toBe('param1');
         expect(params[1].name).toBe('param2');
+        expect(params[0].modifiers.isFinal).toBe(false);
+        expect(params[1].modifiers.isFinal).toBe(true);
       }
     });
 
