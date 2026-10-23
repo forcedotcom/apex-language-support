@@ -68,7 +68,7 @@ import {
   WorkspaceLoaderServiceLive,
   WorkspaceStateLive,
 } from './workspace-load-handler';
-import { createLanguageClientMiddlewareWithCodeLensCallbacks } from './languageClientMiddleware';
+import { createLanguageClientMiddleware } from './languageClientMiddleware';
 
 export { detectEnvironment };
 
@@ -433,8 +433,7 @@ export const createWebClientOptions = (
   synchronize: {
     configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
   },
-  middleware:
-    createLanguageClientMiddlewareWithCodeLensCallbacks(codeLensCallbacks),
+  middleware: createLanguageClientMiddleware(codeLensCallbacks),
   initializationOptions,
   outputChannel: (() => {
     const channel = getWorkerServerOutputChannel();

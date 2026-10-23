@@ -9,7 +9,7 @@
 import { vi } from 'vitest';
 import * as vscode from 'vscode';
 import { createCodeLensCallbackRegistry } from '@salesforce/apex-lsp-client/browser';
-import { createLanguageClientMiddlewareWithCodeLensCallbacks } from '../src/languageClientMiddleware';
+import { createLanguageClientMiddleware } from '../src/languageClientMiddleware';
 
 const range = (line: number): vscode.Range =>
   ({
@@ -85,8 +85,7 @@ describe('CodeLens middleware', () => {
         arguments: ['ExampleTest.exampleMethod'],
       },
     }));
-    const middleware =
-      createLanguageClientMiddlewareWithCodeLensCallbacks(registry);
+    const middleware = createLanguageClientMiddleware(registry);
 
     await expect(
       middleware.provideCodeLenses!(
@@ -118,7 +117,7 @@ describe('CodeLens middleware', () => {
   it.each([null, undefined] as const)(
     'preserves an empty CodeLens response of %s',
     async (result: null | undefined) => {
-      const middleware = createLanguageClientMiddlewareWithCodeLensCallbacks();
+      const middleware = createLanguageClientMiddleware();
       const next = vi.fn().mockResolvedValue(result);
 
       await expect(
@@ -132,7 +131,7 @@ describe('CodeLens middleware', () => {
   );
 
   it('suppresses server delegate lenses with no registered callback', async () => {
-    const middleware = createLanguageClientMiddlewareWithCodeLensCallbacks();
+    const middleware = createLanguageClientMiddleware();
 
     await expect(
       middleware.provideCodeLenses!(

@@ -12,48 +12,61 @@ import type * as vscode from 'vscode';
 import { formattedError } from '@salesforce/apex-lsp-shared';
 import { logToOutputChannel } from './logging';
 
-export const createLanguageClientMiddleware = (): NonNullable<
-  LanguageClientOptions['middleware']
-> => createLanguageClientMiddlewareWithCodeLensCallbacks();
-
-export const createLanguageClientMiddlewareWithCodeLensCallbacks = (
+export const createLanguageClientMiddleware = (
   codeLensCallbacks?: CodeLensCallbackRegistry<vscode.CodeLens>,
-): NonNullable<LanguageClientOptions['middleware']> => {
+): NonNullable<LanguageClientOptions['middleware']> => ({
+  ...createCodeLensMiddleware(codeLensCallbacks),
+  ...createHoverMiddleware(),
+  ...createHoverRequestLoggingMiddleware(),
+});
+
+const createCodeLensMiddleware = (
+  codeLensCallbacks?: CodeLensCallbackRegistry<vscode.CodeLens>,
+): Pick<
+  NonNullable<LanguageClientOptions['middleware']>,
+  'provideCodeLenses'
+> => ({
+  provideCodeLenses: async (document, token, next) => {
+    const lenses = await next(document, token);
+    if (!lenses) {
+      return lenses;
+    }
+
+    return Promise.all(
+      lenses.map(async (lens) => {
+        if (!lens.command) {
+          return lens;
+        }
+
+        if (!codeLensCallbacks) {
+          return undefined;
+        }
+
+        const resolved = await codeLensCallbacks.resolve(
+          lens.command.command,
+          lens,
+        );
+        if (resolved === null) return undefined;
+
+        return {
+          ...lens,
+          ...resolved,
+          // The language server owns parser-confirmed CodeLens placement.
+          range: lens.range,
+        };
+      }),
+    ).then((provided) => provided.flatMap((lens) => (lens ? [lens] : [])));
+  },
+});
+
+const createHoverMiddleware = (): Pick<
+  NonNullable<LanguageClientOptions['middleware']>,
+  'provideHover'
+> => {
   let hoverSequence = 0;
   const inFlightSupersede = new Map<number, () => void>();
 
   return {
-    provideCodeLenses: async (document, token, next) => {
-      const lenses = await next(document, token);
-      if (!lenses) {
-        return lenses;
-      }
-
-      return Promise.all(
-        lenses.map(async (lens) => {
-          if (!lens.command) {
-            return lens;
-          }
-
-          if (!codeLensCallbacks) {
-            return undefined;
-          }
-
-          const resolved = await codeLensCallbacks.resolve(
-            lens.command.command,
-            lens,
-          );
-          if (resolved === null) return undefined;
-
-          return {
-            ...lens,
-            ...resolved,
-            // The language server owns parser-confirmed CodeLens placement.
-            range: lens.range,
-          };
-        }),
-      ).then((provided) => provided.flatMap((lens) => (lens ? [lens] : [])));
-    },
     provideHover: async (document, position, token, next) => {
       const requestSequence = ++hoverSequence;
       for (const [sequence, resolveSupersede] of inFlightSupersede.entries()) {
@@ -98,45 +111,51 @@ export const createLanguageClientMiddlewareWithCodeLensCallbacks = (
       }
       return raceResult.value;
     },
-    sendRequest: async (type, params, token, next) => {
-      const method = typeof type === 'string' ? type : type.method;
-      if (method !== 'textDocument/hover') {
-        return next(type, params, token);
-      }
-
-      const requestStartTime = Date.now();
-      const hoverParams = params as
-        | {
-            textDocument?: { uri?: string };
-            position?: { line?: number; character?: number };
-          }
-        | undefined;
-      const uri = hoverParams?.textDocument?.uri ?? 'unknown';
-      const line = hoverParams?.position?.line ?? '?';
-      const character = hoverParams?.position?.character ?? '?';
-      logToOutputChannel(
-        `🔍 [CLIENT] Hover request initiated: ${uri} at ${line}:${character} [time: ${requestStartTime}]`,
-        'debug',
-      );
-
-      try {
-        const result = await next(type, params, token);
-        const totalTime = Date.now() - requestStartTime;
-        logToOutputChannel(
-          `✅ [CLIENT] Hover request completed: ${uri} ` +
-            `total=${totalTime}ms, result=${result ? 'success' : 'null'}`,
-          'debug',
-        );
-        return result;
-      } catch (error) {
-        const totalTime = Date.now() - requestStartTime;
-        logToOutputChannel(
-          `❌ [CLIENT] Hover request failed after ${totalTime}ms: ` +
-            `${uri} - ${formattedError(error)}`,
-          'error',
-        );
-        throw error;
-      }
-    },
   };
 };
+
+const createHoverRequestLoggingMiddleware = (): Pick<
+  NonNullable<LanguageClientOptions['middleware']>,
+  'sendRequest'
+> => ({
+  sendRequest: async (type, params, token, next) => {
+    const method = typeof type === 'string' ? type : type.method;
+    if (method !== 'textDocument/hover') {
+      return next(type, params, token);
+    }
+
+    const requestStartTime = Date.now();
+    const hoverParams = params as
+      | {
+          textDocument?: { uri?: string };
+          position?: { line?: number; character?: number };
+        }
+      | undefined;
+    const uri = hoverParams?.textDocument?.uri ?? 'unknown';
+    const line = hoverParams?.position?.line ?? '?';
+    const character = hoverParams?.position?.character ?? '?';
+    logToOutputChannel(
+      `🔍 [CLIENT] Hover request initiated: ${uri} at ${line}:${character} [time: ${requestStartTime}]`,
+      'debug',
+    );
+
+    try {
+      const result = await next(type, params, token);
+      const totalTime = Date.now() - requestStartTime;
+      logToOutputChannel(
+        `✅ [CLIENT] Hover request completed: ${uri} ` +
+          `total=${totalTime}ms, result=${result ? 'success' : 'null'}`,
+        'debug',
+      );
+      return result;
+    } catch (error) {
+      const totalTime = Date.now() - requestStartTime;
+      logToOutputChannel(
+        `❌ [CLIENT] Hover request failed after ${totalTime}ms: ` +
+          `${uri} - ${formattedError(error)}`,
+        'error',
+      );
+      throw error;
+    }
+  },
+});

@@ -33,7 +33,7 @@ import {
 import { getOrgArtifactSourceDocumentSelectors } from './services/org-artifact-fs';
 import type { TextDocumentFilter } from 'vscode-languageserver-protocol';
 import type { CodeLensCallbackRegistry } from '@salesforce/apex-lsp-client';
-import { createLanguageClientMiddlewareWithCodeLensCallbacks } from './languageClientMiddleware';
+import { createLanguageClientMiddleware } from './languageClientMiddleware';
 
 /**
  * Determines debug options based on VS Code configuration
@@ -332,8 +332,7 @@ export const createClientOptions = (
       error: handleClientError,
       closed: () => handleClientClosed(),
     },
-    middleware:
-      createLanguageClientMiddlewareWithCodeLensCallbacks(codeLensCallbacks),
+    middleware: createLanguageClientMiddleware(codeLensCallbacks),
     initializationOptions,
     workspaceFolder: vscode.workspace.workspaceFolders?.[0],
   };
