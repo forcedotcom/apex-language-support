@@ -52,8 +52,8 @@ import type {
 export type ApexExtensionApi = {
   /** Materialized language-server client, ready when activate() resolves. */
   readonly client: ApexClient;
-  /** Semantic CodeLens actions that companion extensions can provide. */
-  readonly codeLens: CodeLensCallbackRegistry;
+  /** Semantic CodeLens callbacks that companion extensions can register. */
+  readonly codeLens: CodeLensCallbackRegistry<vscode.CodeLens>;
 };
 import { getWorkspaceSettings } from './configuration';
 import { formattedError } from '@salesforce/apex-lsp-shared';
@@ -65,10 +65,7 @@ import {
   getOrgArtifactFileSystem,
   registerOrgArtifactFileSystem,
 } from './services/org-artifact-fs';
-import {
-  createVsCodeCodeLensCallbackRegistry,
-  registerCodeLensCommandHandlers,
-} from './codeLensCommandHandlers';
+import { createVsCodeCodeLensCallbackRegistry } from './codeLensCommandHandlers';
 
 /**
  * Wrapper function for restart that matches the expected signature
@@ -76,16 +73,9 @@ import {
  */
 const handleRestart = async (
   context: vscode.ExtensionContext,
+  codeLens: CodeLensCallbackRegistry<vscode.CodeLens>,
 ): Promise<void> => {
-  await restartLanguageServer(context);
-};
-
-/**
- * Wrapper function for start that matches the expected signature
- * @param context The extension context
- */
-const handleStart = async (context: vscode.ExtensionContext): Promise<void> => {
-  await startLanguageServer(context);
+  await restartLanguageServer(context, codeLens);
 };
 
 /**
@@ -122,7 +112,7 @@ async function activateExtension(
   logToOutputChannel('📊 Server status item created', 'debug');
 
   // Set the restart handler
-  setRestartHandler(handleRestart);
+  setRestartHandler(() => handleRestart(context, codeLens));
   logToOutputChannel('🔄 Restart handler configured', 'debug');
 
   // Register restart command
@@ -131,9 +121,6 @@ async function activateExtension(
 
   registerLogLevelCommands(context);
   logToOutputChannel('📝 Log level commands registered', 'debug');
-
-  registerCodeLensCommandHandlers(context, codeLens);
-  logToOutputChannel('📝 CodeLens command handlers registered', 'debug');
 
   // Register graph command
   registerGraphCommand(context);
@@ -202,7 +189,7 @@ async function activateExtension(
       updateLogLevelStatusItems(level);
     },
     async () => {
-      await handleRestart(context);
+      await handleRestart(context, codeLens);
     },
   );
   logToOutputChannel('🎛️ Language status actions created', 'debug');
@@ -230,7 +217,7 @@ async function activateExtension(
     logToOutputChannel('Client already exists, skipping start', 'warning');
   } else {
     logToOutputChannel('Starting language server...', 'debug');
-    await handleStart(context);
+    await startLanguageServer(context, codeLens);
     client = getClient();
   }
   if (!client) {

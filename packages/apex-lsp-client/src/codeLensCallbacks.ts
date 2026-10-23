@@ -8,106 +8,61 @@
 
 import type { Disposable } from '@salesforce/apex-lsp-shared';
 
-export const CODE_LENS_ACTIONS = [
-  'executeAnonymous',
-  'debugAnonymous',
-  'runTestClass',
-  'debugTestClass',
-  'runTestMethod',
-  'debugTestMethod',
-] as const;
+export type CodeLensDescriptor = string;
 
-export type CodeLensAction = (typeof CODE_LENS_ACTIONS)[number];
+/** Produces a feature-owned lens for a language-server-owned anchor. */
+export type CodeLensCallback<Lens> = (
+  lens: Lens,
+) => Lens | null | Promise<Lens | null>;
 
-export interface CodeLensActionArguments {
-  readonly executeAnonymous: readonly [];
-  readonly debugAnonymous: readonly [];
-  readonly runTestClass: readonly [className: string];
-  readonly debugTestClass: readonly [className: string];
-  readonly runTestMethod: readonly [qualifiedMethodName: string];
-  readonly debugTestMethod: readonly [qualifiedMethodName: string];
-}
-
-export type CodeLensCallback<Action extends CodeLensAction = CodeLensAction> = (
-  arguments_: CodeLensActionArguments[Action],
-) => void | Promise<void>;
-
-export interface CodeLensCallbackRegistry {
-  register<Action extends CodeLensAction>(
-    action: Action,
-    callback: CodeLensCallback<Action>,
+/** Registry for feature-owned CodeLens callbacks by server-declared descriptor. */
+export interface CodeLensCallbackRegistry<Lens> {
+  register(
+    descriptor: CodeLensDescriptor,
+    callback: CodeLensCallback<Lens>,
   ): Disposable;
-  dispatch<Action extends CodeLensAction>(
-    action: Action,
-    arguments_: CodeLensActionArguments[Action],
-  ): Promise<void>;
+  resolve(descriptor: CodeLensDescriptor, lens: Lens): Promise<Lens | null>;
 }
 
 export interface CodeLensCallbackRegistryOptions {
-  readonly onUnavailable?: (action: CodeLensAction) => void | Promise<void>;
-  readonly onProviderError?: (
-    action: CodeLensAction,
+  readonly onCallbackError?: (
+    descriptor: CodeLensDescriptor,
     error: unknown,
   ) => void | Promise<void>;
 }
 
-export const createCodeLensCallbackRegistry = (
+export const createCodeLensCallbackRegistry = <Lens>(
   options: CodeLensCallbackRegistryOptions = {},
-): CodeLensCallbackRegistry => {
-  const callbacks = new Map<CodeLensAction, CodeLensCallback[]>();
+): CodeLensCallbackRegistry<Lens> => {
+  const callbacks = new Map<CodeLensDescriptor, CodeLensCallback<Lens>>();
 
   return {
-    register<Action extends CodeLensAction>(
-      action: Action,
-      callback: CodeLensCallback<Action>,
-    ) {
-      const actionCallbacks = callbacks.get(action) ?? [];
-      callbacks.set(action, [...actionCallbacks, callback as CodeLensCallback]);
+    register(descriptor: CodeLensDescriptor, callback: CodeLensCallback<Lens>) {
+      callbacks.set(descriptor, callback);
       return {
         dispose: () => {
-          const registered = callbacks.get(action) ?? [];
-          callbacks.set(
-            action,
-            registered.filter((entry) => entry !== callback),
-          );
+          if (callbacks.get(descriptor) === callback) {
+            callbacks.delete(descriptor);
+          }
         },
       };
     },
-    async dispatch<Action extends CodeLensAction>(
-      action: Action,
-      arguments_: CodeLensActionArguments[Action],
-    ) {
-      const actionCallbacks = callbacks.get(action) ?? [];
-      if (actionCallbacks.length === 0) {
-        await options.onUnavailable?.(action);
-        return;
-      }
+    async resolve(
+      descriptor: CodeLensDescriptor,
+      lens: Lens,
+    ): Promise<Lens | null> {
+      const callback = callbacks.get(descriptor);
+      if (!callback) return null;
 
-      let hasUnreportedError = false;
-      let unreportedError: unknown;
-      for (const callback of actionCallbacks) {
+      try {
+        return await callback(lens);
+      } catch (error) {
         try {
-          await callback(arguments_);
-        } catch (error) {
-          if (options.onProviderError) {
-            try {
-              await options.onProviderError(action, error);
-            } catch (reportingError) {
-              if (!hasUnreportedError) {
-                hasUnreportedError = true;
-                unreportedError = reportingError;
-              }
-            }
-          } else {
-            if (!hasUnreportedError) {
-              hasUnreportedError = true;
-              unreportedError = error;
-            }
-          }
+          await options.onCallbackError?.(descriptor, error);
+        } catch {
+          // Error reporting cannot make the CodeLens request fail.
         }
-      }
-      if (hasUnreportedError) {
-        throw unreportedError;
+        return null;
       }
     },
   };

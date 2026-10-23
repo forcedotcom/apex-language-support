@@ -63,7 +63,7 @@ describe('Apex Language Server Extension ()', () => {
     vi.clearAllMocks();
   });
 
-  it('activates and registers commands', async () => {
+  it('activates, registers commands, and exposes CodeLens providers', async () => {
     const api = await activate(mockContext);
 
     // Restart command should be registered
@@ -71,11 +71,8 @@ describe('Apex Language Server Extension ()', () => {
       'apex-ls-ts.restart.server',
       expect.any(Function),
     );
-    expect(vscode.commands.registerCommand).toHaveBeenCalledWith(
-      'apex-ls-ts.codelens.runTestClass',
-      expect.any(Function),
-    );
     expect(api.codeLens).toBeDefined();
+    expect(api.codeLens.register).toEqual(expect.any(Function));
     expect(api.client).toBeDefined();
   });
 

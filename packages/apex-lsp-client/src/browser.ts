@@ -31,13 +31,9 @@ export type {
   ApexServerFeatureState,
   ApexServerFeatureStates,
 } from './serverFeatureState';
-export {
-  CODE_LENS_ACTIONS,
-  createCodeLensCallbackRegistry,
-} from './codeLensCallbacks';
+export { createCodeLensCallbackRegistry } from './codeLensCallbacks';
 export type {
-  CodeLensAction,
-  CodeLensActionArguments,
+  CodeLensDescriptor,
   CodeLensCallback,
   CodeLensCallbackRegistry,
   CodeLensCallbackRegistryOptions,

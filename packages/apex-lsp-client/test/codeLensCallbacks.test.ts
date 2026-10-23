@@ -9,93 +9,97 @@
 import { createCodeLensCallbackRegistry } from '../src/codeLensCallbacks';
 
 describe('CodeLens callback registry', () => {
-  it('reports when no providers are registered for an action', async () => {
-    const onUnavailable = vi.fn();
-    const registry = createCodeLensCallbackRegistry({ onUnavailable });
+  it('returns null when no callback is registered for an action', async () => {
+    const registry = createCodeLensCallbackRegistry<string>();
 
-    await registry.dispatch('runTestClass', ['ExampleTest']);
-
-    expect(onUnavailable).toHaveBeenCalledWith('runTestClass');
+    await expect(
+      registry.resolve('sf.apex.test.method.run.delegate', 'server lens'),
+    ).resolves.toBeNull();
   });
 
-  it('invokes every provider in registration order', async () => {
-    const registry = createCodeLensCallbackRegistry();
-    const calls: string[] = [];
-    const first = vi.fn(async () => {
-      calls.push('first');
-    });
-    const second = vi.fn(async () => {
-      calls.push('second');
-    });
-    registry.register('debugTestMethod', first);
-    registry.register('debugTestMethod', second);
+  it('allows independent callbacks for server descriptors', async () => {
+    const registry = createCodeLensCallbackRegistry<string>();
+    const run = vi.fn((lens: string) => `run ${lens}`);
+    const debug = vi.fn((lens: string) => `debug ${lens}`);
+    registry.register('sf.apex.test.method.run.delegate', run);
+    registry.register('sf.apex.debug.method.run.delegate', debug);
 
-    await registry.dispatch('debugTestMethod', ['ExampleTest.exampleMethod']);
-
-    expect(first).toHaveBeenCalledWith(['ExampleTest.exampleMethod']);
-    expect(second).toHaveBeenCalledWith(['ExampleTest.exampleMethod']);
-    expect(calls).toEqual(['first', 'second']);
+    await expect(
+      registry.resolve('sf.apex.test.method.run.delegate', 'anchor'),
+    ).resolves.toBe('run anchor');
+    await expect(
+      registry.resolve('sf.apex.debug.method.run.delegate', 'anchor'),
+    ).resolves.toBe('debug anchor');
+    expect(run).toHaveBeenCalledWith('anchor');
+    expect(debug).toHaveBeenCalledWith('anchor');
   });
 
-  it('removes a provider when its registration is disposed', async () => {
-    const onUnavailable = vi.fn();
-    const registry = createCodeLensCallbackRegistry({ onUnavailable });
-    const callback = vi.fn();
-    const registration = registry.register('executeAnonymous', callback);
+  it('removes a callback when its registration is disposed', async () => {
+    const registry = createCodeLensCallbackRegistry<string>();
+    const callback = vi.fn((lens: string) => lens);
+    const registration = registry.register(
+      'sf.apex.test.method.run.delegate',
+      callback,
+    );
     registration.dispose();
 
-    await registry.dispatch('executeAnonymous', []);
+    await expect(
+      registry.resolve('sf.apex.test.method.run.delegate', 'anchor'),
+    ).resolves.toBeNull();
 
     expect(callback).not.toHaveBeenCalled();
-    expect(onUnavailable).toHaveBeenCalledWith('executeAnonymous');
   });
 
-  it('reports a provider failure and continues dispatching', async () => {
-    const onProviderError = vi.fn();
-    const registry = createCodeLensCallbackRegistry({ onProviderError });
-    const error = new Error('provider failed');
-    const succeedingCallback = vi.fn();
-    registry.register('runTestClass', async () => {
-      throw error;
-    });
-    registry.register('runTestClass', succeedingCallback);
-
-    await registry.dispatch('runTestClass', ['ExampleTest']);
-
-    expect(onProviderError).toHaveBeenCalledWith('runTestClass', error);
-    expect(succeedingCallback).toHaveBeenCalledWith(['ExampleTest']);
-  });
-
-  it('rejects after dispatching remaining providers when failures are unreported', async () => {
-    const registry = createCodeLensCallbackRegistry();
-    const error = new Error('provider failed');
-    const succeedingCallback = vi.fn();
-    registry.register('runTestClass', async () => {
-      throw error;
-    });
-    registry.register('runTestClass', succeedingCallback);
+  it('replaces the existing callback for an action', async () => {
+    const registry = createCodeLensCallbackRegistry<string>();
+    const first = vi.fn((lens: string) => `first ${lens}`);
+    const second = vi.fn((lens: string) => `second ${lens}`);
+    const firstRegistration = registry.register(
+      'sf.apex.test.method.run.delegate',
+      first,
+    );
+    registry.register('sf.apex.test.method.run.delegate', second);
+    firstRegistration.dispose();
 
     await expect(
-      registry.dispatch('runTestClass', ['ExampleTest']),
-    ).rejects.toBe(error);
-    expect(succeedingCallback).toHaveBeenCalledWith(['ExampleTest']);
+      registry.resolve('sf.apex.test.method.run.delegate', 'anchor'),
+    ).resolves.toBe('second anchor');
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledWith('anchor');
   });
 
-  it('continues dispatching when error reporting fails', async () => {
-    const reportingError = new Error('reporting failed');
-    const onProviderError = vi.fn(async () => {
-      throw reportingError;
+  it('reports a callback failure and suppresses its lens', async () => {
+    const onCallbackError = vi.fn();
+    const registry = createCodeLensCallbackRegistry<string>({
+      onCallbackError,
     });
-    const registry = createCodeLensCallbackRegistry({ onProviderError });
-    const succeedingCallback = vi.fn();
-    registry.register('runTestClass', async () => {
-      throw undefined;
+    const error = new Error('provider failed');
+    registry.register('sf.apex.test.method.run.delegate', async () => {
+      throw error;
     });
-    registry.register('runTestClass', succeedingCallback);
 
     await expect(
-      registry.dispatch('runTestClass', ['ExampleTest']),
-    ).rejects.toBe(reportingError);
-    expect(succeedingCallback).toHaveBeenCalledWith(['ExampleTest']);
+      registry.resolve('sf.apex.test.method.run.delegate', 'anchor'),
+    ).resolves.toBeNull();
+
+    expect(onCallbackError).toHaveBeenCalledWith(
+      'sf.apex.test.method.run.delegate',
+      error,
+    );
+  });
+
+  it('suppresses a lens when error reporting fails', async () => {
+    const registry = createCodeLensCallbackRegistry<string>({
+      onCallbackError: async () => {
+        throw new Error('reporting failed');
+      },
+    });
+    registry.register('sf.apex.test.method.run.delegate', async () => {
+      throw new Error('provider failed');
+    });
+
+    await expect(
+      registry.resolve('sf.apex.test.method.run.delegate', 'anchor'),
+    ).resolves.toBeNull();
   });
 });

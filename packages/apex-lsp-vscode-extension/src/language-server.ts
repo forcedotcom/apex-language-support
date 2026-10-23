@@ -19,7 +19,10 @@ import {
   getDocumentSynchronizationSelectorsFromSettings,
   WORKSPACE_LOAD_REASON_MESSAGE,
 } from '@salesforce/apex-lsp-shared';
-import type { ApexClientCore } from '@salesforce/apex-lsp-client';
+import type {
+  ApexClientCore,
+  CodeLensCallbackRegistry,
+} from '@salesforce/apex-lsp-client';
 import type { TextDocumentFilter } from 'vscode-languageserver-protocol';
 import type {
   BaseLanguageClient,
@@ -424,12 +427,13 @@ const startConfiguredClient = async (
 
 export const createWebClientOptions = (
   initializationOptions: ApexLanguageServerSettings,
+  codeLensCallbacks?: CodeLensCallbackRegistry<vscode.CodeLens>,
 ): LanguageClientOptions => ({
   documentSelector: createWebDocumentSelector(initializationOptions),
   synchronize: {
     configurationSection: EXTENSION_CONSTANTS.APEX_LS_CONFIG_SECTION,
   },
-  middleware: createLanguageClientMiddleware(),
+  middleware: createLanguageClientMiddleware(codeLensCallbacks),
   initializationOptions,
   outputChannel: (() => {
     const channel = getWorkerServerOutputChannel();
@@ -439,6 +443,7 @@ export const createWebClientOptions = (
 
 const createWebLanguageClient = async (
   context: vscode.ExtensionContext,
+  codeLensCallbacks?: CodeLensCallbackRegistry<vscode.CodeLens>,
 ): Promise<ClientState> => {
   const [{ default: Worker }, { LanguageClient }] = await Promise.all([
     import('web-worker'),
@@ -449,7 +454,10 @@ const createWebLanguageClient = async (
     'web',
     determineServerMode(context),
   );
-  const options = createWebClientOptions(initializationOptions);
+  const options = createWebClientOptions(
+    initializationOptions,
+    codeLensCallbacks,
+  );
   const workerUri = vscode.Uri.joinPath(
     context.extensionUri,
     'dist',
@@ -466,6 +474,7 @@ const createWebLanguageClient = async (
 
 const createDesktopLanguageClient = async (
   context: vscode.ExtensionContext,
+  codeLensCallbacks?: CodeLensCallbackRegistry<vscode.CodeLens>,
 ): Promise<ClientState> => {
   const [serverConfig, { LanguageClient }] = await Promise.all([
     import('./server-config'),
@@ -478,6 +487,7 @@ const createDesktopLanguageClient = async (
     serverConfig.createServerOptions(context, serverMode),
     serverConfig.createClientOptions(
       await createEnhancedInitializationOptions(context, 'desktop', serverMode),
+      codeLensCallbacks,
     ),
   );
   const state = await startConfiguredClient(rawClient, 'desktop', context);
@@ -487,6 +497,7 @@ const createDesktopLanguageClient = async (
 
 export const createAndStartClient = async (
   context: vscode.ExtensionContext,
+  codeLensCallbacks?: CodeLensCallbackRegistry<vscode.CodeLens>,
 ): Promise<void> => {
   if (clientState) return;
   setStartingFlag(true);
@@ -495,8 +506,8 @@ export const createAndStartClient = async (
     const environment = detectEnvironment();
     const candidateState =
       environment === 'web'
-        ? await createWebLanguageClient(context)
-        : await createDesktopLanguageClient(context);
+        ? await createWebLanguageClient(context, codeLensCallbacks)
+        : await createDesktopLanguageClient(context, codeLensCallbacks);
     clientState = await completeClientStart(candidateState, {
       registerConfigurationListener: () =>
         registerConfigurationChangeListener(
@@ -535,17 +546,21 @@ function enqueueLifecycleOperation(
 
 export function startLanguageServer(
   context: vscode.ExtensionContext,
+  codeLensCallbacks?: CodeLensCallbackRegistry<vscode.CodeLens>,
 ): Promise<void> {
-  return enqueueLifecycleOperation(() => createAndStartClient(context));
+  return enqueueLifecycleOperation(() =>
+    createAndStartClient(context, codeLensCallbacks),
+  );
 }
 
 export function restartLanguageServer(
   context: vscode.ExtensionContext,
+  codeLensCallbacks?: CodeLensCallbackRegistry<vscode.CodeLens>,
 ): Promise<void> {
   return enqueueLifecycleOperation(async () => {
     await restartAfterStrictStop(
       () => stopLanguageServerNow(true),
-      () => createAndStartClient(context),
+      () => createAndStartClient(context, codeLensCallbacks),
     );
   });
 }
