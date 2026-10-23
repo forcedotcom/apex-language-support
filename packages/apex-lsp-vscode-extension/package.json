@@ -925,7 +925,7 @@
     "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
     "@salesforce/apex-tmlanguage": "^2.0.3",
     "@salesforce/esbuild-presets": "workspace:*",
-    "@salesforce/vscode-services": "^67.20.0",
+    "@salesforce/vscode-services": "^67.27.5",
     "@types/vscode": "^1.120.0",
     "@vscode/vsce": "^3.9.2",
     "buffer": "^6.0.3",
