@@ -25,16 +25,6 @@ interface PerformanceSettings {
   deferredReferenceProcessing?: {
     deferredBatchSize: number;
     initialReferenceBatchSize: number;
-    maxRetryAttempts: number;
-    retryDelayMs: number;
-    maxRetryDelayMs: number;
-    queueCapacityThreshold: number;
-    queueDrainThreshold: number;
-    queueFullRetryDelayMs: number;
-    maxQueueFullRetryDelayMs: number;
-    circuitBreakerFailureThreshold: number;
-    circuitBreakerResetThreshold: number;
-    maxDeferredTasksPerSecond?: number;
   };
   queueProcessing?: {
     maxConcurrency: Record<string, number>;
@@ -278,16 +268,6 @@ class PerformanceSettingsUI {
     const def = settings || {
       deferredBatchSize: 50,
       initialReferenceBatchSize: 50,
-      maxRetryAttempts: 10,
-      retryDelayMs: 100,
-      maxRetryDelayMs: 5000,
-      queueCapacityThreshold: 90,
-      queueDrainThreshold: 75,
-      queueFullRetryDelayMs: 10000,
-      maxQueueFullRetryDelayMs: 30000,
-      circuitBreakerFailureThreshold: 5,
-      circuitBreakerResetThreshold: 50,
-      maxDeferredTasksPerSecond: 10,
     };
 
     const deferredSettings = [
@@ -307,90 +287,6 @@ class PerformanceSettingsUI {
         max: 1000,
         tooltip:
           'Batch size for initial reference processing when adding symbol tables (default: 50)',
-      },
-      {
-        key: 'maxRetryAttempts',
-        label: 'Max Retry Attempts',
-        value: def.maxRetryAttempts,
-        min: 0,
-        max: 100,
-        tooltip:
-          'Maximum number of retry attempts (0 to disable retries, default: 10)',
-      },
-      {
-        key: 'retryDelayMs',
-        label: 'Retry Delay (ms)',
-        value: def.retryDelayMs,
-        min: 10,
-        max: 10000,
-        tooltip: 'Initial retry delay in milliseconds (default: 100)',
-      },
-      {
-        key: 'maxRetryDelayMs',
-        label: 'Max Retry Delay (ms)',
-        value: def.maxRetryDelayMs,
-        min: 1000,
-        max: 60000,
-        tooltip: 'Maximum retry delay for exponential backoff (default: 5000)',
-      },
-      {
-        key: 'queueCapacityThreshold',
-        label: 'Queue Capacity Threshold (%)',
-        value: def.queueCapacityThreshold,
-        min: 0,
-        max: 100,
-        tooltip: "Don't retry if queue exceeds this percentage (default: 90)",
-      },
-      {
-        key: 'queueDrainThreshold',
-        label: 'Queue Drain Threshold (%)',
-        value: def.queueDrainThreshold,
-        min: 0,
-        max: 100,
-        tooltip: 'Only retry when queue is below this percentage (default: 75)',
-      },
-      {
-        key: 'queueFullRetryDelayMs',
-        label: 'Queue Full Retry Delay (ms)',
-        value: def.queueFullRetryDelayMs,
-        min: 1000,
-        max: 60000,
-        tooltip: 'Delay when queue is full (default: 10000)',
-      },
-      {
-        key: 'maxQueueFullRetryDelayMs',
-        label: 'Max Queue Full Retry Delay (ms)',
-        value: def.maxQueueFullRetryDelayMs,
-        min: 1000,
-        max: 120000,
-        tooltip: 'Maximum delay when queue is full (default: 30000)',
-      },
-      {
-        key: 'circuitBreakerFailureThreshold',
-        label: 'Circuit Breaker Failure Threshold',
-        value: def.circuitBreakerFailureThreshold,
-        min: 1,
-        max: 50,
-        tooltip:
-          'Consecutive failures before activating circuit breaker (default: 5)',
-      },
-      {
-        key: 'circuitBreakerResetThreshold',
-        label: 'Circuit Breaker Reset Threshold (%)',
-        value: def.circuitBreakerResetThreshold,
-        min: 0,
-        max: 100,
-        tooltip:
-          'Queue capacity percentage to reset circuit breaker (default: 50)',
-      },
-      {
-        key: 'maxDeferredTasksPerSecond',
-        label: 'Max Deferred Tasks Per Second',
-        value: def.maxDeferredTasksPerSecond ?? 10,
-        min: 1,
-        max: 1000,
-        tooltip:
-          'Rate limit for enqueueing deferred tasks per second (default: 10)',
       },
     ];
 
@@ -1117,11 +1013,7 @@ class PerformanceSettingsUI {
         const value = input.value.trim();
         // Handle empty values for optional fields (like maxTotalConcurrency)
         // For optional fields, empty means use default (undefined)
-        if (
-          value === '' &&
-          (lastPart === 'maxTotalConcurrency' ||
-            lastPart === 'maxDeferredTasksPerSecond')
-        ) {
+        if (value === '' && lastPart === 'maxTotalConcurrency') {
           // Don't set the field - will use default from settings merge
           return;
         }

@@ -99,16 +99,6 @@ describe('LSPConfigurationManager', () => {
       deferredReferenceProcessing: {
         deferredBatchSize: 50,
         initialReferenceBatchSize: 50,
-        maxRetryAttempts: 10,
-        retryDelayMs: 100,
-        maxRetryDelayMs: 5000,
-        queueCapacityThreshold: 90,
-        queueDrainThreshold: 75,
-        queueFullRetryDelayMs: 10000,
-        maxQueueFullRetryDelayMs: 30000,
-        circuitBreakerFailureThreshold: 5,
-        circuitBreakerResetThreshold: 50,
-        maxDeferredTasksPerSecond: 10,
       },
       scheduler: {
         queueCapacity: 100,
