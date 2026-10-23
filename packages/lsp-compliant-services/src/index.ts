@@ -39,6 +39,7 @@ export * from './types/semanticTokens';
 export * from './utils/semanticTokenLegend';
 export * from './utils/semanticTokenEncoder';
 export * from './utils/semanticTokenMapper';
+export * from './services/SemanticTokensProcessingService';
 
 // Export LSP handlers
 export * from './handlers/DidOpenDocumentHandler';

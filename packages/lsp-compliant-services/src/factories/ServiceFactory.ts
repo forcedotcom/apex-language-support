@@ -28,6 +28,7 @@ import { WorkspaceSymbolProcessingService } from '../services/WorkspaceSymbolPro
 import { ImplementationProcessingService } from '../services/ImplementationProcessingService';
 import { CodeLensProcessingService } from '../services/CodeLensProcessingService';
 import { FoldingRangeProcessingService } from '../services/FoldingRangeProcessingService';
+import { SemanticTokensProcessingService } from '../services/SemanticTokensProcessingService';
 import { LayerEnrichmentService } from '../services/LayerEnrichmentService';
 
 import { MissingArtifactProcessingService } from '../services/MissingArtifactProcessingService';
@@ -190,6 +191,13 @@ export class ServiceFactory {
 
   createFoldingRangeService(): FoldingRangeProcessingService {
     return new FoldingRangeProcessingService(this.dependencies.logger);
+  }
+
+  createSemanticTokensService(): SemanticTokensProcessingService {
+    return new SemanticTokensProcessingService(
+      this.dependencies.logger,
+      this.dependencies.storageManager.getStorage(),
+    );
   }
 
   /**

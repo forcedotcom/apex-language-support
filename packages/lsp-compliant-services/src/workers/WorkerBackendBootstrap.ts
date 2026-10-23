@@ -41,6 +41,7 @@ import type { ImplementationProcessingService } from '../services/Implementation
 import type { DocumentSymbolProcessingService } from '../services/DocumentSymbolProcessingService';
 import type { CodeLensProcessingService } from '../services/CodeLensProcessingService';
 import type { DiagnosticProcessingService } from '../services/DiagnosticProcessingService';
+import type { SemanticTokensProcessingService } from '../services/SemanticTokensProcessingService';
 
 // ---------------------------------------------------------------------------
 // Data-owner services
@@ -141,6 +142,7 @@ export interface RequestServices {
   readonly documentSymbolService: DocumentSymbolProcessingService;
   readonly codeLensService: CodeLensProcessingService;
   readonly diagnosticService: DiagnosticProcessingService;
+  readonly semanticTokensService: SemanticTokensProcessingService;
   readonly factory: ServiceFactory;
 }
 
@@ -167,6 +169,7 @@ export const bootstrapRequestServicesEffect: Effect.Effect<
     documentSymbolService: factory.createDocumentSymbolService(),
     codeLensService: factory.createCodeLensService(),
     diagnosticService: factory.createDiagnosticService(),
+    semanticTokensService: factory.createSemanticTokensService(),
     factory,
   };
 });
