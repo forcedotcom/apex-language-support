@@ -10,6 +10,8 @@ import {
   type ApexSymbol,
   type Annotation,
   type Range as ParserRange,
+  type ReferenceContext,
+  type SymbolReference,
   type SymbolKind,
   type SymbolModifiers,
   type SymbolTable,
@@ -36,6 +38,27 @@ const DECLARATION_TOKEN_TYPES: Partial<Record<SymbolKind, SemanticTokenType>> =
     enumValue: 'enumMember',
     sobject: 'class',
   };
+
+const REFERENCE_TOKEN_TYPES: Partial<
+  Record<ReferenceContext, SemanticTokenType>
+> = {
+  0: 'method', // METHOD_CALL
+  1: 'type', // CLASS_REFERENCE
+  2: 'type', // TYPE_DECLARATION
+  3: 'property', // FIELD_ACCESS
+  4: 'type', // CONSTRUCTOR_CALL
+  5: 'variable', // VARIABLE_USAGE
+  6: 'type', // PARAMETER_TYPE
+  8: 'type', // GENERIC_PARAMETER_TYPE
+  9: 'type', // CAST_TYPE_REFERENCE
+  10: 'type', // INSTANCEOF_TYPE_REFERENCE
+  12: 'namespace', // NAMESPACE
+  13: 'type', // RETURN_TYPE
+  16: 'type', // INHERITANCE
+  17: 'type', // INTERFACE_IMPLEMENTATION
+  18: 'keyword', // KEYWORD_USAGE
+  19: 'type', // SOQL_FROM_TYPE
+};
 
 /**
  * Creates Tier 1 semantic-token spans from a current-buffer SymbolTable built
@@ -76,6 +99,84 @@ export function collectDeclarationSemanticTokenSpans(
   }
 
   return spans;
+}
+
+/**
+ * Creates Tier 1 semantic-token spans from parser-owned reference leaves in a
+ * current-buffer SymbolTable. Ambiguous chain steps and declaration references
+ * intentionally remain unclassified.
+ */
+export function collectReferenceSemanticTokenSpans(
+  symbolTable: SymbolTable,
+  document: TextDocument,
+): SemanticTokenSpan[] {
+  const spans: SemanticTokenSpan[] = [];
+  const parserPositionOffsets = createParserPositionOffsets(document.getText());
+  const seen = new Set<SymbolReference>();
+
+  for (const reference of symbolTable.getAllReferences()) {
+    for (const leaf of referenceLeaves(reference)) {
+      if (seen.has(leaf)) continue;
+      seen.add(leaf);
+
+      const tokenType = referenceTokenType(leaf);
+      if (!tokenType || !hasIdentifierLeafRange(leaf)) continue;
+      const span = toSpan(
+        leaf.location.identifierRange,
+        tokenType,
+        [],
+        document,
+        parserPositionOffsets,
+      );
+      if (span) spans.push(span);
+    }
+  }
+
+  return spans;
+}
+
+function* referenceLeaves(
+  reference: SymbolReference,
+): Generator<SymbolReference> {
+  if (reference.chainNodes?.length) {
+    for (const node of reference.chainNodes) yield* referenceLeaves(node);
+    return;
+  }
+
+  yield reference;
+}
+
+function referenceTokenType(
+  reference: SymbolReference,
+): SemanticTokenType | undefined {
+  if (reference.context === 15) {
+    switch (reference.literalType) {
+      case 'String':
+        return 'string';
+      case 'Integer':
+      case 'Long':
+      case 'Decimal':
+        return 'number';
+      case 'Boolean':
+      case 'Null':
+        return 'keyword';
+      default:
+        return undefined;
+    }
+  }
+
+  return REFERENCE_TOKEN_TYPES[reference.context];
+}
+
+function hasIdentifierLeafRange(reference: SymbolReference): boolean {
+  if (reference.context === 15) return true;
+
+  const { identifierRange } = reference.location;
+  return (
+    identifierRange.startLine === identifierRange.endLine &&
+    Array.from(reference.name).length ===
+      identifierRange.endColumn - identifierRange.startColumn
+  );
 }
 
 function declarationModifiers(symbol: ApexSymbol): SemanticTokenModifier[] {
