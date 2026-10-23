@@ -34,6 +34,11 @@ export * from './documentSymbol/ApexDocumentSymbolProvider';
 // Export folding range provider
 export * from './foldingRange/ApexFoldingRangeProvider';
 
+// Export semantic-token contracts and encoding utilities.
+export * from './types/semanticTokens';
+export * from './utils/semanticTokenLegend';
+export * from './utils/semanticTokenEncoder';
+
 // Export LSP handlers
 export * from './handlers/DidOpenDocumentHandler';
 export * from './handlers/DidChangeDocumentHandler';
