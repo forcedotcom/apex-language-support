@@ -460,17 +460,18 @@ registrations (`onFindMissingArtifact`, `onRequestWorkspaceLoad`,
 
 ### CodeLens Callback Registry
 
-The host-neutral CodeLens callback registry is exported from both
-`@salesforce/apex-lsp-client` and `@salesforce/apex-lsp-client/browser`. It has
-no VS Code dependency. A host passes each language-server CodeLens anchor to the
-callback registered for its descriptor command ID. The callback returns a
-feature-owned lens, or `null` to suppress that anchor.
+The host-neutral CodeLens callback registry is exported from
+`@salesforce/apex-lsp-client/codeLens`. This subpath has no Node, browser, or VS
+Code dependency, so a shared extension module can use it in either host. A host
+passes each language-server CodeLens anchor to the callback registered for its
+descriptor command ID. The callback returns a feature-owned lens, or `null` to
+suppress that anchor.
 
 ```typescript
 import {
   createCodeLensCallbackRegistry,
   type CodeLensCallbackRegistryOptions,
-} from '@salesforce/apex-lsp-client';
+} from '@salesforce/apex-lsp-client/codeLens';
 
 type HostCodeLens = { command?: { command: string; title: string } };
 

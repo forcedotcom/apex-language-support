@@ -15,6 +15,11 @@
       "types": "./out/browser.d.ts",
       "import": "./out/browser.js",
       "require": "./out/browser.js"
+    },
+    "./codeLens": {
+      "types": "./out/codeLens.d.ts",
+      "import": "./out/codeLens.js",
+      "require": "./out/codeLens.js"
     }
   },
   "sideEffects": false,

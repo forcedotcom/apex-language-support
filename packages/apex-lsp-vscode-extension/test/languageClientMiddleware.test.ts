@@ -8,7 +8,7 @@
 
 import { vi } from 'vitest';
 import * as vscode from 'vscode';
-import { createCodeLensCallbackRegistry } from '@salesforce/apex-lsp-client/browser';
+import { createCodeLensCallbackRegistry } from '@salesforce/apex-lsp-client/codeLens';
 import { createLanguageClientMiddleware } from '../src/languageClientMiddleware';
 
 const range = (line: number): vscode.Range =>
