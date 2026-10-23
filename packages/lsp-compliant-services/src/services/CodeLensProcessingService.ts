@@ -12,11 +12,7 @@ import {
   Position,
   Range,
 } from 'vscode-languageserver';
-import {
-  CODE_LENS_SERVER_COMMANDS,
-  LoggerInterface,
-  formattedError,
-} from '@salesforce/apex-lsp-shared';
+import { LoggerInterface, formattedError } from '@salesforce/apex-lsp-shared';
 import {
   ApexSymbolProcessingManager,
   ISymbolManager,
@@ -25,18 +21,12 @@ import {
   isMethodSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
 
-/**
- * Command IDs that match the VSCode extension commands
- * These must match the commands registered in salesforcedx-vscode-core
- */
-const {
-  runTestClass: TEST_CLASS_RUN,
-  debugTestClass: TEST_CLASS_DEBUG,
-  runTestMethod: TEST_METHOD_RUN,
-  debugTestMethod: TEST_METHOD_DEBUG,
-  executeAnonymous: ANON_RUN,
-  debugAnonymous: ANON_DEBUG,
-} = CODE_LENS_SERVER_COMMANDS;
+const TEST_CLASS_RUN = 'sf.apex.test.class.run.delegate';
+const TEST_CLASS_DEBUG = 'sf.apex.debug.class.run.delegate';
+const TEST_METHOD_RUN = 'sf.apex.test.method.run.delegate';
+const TEST_METHOD_DEBUG = 'sf.apex.debug.method.run.delegate';
+const ANON_RUN = 'sf.anon.apex.run.delegate';
+const ANON_DEBUG = 'sf.anon.apex.debug.delegate';
 
 /**
  * Labels for code lens commands

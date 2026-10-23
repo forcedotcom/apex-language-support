@@ -32,6 +32,7 @@ import {
 } from '@salesforce/apex-lsp-shared';
 import { getOrgArtifactSourceDocumentSelectors } from './services/org-artifact-fs';
 import type { TextDocumentFilter } from 'vscode-languageserver-protocol';
+import type { CodeLensCallbackRegistry } from '@salesforce/apex-lsp-client';
 import { createLanguageClientMiddleware } from './languageClientMiddleware';
 
 /**
@@ -310,6 +311,7 @@ export const createServerOptions = (
  */
 export const createClientOptions = (
   initializationOptions: ApexLanguageServerSettings,
+  codeLensCallbacks?: CodeLensCallbackRegistry<vscode.CodeLens>,
 ): LanguageClientOptions => {
   const rawChannel = getWorkerServerOutputChannel();
   // The shared selector builder returns only text-document filters for this
@@ -330,7 +332,7 @@ export const createClientOptions = (
       error: handleClientError,
       closed: () => handleClientClosed(),
     },
-    middleware: createLanguageClientMiddleware(),
+    middleware: createLanguageClientMiddleware(codeLensCallbacks),
     initializationOptions,
     workspaceFolder: vscode.workspace.workspaceFolders?.[0],
   };
