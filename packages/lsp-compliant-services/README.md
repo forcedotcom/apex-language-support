@@ -12,6 +12,7 @@ This package implements services that conform to the LSP specification, providin
 - Code completion
 - Hover information
 - Document symbols
+- Semantic-token span encoding
 - Persistent storage interface for AST, symbol tables, and references
 - Platform-agnostic capabilities system with mode-based optimization
 - Per-listener parse result caching for optimal performance
@@ -137,6 +138,33 @@ const capabilities = configManager.getCapabilities();
 ```
 
 For detailed information, see [Capabilities Documentation](docs/CAPABILITIES.md) and [LSP Implementation Status](docs/LSP_IMPLEMENTATION_STATUS.md).
+
+## Semantic Tokens
+
+The package exports a parser-owned `SemanticTokenSpan` contract and
+`encodeSemanticTokenSpans` utility for producing LSP semantic-token responses.
+The encoder accepts single-line, already-classified spans and discards invalid or
+overlapping spans. For identical ranges, declaration spans take precedence;
+compatible modifiers are merged.
+
+```typescript
+import {
+  encodeSemanticTokenSpans,
+  type SemanticTokenSpan,
+} from '@salesforce/apex-lsp-compliant-services';
+
+const spans: SemanticTokenSpan[] = [
+  {
+    start: { line: 0, character: 6 },
+    end: { line: 0, character: 10 },
+    tokenType: 'class',
+    tokenModifiers: ['declaration'],
+    precedence: 0,
+  },
+];
+
+const tokens = encodeSemanticTokenSpans(spans);
+```
 
 ## Configuration
 
