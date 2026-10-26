@@ -10,8 +10,18 @@ import {
   ServerCapabilities,
   ClientCapabilities,
   CodeActionKind,
+  type SemanticTokensOptions,
 } from 'vscode-languageserver-protocol';
 import { APEX_DEBUGGER_COMMANDS } from '../commands/ApexDebuggerCommands';
+import { SEMANTIC_TOKEN_LEGEND } from '../semanticTokenLegend';
+
+const SEMANTIC_TOKENS_PROVIDER: SemanticTokensOptions = {
+  legend: {
+    tokenTypes: [...SEMANTIC_TOKEN_LEGEND.tokenTypes],
+    tokenModifiers: [...SEMANTIC_TOKEN_LEGEND.tokenModifiers],
+  },
+  full: true,
+};
 
 export type ExtendedServerCapabilities = ServerCapabilities &
   ImplicitCapabilties & { experimental?: ExperimentalCapabilities };
@@ -188,7 +198,7 @@ export const PRODUCTION_WEB_CAPABILITIES: ExtendedServerCapabilities = {
   },
   callHierarchyProvider: undefined,
   linkedEditingRangeProvider: undefined,
-  semanticTokensProvider: undefined,
+  semanticTokensProvider: SEMANTIC_TOKENS_PROVIDER,
   monikerProvider: undefined,
   typeHierarchyProvider: undefined,
   inlineValueProvider: undefined,
@@ -232,6 +242,7 @@ export const PRODUCTION_DESKTOP_CAPABILITIES: ExtendedServerCapabilities = {
     willSaveWaitUntil: false,
   },
   documentSymbolProvider: true,
+  semanticTokensProvider: SEMANTIC_TOKENS_PROVIDER,
   workspace: {
     workspaceFolders: {
       supported: true,

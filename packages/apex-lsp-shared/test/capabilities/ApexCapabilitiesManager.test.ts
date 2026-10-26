@@ -9,8 +9,10 @@
 import { ApexCapabilitiesManager } from '../../src/capabilities/ApexCapabilitiesManager';
 import {
   PRODUCTION_WEB_CAPABILITIES,
+  PRODUCTION_DESKTOP_CAPABILITIES,
   DEVELOPMENT_CAPABILITIES,
 } from '../../src/capabilities/ApexLanguageServerCapabilities';
+import { SEMANTIC_TOKEN_LEGEND } from '../../src/semanticTokenLegend';
 
 describe('ApexCapabilitiesManager', () => {
   let manager: ApexCapabilitiesManager;
@@ -131,6 +133,32 @@ describe('ApexCapabilitiesManager', () => {
           .codeLensProvider,
       ).toBeUndefined();
     });
+
+    it.each([
+      ['production', 'web', PRODUCTION_WEB_CAPABILITIES],
+      ['production', 'desktop', PRODUCTION_DESKTOP_CAPABILITIES],
+      ['development', 'web', DEVELOPMENT_CAPABILITIES],
+      ['development', 'desktop', DEVELOPMENT_CAPABILITIES],
+    ] as const)(
+      'advertises the approved semantic-token legend in %s/%s',
+      (mode, platform, configuredCapabilities) => {
+        const capabilities = manager.getCapabilitiesForModeAndPlatform(
+          mode,
+          platform,
+        );
+
+        expect(capabilities.semanticTokensProvider).toEqual({
+          legend: {
+            tokenTypes: [...SEMANTIC_TOKEN_LEGEND.tokenTypes],
+            tokenModifiers: [...SEMANTIC_TOKEN_LEGEND.tokenModifiers],
+          },
+          full: true,
+        });
+        expect(configuredCapabilities.semanticTokensProvider).toEqual(
+          capabilities.semanticTokensProvider,
+        );
+      },
+    );
   });
 
   describe('Feature States', () => {
@@ -145,10 +173,7 @@ describe('ApexCapabilitiesManager', () => {
         supported: true,
         enabled: true,
       });
-      expect(states.semanticTokens).toEqual({
-        supported: false,
-        enabled: false,
-      });
+      expect(states.semanticTokens).toEqual({ supported: true, enabled: true });
     });
 
     it('reports web production enabled features', () => {
@@ -156,6 +181,10 @@ describe('ApexCapabilitiesManager', () => {
       manager.setMode('production');
 
       expect(manager.getFeatureStates().codeLens).toEqual({
+        supported: true,
+        enabled: true,
+      });
+      expect(manager.getFeatureStates().semanticTokens).toEqual({
         supported: true,
         enabled: true,
       });

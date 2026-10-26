@@ -32,6 +32,7 @@ export * from './logger';
 
 // Export smaller numeric types for memory optimization
 export * from './smallNumericTypes';
+export * from './semanticTokenLegend';
 
 // Export capabilities management
 export * from './capabilities/ApexCapabilitiesManager';
