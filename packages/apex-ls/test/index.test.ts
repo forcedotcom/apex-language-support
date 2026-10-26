@@ -695,6 +695,10 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
     expect(result.capabilities).toHaveProperty('diagnosticProvider');
     expect(result.capabilities).toHaveProperty('definitionProvider');
     expect(result.capabilities).toHaveProperty('implementationProvider');
+    expect(result.capabilities.semanticTokensProvider).toEqual({
+      legend: { tokenTypes: [], tokenModifiers: [] },
+      full: true,
+    });
   });
 
   it('omits dynamic navigation providers from static initialize capabilities', async () => {

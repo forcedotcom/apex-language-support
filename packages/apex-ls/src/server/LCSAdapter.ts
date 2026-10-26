@@ -1761,6 +1761,14 @@ export class LCSAdapter {
       },
     };
 
+    // Semantic tokens have no dynamic-registration path in this adapter. VS Code
+    // only schedules textDocument/semanticTokens/full after seeing this provider
+    // in the initialize response.
+    if (allCapabilities.semanticTokensProvider) {
+      staticCapabilities.semanticTokensProvider =
+        allCapabilities.semanticTokensProvider;
+    }
+
     // Log textDocumentSync capabilities being negotiated
     this.logger.debug(
       () =>
