@@ -50,6 +50,7 @@ import {
   DispatchPrepareRename,
   DispatchImplementation,
   DispatchDocumentSymbol,
+  DispatchSemanticTokens,
   DispatchCodeLens,
   DispatchDiagnostic,
   DispatchCrossFileEnrichment,
@@ -753,6 +754,7 @@ const DISPATCH_ROUTING: Record<LSPRequestType, DispatchTarget> = {
   definition: 'requestPool',
   diagnostics: 'requestPool',
   documentSymbol: 'requestPool',
+  semanticTokens: 'requestPool',
   executeCommand: 'coordinatorOnly',
   findMissingArtifact: 'coordinatorOnly',
   foldingRange: 'coordinatorOnly',
@@ -1510,6 +1512,11 @@ function buildLspRequestMessage(
         // worker with no document to compile and returned an empty outline on
         // cold open.
         content: getDocumentContent?.(p.textDocument.uri),
+      });
+    case 'semanticTokens':
+      return new DispatchSemanticTokens({
+        textDocument: { uri: p.textDocument.uri },
+        content: getDocumentContent?.(p.textDocument.uri) ?? '',
       });
     case 'codeLens':
       return new DispatchCodeLens({

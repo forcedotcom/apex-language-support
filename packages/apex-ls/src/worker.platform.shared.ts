@@ -68,6 +68,7 @@ import {
   DispatchPrepareRename,
   DispatchImplementation,
   DispatchDocumentSymbol,
+  DispatchSemanticTokens,
   DispatchCodeLens,
   DispatchDiagnostic,
   DispatchCrossFileEnrichment,
@@ -178,6 +179,7 @@ export const AllWorkerRequests = Schema.Union(
   DispatchPrepareRename,
   DispatchImplementation,
   DispatchDocumentSymbol,
+  DispatchSemanticTokens,
   DispatchCodeLens,
   DispatchDiagnostic,
   DispatchCrossFileEnrichment,
@@ -1009,6 +1011,10 @@ export type DocOnlyReq = {
 export type DocWithContentReq = {
   textDocument: { uri: string };
   content?: string;
+};
+export type SemanticTokensReq = {
+  textDocument: { uri: string };
+  content: string;
 };
 export type RefsReq = PositionReq & {
   context: { includeDeclaration: boolean };
@@ -6066,6 +6072,21 @@ const requestHandlers = {
           svc.documentSymbolService.processDocumentSymbol({
             textDocument: { uri: req.textDocument.uri },
           }),
+        );
+      }),
+  ),
+  DispatchSemanticTokens: effectRequestHandler<SemanticTokensReq>(
+    'DispatchSemanticTokens',
+    (svc, req) =>
+      Effect.gen(function* () {
+        // Semantic tokens are Tier 1 parser output for the live editor buffer.
+        // Do not load the data-owner graph or run enrichment for this request.
+        const document = makeWorkerDocument(req.textDocument.uri, req.content);
+        svc.storageManager
+          .getStorage()
+          .setDocument(req.textDocument.uri, document as never);
+        return yield* Effect.promise(() =>
+          svc.semanticTokensService.processSemanticTokens(req.textDocument.uri),
         );
       }),
   ),

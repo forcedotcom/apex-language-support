@@ -1051,6 +1051,35 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
         );
         expect(result).toEqual({ range: {}, placeholder: 'total' });
       });
+
+      it('dispatches semantic tokens without waiting for data-owner readiness', async () => {
+        const manager = LSPQueueManager.getInstance();
+        const dispatch = vi.fn().mockResolvedValue({ data: [0, 0, 6, 0, 0] });
+        const awaitSymbolDataReady = vi
+          .fn()
+          .mockResolvedValue({ ready: false, reason: 'timeout' });
+        manager.setWorkerDispatcher({
+          isAvailable: () => true,
+          canDispatch: () => true,
+          dispatchesToPool: () => true,
+          isFileOpen: () => true,
+          awaitSymbolDataReady,
+          dispatch,
+        });
+
+        const result = await manager.submitSemanticTokensRequest({
+          textDocument: { uri: 'file:///Tokens.cls' },
+        });
+
+        expect(awaitSymbolDataReady).not.toHaveBeenCalled();
+        expect(dispatch).toHaveBeenCalledWith(
+          'semanticTokens',
+          expect.objectContaining({
+            textDocument: { uri: 'file:///Tokens.cls' },
+          }),
+        );
+        expect(result).toEqual({ data: [0, 0, 6, 0, 0] });
+      });
     });
 
     it('should submit document symbol request', async () => {

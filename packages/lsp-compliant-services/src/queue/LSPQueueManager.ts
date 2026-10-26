@@ -142,8 +142,9 @@ const CODE_ACTION_COALESCE_MS = 150;
 /**
  * Pool request types whose worker handler recompiles the cursor file from the
  * live in-flight text carried on the request (DispatchCompletion / Hover /
- * Definition / SignatureHelp / CodeAction / DocumentSymbol all thread
- * req.content into loadSymbolDataForEnrichment / recompileCursorFileAtFullDetail).
+ * Definition / SignatureHelp / CodeAction / DocumentSymbol thread req.content
+ * into loadSymbolDataForEnrichment / recompileCursorFileAtFullDetail;
+ * SemanticTokens stores req.content and parses it without loading symbol data.
  * These do NOT depend on the dataOwner graph being current for the cursor file,
  * so the cold-read readiness gate is both unnecessary and harmful for them:
  * they fire while typing, so the gate would report 'stale-version'/'timeout'
@@ -161,6 +162,7 @@ const SELF_LOADING_REQUEST_TYPES = new Set<LSPRequestType>([
   'signatureHelp',
   'codeAction',
   'documentSymbol',
+  'semanticTokens',
   // renameLocal (W-23631077) recompiles the cursor file STANDALONE from
   // req.content in the pool worker (resolveLocalRename), so like the others it
   // does not depend on the dataOwner graph being current. Without this entry
@@ -609,6 +611,13 @@ export class LSPQueueManager {
    */
   async submitDocumentSymbolRequest(params: any): Promise<any> {
     return this.submitRequest('documentSymbol', params, {
+      priority: Priority.High,
+    });
+  }
+
+  /** Submit semantic tokens for the current editor buffer. */
+  async submitSemanticTokensRequest(params: any): Promise<any> {
+    return this.submitRequest('semanticTokens', params, {
       priority: Priority.High,
     });
   }

@@ -540,6 +540,7 @@ export {
   DispatchPrepareRename,
   DispatchImplementation,
   DispatchDocumentSymbol,
+  DispatchSemanticTokens,
   DispatchCodeLens,
   DispatchDiagnostic,
   DispatchCrossFileEnrichment,
