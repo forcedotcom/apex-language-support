@@ -1016,6 +1016,23 @@ export type SemanticTokensReq = {
   textDocument: { uri: string };
   content: string;
 };
+
+export function processSemanticTokensRequest(
+  svc: Pick<RequestServices, 'storageManager' | 'semanticTokensService'>,
+  req: SemanticTokensReq,
+): Effect.Effect<unknown, never, never> {
+  return Effect.gen(function* () {
+    // Semantic tokens are Tier 1 parser output for the live editor buffer.
+    // Do not load the data-owner graph or run enrichment for this request.
+    const document = makeWorkerDocument(req.textDocument.uri, req.content);
+    svc.storageManager
+      .getStorage()
+      .setDocument(req.textDocument.uri, document as never);
+    return yield* Effect.promise(() =>
+      svc.semanticTokensService.processSemanticTokens(req.textDocument.uri),
+    );
+  });
+}
 export type RefsReq = PositionReq & {
   context: { includeDeclaration: boolean };
 };
@@ -6077,18 +6094,7 @@ const requestHandlers = {
   ),
   DispatchSemanticTokens: effectRequestHandler<SemanticTokensReq>(
     'DispatchSemanticTokens',
-    (svc, req) =>
-      Effect.gen(function* () {
-        // Semantic tokens are Tier 1 parser output for the live editor buffer.
-        // Do not load the data-owner graph or run enrichment for this request.
-        const document = makeWorkerDocument(req.textDocument.uri, req.content);
-        svc.storageManager
-          .getStorage()
-          .setDocument(req.textDocument.uri, document as never);
-        return yield* Effect.promise(() =>
-          svc.semanticTokensService.processSemanticTokens(req.textDocument.uri),
-        );
-      }),
+    processSemanticTokensRequest,
   ),
   DispatchCodeLens: effectRequestHandler<DocOnlyReq>(
     'DispatchCodeLens',
