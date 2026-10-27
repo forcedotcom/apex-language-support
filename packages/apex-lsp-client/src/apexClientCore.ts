@@ -98,16 +98,16 @@ function getSemanticTokensProvider(
   result: InitializeResult | undefined,
 ): SemanticTokensOptions | undefined {
   const provider = result?.capabilities.semanticTokensProvider;
+  if (provider === undefined || provider === null) {
+    return undefined;
+  }
   if (
-    provider === undefined ||
-    provider === null ||
     typeof provider !== 'object' ||
     provider.legend === undefined ||
     provider.legend === null ||
     typeof provider.legend !== 'object' ||
     !Array.isArray(provider.legend.tokenTypes) ||
     !Array.isArray(provider.legend.tokenModifiers) ||
-    provider.legend.tokenTypes.length > 65_536 ||
     !provider.legend.tokenTypes.every(
       (tokenType) => typeof tokenType === 'string',
     ) ||
@@ -116,17 +116,12 @@ function getSemanticTokensProvider(
     ) ||
     (provider.full !== undefined &&
       provider.full !== true &&
+      provider.full !== false &&
       (typeof provider.full !== 'object' || provider.full === null))
   ) {
-    return undefined;
+    throw new Error('Invalid semantic tokens provider in initialize result');
   }
-  return {
-    ...provider,
-    legend: {
-      tokenTypes: [...provider.legend.tokenTypes],
-      tokenModifiers: [...provider.legend.tokenModifiers],
-    },
-  };
+  return provider;
 }
 
 /**
@@ -207,10 +202,10 @@ type SemanticTokensProviderState = {
 
 function nextSemanticTokensProviderState(
   state: SemanticTokensProviderState,
-  result: InitializeResult | undefined,
+  provider: SemanticTokensOptions | undefined,
 ): SemanticTokensProviderState {
   return {
-    provider: getSemanticTokensProvider(result),
+    provider,
     revision: state.revision + 1,
   };
 }
@@ -403,6 +398,7 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
   const initResultRef = yield* Ref.make<Option.Option<InitializeResult>>(
     Option.none(),
   );
+  const initFailureRef = yield* Ref.make<Option.Option<Error>>(Option.none());
   const featureStatesRef = yield* Ref.make<ApexServerFeatureStates | undefined>(
     undefined,
   );
@@ -425,6 +421,10 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
           const existing = yield* Ref.get(initResultRef);
           if (Option.isSome(existing)) {
             return existing.value;
+          }
+          const initializationFailure = yield* Ref.get(initFailureRef);
+          if (Option.isSome(initializationFailure)) {
+            return yield* Effect.fail(initializationFailure.value);
           }
           // Determine mode from settings for capability advertisement.
           const mode = settings.apex.environment.serverMode ?? 'production';
@@ -460,9 +460,25 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
           const result = yield* Effect.promise(() =>
             connection.sendRequest<InitializeResult>('initialize', initParams),
           );
+          let semanticTokensProvider: SemanticTokensOptions | undefined;
+          let semanticTokensProviderError: Error | undefined;
+          try {
+            semanticTokensProvider = getSemanticTokensProvider(result);
+          } catch (error) {
+            semanticTokensProviderError = error as Error;
+          }
+          if (semanticTokensProviderError !== undefined) {
+            yield* Ref.set(
+              initFailureRef,
+              Option.some(semanticTokensProviderError),
+            );
+          }
           yield* Effect.promise(async () => {
             await connection.sendNotification('initialized', {});
           });
+          if (semanticTokensProviderError !== undefined) {
+            return yield* Effect.fail(semanticTokensProviderError);
+          }
           // Record success only — failures above never reach here, so they are
           // not memoized and a later call can retry.
           yield* Ref.set(initResultRef, Option.some(result));
@@ -478,7 +494,7 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
             semanticTokensProviderRef,
             nextSemanticTokensProviderState(
               yield* Ref.get(semanticTokensProviderRef),
-              result,
+              semanticTokensProvider,
             ),
           );
           return result;
@@ -505,6 +521,7 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
   const setFeatureStatesFromInitializeResult = (
     result: InitializeResult | undefined,
   ): void => {
+    const semanticTokensProvider = getSemanticTokensProvider(result);
     const featureStates = (
       result?.capabilities.experimental as
         | {
@@ -516,7 +533,7 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
     Runtime.runSync(
       runtime,
       Ref.update(semanticTokensProviderRef, (state) =>
-        nextSemanticTokensProviderState(state, result),
+        nextSemanticTokensProviderState(state, semanticTokensProvider),
       ),
     );
   };

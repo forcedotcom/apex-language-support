@@ -260,7 +260,7 @@ from `@salesforce/apex-lsp-client` and `@salesforce/apex-lsp-client/browser`.
 
 `semanticTokens` requests full-document tokens through the standard
 `textDocument/semanticTokens/full` method and decodes the relative LSP payload
-using the legend negotiated during initialization:
+using the server legend negotiated during initialization:
 
 ```typescript
 const tokens = await core.semanticTokens({
@@ -276,8 +276,9 @@ This convenience method supports only final full-document responses: it does not
 consume LSP partial-result progress payloads. The package also exports
 `DecodedSemanticToken`, `decodeSemanticTokens`, and `SemanticTokenDecodeError`
 from both public entry points for hosts that need to decode a standard LSP
-response themselves. `decodeSemanticTokens` is pure: it does not mutate the
-packed response data or negotiated legend.
+response themselves. Pass `decodeSemanticTokens` the legend from the same
+server session that produced the packed response. It is pure: it does not
+mutate the packed response data or server legend.
 
 For methods not covered by a typed wrapper, use the generic escape hatches:
 

@@ -203,7 +203,7 @@ describe('ApexClientCore pass-through methods', () => {
       await core.dispose();
     });
 
-    it('sends the full request and decodes against the negotiated legend', async () => {
+    it('sends the full request and decodes against the server legend', async () => {
       const sendRequest = connection.sendRequest as Mock;
       sendRequest.mockResolvedValueOnce({ data: [0, 4, 3, 1, 1] });
       const core = await ApexClientCore.create(connection);
@@ -259,6 +259,27 @@ describe('ApexClientCore pass-through methods', () => {
         { textDocument: { uri: 'file:///x.cls' } },
       );
 
+      await core.dispose();
+    });
+
+    it('does not request full tokens when the provider advertises full: false', async () => {
+      const core = await ApexClientCore.create(connection);
+      core.setFeatureStatesFromInitializeResult({
+        capabilities: {
+          semanticTokensProvider: {
+            legend: { tokenTypes: ['class'], tokenModifiers: [] },
+            full: false,
+          },
+        },
+      });
+
+      await expect(
+        core.semanticTokens({ textDocument: { uri: 'file:///x.cls' } }),
+      ).resolves.toBeUndefined();
+      expect(connection.sendRequest).not.toHaveBeenCalledWith(
+        'textDocument/semanticTokens/full',
+        expect.anything(),
+      );
       await core.dispose();
     });
 
@@ -325,7 +346,9 @@ describe('ApexClientCore pass-through methods', () => {
       await core.dispose();
     });
 
-    it('invalidates an existing provider when a replacement is malformed', async () => {
+    it('rejects malformed replacement provider metadata without clearing the current provider', async () => {
+      const sendRequest = connection.sendRequest as Mock;
+      sendRequest.mockResolvedValueOnce({ data: [] });
       const core = await ApexClientCore.create(connection);
       core.setFeatureStatesFromInitializeResult({
         capabilities: {
@@ -335,16 +358,17 @@ describe('ApexClientCore pass-through methods', () => {
           },
         },
       });
-      core.setFeatureStatesFromInitializeResult({
-        capabilities: { semanticTokensProvider: null as never },
-      });
-
+      expect(() =>
+        core.setFeatureStatesFromInitializeResult({
+          capabilities: { semanticTokensProvider: { full: true } as never },
+        }),
+      ).toThrow('Invalid semantic tokens provider in initialize result');
       await expect(
         core.semanticTokens({ textDocument: { uri: 'file:///x.cls' } }),
-      ).resolves.toBeUndefined();
-      expect(connection.sendRequest).not.toHaveBeenCalledWith(
+      ).resolves.toEqual([]);
+      expect(sendRequest).toHaveBeenCalledWith(
         'textDocument/semanticTokens/full',
-        expect.anything(),
+        { textDocument: { uri: 'file:///x.cls' } },
       );
       await core.dispose();
     });

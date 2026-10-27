@@ -12,8 +12,6 @@ import type {
 } from 'vscode-languageserver-protocol';
 
 const MAX_LSP_INTEGER = 2 ** 31 - 1;
-const MAX_TOKEN_COUNT = 1_000_000;
-const MAX_TOKEN_TYPES = 65_536;
 
 export type DecodedSemanticToken = {
   readonly line: number;
@@ -30,10 +28,10 @@ export class SemanticTokenDecodeError extends Error {
   }
 }
 
-/** Decode standard LSP relative semantic-token data using its negotiated legend. */
+/** Decode standard LSP relative semantic-token data using its server legend. */
 export function decodeSemanticTokens(
   response: SemanticTokens,
-  legend: SemanticTokensLegend,
+  serverLegend: SemanticTokensLegend,
 ): readonly DecodedSemanticToken[] {
   if (
     response === null ||
@@ -42,25 +40,22 @@ export function decodeSemanticTokens(
   ) {
     throw new SemanticTokenDecodeError('data must be an array');
   }
-  validateLegend(legend);
+  validateLegend(serverLegend);
   if (response.data.length % 5 !== 0) {
     throw new SemanticTokenDecodeError(
       'data must contain five integers per token',
     );
   }
-  if (response.data.length / 5 > MAX_TOKEN_COUNT) {
-    throw new SemanticTokenDecodeError(
-      'data exceeds the supported token limit',
-    );
-  }
-
   let line = 0;
   let character = 0;
   const tokens: DecodedSemanticToken[] = [];
 
   for (let index = 0; index < response.data.length; index += 5) {
-    const [lineDelta, characterDelta, length, typeIndex, modifierBits] =
-      response.data.slice(index, index + 5);
+    const lineDelta = response.data[index];
+    const characterDelta = response.data[index + 1];
+    const length = response.data[index + 2];
+    const typeIndex = response.data[index + 3];
+    const modifierBits = response.data[index + 4];
     validateTuple(lineDelta, characterDelta, length, typeIndex, modifierBits);
 
     line += lineDelta;
@@ -69,7 +64,7 @@ export function decodeSemanticTokens(
       throw new SemanticTokenDecodeError('position exceeds LSP integer limits');
     }
 
-    const tokenType = legend.tokenTypes[typeIndex];
+    const tokenType = serverLegend.tokenTypes[typeIndex];
     if (tokenType === undefined) {
       throw new SemanticTokenDecodeError(
         `unknown token type index ${typeIndex}`,
@@ -80,7 +75,10 @@ export function decodeSemanticTokens(
       character,
       length,
       tokenType,
-      tokenModifiers: decodeModifiers(modifierBits, legend.tokenModifiers),
+      tokenModifiers: decodeModifiers(
+        modifierBits,
+        serverLegend.tokenModifiers,
+      ),
     });
   }
 
@@ -92,16 +90,7 @@ function validateLegend(legend: SemanticTokensLegend): void {
     legend === null ||
     typeof legend !== 'object' ||
     !Array.isArray(legend.tokenTypes) ||
-    !Array.isArray(legend.tokenModifiers)
-  ) {
-    throw new SemanticTokenDecodeError('legend must contain string arrays');
-  }
-  if (legend.tokenTypes.length > MAX_TOKEN_TYPES) {
-    throw new SemanticTokenDecodeError(
-      'legend exceeds the supported type limit',
-    );
-  }
-  if (
+    !Array.isArray(legend.tokenModifiers) ||
     !legend.tokenTypes.every((tokenType) => typeof tokenType === 'string') ||
     !legend.tokenModifiers.every((modifier) => typeof modifier === 'string')
   ) {

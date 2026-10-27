@@ -202,6 +202,31 @@ describe('ApexClientCore', () => {
       await core.dispose();
     });
 
+    it('does not send a second initialize after malformed semantic-token metadata', async () => {
+      const retriable = makeMockConnection((method) => {
+        if (method !== 'initialize') return Promise.resolve(undefined);
+        return Promise.resolve({
+          capabilities: {
+            semanticTokensProvider: { full: true },
+          },
+        });
+      });
+      const core = await ApexClientCore.create(retriable);
+
+      await expect(core.initialize()).rejects.toThrow(
+        'Invalid semantic tokens provider in initialize result',
+      );
+      await expect(core.initialize()).rejects.toThrow(
+        'Invalid semantic tokens provider in initialize result',
+      );
+
+      const initializeCalls = (retriable.sendRequest as Mock).mock.calls.filter(
+        ([method]) => method === 'initialize',
+      );
+      expect(initializeCalls).toHaveLength(1);
+      await core.dispose();
+    });
+
     it('is idempotent: a second initialize returns the memoized result and re-sends nothing', async () => {
       const core = await ApexClientCore.create(connection);
       const first = await core.initialize();
