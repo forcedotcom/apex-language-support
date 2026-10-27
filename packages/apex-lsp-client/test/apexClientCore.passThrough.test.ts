@@ -188,6 +188,168 @@ describe('ApexClientCore pass-through methods', () => {
     });
   });
 
+  describe('semanticTokens()', () => {
+    it('does not send a request before a full provider is negotiated', async () => {
+      const core = await ApexClientCore.create(connection);
+
+      await expect(
+        core.semanticTokens({ textDocument: { uri: 'file:///x.cls' } }),
+      ).resolves.toBeUndefined();
+      expect(connection.sendRequest).not.toHaveBeenCalledWith(
+        'textDocument/semanticTokens/full',
+        expect.anything(),
+      );
+
+      await core.dispose();
+    });
+
+    it('sends the full request and decodes against the negotiated legend', async () => {
+      const sendRequest = connection.sendRequest as Mock;
+      sendRequest.mockResolvedValueOnce({ data: [0, 4, 3, 1, 1] });
+      const core = await ApexClientCore.create(connection);
+      core.setFeatureStatesFromInitializeResult({
+        capabilities: {
+          semanticTokensProvider: {
+            legend: {
+              tokenTypes: ['keyword', 'class'],
+              tokenModifiers: ['declaration'],
+            },
+            full: true,
+          },
+        },
+      });
+
+      await expect(
+        core.semanticTokens({ textDocument: { uri: 'file:///x.cls' } }),
+      ).resolves.toEqual([
+        {
+          line: 0,
+          character: 4,
+          length: 3,
+          tokenType: 'class',
+          tokenModifiers: ['declaration'],
+        },
+      ]);
+      expect(sendRequest).toHaveBeenCalledWith(
+        'textDocument/semanticTokens/full',
+        { textDocument: { uri: 'file:///x.cls' } },
+      );
+
+      await core.dispose();
+    });
+
+    it('supports a full provider that also advertises delta support', async () => {
+      const sendRequest = connection.sendRequest as Mock;
+      sendRequest.mockResolvedValueOnce({ data: [] });
+      const core = await ApexClientCore.create(connection);
+      core.setFeatureStatesFromInitializeResult({
+        capabilities: {
+          semanticTokensProvider: {
+            legend: { tokenTypes: ['class'], tokenModifiers: [] },
+            full: { delta: true },
+          },
+        },
+      });
+
+      await expect(
+        core.semanticTokens({ textDocument: { uri: 'file:///x.cls' } }),
+      ).resolves.toEqual([]);
+      expect(sendRequest).toHaveBeenCalledWith(
+        'textDocument/semanticTokens/full',
+        { textDocument: { uri: 'file:///x.cls' } },
+      );
+
+      await core.dispose();
+    });
+
+    it('rejects after disposal even when semantic tokens are unavailable', async () => {
+      const core = await ApexClientCore.create(connection);
+      await core.dispose();
+
+      await expect(
+        core.semanticTokens({ textDocument: { uri: 'file:///x.cls' } }),
+      ).rejects.toThrow(ApexClientDisposedError);
+    });
+
+    it('does not forward partial-result tokens it cannot consume', async () => {
+      const sendRequest = connection.sendRequest as Mock;
+      sendRequest.mockResolvedValueOnce({ data: [] });
+      const core = await ApexClientCore.create(connection);
+      core.setFeatureStatesFromInitializeResult({
+        capabilities: {
+          semanticTokensProvider: {
+            legend: { tokenTypes: ['class'], tokenModifiers: [] },
+            full: true,
+          },
+        },
+      });
+
+      await core.semanticTokens({
+        textDocument: { uri: 'file:///x.cls' },
+        partialResultToken: 'unsupported',
+      });
+
+      expect(sendRequest).toHaveBeenCalledWith(
+        'textDocument/semanticTokens/full',
+        { textDocument: { uri: 'file:///x.cls' } },
+      );
+      await core.dispose();
+    });
+
+    it('discards a response when the negotiated provider changes in flight', async () => {
+      let resolveResponse: ((response: unknown) => void) | undefined;
+      const sendRequest = connection.sendRequest as Mock;
+      sendRequest.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveResponse = resolve;
+          }),
+      );
+      const core = await ApexClientCore.create(connection);
+      core.setFeatureStatesFromInitializeResult({
+        capabilities: {
+          semanticTokensProvider: {
+            legend: { tokenTypes: ['class'], tokenModifiers: [] },
+            full: true,
+          },
+        },
+      });
+
+      const pending = core.semanticTokens({
+        textDocument: { uri: 'file:///x.cls' },
+      });
+      core.setFeatureStatesFromInitializeResult(undefined);
+      resolveResponse?.({ data: [0, 0, 1, 0, 0] });
+
+      await expect(pending).resolves.toBeUndefined();
+      await core.dispose();
+    });
+
+    it('invalidates an existing provider when a replacement is malformed', async () => {
+      const core = await ApexClientCore.create(connection);
+      core.setFeatureStatesFromInitializeResult({
+        capabilities: {
+          semanticTokensProvider: {
+            legend: { tokenTypes: ['class'], tokenModifiers: [] },
+            full: true,
+          },
+        },
+      });
+      core.setFeatureStatesFromInitializeResult({
+        capabilities: { semanticTokensProvider: null as never },
+      });
+
+      await expect(
+        core.semanticTokens({ textDocument: { uri: 'file:///x.cls' } }),
+      ).resolves.toBeUndefined();
+      expect(connection.sendRequest).not.toHaveBeenCalledWith(
+        'textDocument/semanticTokens/full',
+        expect.anything(),
+      );
+      await core.dispose();
+    });
+  });
+
   describe('middleware integration', () => {
     it('middleware registered via use() intercepts typed pass-throughs', async () => {
       const intercepted: string[] = [];

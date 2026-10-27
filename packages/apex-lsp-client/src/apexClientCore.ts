@@ -55,14 +55,21 @@ import type {
   Hover,
   HoverParams,
   LocationLink,
+  SemanticTokens,
+  SemanticTokensOptions,
+  SemanticTokensParams,
   SymbolInformation,
 } from './lspPassThroughs';
+import {
+  decodeSemanticTokens,
+  type DecodedSemanticToken,
+} from './semanticTokens';
 import {
   composeRequestChain,
   composeNotificationChain,
 } from './middleware/composeMiddleware';
 import { createApexMethodSurface } from './apexMethods';
-import type { ApexClient } from './apexClient';
+import type { ApexStandardLspClient } from './apexClient';
 
 /**
  * Caller-supplied `initialize` params. `initializationOptions` is intentionally
@@ -85,6 +92,41 @@ export class ApexClientDisposedError extends Error {
     super(`Cannot ${operation}: ApexClientCore has been disposed`);
     this.name = 'ApexClientDisposedError';
   }
+}
+
+function getSemanticTokensProvider(
+  result: InitializeResult | undefined,
+): SemanticTokensOptions | undefined {
+  const provider = result?.capabilities.semanticTokensProvider;
+  if (
+    provider === undefined ||
+    provider === null ||
+    typeof provider !== 'object' ||
+    provider.legend === undefined ||
+    provider.legend === null ||
+    typeof provider.legend !== 'object' ||
+    !Array.isArray(provider.legend.tokenTypes) ||
+    !Array.isArray(provider.legend.tokenModifiers) ||
+    provider.legend.tokenTypes.length > 65_536 ||
+    !provider.legend.tokenTypes.every(
+      (tokenType) => typeof tokenType === 'string',
+    ) ||
+    !provider.legend.tokenModifiers.every(
+      (modifier) => typeof modifier === 'string',
+    ) ||
+    (provider.full !== undefined &&
+      provider.full !== true &&
+      (typeof provider.full !== 'object' || provider.full === null))
+  ) {
+    return undefined;
+  }
+  return {
+    ...provider,
+    legend: {
+      tokenTypes: [...provider.legend.tokenTypes],
+      tokenModifiers: [...provider.legend.tokenModifiers],
+    },
+  };
 }
 
 /**
@@ -120,6 +162,7 @@ interface CoreHandle {
   readonly setFeatureStatesFromInitializeResult: (
     result: InitializeResult | undefined,
   ) => void;
+  readonly getSemanticTokensProvider: () => SemanticTokensProviderState;
 
   // --- Typed debugger command senders ---
   readonly getLineBreakpointInfo: (
@@ -155,6 +198,21 @@ interface CoreHandle {
   readonly onQueueStateChanged: (
     handler: (params: QueueStateChangedParams) => void,
   ) => Disposable;
+}
+
+type SemanticTokensProviderState = {
+  readonly provider: SemanticTokensOptions | undefined;
+  readonly revision: number;
+};
+
+function nextSemanticTokensProviderState(
+  state: SemanticTokensProviderState,
+  result: InitializeResult | undefined,
+): SemanticTokensProviderState {
+  return {
+    provider: getSemanticTokensProvider(result),
+    revision: state.revision + 1,
+  };
 }
 
 /**
@@ -348,6 +406,11 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
   const featureStatesRef = yield* Ref.make<ApexServerFeatureStates | undefined>(
     undefined,
   );
+  const semanticTokensProviderRef =
+    yield* Ref.make<SemanticTokensProviderState>({
+      provider: undefined,
+      revision: 0,
+    });
   const initMutex = yield* Effect.makeSemaphore(1);
 
   const runInitialize = (
@@ -381,6 +444,9 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
               textDocument: {
                 ...params?.capabilities?.textDocument,
                 ...textDocumentCaps,
+                semanticTokens:
+                  params?.capabilities?.textDocument?.semanticTokens ??
+                  textDocumentCaps.semanticTokens,
               },
               experimental: {
                 ...params?.capabilities?.experimental,
@@ -408,6 +474,13 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
               | undefined
           )?.featureStateProvider;
           yield* Ref.set(featureStatesRef, featureStates);
+          yield* Ref.set(
+            semanticTokensProviderRef,
+            nextSemanticTokensProviderState(
+              yield* Ref.get(semanticTokensProviderRef),
+              result,
+            ),
+          );
           return result;
         }),
       )
@@ -440,7 +513,16 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
         | undefined
     )?.featureStateProvider;
     Runtime.runSync(runtime)(Ref.set(featureStatesRef, featureStates));
+    Runtime.runSync(
+      runtime,
+      Ref.update(semanticTokensProviderRef, (state) =>
+        nextSemanticTokensProviderState(state, result),
+      ),
+    );
   };
+
+  const getNegotiatedSemanticTokensProvider = (): SemanticTokensProviderState =>
+    Runtime.runSync(runtime)(Ref.get(semanticTokensProviderRef));
 
   // Idempotent shutdown: shutdown request then exit notification, sequentially.
   // Memoizes success only (same rationale as initialize) and serializes via a
@@ -545,6 +627,7 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
     ping,
     getFeatureState,
     setFeatureStatesFromInitializeResult,
+    getNegotiatedSemanticTokensProvider,
     getLineBreakpointInfo,
     getExceptionBreakpointInfo,
     isDisposed,
@@ -574,7 +657,7 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
  * own the `initialize`/`shutdown` handshake, the adapter delegates lifecycle to
  * it instead of re-sending — wiring lands in 4.1.
  */
-export class ApexClientCore implements ApexClient {
+export class ApexClientCore implements ApexStandardLspClient {
   private readonly handle: CoreHandle;
   private readonly closeScope: () => Promise<void>;
 
@@ -640,6 +723,7 @@ export class ApexClientCore implements ApexClient {
       getFeatureState: built.getFeatureState,
       setFeatureStatesFromInitializeResult:
         built.setFeatureStatesFromInitializeResult,
+      getSemanticTokensProvider: built.getNegotiatedSemanticTokensProvider,
       getLineBreakpointInfo: built.getLineBreakpointInfo,
       getExceptionBreakpointInfo: built.getExceptionBreakpointInfo,
       // Typed apex/* senders
@@ -790,6 +874,38 @@ export class ApexClientCore implements ApexClient {
       'textDocument/documentSymbol',
       params,
     );
+  }
+
+  /** Request and decode full-document semantic tokens using the negotiated legend. */
+  async semanticTokens(
+    params: SemanticTokensParams,
+  ): Promise<readonly DecodedSemanticToken[] | undefined> {
+    const providerState = this.handle.getSemanticTokensProvider();
+    const provider = providerState.provider;
+    if (
+      provider === undefined ||
+      provider.full === undefined ||
+      provider.full === false
+    ) {
+      if (this.isDisposed()) {
+        throw new ApexClientDisposedError('request semantic tokens');
+      }
+      return undefined;
+    }
+    const { partialResultToken: _partialResultToken, ...fullParams } = params;
+    const response = await this.request<SemanticTokens | null>(
+      'textDocument/semanticTokens/full',
+      fullParams,
+    );
+    if (
+      this.handle.getSemanticTokensProvider().revision !==
+      providerState.revision
+    ) {
+      return undefined;
+    }
+    return response === null
+      ? undefined
+      : decodeSemanticTokens(response, provider.legend);
   }
 
   // --- Typed apex/* senders (9 clientToServer) ---
