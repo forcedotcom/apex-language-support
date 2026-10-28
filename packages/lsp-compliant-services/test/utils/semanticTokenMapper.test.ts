@@ -8,6 +8,8 @@
 
 import {
   collectDeclarationSemanticTokenSpans,
+  collectReferenceSemanticTokenSpans,
+  encodeSemanticTokenSpans,
   type SemanticTokenSpan,
 } from '../../src';
 import {
@@ -28,6 +30,23 @@ function collect(
 
   expect(result.result).not.toBeNull();
   return collectDeclarationSemanticTokenSpans(
+    result.result!,
+    TextDocument.create(`file:///${fileName}`, 'apex', 1, source),
+  );
+}
+
+function collectReferences(
+  source: string,
+  fileName = 'Example.cls',
+): SemanticTokenSpan[] {
+  const result = new CompilerService().compile(
+    source,
+    fileName,
+    new FullSymbolCollectorListener(),
+  );
+
+  expect(result.result).not.toBeNull();
+  return collectReferenceSemanticTokenSpans(
     result.result!,
     TextDocument.create(`file:///${fileName}`, 'apex', 1, source),
   );
@@ -220,5 +239,127 @@ describe('declaration semantic token mapper', () => {
       tokenModifiers: ['declaration'],
       precedence: 0,
     });
+  });
+});
+
+describe('reference semantic token mapper', () => {
+  it('maps parser-classified method, type, variable, property, and literal leaves', () => {
+    const spans = collectReferences(
+      [
+        'public class Example {',
+        '  public void execute() {',
+        "    String value = 'text';",
+        '    Integer count = 42;',
+        '    System.debug(value);',
+        '  }',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(spans).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          tokenType: 'type',
+          tokenModifiers: [],
+        }),
+        expect.objectContaining({
+          tokenType: 'method',
+          tokenModifiers: [],
+        }),
+        expect.objectContaining({
+          tokenType: 'variable',
+          tokenModifiers: [],
+        }),
+        expect.objectContaining({
+          tokenType: 'string',
+          tokenModifiers: [],
+        }),
+        expect.objectContaining({
+          tokenType: 'number',
+          tokenModifiers: [],
+        }),
+      ]),
+    );
+  });
+
+  it('does not classify declaration references', () => {
+    const source = [
+      'public class Example {',
+      '  Integer value;',
+      '  public void execute() {',
+      '    this.value = 1;',
+      '  }',
+      '}',
+    ].join('\n');
+    const spans = collectReferences(source);
+
+    expect(spanAt(spans, 3, 4)).toEqual(
+      expect.objectContaining({ tokenType: 'variable' }),
+    );
+    expect(spanAt(spans, 1, 10)).toBeUndefined();
+  });
+
+  it('uses parser-owned leaves for qualified and generic constructor types', () => {
+    const source = [
+      'public class Example {',
+      '  void execute() {',
+      '    System.Url url = new System.Url(',
+      "      'https://example.com'",
+      '    );',
+      '    List<String> values = new List<String>();',
+      '  }',
+      '}',
+    ].join('\n');
+    const spans = collectReferences(source);
+
+    expect(spanAt(spans, 2, 25)).toEqual({
+      start: { line: 2, character: 25 },
+      end: { line: 2, character: 31 },
+      tokenType: 'namespace',
+      tokenModifiers: [],
+      precedence: 0,
+    });
+    expect(spanAt(spans, 2, 32)).toEqual({
+      start: { line: 2, character: 32 },
+      end: { line: 2, character: 35 },
+      tokenType: 'type',
+      tokenModifiers: [],
+      precedence: 0,
+    });
+    expect(spanAt(spans, 5, 30)).toEqual({
+      start: { line: 5, character: 30 },
+      end: { line: 5, character: 34 },
+      tokenType: 'type',
+      tokenModifiers: [],
+      precedence: 0,
+    });
+    expect(spanAt(spans, 5, 35)).toEqual({
+      start: { line: 5, character: 35 },
+      end: { line: 5, character: 41 },
+      tokenType: 'type',
+      tokenModifiers: [],
+      precedence: 0,
+    });
+    expect(spanAt(spans, 2, 19)).toBeUndefined();
+    expect(spanAt(spans, 5, 24)).toBeUndefined();
+    expect(spanAt(spans, 5, 4)?.end).toEqual({ line: 5, character: 8 });
+    expect(
+      spans.some(
+        (span) =>
+          span.start.line === 5 &&
+          span.start.character === 4 &&
+          span.end.character === 16,
+      ),
+    ).toBe(false);
+  });
+
+  it('encodes qualified constructor leaves without a composite token', () => {
+    const spans = collectReferences(
+      'class Example { void execute() { new System.Url(); } }',
+    );
+
+    expect(encodeSemanticTokenSpans(spans).data).toEqual([
+      0, 37, 6, 0, 0, 0, 7, 3, 5, 0,
+    ]);
   });
 });
