@@ -38,6 +38,7 @@ export * from './foldingRange/ApexFoldingRangeProvider';
 export * from './types/semanticTokens';
 export * from './utils/semanticTokenLegend';
 export * from './utils/semanticTokenEncoder';
+export * from './utils/semanticTokenMapper';
 
 // Export LSP handlers
 export * from './handlers/DidOpenDocumentHandler';
