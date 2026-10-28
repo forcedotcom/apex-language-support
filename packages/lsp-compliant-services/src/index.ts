@@ -138,6 +138,14 @@ export type {
   WorkerDispatchStrategy,
   WorkerTopologyStatus,
 } from './queue/WorkerDispatchStrategy';
+export type {
+  LSPDispatchRequest,
+  LSPDispatchParams,
+  LSPDispatchResult,
+  WorkerDispatchArgs,
+  WorkerDispatchResult,
+  WorkerDispatchType,
+} from './queue/LSPDispatchContract';
 
 /**
  * Initialize LSPQueueManager with required dependencies
