@@ -73,6 +73,7 @@ import {
   type GraphDataParams,
   APEX_DEBUGGER_COMMANDS,
   getDebuggerCommandUri,
+  negotiateSemanticTokensProvider,
 } from '@salesforce/apex-lsp-shared';
 
 import {
@@ -674,7 +675,12 @@ export class LCSAdapter {
   /**
    * LSP protocol handlers (hover, diagnostics, etc.)
    */
-  private setupProtocolHandlers(): void {
+  private setupProtocolHandlers(
+    semanticTokenLegend: {
+      readonly tokenTypes: readonly string[];
+      readonly tokenModifiers: readonly string[];
+    } = SEMANTIC_TOKEN_LEGEND,
+  ): void {
     const capabilities =
       LSPConfigurationManager.getInstance().getCapabilities();
 
@@ -730,7 +736,11 @@ export class LCSAdapter {
             LSP_SPAN_NAMES.TEXT_DOCUMENT_SEMANTIC_TOKENS_FULL,
             'textDocument/semanticTokens/full',
             params,
-            (p) => LSPQueueManager.getInstance().submitSemanticTokensRequest(p),
+            (p) =>
+              LSPQueueManager.getInstance().submitSemanticTokensRequest({
+                ...p,
+                semanticTokenLegend,
+              }),
             { data: [] },
             {
               'semanticTokens.types':
@@ -1764,9 +1774,14 @@ export class LCSAdapter {
     // Semantic tokens have no dynamic-registration path in this adapter. VS Code
     // only schedules textDocument/semanticTokens/full after seeing this provider
     // in the initialize response.
-    if (allCapabilities.semanticTokensProvider) {
-      staticCapabilities.semanticTokensProvider =
-        allCapabilities.semanticTokensProvider;
+    const semanticTokensProvider = allCapabilities.semanticTokensProvider
+      ? negotiateSemanticTokensProvider(
+          allCapabilities.semanticTokensProvider,
+          params.capabilities.textDocument?.semanticTokens,
+        )
+      : undefined;
+    if (semanticTokensProvider) {
+      staticCapabilities.semanticTokensProvider = semanticTokensProvider;
     }
 
     // Log textDocumentSync capabilities being negotiated
@@ -1914,7 +1929,7 @@ export class LCSAdapter {
     // Register all protocol handlers synchronously BEFORE returning capabilities.
     // This ensures handlers like apex/sendWorkspaceBatch are ready when the client
     // starts sending requests after receiving the initialize response.
-    this.setupProtocolHandlers();
+    this.setupProtocolHandlers(semanticTokensProvider?.legend);
     this.logger.debug('✅ Protocol handlers registered during initialize');
 
     return {

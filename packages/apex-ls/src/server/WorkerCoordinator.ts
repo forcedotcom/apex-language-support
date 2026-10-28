@@ -1329,6 +1329,13 @@ interface DocumentEventParams {
   readonly text?: string;
 }
 
+type SemanticTokensParams = EnrichmentParams & {
+  readonly semanticTokenLegend: {
+    readonly tokenTypes: readonly string[];
+    readonly tokenModifiers: readonly string[];
+  };
+};
+
 /** Params shape for position-based enrichment dispatches. */
 interface PositionBasedParams {
   readonly textDocument: { readonly uri: string };
@@ -1514,9 +1521,11 @@ function buildLspRequestMessage(
         content: getDocumentContent?.(p.textDocument.uri),
       });
     case 'semanticTokens':
+      const semanticTokens = p as SemanticTokensParams;
       return new DispatchSemanticTokens({
-        textDocument: { uri: p.textDocument.uri },
-        content: getDocumentContent?.(p.textDocument.uri) ?? '',
+        textDocument: { uri: semanticTokens.textDocument.uri },
+        content: getDocumentContent?.(semanticTokens.textDocument.uri) ?? '',
+        semanticTokenLegend: semanticTokens.semanticTokenLegend,
       });
     case 'codeLens':
       return new DispatchCodeLens({

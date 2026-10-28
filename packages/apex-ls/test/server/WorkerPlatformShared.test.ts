@@ -81,10 +81,20 @@ describe('worker.platform.shared', () => {
 
       await expect(
         Effect.runPromise(
-          processSemanticTokensRequest(svc, { textDocument: { uri }, content }),
+          processSemanticTokensRequest(svc, {
+            textDocument: { uri },
+            content,
+            semanticTokenLegend: {
+              tokenTypes: ['class'],
+              tokenModifiers: ['declaration'],
+            },
+          }),
         ),
       ).resolves.toEqual({ data: [0, 0, 6, 0, 0] });
-      expect(processSemanticTokens).toHaveBeenCalledOnce();
+      expect(processSemanticTokens).toHaveBeenCalledWith(uri, {
+        tokenTypes: ['class'],
+        tokenModifiers: ['declaration'],
+      });
     });
   });
 
