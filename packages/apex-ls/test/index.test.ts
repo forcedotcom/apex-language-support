@@ -72,6 +72,8 @@ interface MockConnection {
   onShutdown: Mock;
   onExit: Mock;
   onCompletion: Mock;
+  onCodeLens: Mock;
+  onExecuteCommand: Mock;
   onDefinition: Mock;
   onImplementation: Mock;
   onReferences: Mock;
@@ -115,6 +117,8 @@ const mockConnection: MockConnection & {
   onShutdown: vi.fn(),
   onExit: vi.fn(),
   onCompletion: vi.fn(),
+  onCodeLens: vi.fn(),
+  onExecuteCommand: vi.fn(),
   onDefinition: vi.fn(),
   onImplementation: vi.fn(),
   onReferences: vi.fn(),
@@ -541,6 +545,13 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           triggerCharacters: ['.'],
           resolveProvider: false,
         },
+        codeLensProvider: { resolveProvider: false },
+        executeCommandProvider: {
+          commands: [
+            'apex.debugger.lineBreakpoints',
+            'apex.debugger.exceptionBreakpoints',
+          ],
+        },
         publishDiagnostics: true,
         textDocumentSync: {
           openClose: true,
@@ -696,6 +707,15 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
     expect(result.capabilities).toHaveProperty('diagnosticProvider');
     expect(result.capabilities).toHaveProperty('definitionProvider');
     expect(result.capabilities).toHaveProperty('implementationProvider');
+    expect(result.capabilities.codeLensProvider).toEqual({
+      resolveProvider: false,
+    });
+    expect(result.capabilities.executeCommandProvider).toEqual({
+      commands: [
+        'apex.debugger.lineBreakpoints',
+        'apex.debugger.exceptionBreakpoints',
+      ],
+    });
     expect(result.capabilities.semanticTokensProvider).toEqual({
       legend: { tokenTypes: [], tokenModifiers: [] },
       full: true,
@@ -718,6 +738,26 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
 
     expect(result.capabilities).not.toHaveProperty('definitionProvider');
     expect(result.capabilities).not.toHaveProperty('implementationProvider');
+  });
+
+  it('omits dynamically registered providers from static initialize capabilities', async () => {
+    const initHandler = mockHandlers.initialize as InitializeHandler;
+    const result = await initHandler({
+      capabilities: {
+        workspace: {
+          executeCommand: { dynamicRegistration: true },
+        },
+        textDocument: {
+          codeLens: { dynamicRegistration: true },
+        },
+      },
+      processId: 1,
+      rootUri: null,
+      workspaceFolders: null,
+    } as InitializeParams);
+
+    expect(result.capabilities).not.toHaveProperty('codeLensProvider');
+    expect(result.capabilities).not.toHaveProperty('executeCommandProvider');
   });
 
   it('should handle initialized notification', async () => {

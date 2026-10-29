@@ -1893,6 +1893,14 @@ export class LCSAdapter {
       });
     }
 
+    if (
+      allCapabilities.executeCommandProvider &&
+      !params.capabilities.workspace?.executeCommand?.dynamicRegistration
+    ) {
+      staticCapabilities.executeCommandProvider =
+        allCapabilities.executeCommandProvider;
+    }
+
     this.logger.debug(
       () =>
         `Returning static capabilities: ${JSON.stringify(staticCapabilities, null, 2)}`,
@@ -1972,6 +1980,9 @@ export class LCSAdapter {
           ?.dynamicRegistration;
       case 'codeLens':
         return !!this.clientCapabilities.textDocument?.codeLens
+          ?.dynamicRegistration;
+      case 'executeCommand':
+        return !!this.clientCapabilities.workspace?.executeCommand
           ?.dynamicRegistration;
       default:
         return false;
@@ -2509,6 +2520,19 @@ export class LCSAdapter {
             settings,
           ),
           resolveProvider: capabilities.codeLensProvider.resolveProvider,
+        },
+      });
+    }
+
+    if (
+      capabilities.executeCommandProvider &&
+      this.supportsDynamicRegistration('executeCommand')
+    ) {
+      registrations.push({
+        id: 'apex-execute-command',
+        method: 'workspace/executeCommand',
+        registerOptions: {
+          commands: capabilities.executeCommandProvider.commands,
         },
       });
     }

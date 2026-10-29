@@ -144,7 +144,8 @@ Control the language server's operational mode and feature set.
 
 Sets the server's operational mode:
 
-- **`production`**: Optimized for performance with minimal features
+- **`production`**: Optimized for performance with released features
+  - Enabled: document symbols, semantic tokens, CodeLens, and debugger command metadata
   - Disabled: hover, completion resolve, will-save notifications
   - Full document sync for reliability
 - **`development`**: Full feature set with enhanced diagnostics

@@ -124,7 +124,7 @@ describe('ApexCapabilitiesManager', () => {
       expect(capabilities.diagnosticProvider).toBeDefined();
     });
 
-    it('should enable CodeLens only for production web', () => {
+    it('should enable CodeLens and debugger commands for production clients', () => {
       expect(
         manager.getCapabilitiesForModeAndPlatform('production', 'web')
           .codeLensProvider,
@@ -132,7 +132,11 @@ describe('ApexCapabilitiesManager', () => {
       expect(
         manager.getCapabilitiesForModeAndPlatform('production', 'desktop')
           .codeLensProvider,
-      ).toBeUndefined();
+      ).toEqual({ resolveProvider: false });
+      expect(
+        manager.getCapabilitiesForModeAndPlatform('production', 'desktop')
+          .executeCommandProvider,
+      ).toEqual(PRODUCTION_WEB_CAPABILITIES.executeCommandProvider);
     });
 
     it.each([
@@ -163,7 +167,7 @@ describe('ApexCapabilitiesManager', () => {
   });
 
   describe('Feature States', () => {
-    it('distinguishes supported features from desktop production enabled features', () => {
+    it('reports desktop production enabled features', () => {
       manager.setPlatform('desktop');
       manager.setMode('production');
 
@@ -175,6 +179,7 @@ describe('ApexCapabilitiesManager', () => {
         enabled: true,
       });
       expect(states.semanticTokens).toEqual({ supported: true, enabled: true });
+      expect(states.codeLens).toEqual({ supported: true, enabled: true });
     });
 
     it('reports web production enabled features', () => {
@@ -312,19 +317,20 @@ describe('ApexCapabilitiesManager', () => {
   describe('Capability Validation', () => {
     it('should correctly identify enabled capabilities in production mode (desktop)', () => {
       manager.setMode('production');
-      // Default platform is desktop — only documentSymbolProvider is released for desktop production
+      // Default platform is desktop — only approved production capabilities are enabled.
       expect(manager.isCapabilityEnabled('textDocumentSync')).toBe(true);
       expect(manager.isCapabilityEnabled('documentSymbolProvider')).toBe(true);
       expect(manager.isCapabilityEnabled('workspace')).toBe(true);
 
-      // All other language features are disabled on desktop/production
+      // Other language features remain disabled on desktop/production.
       expect(manager.isCapabilityEnabled('foldingRangeProvider')).toBe(false);
       expect(manager.isCapabilityEnabled('hoverProvider')).toBe(false);
       expect(manager.isCapabilityEnabled('definitionProvider')).toBe(false);
       expect(manager.isCapabilityEnabled('diagnosticProvider')).toBe(false);
       expect(manager.isCapabilityEnabled('completionProvider')).toBe(false);
       expect(manager.isCapabilityEnabled('implementationProvider')).toBe(false);
-      expect(manager.isCapabilityEnabled('executeCommandProvider')).toBe(false);
+      expect(manager.isCapabilityEnabled('codeLensProvider')).toBe(true);
+      expect(manager.isCapabilityEnabled('executeCommandProvider')).toBe(true);
     });
 
     it('should correctly identify enabled capabilities in production mode (web)', () => {
