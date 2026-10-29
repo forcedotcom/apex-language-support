@@ -292,8 +292,8 @@ importers:
         specifier: ^7.8.0
         version: 7.8.0
       '@types/vscode':
-        specifier: 1.120.0
-        version: 1.120.0
+        specifier: 1.140.0
+        version: 1.140.0
       '@typescript-eslint/eslint-plugin':
         specifier: ^8.69.0
         version: 8.71.1(@typescript-eslint/parser@8.71.1(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3))(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)
@@ -477,8 +477,8 @@ importers:
         specifier: ^20.19.43
         version: 20.19.43
       '@types/vscode':
-        specifier: ^1.120.0
-        version: 1.120.0
+        specifier: ^1.140.0
+        version: 1.140.0
       assert:
         specifier: ^2.1.0
         version: 2.1.0
@@ -661,8 +661,8 @@ importers:
         specifier: ^67.27.5
         version: 67.27.5(@effect/platform@0.96.3(effect@3.22.2))(@opentelemetry/resources@2.12.0(@opentelemetry/api@1.9.1))(@opentelemetry/semantic-conventions@1.43.0)(@types/node@20.19.43)(supports-color@7.2.0)
       '@types/vscode':
-        specifier: ^1.120.0
-        version: 1.120.0
+        specifier: ^1.140.0
+        version: 1.140.0
       '@vscode/vsce':
         specifier: ^3.9.2
         version: 3.9.2(supports-color@7.2.0)
@@ -2540,8 +2540,8 @@ packages:
   '@types/semver@7.8.0':
     resolution: {integrity: sha512-1mAINjtQCXXeLkJ9ehXkwOcBpqtLxiVtKhpUf83DdRNdQKV0iXZpaHYqRr7nj+wvxuJzoAmAwXI+sCNMv1CzLQ==}
 
-  '@types/vscode@1.120.0':
-    resolution: {integrity: sha512-feaT4Rst+FkTch5zz/ZbNCxoIvo55YU80Be2kiL7OJcod4+CUYf2lUBPdIJzozNnSEMq1VRTGrWEcCGFB3fBmA==}
+  '@types/vscode@1.140.0':
+    resolution: {integrity: sha512-KAB5RBZIgnUhpp4mKsVJPPHLOQKu6WtGy2xpfWjaajEXO4xIIC+UESAXLiQ9ewx6QD1uBmvC/S8BJzkbvv4bRA==}
 
   '@typescript-eslint/eslint-plugin@8.71.1':
     resolution: {integrity: sha512-nNlBf6HuotqMgZvSkWD5hNdemiBIxQ2NmrlgfcUIeZRs+BbakjscCQRq/Hb74EFVnFiSWWdL12JruqwBy3ERDw==}
@@ -8461,7 +8461,7 @@ snapshots:
       '@salesforce/core': 9.3.0
       '@salesforce/source-deploy-retrieve': 13.4.4(supports-color@7.2.0)
       '@salesforce/source-tracking': 8.1.4(supports-color@7.2.0)
-      '@types/vscode': 1.120.0
+      '@types/vscode': 1.140.0
       effect: 3.22.2
       jsforce: 3.10.28(@types/node@20.19.43)
       vscode-uri: 3.2.0
@@ -8744,7 +8744,7 @@ snapshots:
 
   '@types/semver@7.8.0': {}
 
-  '@types/vscode@1.120.0': {}
+  '@types/vscode@1.140.0': {}
 
   '@typescript-eslint/eslint-plugin@8.71.1(@typescript-eslint/parser@8.71.1(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3))(eslint@9.39.5(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)':
     dependencies:
