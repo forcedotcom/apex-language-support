@@ -189,6 +189,7 @@ export const LSP_SPAN_NAMES = {
   REFERENCES: 'extension.command.references',
   RENAME: 'extension.command.rename',
   DOCUMENT_SYMBOL: 'extension.command.documentSymbol',
+  TEXT_DOCUMENT_SEMANTIC_TOKENS_FULL: 'lsp.textDocument.semanticTokens.full',
   DIAGNOSTICS: 'extension.command.diagnostics',
   FOLDING_RANGE: 'extension.command.foldingRange',
   CODE_LENS: 'extension.command.codeLens',

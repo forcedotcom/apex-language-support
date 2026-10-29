@@ -33,6 +33,10 @@ vi.mock('@salesforce/apex-lsp-shared', () => ({
     Low: 4,
     Background: 5,
   },
+  SEMANTIC_TOKEN_LEGEND: {
+    tokenTypes: [],
+    tokenModifiers: [],
+  },
   runWithSpan: vi.fn((_name: string, fn: () => any) => fn()),
   LSP_SPAN_NAMES: {},
   CommandPerformanceAggregator: class {
@@ -78,6 +82,9 @@ const mockConnection = {
   onDocumentSymbol: vi.fn(),
   languages: {
     foldingRange: {
+      on: vi.fn(),
+    },
+    semanticTokens: {
       on: vi.fn(),
     },
   },

@@ -94,6 +94,7 @@ const mockConnection: MockConnection & {
     diagnostics?: { on: Mock };
     hover?: { on: Mock };
     completion?: { on: Mock };
+    semanticTokens?: { on: Mock };
   };
   workspace?: {
     onDidChangeWorkspaceFolders?: Mock;
@@ -135,6 +136,7 @@ const mockConnection: MockConnection & {
     diagnostics: { on: vi.fn() },
     hover: { on: vi.fn() },
     completion: { on: vi.fn() },
+    semanticTokens: { on: vi.fn() },
   },
   workspace: {
     onDidChangeWorkspaceFolders: vi.fn(),
@@ -454,6 +456,10 @@ vi.mock('@salesforce/apex-lsp-shared', () => ({
   LSPConfigurationManager: {
     getInstance: vi.fn(),
   },
+  SEMANTIC_TOKEN_LEGEND: {
+    tokenTypes: [],
+    tokenModifiers: [],
+  },
   runWithSpan: vi.fn((_name: string, fn: () => any) => fn()),
   LSP_SPAN_NAMES: {},
   CommandPerformanceAggregator: class {
@@ -516,6 +522,10 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
     mockConfigManager = {
       getCapabilities: vi.fn().mockReturnValue({
         documentSymbolProvider: { resolveProvider: false },
+        semanticTokensProvider: {
+          legend: { tokenTypes: [], tokenModifiers: [] },
+          full: true,
+        },
         hoverProvider: true,
         definitionProvider: true,
         implementationProvider: true,
@@ -587,7 +597,7 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           codeLens: { supported: true, enabled: true },
           references: { supported: true, enabled: true },
           rename: { supported: true, enabled: true },
-          semanticTokens: { supported: false, enabled: false },
+          semanticTokens: { supported: true, enabled: true },
           inlayHint: { supported: false, enabled: false },
         }),
       }),
@@ -685,6 +695,10 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
     expect(result.capabilities).toHaveProperty('diagnosticProvider');
     expect(result.capabilities).toHaveProperty('definitionProvider');
     expect(result.capabilities).toHaveProperty('implementationProvider');
+    expect(result.capabilities.semanticTokensProvider).toEqual({
+      legend: { tokenTypes: [], tokenModifiers: [] },
+      full: true,
+    });
   });
 
   it('omits dynamic navigation providers from static initialize capabilities', async () => {
@@ -1076,6 +1090,45 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
       expect(mockConnection.onDocumentSymbol).toHaveBeenCalledWith(
         expect.any(Function),
       );
+    });
+
+    it('should register semantic tokens handler', () => {
+      expect(mockConnection.languages?.semanticTokens?.on).toHaveBeenCalledWith(
+        expect.any(Function),
+      );
+    });
+
+    it('submits semantic-token requests through the queue and returns an empty response on failure', async () => {
+      const { LSPQueueManager } =
+        (await import('@salesforce/apex-lsp-compliant-services')) as {
+          LSPQueueManager: {
+            getInstance: () => {
+              submitSemanticTokensRequest: (
+                params: unknown,
+              ) => Promise<unknown>;
+            };
+          };
+        };
+      const submitSemanticTokensRequest = vi
+        .fn()
+        .mockResolvedValueOnce({ data: [0, 0, 6, 1, 0] })
+        .mockRejectedValueOnce(new Error('semantic token timeout'));
+      const getInstance = vi
+        .spyOn(LSPQueueManager, 'getInstance')
+        .mockReturnValue({ submitSemanticTokensRequest });
+      const handler =
+        mockConnection.languages?.semanticTokens?.on.mock.calls.at(-1)?.[0] as (
+          params: unknown,
+        ) => Promise<unknown>;
+      const params = { textDocument: { uri: 'file:///Tokens.cls' } };
+
+      await expect(handler(params)).resolves.toEqual({
+        data: [0, 0, 6, 1, 0],
+      });
+      expect(submitSemanticTokensRequest).toHaveBeenCalledWith(params);
+      await expect(handler(params)).resolves.toEqual({ data: [] });
+
+      getInstance.mockRestore();
     });
 
     it('should register folding range handler', () => {

@@ -39,6 +39,8 @@ import {
   ExecuteCommandParams,
   CancellationToken,
   CompletionParams,
+  SemanticTokensParams,
+  SemanticTokens,
   type CompletionItem,
   type CompletionList,
   ResponseError,
@@ -95,6 +97,7 @@ import {
   isWorkspaceLoading,
   getDiagnosticRefreshService,
   decodeFindMissingArtifactResult,
+  SEMANTIC_TOKEN_LEGEND,
 } from '@salesforce/apex-lsp-compliant-services';
 
 import {
@@ -717,6 +720,28 @@ export class LCSAdapter {
     } else {
       this.logger.debug(
         '⚠️ Document symbol handler not registered (capability disabled)',
+      );
+    }
+
+    if (capabilities.semanticTokensProvider) {
+      this.connection.languages.semanticTokens.on(
+        async (params: SemanticTokensParams): Promise<SemanticTokens> =>
+          this.handleLspRequest(
+            LSP_SPAN_NAMES.TEXT_DOCUMENT_SEMANTIC_TOKENS_FULL,
+            'textDocument/semanticTokens/full',
+            params,
+            (p) => LSPQueueManager.getInstance().submitSemanticTokensRequest(p),
+            { data: [] },
+            {
+              'semanticTokens.types':
+                SEMANTIC_TOKEN_LEGEND.tokenTypes.join(','),
+            },
+          ),
+      );
+      this.logger.debug('✅ Semantic tokens handler registered');
+    } else {
+      this.logger.debug(
+        '⚠️ Semantic tokens handler not registered (capability disabled)',
       );
     }
 
@@ -1735,6 +1760,14 @@ export class LCSAdapter {
         featureStateProvider: featureStates,
       },
     };
+
+    // Semantic tokens have no dynamic-registration path in this adapter. VS Code
+    // only schedules textDocument/semanticTokens/full after seeing this provider
+    // in the initialize response.
+    if (allCapabilities.semanticTokensProvider) {
+      staticCapabilities.semanticTokensProvider =
+        allCapabilities.semanticTokensProvider;
+    }
 
     // Log textDocumentSync capabilities being negotiated
     this.logger.debug(

@@ -19,6 +19,10 @@ vi.mock('@salesforce/apex-lsp-shared', () => ({
   LSPConfigurationManager: {
     getInstance: vi.fn(),
   },
+  SEMANTIC_TOKEN_LEGEND: {
+    tokenTypes: [],
+    tokenModifiers: [],
+  },
   getLogger: vi.fn(() => ({
     debug: vi.fn(),
     info: vi.fn(),
@@ -116,6 +120,9 @@ describe('LCSAdapter ResourceLoader Initialization', () => {
           on: vi.fn(),
         },
         diagnostics: {
+          on: vi.fn(),
+        },
+        semanticTokens: {
           on: vi.fn(),
         },
       },

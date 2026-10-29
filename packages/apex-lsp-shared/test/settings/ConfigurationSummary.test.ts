@@ -9,8 +9,10 @@
 import {
   generateStartupSummary,
   generateChangeSummary,
+  generateCapabilitiesSummary,
 } from '../../src/settings/ConfigurationSummary';
 import type { ApexLanguageServerSettings } from '../../src/server/ApexLanguageServerSettings';
+import type { ExtendedServerCapabilities } from '../../src/capabilities/ApexLanguageServerCapabilities';
 
 describe('ConfigurationSummary', () => {
   // Helper to create a minimal valid settings object
@@ -319,6 +321,23 @@ describe('ConfigurationSummary', () => {
       expect(summary).toContain('Configuration updated');
       // Should not crash, should show synchronized
       expect(summary).toContain('(settings synchronized)');
+    });
+  });
+
+  describe('generateCapabilitiesSummary', () => {
+    it('reports whether semantic tokens are enabled', () => {
+      const enabled = generateCapabilitiesSummary({
+        semanticTokensProvider: {
+          legend: { tokenTypes: [], tokenModifiers: [] },
+          full: true,
+        },
+      } as unknown as ExtendedServerCapabilities);
+      const disabled = generateCapabilitiesSummary(
+        {} as ExtendedServerCapabilities,
+      );
+
+      expect(enabled).toContain('Semantic Tokens:   enabled');
+      expect(disabled).toContain('Semantic Tokens:   disabled');
     });
   });
 });
