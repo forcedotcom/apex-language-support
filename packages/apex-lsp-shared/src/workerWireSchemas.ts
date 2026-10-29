@@ -517,6 +517,7 @@ export const LSP_REQUEST_TYPES = [
   'implementation',
   'references',
   'documentSymbol',
+  'semanticTokens',
   'workspaceSymbol',
   'diagnostics',
   'codeAction',
@@ -835,6 +836,21 @@ export class DispatchDocumentSymbol extends Schema.TaggedRequest<DispatchDocumen
       // the text. Without it the pool worker's storage has no document and the
       // provider returns an empty outline (the cold-open regression).
       content: Schema.optional(Schema.String),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
+    },
+  },
+) {}
+
+/** Parser-only semantic tokens for the current, possibly unsaved document buffer. */
+export class DispatchSemanticTokens extends Schema.TaggedRequest<DispatchSemanticTokens>()(
+  'DispatchSemanticTokens',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: {
+      textDocument: WireTextDocumentId,
+      content: Schema.String,
       /** W3C traceparent for distributed tracing (optional) */
       traceContext: Schema.optional(Schema.String),
     },
@@ -1372,6 +1388,7 @@ export const LspRequestTags = [
   'DispatchPrepareRename',
   'DispatchImplementation',
   'DispatchDocumentSymbol',
+  'DispatchSemanticTokens',
   'DispatchCodeLens',
   'DispatchDiagnostic',
   'DispatchCrossFileEnrichment',
@@ -1457,6 +1474,7 @@ export type LspRequestMessage =
   | DispatchPrepareRename
   | DispatchImplementation
   | DispatchDocumentSymbol
+  | DispatchSemanticTokens
   | DispatchCodeLens
   | DispatchDiagnostic
   | DispatchCrossFileEnrichment

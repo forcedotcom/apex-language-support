@@ -15,6 +15,7 @@ import {
   DataOwnerQuerySymbolByName,
   DrainDeferredReferences,
   DispatchDiagnostic,
+  DispatchSemanticTokens,
   DispatchHover,
   DispatchImplementation,
   WorkspaceBatchCompileOnDataOwner,
@@ -91,6 +92,7 @@ describe('WorkerCoordinator.queryDataOwner — switch coverage', () => {
   it.each([
     ['implementation', DispatchImplementation],
     ['diagnostics', DispatchDiagnostic],
+    ['semanticTokens', DispatchSemanticTokens],
   ] as const)('carries live content for %s dispatch', async (type, Message) => {
     const logger = createSpyLogger();
     const { topology, pooled } = makeFakeTopology();

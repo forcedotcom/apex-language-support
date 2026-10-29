@@ -27,6 +27,7 @@ import {
   resolveMissingNamesViaDataOwner,
   completionResultForWire,
   makeWorkerDocument,
+  processSemanticTokensRequest,
   loadCodeLensSymbolData,
   loadSymbolDataForEnrichment,
   prepareLspRequestCursor,
@@ -59,6 +60,34 @@ const compileToWireSymbolTable = (content: string, uri: string): unknown => {
 };
 
 describe('worker.platform.shared', () => {
+  describe('processSemanticTokensRequest', () => {
+    it('stores the live buffer before parser-only token processing', async () => {
+      const uri = 'file:///Tokens.cls';
+      const content = 'public class Tokens {}';
+      const setDocument = vi.fn();
+      const processSemanticTokens = vi.fn(async (requestedUri: string) => {
+        expect(requestedUri).toBe(uri);
+        expect(setDocument).toHaveBeenCalledOnce();
+        const document = setDocument.mock.calls[0][1] as {
+          getText(): string;
+        };
+        expect(document.getText()).toBe(content);
+        return { data: [0, 0, 6, 0, 0] };
+      });
+      const svc = {
+        storageManager: { getStorage: () => ({ setDocument }) },
+        semanticTokensService: { processSemanticTokens },
+      } as unknown as Parameters<typeof processSemanticTokensRequest>[0];
+
+      await expect(
+        Effect.runPromise(
+          processSemanticTokensRequest(svc, { textDocument: { uri }, content }),
+        ),
+      ).resolves.toEqual({ data: [0, 0, 6, 0, 0] });
+      expect(processSemanticTokens).toHaveBeenCalledOnce();
+    });
+  });
+
   describe('cursor dependency reference selection', () => {
     const reference = (
       name: string,

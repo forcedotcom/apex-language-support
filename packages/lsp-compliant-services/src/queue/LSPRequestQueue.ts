@@ -19,6 +19,7 @@ export type LSPRequestType =
   | 'implementation'
   | 'references'
   | 'documentSymbol'
+  | 'semanticTokens'
   | 'workspaceSymbol'
   | 'diagnostics'
   | 'codeAction'
