@@ -74,6 +74,45 @@ describe('semantic token encoder', () => {
     expect(result.data).toEqual([2, 4, 3, 1, 0, 0, 6, 2, 1, 0, 2, 3, 5, 1, 0]);
   });
 
+  it('uses the negotiated legend to filter tokens and modifiers', () => {
+    const result = encodeSemanticTokenSpans(
+      [
+        span({ tokenType: 'class', tokenModifiers: ['declaration', 'static'] }),
+        span({
+          start: { line: 0, character: 2 },
+          end: { line: 0, character: 3 },
+          tokenType: 'method',
+        }),
+      ],
+      {
+        tokenTypes: ['class'],
+        tokenModifiers: ['declaration'],
+      },
+    );
+
+    expect(result.data).toEqual([0, 0, 1, 0, 1]);
+  });
+
+  it('uses declaration precedence even when declaration is not negotiated', () => {
+    const result = encodeSemanticTokenSpans(
+      [
+        span({
+          tokenType: 'type',
+          tokenModifiers: ['readonly'],
+          precedence: 10,
+        }),
+        span({
+          tokenType: 'class',
+          tokenModifiers: ['declaration'],
+          precedence: 0,
+        }),
+      ],
+      { tokenTypes: ['class', 'type'], tokenModifiers: ['readonly'] },
+    );
+
+    expect(result.data).toEqual([0, 0, 1, 0, 0]);
+  });
+
   it('merges exact duplicates and gives declaration precedence', () => {
     const result = encodeSemanticTokenSpans([
       span({ tokenType: 'type', tokenModifiers: ['readonly'], precedence: 10 }),

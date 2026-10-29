@@ -851,6 +851,10 @@ export class DispatchSemanticTokens extends Schema.TaggedRequest<DispatchSemanti
     payload: {
       textDocument: WireTextDocumentId,
       content: Schema.String,
+      semanticTokenLegend: Schema.Struct({
+        tokenTypes: Schema.Array(Schema.String),
+        tokenModifiers: Schema.Array(Schema.String),
+      }),
       /** W3C traceparent for distributed tracing (optional) */
       traceContext: Schema.optional(Schema.String),
     },

@@ -11,6 +11,7 @@ import {
   PRODUCTION_WEB_CAPABILITIES,
   PRODUCTION_DESKTOP_CAPABILITIES,
   DEVELOPMENT_CAPABILITIES,
+  negotiateSemanticTokensProvider,
 } from '../../src/capabilities/ApexLanguageServerCapabilities';
 import { SEMANTIC_TOKEN_LEGEND } from '../../src/semanticTokenLegend';
 
@@ -188,6 +189,85 @@ describe('ApexCapabilitiesManager', () => {
         supported: true,
         enabled: true,
       });
+    });
+  });
+
+  describe('semantic-token negotiation', () => {
+    it('advertises only semantic token types and modifiers supported by the client', () => {
+      const provider = negotiateSemanticTokensProvider(
+        {
+          legend: {
+            tokenTypes: ['class', 'method', 'keyword'],
+            tokenModifiers: ['declaration', 'static'],
+          },
+          full: true,
+        },
+        {
+          tokenTypes: ['method', 'keyword'],
+          tokenModifiers: ['static'],
+          formats: ['relative'],
+          requests: { full: true },
+        },
+      );
+
+      expect(provider).toEqual({
+        legend: {
+          tokenTypes: ['method', 'keyword'],
+          tokenModifiers: ['static'],
+        },
+        full: true,
+      });
+    });
+
+    it('preserves the complete server provider when the client does not advertise semantic tokens', () => {
+      const provider = {
+        legend: { tokenTypes: ['class'], tokenModifiers: ['declaration'] },
+        full: true,
+      };
+
+      expect(negotiateSemanticTokensProvider(provider, undefined)).toBe(
+        provider,
+      );
+    });
+
+    it('does not advertise a full provider to clients without full relative support', () => {
+      const provider = {
+        legend: { tokenTypes: ['class'], tokenModifiers: ['declaration'] },
+        full: true,
+      };
+
+      expect(
+        negotiateSemanticTokensProvider(provider, {
+          tokenTypes: ['class'],
+          tokenModifiers: ['declaration'],
+          formats: ['relative'],
+          requests: { range: true },
+        }),
+      ).toBeUndefined();
+      expect(
+        negotiateSemanticTokensProvider(provider, {
+          tokenTypes: ['class'],
+          tokenModifiers: ['declaration'],
+          formats: [],
+          requests: { full: true },
+        }),
+      ).toBeUndefined();
+    });
+
+    it('accepts the object form of full request support without advertising delta', () => {
+      const provider = {
+        legend: { tokenTypes: ['class'], tokenModifiers: ['declaration'] },
+        full: true,
+      };
+
+      expect(
+        negotiateSemanticTokensProvider(provider, {
+          tokenTypes: ['class'],
+          tokenModifiers: ['declaration'],
+          formats: ['relative'],
+          requests: { full: { delta: true } },
+        }),
+      ).toEqual(provider);
     });
   });
 
