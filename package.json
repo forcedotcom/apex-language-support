@@ -99,7 +99,7 @@
     "@vitest/coverage-v8": "5.0.1",
     "jscpd": "^4.3.0",
     "jsonc-eslint-parser": "^2.4.0",
-    "knip": "^6.38.0",
+    "knip": "^6.41.0",
     "prettier": "^3.9.6",
     "rimraf": "^5.0.5",
     "semantic-release": "^25.0.9",
@@ -109,11 +109,11 @@
     "typescript": "^5.8.2",
     "vitest": "5.0.1",
     "wireit": "^0.14.13",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.63.3",
-    "@rollup/rollup-linux-x64-musl": "^4.63.1"
+    "@rollup/rollup-linux-x64-gnu": "^4.64.7",
+    "@rollup/rollup-linux-x64-musl": "^4.64.7"
   },
   "dependencies": {
     "vscode-languageserver-protocol": "3.17.5",
