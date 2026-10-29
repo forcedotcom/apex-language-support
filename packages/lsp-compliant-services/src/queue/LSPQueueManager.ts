@@ -25,6 +25,10 @@ import {
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect, Deferred, Fiber, Cause, Data } from 'effect';
 import { LSPRequestType, LSPQueueStats } from './LSPRequestQueue';
+import type {
+  WorkerDispatchArgs,
+  WorkerDispatchResult,
+} from './LSPDispatchContract';
 import { ServiceRegistry, GenericRequestHandler } from '../registry';
 
 /**
@@ -102,7 +106,9 @@ export interface WorkerDispatcher {
     reason?: 'no-compile-pending' | 'timeout' | 'stale-version';
   }>;
   /** Offload the request to a worker, resolving with its result. */
-  dispatch(type: LSPRequestType, params: unknown): Promise<unknown>;
+  dispatch<T extends WorkerDispatchArgs>(
+    ...args: T
+  ): Promise<WorkerDispatchResult<T>>;
 }
 
 /**
@@ -411,7 +417,11 @@ export class LSPQueueManager {
                   // Wrap dispatch in a span so trace context injection can access it
                   return (await runWithSpan(
                     `lsp.coordinator.${type}`,
-                    () => workerDispatcher.dispatch(type, params),
+                    // Queue tasks are dynamically registered; the dispatcher
+                    // contract protects direct callers while this legacy queue
+                    // boundary is migrated separately.
+                    () =>
+                      workerDispatcher.dispatch(type as never, params as never),
                     { request_type: type, uri: requestTargetUri(params) },
                   )) as T;
                 } catch (dispatchError) {

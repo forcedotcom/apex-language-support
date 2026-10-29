@@ -8,6 +8,7 @@
 
 import { ClientCapabilities } from 'vscode-languageserver-protocol';
 import { ClientCapabilitiesConfiguration } from '../capabilities/ApexLanguageServerCapabilities';
+import { SEMANTIC_TOKEN_LEGEND } from '../semanticTokenLegend';
 
 /**
  * Base client capabilities shared across all modes
@@ -42,6 +43,12 @@ const BASE_CLIENT_CAPABILITIES: ClientCapabilities = {
     workspaceFolders: true,
   },
   textDocument: {
+    semanticTokens: {
+      requests: { full: true },
+      tokenTypes: [...SEMANTIC_TOKEN_LEGEND.tokenTypes],
+      tokenModifiers: [...SEMANTIC_TOKEN_LEGEND.tokenModifiers],
+      formats: ['relative'],
+    },
     publishDiagnostics: {
       relatedInformation: true,
       versionSupport: false,

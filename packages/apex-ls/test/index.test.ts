@@ -460,6 +460,7 @@ vi.mock('@salesforce/apex-lsp-shared', () => ({
     tokenTypes: [],
     tokenModifiers: [],
   },
+  negotiateSemanticTokensProvider: vi.fn((provider) => provider),
   runWithSpan: vi.fn((_name: string, fn: () => any) => fn()),
   LSP_SPAN_NAMES: {},
   CommandPerformanceAggregator: class {
@@ -1125,7 +1126,10 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
       await expect(handler(params)).resolves.toEqual({
         data: [0, 0, 6, 1, 0],
       });
-      expect(submitSemanticTokensRequest).toHaveBeenCalledWith(params);
+      expect(submitSemanticTokensRequest).toHaveBeenCalledWith({
+        ...params,
+        semanticTokenLegend: { tokenTypes: [], tokenModifiers: [] },
+      });
       await expect(handler(params)).resolves.toEqual({ data: [] });
 
       getInstance.mockRestore();

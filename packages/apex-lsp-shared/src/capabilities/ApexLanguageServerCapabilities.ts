@@ -10,6 +10,7 @@ import {
   ServerCapabilities,
   ClientCapabilities,
   CodeActionKind,
+  type SemanticTokensClientCapabilities,
   type SemanticTokensOptions,
 } from 'vscode-languageserver-protocol';
 import { APEX_DEBUGGER_COMMANDS } from '../commands/ApexDebuggerCommands';
@@ -22,6 +23,39 @@ const SEMANTIC_TOKENS_PROVIDER: SemanticTokensOptions = {
   },
   full: true,
 };
+
+/**
+ * Restrict the server legend to token names a semantic-token-capable client
+ * advertises. The server owns the response ordering and uses this exact legend
+ * when encoding each token response for that client session.
+ */
+export function negotiateSemanticTokensProvider(
+  serverProvider: SemanticTokensOptions,
+  clientCapabilities: SemanticTokensClientCapabilities | undefined,
+): SemanticTokensOptions | undefined {
+  if (clientCapabilities === undefined) return serverProvider;
+  if (
+    (clientCapabilities.requests.full !== true &&
+      typeof clientCapabilities.requests.full !== 'object') ||
+    !clientCapabilities.formats.includes('relative')
+  ) {
+    return undefined;
+  }
+
+  const tokenTypes = new Set(clientCapabilities.tokenTypes);
+  const tokenModifiers = new Set(clientCapabilities.tokenModifiers);
+  return {
+    legend: {
+      tokenTypes: serverProvider.legend.tokenTypes.filter((type) =>
+        tokenTypes.has(type),
+      ),
+      tokenModifiers: serverProvider.legend.tokenModifiers.filter((modifier) =>
+        tokenModifiers.has(modifier),
+      ),
+    },
+    full: serverProvider.full,
+  };
+}
 
 export type ExtendedServerCapabilities = ServerCapabilities &
   ImplicitCapabilties & { experimental?: ExperimentalCapabilities };

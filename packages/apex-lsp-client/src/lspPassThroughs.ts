@@ -24,5 +24,9 @@ export type {
   HoverParams,
   Location,
   LocationLink,
+  SemanticTokens,
+  SemanticTokensLegend,
+  SemanticTokensOptions,
+  SemanticTokensParams,
   SymbolInformation,
 } from 'vscode-languageserver-protocol';

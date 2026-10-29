@@ -1015,6 +1015,10 @@ export type DocWithContentReq = {
 export type SemanticTokensReq = {
   textDocument: { uri: string };
   content: string;
+  semanticTokenLegend: {
+    tokenTypes: readonly string[];
+    tokenModifiers: readonly string[];
+  };
 };
 
 export function processSemanticTokensRequest(
@@ -1029,7 +1033,10 @@ export function processSemanticTokensRequest(
       .getStorage()
       .setDocument(req.textDocument.uri, document as never);
     return yield* Effect.promise(() =>
-      svc.semanticTokensService.processSemanticTokens(req.textDocument.uri),
+      svc.semanticTokensService.processSemanticTokens(
+        req.textDocument.uri,
+        req.semanticTokenLegend,
+      ),
     );
   });
 }

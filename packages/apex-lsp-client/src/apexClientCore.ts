@@ -55,14 +55,21 @@ import type {
   Hover,
   HoverParams,
   LocationLink,
+  SemanticTokens,
+  SemanticTokensOptions,
+  SemanticTokensParams,
   SymbolInformation,
 } from './lspPassThroughs';
+import {
+  decodeSemanticTokens,
+  type DecodedSemanticToken,
+} from './semanticTokens';
 import {
   composeRequestChain,
   composeNotificationChain,
 } from './middleware/composeMiddleware';
 import { createApexMethodSurface } from './apexMethods';
-import type { ApexClient } from './apexClient';
+import type { ApexStandardLspClient } from './apexClient';
 
 /**
  * Caller-supplied `initialize` params. `initializationOptions` is intentionally
@@ -85,6 +92,36 @@ export class ApexClientDisposedError extends Error {
     super(`Cannot ${operation}: ApexClientCore has been disposed`);
     this.name = 'ApexClientDisposedError';
   }
+}
+
+function getSemanticTokensProvider(
+  result: InitializeResult | undefined,
+): SemanticTokensOptions | undefined {
+  const provider = result?.capabilities.semanticTokensProvider;
+  if (provider === undefined || provider === null) {
+    return undefined;
+  }
+  if (
+    typeof provider !== 'object' ||
+    provider.legend === undefined ||
+    provider.legend === null ||
+    typeof provider.legend !== 'object' ||
+    !Array.isArray(provider.legend.tokenTypes) ||
+    !Array.isArray(provider.legend.tokenModifiers) ||
+    !provider.legend.tokenTypes.every(
+      (tokenType) => typeof tokenType === 'string',
+    ) ||
+    !provider.legend.tokenModifiers.every(
+      (modifier) => typeof modifier === 'string',
+    ) ||
+    (provider.full !== undefined &&
+      provider.full !== true &&
+      provider.full !== false &&
+      (typeof provider.full !== 'object' || provider.full === null))
+  ) {
+    throw new Error('Invalid semantic tokens provider in initialize result');
+  }
+  return provider;
 }
 
 /**
@@ -120,6 +157,7 @@ interface CoreHandle {
   readonly setFeatureStatesFromInitializeResult: (
     result: InitializeResult | undefined,
   ) => void;
+  readonly getSemanticTokensProvider: () => SemanticTokensProviderState;
 
   // --- Typed debugger command senders ---
   readonly getLineBreakpointInfo: (
@@ -155,6 +193,21 @@ interface CoreHandle {
   readonly onQueueStateChanged: (
     handler: (params: QueueStateChangedParams) => void,
   ) => Disposable;
+}
+
+type SemanticTokensProviderState = {
+  readonly provider: SemanticTokensOptions | undefined;
+  readonly revision: number;
+};
+
+function nextSemanticTokensProviderState(
+  state: SemanticTokensProviderState,
+  provider: SemanticTokensOptions | undefined,
+): SemanticTokensProviderState {
+  return {
+    provider,
+    revision: state.revision + 1,
+  };
 }
 
 /**
@@ -345,9 +398,15 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
   const initResultRef = yield* Ref.make<Option.Option<InitializeResult>>(
     Option.none(),
   );
+  const initFailureRef = yield* Ref.make<Option.Option<Error>>(Option.none());
   const featureStatesRef = yield* Ref.make<ApexServerFeatureStates | undefined>(
     undefined,
   );
+  const semanticTokensProviderRef =
+    yield* Ref.make<SemanticTokensProviderState>({
+      provider: undefined,
+      revision: 0,
+    });
   const initMutex = yield* Effect.makeSemaphore(1);
 
   const runInitialize = (
@@ -362,6 +421,10 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
           const existing = yield* Ref.get(initResultRef);
           if (Option.isSome(existing)) {
             return existing.value;
+          }
+          const initializationFailure = yield* Ref.get(initFailureRef);
+          if (Option.isSome(initializationFailure)) {
+            return yield* Effect.fail(initializationFailure.value);
           }
           // Determine mode from settings for capability advertisement.
           const mode = settings.apex.environment.serverMode ?? 'production';
@@ -381,6 +444,9 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
               textDocument: {
                 ...params?.capabilities?.textDocument,
                 ...textDocumentCaps,
+                semanticTokens:
+                  params?.capabilities?.textDocument?.semanticTokens ??
+                  textDocumentCaps.semanticTokens,
               },
               experimental: {
                 ...params?.capabilities?.experimental,
@@ -394,9 +460,25 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
           const result = yield* Effect.promise(() =>
             connection.sendRequest<InitializeResult>('initialize', initParams),
           );
+          let semanticTokensProvider: SemanticTokensOptions | undefined;
+          let semanticTokensProviderError: Error | undefined;
+          try {
+            semanticTokensProvider = getSemanticTokensProvider(result);
+          } catch (error) {
+            semanticTokensProviderError = error as Error;
+          }
+          if (semanticTokensProviderError !== undefined) {
+            yield* Ref.set(
+              initFailureRef,
+              Option.some(semanticTokensProviderError),
+            );
+          }
           yield* Effect.promise(async () => {
             await connection.sendNotification('initialized', {});
           });
+          if (semanticTokensProviderError !== undefined) {
+            return yield* Effect.fail(semanticTokensProviderError);
+          }
           // Record success only — failures above never reach here, so they are
           // not memoized and a later call can retry.
           yield* Ref.set(initResultRef, Option.some(result));
@@ -408,6 +490,13 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
               | undefined
           )?.featureStateProvider;
           yield* Ref.set(featureStatesRef, featureStates);
+          yield* Ref.set(
+            semanticTokensProviderRef,
+            nextSemanticTokensProviderState(
+              yield* Ref.get(semanticTokensProviderRef),
+              semanticTokensProvider,
+            ),
+          );
           return result;
         }),
       )
@@ -432,6 +521,7 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
   const setFeatureStatesFromInitializeResult = (
     result: InitializeResult | undefined,
   ): void => {
+    const semanticTokensProvider = getSemanticTokensProvider(result);
     const featureStates = (
       result?.capabilities.experimental as
         | {
@@ -440,7 +530,16 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
         | undefined
     )?.featureStateProvider;
     Runtime.runSync(runtime)(Ref.set(featureStatesRef, featureStates));
+    Runtime.runSync(
+      runtime,
+      Ref.update(semanticTokensProviderRef, (state) =>
+        nextSemanticTokensProviderState(state, semanticTokensProvider),
+      ),
+    );
   };
+
+  const getNegotiatedSemanticTokensProvider = (): SemanticTokensProviderState =>
+    Runtime.runSync(runtime)(Ref.get(semanticTokensProviderRef));
 
   // Idempotent shutdown: shutdown request then exit notification, sequentially.
   // Memoizes success only (same rationale as initialize) and serializes via a
@@ -545,6 +644,7 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
     ping,
     getFeatureState,
     setFeatureStatesFromInitializeResult,
+    getNegotiatedSemanticTokensProvider,
     getLineBreakpointInfo,
     getExceptionBreakpointInfo,
     isDisposed,
@@ -574,7 +674,7 @@ const makeCore = Effect.fn('ApexClientCore.make')(function* (
  * own the `initialize`/`shutdown` handshake, the adapter delegates lifecycle to
  * it instead of re-sending — wiring lands in 4.1.
  */
-export class ApexClientCore implements ApexClient {
+export class ApexClientCore implements ApexStandardLspClient {
   private readonly handle: CoreHandle;
   private readonly closeScope: () => Promise<void>;
 
@@ -640,6 +740,7 @@ export class ApexClientCore implements ApexClient {
       getFeatureState: built.getFeatureState,
       setFeatureStatesFromInitializeResult:
         built.setFeatureStatesFromInitializeResult,
+      getSemanticTokensProvider: built.getNegotiatedSemanticTokensProvider,
       getLineBreakpointInfo: built.getLineBreakpointInfo,
       getExceptionBreakpointInfo: built.getExceptionBreakpointInfo,
       // Typed apex/* senders
@@ -790,6 +891,38 @@ export class ApexClientCore implements ApexClient {
       'textDocument/documentSymbol',
       params,
     );
+  }
+
+  /** Request and decode full-document semantic tokens using the negotiated legend. */
+  async semanticTokens(
+    params: SemanticTokensParams,
+  ): Promise<readonly DecodedSemanticToken[] | undefined> {
+    const providerState = this.handle.getSemanticTokensProvider();
+    const provider = providerState.provider;
+    if (
+      provider === undefined ||
+      provider.full === undefined ||
+      provider.full === false
+    ) {
+      if (this.isDisposed()) {
+        throw new ApexClientDisposedError('request semantic tokens');
+      }
+      return undefined;
+    }
+    const { partialResultToken: _partialResultToken, ...fullParams } = params;
+    const response = await this.request<SemanticTokens | null>(
+      'textDocument/semanticTokens/full',
+      fullParams,
+    );
+    if (
+      this.handle.getSemanticTokensProvider().revision !==
+      providerState.revision
+    ) {
+      return undefined;
+    }
+    return response === null
+      ? undefined
+      : decodeSemanticTokens(response, provider.legend);
   }
 
   // --- Typed apex/* senders (9 clientToServer) ---

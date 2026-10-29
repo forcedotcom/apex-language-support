@@ -19,14 +19,8 @@ import {
 
 const MAX_LSP_INTEGER = 2_147_483_647;
 
-const typeIndex = new Map<SemanticTokenType, number>(
+const supportedTypeIndex = new Map<SemanticTokenType, number>(
   SEMANTIC_TOKEN_LEGEND.tokenTypes.map((type, index) => [type, index]),
-);
-const modifierIndex = new Map<SemanticTokenModifier, number>(
-  SEMANTIC_TOKEN_LEGEND.tokenModifiers.map((modifier, index) => [
-    modifier,
-    index,
-  ]),
 );
 const fallbackTypeRank: Partial<Record<SemanticTokenType, number>> = {
   type: 1,
@@ -43,8 +37,22 @@ interface NormalizedSpan extends SemanticTokenSpan {
  */
 export function encodeSemanticTokenSpans(
   spans: readonly SemanticTokenSpan[],
+  legend: {
+    readonly tokenTypes: readonly string[];
+    readonly tokenModifiers: readonly string[];
+  } = SEMANTIC_TOKEN_LEGEND,
 ): SemanticTokens {
-  const normalized = normalize(spans);
+  const typeIndex = new Map(
+    legend.tokenTypes.map((type, index) => [type, index]),
+  );
+  const modifierIndex = new Map(
+    legend.tokenModifiers.map((modifier, index) => [modifier, index]),
+  );
+  const normalized = normalize(
+    spans.filter((span) => typeIndex.has(span.tokenType)),
+    typeIndex,
+    modifierIndex,
+  );
   const builder = new SemanticTokensBuilder();
 
   for (const span of normalized) {
@@ -53,7 +61,7 @@ export function encodeSemanticTokenSpans(
       span.start.character,
       span.length,
       typeIndex.get(span.tokenType)!,
-      modifierBitset(span.tokenModifiers),
+      modifierBitset(span.tokenModifiers, modifierIndex),
     );
   }
 
@@ -61,17 +69,23 @@ export function encodeSemanticTokenSpans(
   return { data: builder.build().data };
 }
 
-function normalize(spans: readonly SemanticTokenSpan[]): NormalizedSpan[] {
+function normalize(
+  spans: readonly SemanticTokenSpan[],
+  typeIndex: ReadonlyMap<string, number>,
+  modifierIndex: ReadonlyMap<string, number>,
+): NormalizedSpan[] {
   const exactRanges = new Map<string, SemanticTokenSpan[]>();
   for (const span of spans) {
-    if (!isValidSpan(span)) continue;
+    if (!isValidSpan(span, typeIndex, modifierIndex)) continue;
     const key = `${span.start.line}:${span.start.character}:${span.end.character}`;
     const candidates = exactRanges.get(key) ?? [];
     candidates.push(span);
     exactRanges.set(key, candidates);
   }
 
-  const merged = [...exactRanges.values()].map(mergeExactRange);
+  const merged = [...exactRanges.values()].map((candidates) =>
+    mergeExactRange(candidates),
+  );
   const ordered = merged.sort(compareCollisionPriority);
   const acceptedByLine = new Map<number, NormalizedSpan[]>();
 
@@ -89,10 +103,13 @@ function normalize(spans: readonly SemanticTokenSpan[]): NormalizedSpan[] {
   return [...acceptedByLine.values()].flat().sort(compareSpans);
 }
 
-function isValidSpan(span: SemanticTokenSpan): boolean {
+function isValidSpan(
+  span: SemanticTokenSpan,
+  typeIndex: ReadonlyMap<string, number>,
+  modifierIndex: ReadonlyMap<string, number>,
+): boolean {
   return (
     typeIndex.has(span.tokenType) &&
-    span.tokenModifiers.every((modifier) => modifierIndex.has(modifier)) &&
     isLspInteger(span.start.line) &&
     isLspInteger(span.start.character) &&
     isLspInteger(span.end.line) &&
@@ -138,7 +155,8 @@ function compareSpans(left: NormalizedSpan, right: NormalizedSpan): number {
     left.start.line - right.start.line ||
     left.start.character - right.start.character ||
     left.end.character - right.end.character ||
-    typeIndex.get(left.tokenType)! - typeIndex.get(right.tokenType)!
+    supportedTypeIndex.get(left.tokenType)! -
+      supportedTypeIndex.get(right.tokenType)!
   );
 }
 
@@ -161,7 +179,8 @@ function compareCollisionPriority(
     left.start.line - right.start.line ||
     left.start.character - right.start.character ||
     right.end.character - left.end.character ||
-    typeIndex.get(left.tokenType)! - typeIndex.get(right.tokenType)!
+    supportedTypeIndex.get(left.tokenType)! -
+      supportedTypeIndex.get(right.tokenType)!
   );
 }
 
@@ -191,9 +210,11 @@ function overlapsNeighbor(
   );
 }
 
-function modifierBitset(modifiers: readonly SemanticTokenModifier[]): number {
-  return modifiers.reduce(
-    (bits, modifier) => bits | (1 << modifierIndex.get(modifier)!),
-    0,
-  );
+function modifierBitset(
+  modifiers: readonly SemanticTokenModifier[],
+  modifierIndex: ReadonlyMap<string, number>,
+): number {
+  return modifiers
+    .filter((modifier) => modifierIndex.has(modifier))
+    .reduce((bits, modifier) => bits | (1 << modifierIndex.get(modifier)!), 0);
 }

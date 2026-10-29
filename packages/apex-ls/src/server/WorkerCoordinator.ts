@@ -73,6 +73,8 @@ import type {
   WorkerTopologyTransport,
   WorkerHandle,
   PoolHandle,
+  WorkerDispatchArgs,
+  WorkerDispatchResult,
 } from '@salesforce/apex-lsp-compliant-services';
 import { injectTraceContextFromOtelSpan } from './traceContextInjection';
 
@@ -925,7 +927,10 @@ function createDispatcher(
       return { ready: res?.ready === true, reason: res?.reason };
     },
 
-    async dispatch(type: LSPRequestType, params: unknown): Promise<unknown> {
+    async dispatch<T extends WorkerDispatchArgs>(
+      ...args: T
+    ): Promise<WorkerDispatchResult<T>> {
+      const [type, params] = args as WorkerDispatchArgs;
       dispatchedCount++;
 
       if (
@@ -953,7 +958,9 @@ function createDispatcher(
         // A failed store is terminal for this dispatch: compiling content the
         // authoritative owner did not accept cannot produce a valid commit.
         await callbacks.sendToDataOwner(dataOwnerMsg);
-        return callbacks.sendToDataOwner(compileMsg);
+        return callbacks.sendToDataOwner(compileMsg) as Promise<
+          WorkerDispatchResult<T>
+        >;
       }
 
       if (DATA_OWNER_TYPES.has(type)) {
@@ -962,7 +969,9 @@ function createDispatcher(
           msg as unknown as Record<string, unknown>,
         );
         logger.debug(() => `[WorkerDispatch] → dataOwner: ${type}`);
-        return callbacks.sendToDataOwner(msg);
+        return callbacks.sendToDataOwner(msg) as Promise<
+          WorkerDispatchResult<T>
+        >;
       }
       const msg = buildLspRequestMessage(
         type,
@@ -973,7 +982,7 @@ function createDispatcher(
       injectTraceContextIntoMessage(msg as unknown as Record<string, unknown>);
       logger.debug(() => `[WorkerDispatch] → requestPool: ${type}`);
       const response = await callbacks.dispatchToPool(msg);
-      return (response as { result: unknown }).result;
+      return (response as { result: WorkerDispatchResult<T> }).result;
     },
 
     getTopologyStatus: (): WorkerTopologyStatus => ({
@@ -1325,15 +1334,23 @@ interface DocumentEventParams {
     readonly version?: number;
     readonly getText?: () => string;
   };
-  readonly textDocument?: { readonly uri: string };
+  readonly textDocument?: { readonly uri: string; readonly version?: number };
   readonly text?: string;
 }
+
+type SemanticTokensParams = EnrichmentParams & {
+  readonly semanticTokenLegend: {
+    readonly tokenTypes: readonly string[];
+    readonly tokenModifiers: readonly string[];
+  };
+};
 
 /** Params shape for position-based enrichment dispatches. */
 interface PositionBasedParams {
   readonly textDocument: { readonly uri: string };
   readonly position: { readonly line: number; readonly character: number };
   readonly context?: { readonly includeDeclaration: boolean };
+  readonly content?: string;
 }
 
 /** Params shape for document-only enrichment dispatches (symbols, lenses). */
@@ -1393,7 +1410,7 @@ function buildCompileMessage(
   const p = params as DocumentEventParams;
   const uri = p.document?.uri ?? p.textDocument?.uri ?? '';
   const content = p.document?.getText?.() ?? p.text ?? '';
-  const version = p.document?.version ?? 0;
+  const version = p.document?.version ?? p.textDocument?.version ?? 0;
   const languageId = p.document?.languageId ?? 'apex';
   const priority = type === 'documentOpen' ? 'high' : 'high';
   return new CompileDocument({ uri, content, languageId, version, priority });
@@ -1484,17 +1501,20 @@ function buildLspRequestMessage(
         // Same as DispatchReferences: the pool worker resolves the cursor to a
         // symbol via its local document, so carry the live text or the rename
         // scan finds nothing on the pool.
-        content: getDocumentContent?.(rn.textDocument.uri),
+        content: getDocumentContent?.(rn.textDocument.uri) ?? rn.content,
       });
     }
     case 'prepareRename': {
       // W-23631080: prepareRename dispatches to the pool worker just like rename,
       // carrying the live document text so the worker can parse the cursor file
       // standalone and resolve the local under the cursor.
+      const prepareRename = p as PositionBasedParams;
       return new DispatchPrepareRename({
-        textDocument: { uri: p.textDocument.uri },
-        position: (p as PositionBasedParams).position,
-        content: getDocumentContent?.(p.textDocument.uri),
+        textDocument: { uri: prepareRename.textDocument.uri },
+        position: prepareRename.position,
+        content:
+          getDocumentContent?.(prepareRename.textDocument.uri) ??
+          prepareRename.content,
       });
     }
     case 'implementation':
@@ -1514,9 +1534,11 @@ function buildLspRequestMessage(
         content: getDocumentContent?.(p.textDocument.uri),
       });
     case 'semanticTokens':
+      const semanticTokens = p as SemanticTokensParams;
       return new DispatchSemanticTokens({
-        textDocument: { uri: p.textDocument.uri },
-        content: getDocumentContent?.(p.textDocument.uri) ?? '',
+        textDocument: { uri: semanticTokens.textDocument.uri },
+        content: getDocumentContent?.(semanticTokens.textDocument.uri) ?? '',
+        semanticTokenLegend: semanticTokens.semanticTokenLegend,
       });
     case 'codeLens':
       return new DispatchCodeLens({

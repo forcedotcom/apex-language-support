@@ -366,11 +366,19 @@ describe('workerWireSchemas', () => {
       const req = new DispatchSemanticTokens({
         textDocument: { uri: 'file:///MyClass.cls' },
         content: 'public class MyClass {}',
+        semanticTokenLegend: {
+          tokenTypes: ['class'],
+          tokenModifiers: ['declaration'],
+        },
       });
       const encoded = Schema.encodeSync(DispatchSemanticTokens)(req);
       const decoded = Schema.decodeSync(DispatchSemanticTokens)(encoded);
       expect(decoded.textDocument.uri).toBe('file:///MyClass.cls');
       expect(decoded.content).toBe('public class MyClass {}');
+      expect(decoded.semanticTokenLegend).toEqual({
+        tokenTypes: ['class'],
+        tokenModifiers: ['declaration'],
+      });
     });
   });
 

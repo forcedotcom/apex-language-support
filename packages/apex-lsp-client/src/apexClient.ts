@@ -11,6 +11,21 @@ import type {
   LineBreakpointInfo,
 } from '@salesforce/apex-lsp-shared';
 import type { ApexServerFeatureState } from './serverFeatureState';
+import type {
+  CompletionItem,
+  CompletionList,
+  CompletionParams,
+  Definition,
+  DefinitionParams,
+  DocumentSymbol,
+  DocumentSymbolParams,
+  Hover,
+  HoverParams,
+  LocationLink,
+  SymbolInformation,
+  SemanticTokensParams,
+} from './lspPassThroughs';
+import type { DecodedSemanticToken } from './semanticTokens';
 
 /** Public Apex language-server client contract for extension consumers. */
 export type ApexClient = {
@@ -18,4 +33,21 @@ export type ApexClient = {
   getExceptionBreakpointInfo(uri: string): Promise<ExceptionBreakpointInfo[]>;
   /** Returns false/false for feature names the server did not define. */
   getFeatureState(feature: string): ApexServerFeatureState;
+};
+
+/** Public portable standard-LSP request contract. */
+export type ApexStandardLspClient = ApexClient & {
+  hover(params: HoverParams): Promise<Hover | null>;
+  completion(
+    params: CompletionParams,
+  ): Promise<CompletionList | CompletionItem[] | null>;
+  definition(
+    params: DefinitionParams,
+  ): Promise<Definition | LocationLink[] | null>;
+  documentSymbol(
+    params: DocumentSymbolParams,
+  ): Promise<DocumentSymbol[] | SymbolInformation[] | null>;
+  semanticTokens(
+    params: SemanticTokensParams,
+  ): Promise<readonly DecodedSemanticToken[] | undefined>;
 };
