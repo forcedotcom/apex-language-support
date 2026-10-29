@@ -47,10 +47,14 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           required-checks: '["CI Complete"]'
 
-  # Step 3: Promote to marketplace (only runs if gate-check passed)
+  # Step 3: Promote to marketplace (only runs if gate-check passed). vsce only -- Open VSX is
+  # published separately below (trigger-openvsx-publish), see that job's comment for why.
   promote:
     needs: [find-nightly, gate-check]
-    uses: salesforcecli/github-workflows/.github/workflows/vscode-promote-prerelease.yml@main
+    # TEMPORARY: pinned to the github-workflows PR branch that removes this workflow's ovsx leg
+    # (salesforcecli/github-workflows#199), to validate end-to-end before that PR merges. Switch
+    # back to @main before merging this PR.
+    uses: salesforcecli/github-workflows/.github/workflows/vscode-promote-prerelease.yml@ms/W-24666922-ovsx-trusted-publishing
     with:
       release-tag: ${{ needs.find-nightly.outputs.nightly-tag }}
       vsix-name-pattern: 'apex-language-server-extension-*.vsix'
@@ -58,3 +62,21 @@ jobs:
       extension-name: 'apex-lsp-vscode-extension'
       dry-run: ${{ inputs.dry-run || 'false' }}
     secrets: inherit
+
+  # Step 4: Dispatch publishOpenVSXTrusted.yml for this exact nightly. vscode-promote-prerelease.yml
+  # no longer publishes Open VSX at all (PAT-based ovsx leg removed there), so this is the only
+  # place Open VSX publishing happens for prerelease. See publishOpenVSXTrusted.yml's header for
+  # the full workflow_ref explanation.
+  trigger-openvsx-publish:
+    needs: [find-nightly, promote]
+    if: always() && needs.promote.result == 'success' && inputs.dry-run != 'true'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
+      NIGHTLY_TAG: ${{ needs.find-nightly.outputs.nightly-tag }}
+    steps:
+      - name: Dispatch Open VSX publish for this nightly
+        run: |
+          gh workflow run publishOpenVSXTrusted.yml \
+            --repo "${{ github.repository }}" \
+            -f release-tag="$NIGHTLY_TAG"

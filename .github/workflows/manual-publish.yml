@@ -5,6 +5,12 @@ name: Manual Publish
 #   - A branch CI build artifact (source-run-id path — out-of-band, bypass mandatory)
 #
 # Exactly one of version-tag or source-run-id must be provided.
+#
+# Open VSX is NOT published by the vscode-manual-publish.yml job below, even when registries
+# includes ovsx/all -- trigger-openvsx-publish dispatches publishOpenVSXTrusted.yml afterward
+# instead, and only for the version-tag path (see that job's comment for why). This keeps every
+# Open VSX publish for this extension on one workflow_ref, which Open VSX's trusted-publisher
+# match requires -- see publishOpenVSXTrusted.yml's header for the full explanation.
 
 on:
   workflow_dispatch:
@@ -97,7 +103,10 @@ permissions:
 
 jobs:
   manual-publish:
-    uses: salesforcecli/github-workflows/.github/workflows/vscode-manual-publish.yml@main
+    # TEMPORARY: pinned to the github-workflows PR branch that redirects this workflow's ovsx leg
+    # (salesforcecli/github-workflows#199), to validate end-to-end before that PR merges. Switch
+    # back to @main before merging this PR.
+    uses: salesforcecli/github-workflows/.github/workflows/vscode-manual-publish.yml@ms/W-24666922-ovsx-trusted-publishing
     with:
       extension-name: ${{ inputs.extension }}
       vsix-name-pattern: 'apex-language-server-extension-*.vsix'
@@ -120,3 +129,23 @@ jobs:
       install-command: 'pnpm install --frozen-lockfile'
       dry-run: ${{ inputs.dry-run }}
     secrets: inherit
+
+  # Dispatch publishOpenVSXTrusted.yml for the version-tag being published, when Open VSX was
+  # requested. vscode-manual-publish.yml no longer publishes Open VSX itself (see its header),
+  # so this is the only place Open VSX publishing happens for this workflow. Only applies to the
+  # version-tag path: source-run-id has no GitHub Release for a tag-based publish to target, and
+  # vscode-manual-publish.yml's own input validation now hard-errors that combination rather than
+  # silently skipping it -- see this workflow's header comment.
+  trigger-openvsx-publish:
+    needs: manual-publish
+    if: always() && needs.manual-publish.result == 'success' && inputs.version-tag != '' && (inputs.registries == 'ovsx' || inputs.registries == 'all') && inputs.dry-run != 'true'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
+      VERSION_TAG: ${{ inputs.version-tag }}
+    steps:
+      - name: Dispatch Open VSX publish for this version tag
+        run: |
+          gh workflow run publishOpenVSXTrusted.yml \
+            --repo "${{ github.repository }}" \
+            -f release-tag="$VERSION_TAG"

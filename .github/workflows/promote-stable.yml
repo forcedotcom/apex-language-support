@@ -23,8 +23,13 @@ permissions:
   actions: read
 
 jobs:
+  # vsce only -- Open VSX is published separately below (trigger-openvsx-publish), see that
+  # job's comment for why.
   promote:
-    uses: salesforcecli/github-workflows/.github/workflows/vscode-promote-stable.yml@main
+    # TEMPORARY: pinned to the github-workflows PR branch that removes this workflow's ovsx leg
+    # (salesforcecli/github-workflows#199), to validate end-to-end before that PR merges. Switch
+    # back to @main before merging this PR.
+    uses: salesforcecli/github-workflows/.github/workflows/vscode-promote-stable.yml@ms/W-24666922-ovsx-trusted-publishing
     with:
       extension-name: 'apex-lsp-vscode-extension'
       vsix-name-pattern: 'apex-language-server-extension-*.vsix'
@@ -38,3 +43,21 @@ jobs:
       install-command: 'pnpm install --frozen-lockfile'
       dry-run: ${{ inputs.dry-run || 'false' }}
     secrets: inherit
+
+  # Dispatch publishOpenVSXTrusted.yml for the exact stable tag vscode-promote-stable.yml just
+  # created (its release-tag output). vscode-promote-stable.yml no longer publishes Open VSX at
+  # all (PAT-based ovsx leg removed there), so this is the only place Open VSX publishing happens
+  # for stable. See publishOpenVSXTrusted.yml's header for the full workflow_ref explanation.
+  trigger-openvsx-publish:
+    needs: promote
+    if: always() && needs.promote.result == 'success' && inputs.dry-run != 'true'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
+      RELEASE_TAG: ${{ needs.promote.outputs.release-tag }}
+    steps:
+      - name: Dispatch Open VSX publish for this stable release
+        run: |
+          gh workflow run publishOpenVSXTrusted.yml \
+            --repo "${{ github.repository }}" \
+            -f release-tag="$RELEASE_TAG"
