@@ -3253,7 +3253,16 @@ exports[`Capabilities Alignment Tests > Configuration Consistency > should maint
         "workspaceSymbolProvider": undefined,
       },
       "productionDesktop": {
+        "codeLensProvider": {
+          "resolveProvider": false,
+        },
         "documentSymbolProvider": true,
+        "executeCommandProvider": {
+          "commands": [
+            "apex.debugger.lineBreakpoints",
+            "apex.debugger.exceptionBreakpoints",
+          ],
+        },
         "publishDiagnostics": false,
         "semanticTokensProvider": {
           "full": true,
@@ -3815,7 +3824,16 @@ exports[`Capabilities Alignment Tests > Server Capabilities Configuration > shou
     "workspaceSymbolProvider": undefined,
   },
   "productionDesktop": {
+    "codeLensProvider": {
+      "resolveProvider": false,
+    },
     "documentSymbolProvider": true,
+    "executeCommandProvider": {
+      "commands": [
+        "apex.debugger.lineBreakpoints",
+        "apex.debugger.exceptionBreakpoints",
+      ],
+    },
     "publishDiagnostics": false,
     "semanticTokensProvider": {
       "full": true,

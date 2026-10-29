@@ -263,7 +263,7 @@ export const PRODUCTION_WEB_CAPABILITIES: ExtendedServerCapabilities = {
 
 /**
  * Production capabilities for desktop environments.
- * Intentionally minimal — only document symbols are released for desktop production.
+ * Includes document symbols, semantic tokens, CodeLens, and debugger command metadata.
  * Other features (hover, definition, etc.) require further validation before desktop release.
  */
 export const PRODUCTION_DESKTOP_CAPABILITIES: ExtendedServerCapabilities = {
@@ -276,6 +276,12 @@ export const PRODUCTION_DESKTOP_CAPABILITIES: ExtendedServerCapabilities = {
     willSaveWaitUntil: false,
   },
   documentSymbolProvider: true,
+  codeLensProvider: {
+    resolveProvider: false,
+  },
+  executeCommandProvider: {
+    commands: Object.values(APEX_DEBUGGER_COMMANDS),
+  },
   semanticTokensProvider: SEMANTIC_TOKENS_PROVIDER,
   workspace: {
     workspaceFolders: {

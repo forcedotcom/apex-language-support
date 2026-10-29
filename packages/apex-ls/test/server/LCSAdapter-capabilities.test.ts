@@ -387,6 +387,36 @@ describe('LCSAdapter Capabilities Alignment', () => {
       );
     });
 
+    it('registers debugger commands dynamically when supported by the client', async () => {
+      mockConfigManager.getCapabilities.mockReturnValue({
+        executeCommandProvider: {
+          commands: ['apex.debugger.lineBreakpoints'],
+        },
+      } as ServerCapabilities);
+      (adapter as any).clientCapabilities = {
+        workspace: {
+          executeCommand: { dynamicRegistration: true },
+        },
+      } satisfies ClientCapabilities;
+
+      await (adapter as any).registerDynamicCapabilities();
+
+      expect(mockConnection.sendRequest).toHaveBeenCalledWith(
+        'client/registerCapability',
+        {
+          registrations: [
+            {
+              id: 'apex-execute-command',
+              method: 'workspace/executeCommand',
+              registerOptions: {
+                commands: ['apex.debugger.lineBreakpoints'],
+              },
+            },
+          ],
+        },
+      );
+    });
+
     it('should handle development mode with full dynamic registration', () => {
       // Mock development capabilities
       mockConfigManager.getCapabilities.mockReturnValue({
