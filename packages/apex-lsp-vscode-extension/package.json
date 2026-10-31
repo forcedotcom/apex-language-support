@@ -915,7 +915,7 @@
     "@salesforce/apex-lsp-client": "workspace:*",
     "@salesforce/apex-lsp-compliant-services": "workspace:*",
     "@salesforce/apex-lsp-shared": "workspace:*",
-    "effect": "^3.22.1",
+    "effect": "^3.22.4",
     "vscode-languageclient": "^9.0.1",
     "vscode-jsonrpc": "^8.2.1",
     "web-worker": "^1.5.0"
