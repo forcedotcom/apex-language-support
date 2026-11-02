@@ -180,7 +180,7 @@ import { ResourceLoader } from '../../utils/resourceLoader';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../../constants/constants';
 import { HierarchicalReferenceResolver } from '../../types/hierarchicalReference';
 import { ApexReferenceResolver } from '../references/ApexReferenceResolver';
-import { DetailLevel } from '../../types/DetailLevel';
+import { SymbolCollectionLevel } from '../../types/SymbolCollectionLevel';
 import { SObjectRegistry } from '../../sobjects/SObjectRegistry';
 
 interface SemanticError {
@@ -206,8 +206,8 @@ interface ChainScope {
  * A listener that collects symbols from Apex code and organizes them into symbol tables.
  * This listener builds a hierarchy of symbol scopes and tracks symbols defined in each scope.
  *
- * Enhanced listener that supports DetailLevel-based conditional symbol collection.
- * Use with DetailLevel 'public-api', 'protected', 'private', or 'full' to control
+ * Enhanced listener that supports SymbolCollectionLevel-based conditional symbol collection.
+ * Use with SymbolCollectionLevel 'public-api', 'protected', 'private', or 'full' to control
  * which symbols are collected. This enables progressive enrichment of symbol tables.
  *
  * Usage:
@@ -274,7 +274,7 @@ export class ApexSymbolCollectorListener
   >();
   private readonly soqlFromReferenceKeys = new Set<string>();
 
-  private readonly detailLevel: DetailLevel;
+  private readonly detailLevel: SymbolCollectionLevel;
 
   /**
    * Creates a new instance of the ApexSymbolCollectorListener.
@@ -282,7 +282,10 @@ export class ApexSymbolCollectorListener
    * @param detailLevel Optional detail level for selective symbol collection.
    *                    Defaults to 'full' for backward compatibility.
    */
-  constructor(symbolTable?: SymbolTable, detailLevel: DetailLevel = 'full') {
+  constructor(
+    symbolTable?: SymbolTable,
+    detailLevel: SymbolCollectionLevel = 'full',
+  ) {
     super();
     this.logger = getLogger();
     this.symbolTable = symbolTable || new SymbolTable();
@@ -671,7 +674,7 @@ export class ApexSymbolCollectorListener
    * Get the detail level for this listener
    * @returns The detail level
    */
-  getDetailLevel(): DetailLevel {
+  getDetailLevel(): SymbolCollectionLevel {
     return this.detailLevel;
   }
 
@@ -833,6 +836,7 @@ export class ApexSymbolCollectorListener
     scopeType: ScopeType,
     searchName: string,
     parentScope: ScopeSymbol | null,
+    location?: SymbolLocation,
   ): { symbol?: ApexSymbol; parentId: string | null } {
     let parentId: string | null = parentScope ? parentScope.id : null;
 
@@ -878,7 +882,12 @@ export class ApexSymbolCollectorListener
         if (
           s.name === searchName &&
           s.kind !== SymbolKind.Block &&
-          (s.kind === SymbolKind.Method || s.kind === SymbolKind.Constructor)
+          (s.kind === SymbolKind.Method || s.kind === SymbolKind.Constructor) &&
+          (!location ||
+            (s.location.identifierRange.startLine ===
+              location.identifierRange.startLine &&
+              s.location.identifierRange.startColumn ===
+                location.identifierRange.startColumn))
         ) {
           return { symbol: s, parentId: s.id };
         }
@@ -1112,6 +1121,7 @@ export class ApexSymbolCollectorListener
     location: SymbolLocation,
     parentScope: ScopeSymbol | null,
     semanticName?: string,
+    semanticSymbol?: ApexSymbol,
   ): ScopeSymbol {
     const fileUri = this.symbolTable.getFileUri();
 
@@ -1124,11 +1134,14 @@ export class ApexSymbolCollectorListener
 
     // Find semantic symbol and determine parentId using helper method
     const searchName = semanticName || name;
-    const { parentId } = this.findSemanticSymbolForBlock(
-      scopeType,
-      searchName,
-      parentScope,
-    );
+    const { parentId } = semanticSymbol
+      ? { parentId: semanticSymbol.id }
+      : this.findSemanticSymbolForBlock(
+          scopeType,
+          searchName,
+          parentScope,
+          location,
+        );
 
     // Check if block symbol already exists (from StructureListener)
     // Match by location: fileUri, scopeType, startLine, startColumn
@@ -1856,8 +1869,14 @@ export class ApexSymbolCollectorListener
             ) || [];
 
         // Check for duplicate using shared validation logic (case-insensitive)
-        const duplicateMethod = existingMethods.find((s: ApexSymbol) =>
-          doesSignatureMatch(s, name, currentParamTypes),
+        const declarationLocation = this.getLocation(ctx).identifierRange;
+        const duplicateMethod = existingMethods.find(
+          (s: ApexSymbol) =>
+            doesSignatureMatch(s, name, currentParamTypes) &&
+            (s.location.identifierRange.startLine !==
+              declarationLocation.startLine ||
+              s.location.identifierRange.startColumn !==
+                declarationLocation.startColumn),
         );
 
         if (duplicateMethod) {
@@ -1933,6 +1952,7 @@ export class ApexSymbolCollectorListener
           location,
           parentScope,
           name, // Pass the method name so createBlockSymbol can find the method symbol
+          this.currentMethodOrConstructor ?? undefined,
         );
 
         // Push block symbol onto stack
@@ -2054,8 +2074,14 @@ export class ApexSymbolCollectorListener
                   .originalTypeString,
             ) || [];
 
+        const declarationLocation = this.getLocation(ctx).identifierRange;
         const duplicateConstructor = existingConstructors.find(
-          (s: ApexSymbol) => doesSignatureMatch(s, name, currentParamTypes),
+          (s: ApexSymbol) =>
+            doesSignatureMatch(s, name, currentParamTypes) &&
+            (s.location.identifierRange.startLine !==
+              declarationLocation.startLine ||
+              s.location.identifierRange.startColumn !==
+                declarationLocation.startColumn),
         );
 
         if (duplicateConstructor) {
@@ -2181,12 +2207,28 @@ export class ApexSymbolCollectorListener
           return;
         }
         // Use getSymbolsInScope to find methods with the same name (more efficient)
-        const existingMethods = this.symbolTable
-          .getSymbolsInScope(typeScope.id)
-          .filter((s) => s.name === name);
-        // Filter to only method symbols (exclude block symbols)
+        const currentParamTypes =
+          ctx
+            .formalParameters()
+            ?.formalParameterList()
+            ?.formalParameter_list()
+            ?.map(
+              (param) =>
+                this.createTypeInfoFromTypeRef(param.typeRef())
+                  .originalTypeString,
+            ) || [];
+        const existingMethods = this.symbolTable.getSymbolsInScope(
+          typeScope.id,
+        );
+        const declarationLocation = this.getLocation(ctx).identifierRange;
         const duplicateMethod = existingMethods.find(
-          (s: ApexSymbol) => isMethodSymbol(s) && s.name === name,
+          (s: ApexSymbol) =>
+            isMethodSymbol(s) &&
+            doesSignatureMatch(s, name, currentParamTypes) &&
+            (s.location.identifierRange.startLine !==
+              declarationLocation.startLine ||
+              s.location.identifierRange.startColumn !==
+                declarationLocation.startColumn),
         );
 
         if (duplicateMethod) {

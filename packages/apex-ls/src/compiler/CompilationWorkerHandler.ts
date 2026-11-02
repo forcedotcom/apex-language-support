@@ -68,8 +68,7 @@ export function createCompilationWorkerHandlers(
           const listener =
             request.detailLevel === 'full'
               ? new FullSymbolCollectorListener(table)
-              : new VisibilitySymbolListener('public-api', table);
-
+              : new VisibilitySymbolListener(request.detailLevel, table);
           const compilation = compilerService.compile(
             request.content,
             request.uri,

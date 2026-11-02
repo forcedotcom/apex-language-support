@@ -134,7 +134,7 @@ describe('BlockContentListener reference fixes', () => {
   });
 
   describe('incomplete member access', () => {
-    it('records the receiver and operator during private layered enrichment', () => {
+    it('records the receiver and operator during full layered enrichment', () => {
       const sourceCode = [
         'public class TestClass {',
         '  void m() {',
@@ -147,7 +147,7 @@ describe('BlockContentListener reference fixes', () => {
       const result = compilerService.compileLayered(
         sourceCode,
         'Test.cls',
-        ['protected', 'private'],
+        ['full'],
         undefined,
         { collectReferences: true, resolveReferences: true },
       );

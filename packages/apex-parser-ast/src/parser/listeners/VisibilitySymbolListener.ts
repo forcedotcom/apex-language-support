@@ -30,7 +30,7 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 import { ApexReferenceCollectorListener } from './ApexReferenceCollectorListener';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
-import { type DetailLevel } from '../../types/DetailLevel';
+import { type SymbolCollectionLevel } from '../../types/SymbolCollectionLevel';
 import { Namespaces, Namespace } from '../../namespace/NamespaceUtils';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
 import { createTypeInfo } from '../../utils/TypeInfoFactory';
@@ -74,7 +74,7 @@ import {
 /**
  * Consolidated listener for visibility-based symbol collection.
  * Replaces PublicAPISymbolListener, ProtectedSymbolListener, and PrivateSymbolListener
- * with a single parameterized class that only differs by DetailLevel.
+ * with a single parameterized class that only differs by SymbolCollectionLevel.
  *
  * This listener captures symbols based on visibility:
  * - 'public-api': Public/global symbols and creates TypeSymbol objects (classes/interfaces/enums/triggers)
@@ -88,7 +88,7 @@ export class VisibilitySymbolListener
   protected readonly logger = getLogger();
   protected symbolTable: SymbolTable;
   protected currentFilePath: string = '';
-  private readonly detailLevel: DetailLevel;
+  private readonly detailLevel: SymbolCollectionLevel;
   private scopeStack: Stack<ApexSymbol> = new Stack<ApexSymbol>();
   private blockCounter: number = 0;
   private currentModifiers: SymbolModifiers = this.createDefaultModifiers();
@@ -96,7 +96,7 @@ export class VisibilitySymbolListener
   private currentNamespace: Namespace | null = null;
   protected projectNamespace: string | undefined = undefined;
 
-  constructor(detailLevel: DetailLevel, symbolTable?: SymbolTable) {
+  constructor(detailLevel: SymbolCollectionLevel, symbolTable?: SymbolTable) {
     super();
     if (
       detailLevel !== 'public-api' &&
@@ -112,7 +112,7 @@ export class VisibilitySymbolListener
     this.symbolTable = symbolTable || new SymbolTable();
   }
 
-  getDetailLevel(): DetailLevel {
+  getDetailLevel(): SymbolCollectionLevel {
     return this.detailLevel;
   }
 
@@ -139,7 +139,7 @@ export class VisibilitySymbolListener
           visibility === SymbolVisibility.Default
         );
       case 'private':
-        return visibility === SymbolVisibility.Private;
+        return true;
     }
     return false;
   }
@@ -175,8 +175,8 @@ export class VisibilitySymbolListener
 
   /**
    * Called when entering a class declaration
-   * Only creates TypeSymbol if detailLevel is 'public-api'
-   * Otherwise, only tracks scope for symbol enrichment
+   * Captures types at each visibility layer so member declarations retain
+   * parser-confirmed ownership.
    */
   enterClassDeclaration(ctx: ClassDeclarationContext): void {
     try {
@@ -188,12 +188,7 @@ export class VisibilitySymbolListener
 
       const modifiers = this.getCurrentModifiers();
 
-      // Only process symbols matching this listener's visibility
-      // Only create TypeSymbol for public-api level and matching visibility
-      if (
-        this.detailLevel === 'public-api' &&
-        this.shouldProcessSymbol(modifiers.visibility)
-      ) {
+      if (this.shouldProcessSymbol(modifiers.visibility)) {
         // Validate identifier
         const validationResult = IdentifierValidator.validateIdentifier(
           name,
@@ -300,8 +295,8 @@ export class VisibilitySymbolListener
 
   /**
    * Called when entering an interface declaration
-   * Only creates TypeSymbol if detailLevel is 'public-api'
-   * Otherwise, only tracks scope for symbol enrichment
+   * Captures types at each visibility layer so member declarations retain
+   * parser-confirmed ownership.
    */
   enterInterfaceDeclaration(ctx: InterfaceDeclarationContext): void {
     try {
@@ -312,11 +307,7 @@ export class VisibilitySymbolListener
       }
       const modifiers = this.getCurrentModifiers();
 
-      // Only create TypeSymbol for public-api level and matching visibility
-      if (
-        this.detailLevel === 'public-api' &&
-        this.shouldProcessSymbol(modifiers.visibility)
-      ) {
+      if (this.shouldProcessSymbol(modifiers.visibility)) {
         const interfaces =
           ctx
             .typeList()
@@ -383,8 +374,8 @@ export class VisibilitySymbolListener
 
   /**
    * Called when entering an enum declaration
-   * Only creates TypeSymbol if detailLevel is 'public-api'
-   * Otherwise, only tracks scope for symbol enrichment
+   * Captures types at each visibility layer so member declarations retain
+   * parser-confirmed ownership.
    */
   enterEnumDeclaration(ctx: EnumDeclarationContext): void {
     try {
@@ -395,11 +386,7 @@ export class VisibilitySymbolListener
       }
       const modifiers = this.getCurrentModifiers();
 
-      // Only create TypeSymbol for public-api level and matching visibility
-      if (
-        this.detailLevel === 'public-api' &&
-        this.shouldProcessSymbol(modifiers.visibility)
-      ) {
+      if (this.shouldProcessSymbol(modifiers.visibility)) {
         const enumSymbol = this.createTypeSymbol(
           ctx,
           name,
@@ -468,7 +455,7 @@ export class VisibilitySymbolListener
         return;
       }
 
-      const enumType = createTypeInfo(currentType?.name ?? 'Object');
+      const enumType = createTypeInfo(currentType.name);
       const enumSymbol = currentType;
 
       // Ensure values array exists
@@ -477,7 +464,10 @@ export class VisibilitySymbolListener
       }
 
       for (const id of ctx.id_list()) {
-        const name = id.getText();
+        const name = id.start.text;
+        if (enumSymbol.values.some((value) => value.name === name)) {
+          continue;
+        }
         const modifiers = this.getCurrentModifiers();
 
         // Create enum value symbol using createVariableSymbol method
@@ -1065,8 +1055,7 @@ export class VisibilitySymbolListener
 
   /**
    * Called when entering a trigger unit
-   * Only creates TypeSymbol if detailLevel is 'public-api'
-   * Otherwise, only tracks scope for symbol enrichment
+   * Triggers are public declarations, so private detail must retain them too.
    */
   enterTriggerUnit(ctx: TriggerUnitContext): void {
     try {
@@ -1078,9 +1067,8 @@ export class VisibilitySymbolListener
       }
       const modifiers = this.getCurrentModifiers();
 
-      // Triggers don't have visibility modifiers - they're always public
-      // Only create TypeSymbol for public-api level (always process triggers)
-      if (this.detailLevel === 'public-api') {
+      // Triggers don't have visibility modifiers - they're always public.
+      if (this.detailLevel === 'public-api' || this.detailLevel === 'private') {
         // Create trigger symbol (parentId is already set to null in createTypeSymbol)
         const triggerSymbol = this.createTypeSymbol(
           ctx,

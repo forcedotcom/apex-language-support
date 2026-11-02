@@ -393,7 +393,7 @@ sequenceDiagram
 
     alt detailLevel < 'full'
         Note over PrerequisiteOrchestrationService: Need enrichment for validation
-        PrerequisiteOrchestrationService->>LayerEnrichmentService: enrichToDetailLevel(table, 'full')
+        PrerequisiteOrchestrationService->>LayerEnrichmentService: enrichFiles([uri], 'full', 'same-file')
         LayerEnrichmentService->>LayerEnrichmentService: Reuse cached parse tree (no re-parsing!)
         LayerEnrichmentService->>CompilerService: Apply ProtectedSymbolListener
         LayerEnrichmentService->>CompilerService: Apply PrivateSymbolListener

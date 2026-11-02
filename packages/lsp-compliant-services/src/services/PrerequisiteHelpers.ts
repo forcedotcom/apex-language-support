@@ -7,7 +7,7 @@
  */
 
 import {
-  DetailLevel,
+  SymbolCollectionLevel,
   SObjectRegistry,
   SymbolTable,
   ReferenceContext,
@@ -53,8 +53,8 @@ export function classifyMissingArtifactIdentifier(
  * Get the numeric order of a detail level for comparison
  * Higher numbers indicate more detail
  */
-export function getLayerOrderIndex(level: DetailLevel): number {
-  const order: Record<DetailLevel, number> = {
+export function getLayerOrderIndex(level: SymbolCollectionLevel): number {
+  const order: Record<SymbolCollectionLevel, number> = {
     'public-api': 1,
     protected: 2,
     private: 3,

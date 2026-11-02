@@ -8,7 +8,7 @@
 
 import { HashMap } from 'data-structure-typed';
 import { Context, Effect, Layer } from 'effect';
-import type { DetailLevel } from '../../types/DetailLevel';
+import type { SymbolCollectionLevel } from '../../types/SymbolCollectionLevel';
 import type { CommentAssociation } from '../../parser/listeners/ApexCommentCollectorListener';
 
 /** Per-file tracking metadata */
@@ -35,10 +35,10 @@ export interface FileStateStoreShape {
 
   readonly getDetailLevel: (
     fileUri: string,
-  ) => Effect.Effect<DetailLevel | undefined>;
+  ) => Effect.Effect<SymbolCollectionLevel | undefined>;
   readonly setDetailLevel: (
     fileUri: string,
-    level: DetailLevel,
+    level: SymbolCollectionLevel,
   ) => Effect.Effect<void>;
 
   readonly getLastProcessedTableState: (
@@ -71,7 +71,7 @@ export class FileStateStore extends Context.Tag('FileStateStore')<
 /** Shim Layer that delegates to existing HashMap fields */
 export const fileStateStoreShim = (
   fileMetadata: HashMap<string, FileMetadata>,
-  fileDetailLevels: HashMap<string, DetailLevel>,
+  fileDetailLevels: HashMap<string, SymbolCollectionLevel>,
   lastProcessedTableStateByFile: HashMap<string, string>,
   fileCommentAssociations: HashMap<string, CommentAssociation[]>,
 ): Layer.Layer<FileStateStore> =>

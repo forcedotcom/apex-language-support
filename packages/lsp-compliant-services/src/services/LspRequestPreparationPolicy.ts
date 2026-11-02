@@ -6,8 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import type { DetailLevel } from '@salesforce/apex-lsp-parser-ast';
 import type { LSPRequestType } from '../queue/LSPRequestQueue';
+import type { EnrichmentRequirement } from '../config/lspRequestPolicy';
 import { getPrerequisitesForLspRequestType } from './LspRequestPrerequisiteMapping';
 
 export type RequestContentRequirement =
@@ -23,7 +23,7 @@ export type RequestDependencyScope =
 export type RequestPreparationFailureMode = 'best-effort' | 'strict';
 
 export interface LspRequestPreparationPolicy {
-  readonly requiredDetailLevel: DetailLevel | null;
+  readonly enrichmentRequirement: EnrichmentRequirement;
   readonly content: RequestContentRequirement;
   readonly dependencyScope: RequestDependencyScope;
   readonly failureMode: RequestPreparationFailureMode;
@@ -38,7 +38,7 @@ export interface LspRequestExecutionContext {
 
 type PreparationOverrides = Omit<
   LspRequestPreparationPolicy,
-  'requiredDetailLevel'
+  'enrichmentRequirement'
 >;
 
 const DEFAULT_PREPARATION: PreparationOverrides = {
@@ -139,6 +139,6 @@ export function getLspRequestPreparationPolicy(
   return {
     ...DEFAULT_PREPARATION,
     ...overrides,
-    requiredDetailLevel: prerequisites.requiredDetailLevel,
+    enrichmentRequirement: prerequisites.enrichmentRequirement,
   };
 }

@@ -21,21 +21,21 @@ describe('InFlightPrerequisiteRegistry', () => {
     const first = registry.acquireOrJoin({
       fileUri: 'file:///Demo.cls',
       documentVersion: 1,
-      targetDetailLevel: 'private',
+      enrichmentRequirement: 'private',
       needsCrossFileResolution: false,
     });
 
     const second = registry.acquireOrJoin({
       fileUri: 'file:///Demo.cls',
       documentVersion: 1,
-      targetDetailLevel: 'full',
+      enrichmentRequirement: 'full',
       needsCrossFileResolution: true,
     });
 
     expect(first.joined).toBe(false);
     expect(second.joined).toBe(true);
     expect(second.upgraded).toBe(true);
-    expect(second.entry.targetDetailLevel).toBe('full');
+    expect(second.entry.enrichmentRequirement).toBe('full');
     expect(second.entry.needsCrossFileResolution).toBe(true);
   });
 
@@ -44,7 +44,7 @@ describe('InFlightPrerequisiteRegistry', () => {
     const acquired = registry.acquireOrJoin({
       fileUri: 'file:///Demo.cls',
       documentVersion: 2,
-      targetDetailLevel: 'full',
+      enrichmentRequirement: 'full',
       needsCrossFileResolution: true,
     });
     registry.complete(acquired.key);
@@ -53,7 +53,7 @@ describe('InFlightPrerequisiteRegistry', () => {
       registry.isSatisfied({
         fileUri: 'file:///Demo.cls',
         documentVersion: 2,
-        targetDetailLevel: 'private',
+        enrichmentRequirement: 'private',
         needsCrossFileResolution: true,
       }),
     ).toBe(true);
@@ -61,7 +61,7 @@ describe('InFlightPrerequisiteRegistry', () => {
       registry.isSatisfied({
         fileUri: 'file:///Demo.cls',
         documentVersion: 2,
-        targetDetailLevel: 'full',
+        enrichmentRequirement: 'full',
         needsCrossFileResolution: false,
       }),
     ).toBe(true);

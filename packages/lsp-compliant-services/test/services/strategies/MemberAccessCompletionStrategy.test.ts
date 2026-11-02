@@ -906,7 +906,7 @@ describe('MemberAccessCompletionStrategy', () => {
       const enrichedResult = compiler.compileLayered(
         editedSource,
         uri,
-        ['protected', 'private'],
+        ['protected', 'private', 'full'],
         currentTable,
       );
       expect(enrichedResult?.result).toBeDefined();

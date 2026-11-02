@@ -249,7 +249,7 @@ export class CompletionProcessingService implements ICompletionProcessor {
       const cache = getDocumentStateCache();
       const alreadyEnriched =
         !!this.layerEnrichmentService &&
-        cache.hasDetailLevel(
+        cache.hasSymbolCollectionLevel(
           params.textDocument.uri,
           document.version,
           'private',

@@ -91,6 +91,7 @@ describe('data-owner-managed Effect compilation pool', () => {
       )) as {
         entries: Record<string, unknown>;
         versions: Record<string, number>;
+        detailLevels: Record<string, string>;
       };
       yield* Effect.promise(() =>
         session({
@@ -118,6 +119,10 @@ describe('data-owner-managed Effect compilation pool', () => {
     expect(subset.versions).toMatchObject({
       [entries[0].uri]: 1,
       [entries[1].uri]: 1,
+    });
+    expect(subset.detailLevels).toMatchObject({
+      [entries[0].uri]: 'public-api',
+      [entries[1].uri]: 'public-api',
     });
   }, 30_000);
 

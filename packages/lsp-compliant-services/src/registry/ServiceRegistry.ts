@@ -9,6 +9,7 @@
 import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
 import { LSPRequestType } from '../queue';
 import { Priority } from '@salesforce/apex-lsp-shared';
+import { getLspRequestPolicy } from '../config/lspRequestPolicy';
 
 /**
  * Generic LSP request handler interface
@@ -65,7 +66,7 @@ export class ServiceRegistry {
    * Get the priority for a request type
    */
   getPriority(type: LSPRequestType): Priority {
-    return this.priorities.get(type) || Priority.Normal;
+    return this.priorities.get(type) ?? getLspRequestPolicy(type).priority;
   }
 
   /**

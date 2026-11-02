@@ -6,5 +6,6 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-/** Detail level for layered symbol collection. */
-export type DetailLevel = 'public-api' | 'protected' | 'private' | 'full';
+/** The depth of semantic symbols collected from a parsed Apex file. */
+export type SymbolCollectionLevel =
+  'public-api' | 'protected' | 'private' | 'full';

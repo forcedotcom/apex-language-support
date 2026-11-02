@@ -47,7 +47,7 @@ export * from './types/source';
 export * from './types/unitType';
 export * from './types/classInfo';
 export * from './types/ISymbolManager';
-export * from './types/DetailLevel';
+export * from './types/SymbolCollectionLevel';
 export * from './types/graph';
 
 // Export canonical sObject name classification
