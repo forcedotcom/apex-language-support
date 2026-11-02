@@ -122,17 +122,6 @@ function unescapeKey(key) {
 }
 
 /**
- * Transform MessageFormat placeholders ({0}, {1}, etc.) to printf format (%s)
- * Since Jorje's {n} placeholders don't carry type information, we convert all to %s
- */
-function transformPlaceholders(message) {
-  // Convert {0} → %s, {1} → %s, etc.
-  // All placeholders become %s since Jorje's {n} format doesn't carry type info
-  // and everything gets converted to string via toString() anyway
-  return message.replace(/\{(\d+)\}/g, '%s');
-}
-
-/**
  * Unescape value (handles \n, \t, \\, \uXXXX, etc.)
  */
 function unescapeValue(value) {
@@ -164,8 +153,7 @@ function unescapeValue(value) {
     }
   });
 
-  // Transform placeholders after unescaping
-  return transformPlaceholders(value);
+  return value;
 }
 
 /**
@@ -235,7 +223,7 @@ ${namespaceEntries.join('\n')}
 
 /**
  * Generate TypeScript module from properties Map
- * Generates Record format for @salesforce/vscode-i18n and ErrorCodeKey union type
+ * Generates a runtime message catalog and ErrorCodeKey union type
  */
 function generateTypeScriptModule(messages) {
   const entries = Array.from(messages.entries())
@@ -274,12 +262,11 @@ function generateTypeScriptModule(messages) {
 // DO NOT EDIT - This file is generated automatically
 
 /**
- * English error messages from jorje's messages_en_US.properties
+ * English error messages from the legacy Java compiler catalog
  * Generated at build time for browser/web worker compatibility
  * 
- * Messages have been transformed from MessageFormat style ({0}, {1}) to printf style (%s)
- * to be compatible with @salesforce/vscode-i18n. All placeholders are %s since Jorje's
- * {n} format doesn't carry type information.
+ * Messages preserve Java MessageFormat templates ({0}, {1}) so runtime
+ * formatting retains placeholder order, repetition, and apostrophe escaping.
  */
 
 /**
@@ -290,8 +277,8 @@ export type ErrorCodeKey =
 ${errorCodeKeys.join('\n')};
 
 /**
- * Messages as Record for use with @salesforce/vscode-i18n
- * Placeholders have been transformed from {n} to %s format
+ * Messages indexed by error code for runtime formatting
+ * Templates retain Java MessageFormat placeholder syntax.
  */
 export const messages: Record<string, string> = {
 ${recordEntries.join(',\n')}
@@ -302,20 +289,15 @@ ${recordEntries.join(',\n')}
 /**
  * Main function to generate messages TypeScript module
  *
- * Source: The messages_en_US.properties file should be manually copied from Jorje:
- *   Source: /path/to/apex-jorje/apex-jorje-services/src/main/resources/messages_en_US.properties
- *   Destination: packages/apex-parser-ast/resources/messages_en_US.properties
+ * Source: messages_en_US.properties is copied from the legacy Java compiler
+ * repository once per Apex major release.
  *
- * To sync with Jorje:
- *   1. Ensure apex-jorje repository is cloned locally
- *   2. Copy the file manually:
- *      cp /path/to/apex-jorje/apex-jorje-services/src/main/resources/messages_en_US.properties \
- *         packages/apex-parser-ast/resources/messages_en_US.properties
+ * To sync:
+ *   1. Copy the legacy Java compiler catalog into the checked-in baseline.
+ *   2. Keep Apex-LS-only uncertainty diagnostics in messages_apex_ls.properties.
  *   3. Run this script to regenerate messages_en_US.ts in src/generated/
  *
- * Note: This script only reads from the local .properties file and generates TypeScript.
- * It does NOT automatically copy from Jorje - that must be done manually to maintain
- * control over which messages are included and to handle any necessary modifications.
+ * This script only reads checked-in source catalogs. It has no external dependency.
  */
 async function generateMessages() {
   try {
@@ -330,6 +312,13 @@ async function generateMessages() {
       'messages',
       'messages_en_US.properties',
     );
+    const extensionPropertiesPath = path.join(
+      packageRoot,
+      'src',
+      'resources',
+      'messages',
+      'messages_apex_ls.properties',
+    );
     const outputPath = path.join(
       packageRoot,
       'src',
@@ -338,13 +327,20 @@ async function generateMessages() {
     );
 
     console.log(`Reading properties file: ${propertiesPath}`);
-    console.log(
-      `ℹ️  Note: This file should be manually synced from Jorje's messages_en_US.properties`,
-    );
-    const content = await readFile(propertiesPath, 'utf-8');
+    const [content, extensionContent] = await Promise.all([
+      readFile(propertiesPath, 'utf-8'),
+      readFile(extensionPropertiesPath, 'utf-8'),
+    ]);
 
     console.log('Parsing properties file...');
     const messages = parseProperties(content);
+    const extensionMessages = parseProperties(extensionContent);
+    for (const [key, value] of extensionMessages) {
+      if (messages.has(key)) {
+        throw new Error(`Duplicate diagnostic key across catalogs: ${key}`);
+      }
+      messages.set(key, value);
+    }
 
     console.log(`Found ${messages.size} message entries`);
 

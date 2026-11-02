@@ -1543,6 +1543,7 @@ function buildLspRequestMessage(
     case 'codeLens':
       return new DispatchCodeLens({
         textDocument: { uri: p.textDocument.uri },
+        content: getDocumentContent?.(p.textDocument.uri),
       });
     case 'diagnostics':
       return new DispatchDiagnostic({

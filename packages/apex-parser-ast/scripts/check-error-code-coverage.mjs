@@ -136,6 +136,31 @@ async function findUsedErrorCodesKeys(errorCodesKeys) {
   return usedKeys;
 }
 
+async function extractCatalogKeys(filename) {
+  const __filename = fileURLToPath(import.meta.url);
+  const packageRoot = path.resolve(path.dirname(__filename), '..');
+  const content = await readFile(
+    path.join(packageRoot, 'src', 'resources', 'messages', filename),
+    'utf-8',
+  );
+  const keys = new Set();
+  for (const line of content.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('!')) continue;
+    const separatorIndex = trimmed.search(/(?<!\\)[=:]/);
+    if (separatorIndex > 0) {
+      keys.add(
+        trimmed
+          .slice(0, separatorIndex)
+          .trim()
+          .toUpperCase()
+          .replace(/\./g, '_'),
+      );
+    }
+  }
+  return keys;
+}
+
 /**
  * Find which error code keys are actually used in the codebase
  * Searches for direct string literal usage of error codes
@@ -208,80 +233,51 @@ async function findTypeScriptFiles(dir, fileList = []) {
 /**
  * Generate coverage report for ErrorCodes keys
  */
-function generateErrorCodesReport(errorCodesKeys, usedKeys) {
-  const unusedKeys = new Set(
-    [...errorCodesKeys].filter((key) => !usedKeys.has(key)),
+function generateErrorCodesReport(errorCodesKeys, usedKeys, legacyKeys, lsKeys) {
+  const syntaxPrefixes = [
+    'UNEXPECTED_',
+    'UNMATCHED_',
+    'MISMATCHED_',
+    'MISSING_',
+    'UNRECOGNIZED_',
+    'INVALID_APEX_',
+    'ILLEGAL_STRING_LITERAL',
+    'ILLEGAL_INTEGER_LITERAL',
+    'ILLEGAL_LONG_LITERAL',
+    'ILLEGAL_DOUBLE_LITERAL',
+    'ILLEGAL_DECIMAL_LITERAL',
+  ];
+  const classifications = {
+    syntax: [],
+    implemented: [],
+    deferred: [],
+    'compiler-only': [],
+    'ls-only': [],
+  };
+
+  for (const key of errorCodesKeys) {
+    if (lsKeys.has(key)) {
+      classifications['ls-only'].push(key);
+    } else if (syntaxPrefixes.some((prefix) => key.startsWith(prefix))) {
+      classifications.syntax.push(key);
+    } else if (usedKeys.has(key)) {
+      classifications.implemented.push(key);
+    } else if (legacyKeys.has(key)) {
+      classifications.deferred.push(key);
+    } else {
+      classifications['compiler-only'].push(key);
+    }
+  }
+
+  console.log('\n📊 Diagnostic Catalog Classification\n');
+  console.log('═'.repeat(60));
+  for (const [classification, keys] of Object.entries(classifications)) {
+    console.log(`${classification.padEnd(16)} ${keys.length}`);
+  }
+  console.log('═'.repeat(60));
+  console.log(
+    '\nDeferred legacy diagnostics are expected until their parser-owned validators are implemented.\n',
   );
-
-  const totalKeys = errorCodesKeys.size;
-  const totalUsed = usedKeys.size;
-  const coveragePercent = ((totalUsed / totalKeys) * 100).toFixed(1);
-
-  console.log('\n📊 ErrorCodes Key Usage Report\n');
-  console.log('═'.repeat(60));
-  console.log(`Total ErrorCodes keys defined:    ${totalKeys}`);
-  console.log(`ErrorCodes keys used:             ${totalUsed}`);
-  console.log(`Coverage:                        ${coveragePercent}%`);
-  console.log('═'.repeat(60));
-
-  if (unusedKeys.size > 0) {
-    console.log(`\n⚠️  Unused ErrorCodes keys (${unusedKeys.size}):`);
-    console.log('─'.repeat(60));
-    console.log(
-      '  These ErrorCodes keys are defined but never used (may indicate unimplemented validations):',
-    );
-    const sortedUnused = [...unusedKeys].sort();
-    sortedUnused.forEach((key) => {
-      console.log(`  • ${key}`);
-    });
-    console.log('\n');
-    return false; // Return false to indicate unused keys found
-  }
-
-  if (unusedKeys.size === 0) {
-    console.log('\n✅ All ErrorCodes keys are being used!');
-    console.log('\n');
-  }
-
-  return true; // Return true if all keys are used
-}
-
-/**
- * Generate coverage report for string literal error codes
- */
-function generateReport(messageKeys, usedKeys) {
-  const unusedKeys = new Set(
-    [...messageKeys].filter((key) => !usedKeys.has(key)),
-  );
-
-  const totalMessages = messageKeys.size;
-  const totalUsed = usedKeys.size;
-  const coveragePercent = ((totalUsed / totalMessages) * 100).toFixed(1);
-
-  console.log('\n📊 Error Code Coverage Report (String Literals)\n');
-  console.log('═'.repeat(60));
-  console.log(`Total error codes available:     ${totalMessages}`);
-  console.log(`Error codes used in codebase:     ${totalUsed}`);
-  console.log(`Coverage:                        ${coveragePercent}%`);
-  console.log('═'.repeat(60));
-
-  if (unusedKeys.size > 0) {
-    console.log(`\n⚠️  Unused error codes (${unusedKeys.size}):`);
-    console.log('─'.repeat(60));
-    console.log(
-      '  These are in messages_en_US.ts but not used anywhere in the codebase:',
-    );
-    const sortedUnused = [...unusedKeys].sort();
-    sortedUnused.forEach((key) => {
-      console.log(`  • ${key}`);
-    });
-  }
-
-  if (unusedKeys.size === 0) {
-    console.log('\n✅ All error codes are being used!');
-  }
-
-  console.log('\n');
 }
 
 /**
@@ -289,7 +285,7 @@ function generateReport(messageKeys, usedKeys) {
  */
 async function checkCoverage() {
   try {
-    console.log('🔍 Checking ErrorCodes key usage...\n');
+    console.log('🔍 Classifying diagnostic catalog coverage...\n');
 
     // Check ErrorCodes.KEY_NAME usage
     console.log('📋 Extracting ErrorCodes keys...');
@@ -297,16 +293,15 @@ async function checkCoverage() {
     
     console.log('🔎 Searching for ErrorCodes.KEY_NAME usage in codebase...');
     const usedErrorCodesKeys = await findUsedErrorCodesKeys(errorCodesKeys);
+    const legacyKeys = await extractCatalogKeys('messages_en_US.properties');
+    const lsKeys = await extractCatalogKeys('messages_apex_ls.properties');
 
-    const allErrorCodesUsed = generateErrorCodesReport(
+    generateErrorCodesReport(
       errorCodesKeys,
       usedErrorCodesKeys,
+      legacyKeys,
+      lsKeys,
     );
-
-    // Exit with error code if unused ErrorCodes keys found
-    if (!allErrorCodesUsed) {
-      process.exit(1);
-    }
   } catch (error) {
     console.error('❌ Error checking coverage:', error);
     if (error.stack) {

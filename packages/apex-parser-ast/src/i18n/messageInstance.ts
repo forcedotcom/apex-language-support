@@ -6,23 +6,47 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { Message } from '@salesforce/vscode-i18n';
 import { messages, ErrorCodeKey } from '../generated/messages_en_US';
 
 /**
- * Singleton Message instance for localization.
- * Initialized lazily on first use.
+ * Format the MessageFormat subset used by the legacy Java diagnostic catalog.
+ *
+ * Java MessageFormat uses indexed placeholders and apostrophe escaping, unlike
+ * printf's sequential placeholders. Keeping this small formatter local avoids
+ * rewriting the source catalog during generation.
  */
-let messageInstance: Message | null = null;
+function formatMessage(template: string, args: readonly unknown[]): string {
+  let result = '';
+  let quoted = false;
 
-/**
- * Get the Message instance (lazy initialization)
- */
-function getMessageInstance(): Message {
-  if (!messageInstance) {
-    messageInstance = new Message(messages);
+  for (let index = 0; index < template.length; index += 1) {
+    const character = template[index];
+    if (character === "'") {
+      if (template[index + 1] === "'") {
+        result += "'";
+        index += 1;
+      } else {
+        quoted = !quoted;
+      }
+      continue;
+    }
+
+    if (!quoted && character === '{') {
+      const end = template.indexOf('}', index + 1);
+      const placeholder = end === -1 ? '' : template.slice(index + 1, end);
+      if (/^\d+$/.test(placeholder)) {
+        const argument = args[Number(placeholder)];
+        result +=
+          argument === undefined ? `{${placeholder}}` : String(argument);
+        index = end;
+        continue;
+      }
+    }
+
+    result += character;
   }
-  return messageInstance;
+
+  return result;
 }
 
 /**
@@ -42,10 +66,7 @@ export function localize(key: string, ...args: any[]): string {
     return `!${key}!`;
   }
 
-  // Use @salesforce/vscode-i18n Message class for formatting
-  // Convert args to strings (matching original behavior)
-  const stringArgs = args.map((arg) => String(arg));
-  return getMessageInstance().localize(key, ...stringArgs);
+  return formatMessage(messages[key], args);
 }
 
 /**
@@ -54,7 +75,7 @@ export function localize(key: string, ...args: any[]): string {
  * Provides:
  * - Type-safe error code keys (IntelliSense for valid keys)
  * - Type-safe argument count (ensures correct number of arguments)
- * - All arguments typed as any[] (since placeholders are %s)
+ * - All arguments typed as any[] (MessageFormat indexes are catalog-defined)
  *
  * @param key The message key (must be a valid ErrorCodeKey)
  * @param args Arguments to substitute into placeholders

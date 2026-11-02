@@ -104,7 +104,6 @@ describe('messageInstance', () => {
     });
 
     it('should return !key! for missing message key', () => {
-      // @ts-expect-error - Testing invalid key (type error expected)
       const result = localizeTyped('nonexistent.key' as any);
       expect(result).toContain('nonexistent.key');
     });
@@ -132,29 +131,39 @@ describe('messageInstance', () => {
     });
   });
 
-  describe('placeholder transformation', () => {
-    it('should use printf format (%s) instead of MessageFormat ({0})', () => {
-      // Verify that messages have been transformed from {0} to %s
-      // by checking that the formatted output works correctly
-      const result = localizeTyped('invalid.number.parameters', '255');
-      expect(result).toBe('Invalid number of parameters exceeds: 255');
-      // If transformation worked, %s should be replaced with the argument
-      expect(result).not.toContain('%s');
-      expect(result).toContain('255');
+  describe('MessageFormat placeholders', () => {
+    it('should preserve reordered placeholders and escaped apostrophes', () => {
+      const result = localizeTyped('missing.syntax', "';'", ']');
+      expect(result).toBe("Missing ']' at ';'");
     });
 
-    it('should handle multiple placeholders correctly after transformation', () => {
+    it('should reuse repeated placeholders', () => {
       const result = localizeTyped(
-        'annotation.property.bad.string.value',
-        'prop',
-        'annot',
-        'value',
+        'invalid.list.initializer',
+        'String',
+        'Integer',
       );
-      // All placeholders should be replaced
-      expect(result).not.toContain('%s');
-      expect(result).toContain('prop');
-      expect(result).toContain('annot');
-      expect(result).toContain('value');
+      expect(result).toBe(
+        'Invalid initializer type String found for List<Integer>: expected an Integer or a List of type Integer',
+      );
+    });
+
+    it('should reuse an annotation property placeholder', () => {
+      const result = localizeTyped(
+        'annotation.property.invalid.format',
+        'iconName',
+        'InvocableMethod',
+      );
+      expect(result).toBe(
+        'Annotation property, the format of iconName on InvocableMethod is invalid, ' +
+          'please check if the iconName has the correct formats',
+      );
+    });
+
+    it('should leave missing arguments visible', () => {
+      expect(localizeTyped('missing.syntax', "';'")).toBe(
+        "Missing '{1}' at ';'",
+      );
     });
   });
 });
