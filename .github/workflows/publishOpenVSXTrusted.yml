@@ -1,0 +1,49 @@
+name: Publish Open VSX (Trusted)
+run-name: "Open VSX: ${{ inputs.release-tag }}"
+
+# The actual `ovsx publish` for every channel (prerelease, stable, and the manual-publish
+# version-tag path) lives here. Open VSX's trusted-publisher match keys off the OIDC token's
+# workflow_ref claim -- the top-level workflow that *initiated* the run -- not job_workflow_ref
+# (the reusable workflow actually executing a job, which can be nested arbitrarily deep via
+# `uses:`, even cross-repo, without changing workflow_ref). promote-prerelease.yml,
+# promote-stable.yml, and manual-publish.yml are three different top-level files, and Open VSX
+# allows exactly one trusted-publisher registration per extension (hard server-side check, not a
+# UI gap -- see TrustedPublishingService.registerTrustedPublisher in eclipse-openvsx/openvsx).
+# Each of those three now dispatches this file via `gh workflow run` (a genuinely new,
+# independently initiated run, not a `uses:` call) instead of publishing Open VSX itself, so
+# every Open VSX publish for this extension shares this one workflow_ref. Register the Open VSX
+# trusted publisher against *this* file.
+#
+# No isHotfix/gate-check job here: every caller already tests the commit before dispatching --
+# promote-prerelease.yml's own gate-check, promote-stable.yml's quality-gate, and
+# manual-publish.yml's mandatory skip-quality-checks/confirm-bypass guard for its one bypass path
+# (source-run-id), which is excluded from reaching this file at all (no GitHub Release exists for
+# a branch-CI-run artifact for this file's tag-based publish to target).
+
+on:
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: 'Release tag to publish (e.g. apex-language-server-extension-v0.5.3-nightly.20260301 or apex-language-server-extension-v0.6.0)'
+        required: true
+        type: string
+      dry-run:
+        description: 'Download and inspect VSIXs without publishing'
+        type: boolean
+        default: false
+
+jobs:
+  publish:
+    permissions:
+      contents: read
+      id-token: write
+    # TEMPORARY: pinned to the github-workflows PR branch with the --trusted-publishing migration
+    # (salesforcecli/github-workflows#199), to validate end-to-end before that PR merges. Switch
+    # back to @main before merging this PR.
+    uses: salesforcecli/github-workflows/.github/workflows/openvsx-publish-release-vsix.yml@ms/W-24666922-ovsx-trusted-publishing
+    with:
+      release-tag: ${{ inputs.release-tag }}
+      vsix-name-pattern: 'apex-language-server-extension-*.vsix'
+      exclude-web-vsix: 'true'
+      dry-run: ${{ inputs.dry-run || false }}
+    secrets: inherit
