@@ -550,6 +550,59 @@ describe('HoverProcessingService Integration Tests', () => {
     });
   });
 
+  describe('cross-file enum hover', () => {
+    it('resolves an enum member after its producer is retained at public-api detail', async () => {
+      const producerUri = 'file:///VisibilityMix.cls';
+      const consumerUri = 'file:///VisibilityConsumer.cls';
+      const producerSource =
+        'public enum VisibilityMix { PUBLIC_VALUE, INTERNAL_VALUE }';
+      const consumerSource = [
+        'public class VisibilityConsumer {',
+        '  void run() {',
+        '    VisibilityMix value = VisibilityMix.PUBLIC_VALUE;',
+        '  }',
+        '}',
+      ].join('\n');
+      const compiler = new CompilerService();
+      const producerResult = compiler.compileLayered(
+        producerSource,
+        producerUri,
+        ['public-api'],
+      );
+      expect(producerResult.result).toBeDefined();
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(producerResult.result!, producerUri),
+      );
+
+      const consumerTable = new SymbolTable();
+      compiler.compile(
+        consumerSource,
+        consumerUri,
+        new FullSymbolCollectorListener(consumerTable),
+        { collectReferences: true, resolveReferences: true },
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(consumerTable, consumerUri),
+      );
+      mockStorage.getDocument.mockResolvedValue(
+        TextDocument.create(consumerUri, 'apex', 1, consumerSource),
+      );
+
+      const result = await hoverService.processHover({
+        textDocument: { uri: consumerUri },
+        position: {
+          line: 2,
+          character: consumerSource.split('\n')[2].indexOf('PUBLIC_VALUE') + 2,
+        },
+      });
+
+      expect(result).not.toBeNull();
+      expect((result?.contents as { value: string }).value).toContain(
+        'PUBLIC_VALUE',
+      );
+    });
+  });
+
   describe('Apex Access Modifier Context Analysis', () => {
     it('should resolve global class when in global access modifier context', async () => {
       mockStorage.getDocument.mockResolvedValue(testClassDocument);

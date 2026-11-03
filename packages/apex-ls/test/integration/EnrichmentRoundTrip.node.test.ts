@@ -293,6 +293,74 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
     expect('result' in response).toBe(true);
   }, 120_000);
 
+  it('hydrates an enum owner for cross-file member hover instead of searching for an artifact', async () => {
+    const producerUri = 'file:///test/VisibilityMix.cls';
+    const consumerUri = 'file:///test/VisibilityConsumer.cls';
+    const producerSource =
+      'public enum VisibilityMix { PUBLIC_VALUE, INTERNAL_VALUE }';
+    const consumerSource = [
+      'public class VisibilityConsumer {',
+      '  void run() {',
+      '    VisibilityMix value = VisibilityMix.PUBLIC_VALUE;',
+      '  }',
+      '}',
+    ].join('\n');
+
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        () => consumerSource,
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      for (const [uri, source] of [
+        [producerUri, producerSource],
+        [consumerUri, consumerSource],
+      ] as const) {
+        yield* Effect.promise(() =>
+          dispatcher.dispatch('documentOpen', {
+            document: {
+              uri,
+              languageId: 'apex',
+              version: 1,
+              getText: () => source,
+            },
+            textDocument: { uri },
+            text: source,
+          }),
+        );
+      }
+
+      return yield* Effect.promise(() =>
+        dispatcher.dispatch('hover', {
+          textDocument: { uri: consumerUri },
+          position: {
+            line: 2,
+            character:
+              consumerSource.split('\n')[2].indexOf('PUBLIC_VALUE') + 2,
+          },
+          content: consumerSource,
+          documentVersion: 1,
+        }),
+      );
+    }).pipe(Effect.scoped);
+
+    const hover = await Effect.runPromise(program);
+    expect(JSON.stringify(hover)).toContain('PUBLIC_VALUE');
+    expect(JSON.stringify(hover)).not.toContain('Searching for symbol');
+  }, 120_000);
+
   it('loads an sObject receiver dependency for member completion through the worker topology', async () => {
     const completionUri = 'file:///test/PropertyCompletion.cls';
     const completionSource = [

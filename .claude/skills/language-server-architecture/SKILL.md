@@ -50,22 +50,27 @@ The language server works with three distinct sources of Apex type artifacts:
 ```
 Coordinator (main thread)
 ├── Data owner worker      — owns symbol tables for workspace + faux SObject files
-├── Enrichment workers (2+) — handle hover, definition, diagnostics
+├── Request-pool workers (2+) — handle dispatched LSP requests
 └── Resource loader worker — owns standard Apex library (read-only)
 ```
 
 ### Data owner worker
 - Single worker, source of truth for customer code and faux SObject class symbols
 - Receives document lifecycle events (open, change, save, close)
-- Serves symbol data to enrichment workers via QuerySymbolSubset
-- Accepts write-backs of enriched symbols from enrichment workers
+- Serves symbol data to request-pool workers via QuerySymbolSubset
+- Accepts write-backs of enriched symbols from request-pool workers
 
-### Enrichment workers
+### Request-pool workers
 - Pool of workers for parallel LSP request processing
 - Get file symbols from data owner, process requests, write back enriched data
 - Access stdlib via remote ResourceLoaderService layer (assistance channel → coordinator → resource loader worker)
 - Do NOT have local copies of protobuf caches, stdlib ZIP, or GlobalTypeRegistry
 - The sync namespace cache (populated during stdlib warmup) is the only local stdlib state
+- Cursor-target dependency loading must use parser-owned reference and chain ranges.
+  When a member is selected in a multi-node chain, preserve the matching
+  enclosing chain as well as the narrowest leaf reference so the chain head's
+  owning table can be fetched before missing-artifact resolution. Do not infer
+  the receiver from raw source text.
 
 ### Resource loader worker
 - Single worker, owns all standard Apex library data
@@ -84,12 +89,12 @@ GlobalTypeRegistry is an **in-process, mutable type index** — NOT just a stdli
 
 It is a **module-level singleton** (`globalRegistryInstance`). Each Node.js process gets its own instance:
 - **Coordinator process**: populated with stdlib + user types as files are compiled
-- **Enrichment workers**: EMPTY — enrichment workers don't compile files or load protobuf caches
+- **Request-pool workers**: EMPTY — request-pool workers don't compile files or load protobuf caches
 
 When modifying resolution code in `apex-parser-ast/src/symbols/ops/`:
-- Code runs on BOTH coordinator and enrichment workers
+- Code runs on BOTH coordinator and request-pool workers
 - Do not remove GlobalTypeRegistry usage — it provides cross-file resolution on the coordinator
-- Ensure enrichment worker fallback paths work correctly (they bypass the empty registry)
+- Ensure request-pool worker fallback paths work correctly (they bypass the empty registry)
 
 ## Separation of Concerns (Data Ownership Boundaries)
 
@@ -97,7 +102,7 @@ Keep data-handling logic siloed within the component whose responsibility it is.
 
 - **Coordinator** — routing and message passing only. It dispatches requests to the right worker and relays responses. It does NOT transform, enrich, parse, or reshape symbol data; that belongs to the worker that owns the data.
 - **Data owner worker** — owns the symbol graph for workspace + faux SObject files. All mutation, merging, and write-back reconciliation of those symbols lives here.
-- **Request/enrichment workers** — process LSP requests against symbols they fetch from the data owner; transformation of request results lives here, not in the coordinator.
+- **Request-pool workers** — process LSP requests against symbols they fetch from the data owner; transformation of request results lives here, not in the coordinator.
 - **Resource loader worker** — owns all stdlib access and any reshaping of stdlib artifacts.
 
 Rule of thumb: if you're adding data transformation logic to the coordinator, it's in the wrong place — push it down to the owning worker. A component should only manipulate data it owns.
@@ -109,10 +114,8 @@ Defined in `apex-ls/src/server/WorkerCoordinator.ts`.
 | Request | Target | Notes |
 |---------|--------|-------|
 | documentOpen/Change/Save/Close | dataOwner | Document lifecycle |
-| hover | enrichmentPool | With write-back |
-| definition | enrichmentPool | With write-back |
-| diagnostics | enrichmentPool | With write-back |
-| completion, references, etc. | coordinatorOnly | Not yet moved to workers |
+| hover, completion, definition, diagnostics | requestPool | Cursor requests may load only parser-owned target dependencies; enrichment writes back when applicable |
+| code action, code lens, document symbol, implementation, references, rename, signature help, semantic tokens | requestPool | Request-specific preparation and processing |
 
 ## Worker Profiling & Debugging
 

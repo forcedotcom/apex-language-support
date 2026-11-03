@@ -1493,7 +1493,7 @@ const positionInParserRange = (
   (position.line < range.endLine ||
     (position.line === range.endLine && position.character <= range.endColumn));
 
-/** Select only parser references whose token or member-access range owns the cursor. */
+/** Select parser references whose token or member-access range owns the cursor. */
 export const dependencyReferencesAtCursor = (
   references: DependencyCursorReference[],
   position: { line: number; character: number },
@@ -1502,6 +1502,17 @@ export const dependencyReferencesAtCursor = (
     positionInParserRange(position, reference.location?.identifierRange),
   );
   if (exact.length > 0) {
+    // Preserve the enclosing chain when its leaf owns the cursor. The leaf is
+    // the right target for hover, while the chain head identifies the producer
+    // table needed to resolve that target in a request-pool worker.
+    const enclosingChains = references.filter(
+      (reference) =>
+        reference.chainNodes &&
+        reference.chainNodes.length >= 2 &&
+        reference.chainNodes.some((node) =>
+          positionInParserRange(position, node.location?.identifierRange),
+        ),
+    );
     const rangeSize = (reference: DependencyCursorReference): number => {
       const range = reference.location?.identifierRange;
       if (!range) return Number.POSITIVE_INFINITY;
@@ -1511,7 +1522,10 @@ export const dependencyReferencesAtCursor = (
       );
     };
     const narrowest = Math.min(...exact.map(rangeSize));
-    return exact.filter((reference) => rangeSize(reference) === narrowest);
+    return [
+      ...exact.filter((reference) => rangeSize(reference) === narrowest),
+      ...enclosingChains,
+    ];
   }
 
   return references.filter((reference) => {
@@ -1700,6 +1714,16 @@ function loadCursorTargetDependencies(
         }
         yield* addResolvedSymbolType(node.resolvedSymbolId);
         yield* addResolvedSymbolType(node.resolvedTypeId, true);
+      }
+
+      // The parser may conservatively classify a static type receiver as a
+      // value reference in a member chain. When the receiver is unresolved,
+      // fetch its owning table from the data owner so the member can be bound
+      // locally instead of falling through to missing-artifact search.
+      const chainNodes = reference.chainNodes;
+      const chainHead = chainNodes?.[0];
+      if (chainHead && chainNodes.length >= 2) {
+        addCandidate(chainHead.name);
       }
     }
 
