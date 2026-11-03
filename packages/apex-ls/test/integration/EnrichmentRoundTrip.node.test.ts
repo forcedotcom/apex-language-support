@@ -295,13 +295,20 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
 
   it('hydrates an enum owner for cross-file member hover instead of searching for an artifact', async () => {
     const producerUri = 'file:///test/VisibilityMix.cls';
+    const nestedProducerUri = 'file:///test/MyNested.cls';
     const consumerUri = 'file:///test/VisibilityConsumer.cls';
     const producerSource =
       'public enum VisibilityMix { PUBLIC_VALUE, INTERNAL_VALUE }';
+    const nestedProducerSource = [
+      'public with sharing class MyNested {',
+      '  public enum MyNestedEnum { X, Y, Z }',
+      '}',
+    ].join('\n');
     const consumerSource = [
       'public class VisibilityConsumer {',
       '  void run() {',
       '    VisibilityMix value = VisibilityMix.PUBLIC_VALUE;',
+      '    MyNested.MyNestedEnum nestedValue = MyNested.MyNestedEnum.Z;',
       '  }',
       '}',
     ].join('\n');
@@ -326,6 +333,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
 
       for (const [uri, source] of [
         [producerUri, producerSource],
+        [nestedProducerUri, nestedProducerSource],
         [consumerUri, consumerSource],
       ] as const) {
         yield* Effect.promise(() =>
@@ -341,24 +349,48 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
           }),
         );
       }
+      const indexed = (yield* Effect.promise(() =>
+        dispatcher.queryDataOwner('QuerySymbolSubset', {
+          uris: [producerUri, nestedProducerUri],
+          includeEntries: true,
+        }),
+      )) as { entries?: Record<string, unknown> };
+      expect(indexed.entries?.[producerUri]).toBeDefined();
+      expect(indexed.entries?.[nestedProducerUri]).toBeDefined();
 
-      return yield* Effect.promise(() =>
-        dispatcher.dispatch('hover', {
+      const hoverAt = (line: number, token: string, occurrence = 1) => {
+        const sourceLine = consumerSource.split('\n')[line];
+        let offset = -1;
+        for (let index = 0; index < occurrence; index++) {
+          offset = sourceLine.indexOf(token, offset + 1);
+        }
+        return dispatcher.dispatch('hover', {
           textDocument: { uri: consumerUri },
           position: {
-            line: 2,
-            character:
-              consumerSource.split('\n')[2].indexOf('PUBLIC_VALUE') + 2,
+            line,
+            character: offset + Math.min(2, token.length),
           },
           content: consumerSource,
           documentVersion: 1,
-        }),
-      );
+        });
+      };
+
+      return [
+        yield* Effect.promise(() => hoverAt(2, 'PUBLIC_VALUE')),
+        yield* Effect.promise(() => hoverAt(3, 'MyNestedEnum', 2)),
+        yield* Effect.promise(() => hoverAt(3, 'Z')),
+      ];
     }).pipe(Effect.scoped);
 
-    const hover = await Effect.runPromise(program);
-    expect(JSON.stringify(hover)).toContain('PUBLIC_VALUE');
-    expect(JSON.stringify(hover)).not.toContain('Searching for symbol');
+    const hovers = await Effect.runPromise(program);
+    for (const [hover, symbol] of [
+      [hovers[0], 'PUBLIC_VALUE'],
+      [hovers[1], 'MyNestedEnum'],
+      [hovers[2], 'Z'],
+    ] as const) {
+      expect(JSON.stringify(hover)).toContain(symbol);
+      expect(JSON.stringify(hover)).not.toContain('Searching for symbol');
+    }
   }, 120_000);
 
   it('loads an sObject receiver dependency for member completion through the worker topology', async () => {

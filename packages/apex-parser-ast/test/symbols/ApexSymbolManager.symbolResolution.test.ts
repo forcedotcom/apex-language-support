@@ -767,13 +767,20 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
   describe('cross-file enum symbol resolution', () => {
     it('resolves a closed public enum qualifier and value in its consumer', async () => {
       const producerUri = 'file:///test/VisibilityMix.cls';
+      const nestedProducerUri = 'file:///test/MyNested.cls';
       const consumerUri = 'file:///test/VisibilityConsumer.cls';
       const producerSource =
         'public enum VisibilityMix { PUBLIC_VALUE, INTERNAL_VALUE }';
+      const nestedProducerSource = [
+        'public with sharing class MyNested {',
+        '  public enum MyNestedEnum { X, Y, Z }',
+        '}',
+      ].join('\n');
       const consumerSource = [
         'public class VisibilityConsumer {',
         '  void run() {',
         '    VisibilityMix value = VisibilityMix.PUBLIC_VALUE;',
+        '    MyNested.MyNestedEnum nestedValue = MyNested.MyNestedEnum.Z;',
         '  }',
         '}',
       ].join('\n');
@@ -785,6 +792,17 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       );
       await Effect.runPromise(
         symbolManager.addSymbolTable(producerResult.result!, producerUri),
+      );
+      const nestedProducerResult = compilerService.compileLayered(
+        nestedProducerSource,
+        nestedProducerUri,
+        ['public-api'],
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(
+          nestedProducerResult.result!,
+          nestedProducerUri,
+        ),
       );
 
       const consumerResult = compilerService.compile(
@@ -803,6 +821,9 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       const line = consumerSource.split('\n')[2];
       const qualifierStart = line.lastIndexOf('VisibilityMix');
       const valueStart = line.indexOf('PUBLIC_VALUE');
+      const nestedLine = consumerSource.split('\n')[3];
+      const nestedEnumStart = nestedLine.lastIndexOf('MyNestedEnum');
+      const nestedValueStart = nestedLine.indexOf('Z');
       const qualifier = await symbolManager.getSymbolAtPosition(
         consumerUri,
         { line: 3, character: qualifierStart + 2 },
@@ -811,6 +832,16 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
       const value = await symbolManager.getSymbolAtPosition(
         consumerUri,
         { line: 3, character: valueStart + 2 },
+        'precise',
+      );
+      const nestedEnum = await symbolManager.getSymbolAtPosition(
+        consumerUri,
+        { line: 4, character: nestedEnumStart + 2 },
+        'precise',
+      );
+      const nestedValue = await symbolManager.getSymbolAtPosition(
+        consumerUri,
+        { line: 4, character: nestedValueStart + 1 },
         'precise',
       );
 
@@ -823,6 +854,16 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
         name: 'PUBLIC_VALUE',
         kind: 'enumValue',
         fileUri: producerUri,
+      });
+      expect(nestedEnum).toMatchObject({
+        name: 'MyNestedEnum',
+        kind: 'enum',
+        fileUri: nestedProducerUri,
+      });
+      expect(nestedValue).toMatchObject({
+        name: 'Z',
+        kind: 'enumValue',
+        fileUri: nestedProducerUri,
       });
     });
   });
