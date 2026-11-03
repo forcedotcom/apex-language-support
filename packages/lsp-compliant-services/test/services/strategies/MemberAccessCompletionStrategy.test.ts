@@ -1056,39 +1056,46 @@ describe('MemberAccessCompletionStrategy', () => {
   });
 
   describe('getCompletions - enum, inner class, and constructor scenarios', () => {
-    it('E: should return enum values for Season. (static enum access)', async () => {
+    it('E: should return enum values from a cross-file enum after its producer is closed', async () => {
       const sm = new ApexSymbolManager();
       const strat = new MemberAccessCompletionStrategy(logger, sm);
 
       const seasonContent =
-        'public enum Season { SPRING, SUMMER, FALL, WINTER }';
-      await compileInlineAndRegister(
-        sm,
+        'public enum VisibilityMix { PUBLIC_VALUE, INTERNAL_VALUE }';
+      const parserAst = await import('@salesforce/apex-lsp-parser-ast');
+      const producerResult = new parserAst.CompilerService().compileLayered(
         seasonContent,
-        'file:///test/Season.cls',
+        'file:///test/VisibilityMix.cls',
+        ['public-api'],
+      );
+      expect(producerResult.result).toBeDefined();
+      await Effect.runPromise(
+        sm.addSymbolTable(
+          producerResult.result!,
+          'file:///test/VisibilityMix.cls',
+        ),
       );
 
       const content = [
         'public class EnumTest {',
         '  public void run() {',
-        '    Season.',
+        '    VisibilityMix.',
         '  }',
         '}',
       ].join('\n');
       const uri = 'file:///test/EnumTest.cls';
       await compileInlineAndRegister(sm, content, uri);
+      await Effect.runPromise(sm.resolveCrossFileReferencesForFile(uri));
       const doc = makeTextDocument(content, uri);
-      const context = makeCompletionContext(doc, 2, 11, {
+      const context = makeCompletionContext(doc, 2, 18, {
         triggerCharacter: '.',
       });
 
       const candidates = await Effect.runPromise(strat.getCompletions(context));
       const names = candidates.map((c) => c.symbol.name);
 
-      expect(names).toContain('SPRING');
-      expect(names).toContain('SUMMER');
-      expect(names).toContain('FALL');
-      expect(names).toContain('WINTER');
+      expect(names).toContain('PUBLIC_VALUE');
+      expect(names).toContain('INTERNAL_VALUE');
     });
 
     it('F: should return static members and inner types for OuterClass. (static access)', async () => {

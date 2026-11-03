@@ -441,7 +441,9 @@ export async function resolveChainedSymbolReference(
             // Filter for class symbols
             const classSymbols = qualifierSymbols.filter(
               (s) =>
-                s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+                s.kind === SymbolKind.Class ||
+                s.kind === SymbolKind.Interface ||
+                s.kind === SymbolKind.Enum,
             );
 
             if (classSymbols.length > 0) {
@@ -1223,7 +1225,10 @@ export async function resolveFirstNodeAsClass(
   // Try finding by name (prefer class symbols)
   const qualifierSymbols = await self.findSymbolByName(firstNodeName);
   const classSymbols = qualifierSymbols.filter(
-    (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+    (s) =>
+      s.kind === SymbolKind.Class ||
+      s.kind === SymbolKind.Interface ||
+      s.kind === SymbolKind.Enum,
   );
   if (classSymbols.length > 0) {
     // Prefer standard Apex classes
@@ -1287,7 +1292,10 @@ export async function resolveFirstNodeAsClass(
   if (includeRetry) {
     const retrySymbols = await self.findSymbolByName(firstNodeName);
     const retryClassSymbols = retrySymbols.filter(
-      (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+      (s) =>
+        s.kind === SymbolKind.Class ||
+        s.kind === SymbolKind.Interface ||
+        s.kind === SymbolKind.Enum,
     );
     if (retryClassSymbols.length > 0) {
       const retryStdClass = retryClassSymbols.find(
@@ -1876,6 +1884,10 @@ export async function resolveMemberInContext(
 ): Promise<ApexSymbol | null> {
   if (context?.type === 'symbol') {
     const contextSymbol = context.symbol;
+    const effectiveMemberType =
+      contextSymbol.kind === SymbolKind.Enum && memberType === 'property'
+        ? SymbolKind.EnumValue
+        : memberType;
     const contextFile = contextSymbol.fileUri;
     if (contextFile) {
       let symbolTable =
@@ -2423,7 +2435,7 @@ export async function resolveMemberInContext(
                 isBlockSymbol(s) ||
                 s.fileUri !== contextSymbol.fileUri ||
                 s.name !== memberName ||
-                s.kind !== memberType
+                s.kind !== effectiveMemberType
               ) {
                 return false;
               }
@@ -2520,7 +2532,7 @@ export async function resolveMemberInContext(
               (s) =>
                 !isBlockSymbol(s) &&
                 s.name?.toLowerCase() === memberName.toLowerCase() &&
-                s.kind === memberType &&
+                s.kind === effectiveMemberType &&
                 s.fileUri === contextSymbol.fileUri,
             );
             self.logger.debug(
@@ -2637,7 +2649,7 @@ export async function resolveMemberInContext(
                               !isBlockSymbol(s) &&
                               s.name?.toLowerCase() ===
                                 memberName.toLowerCase() &&
-                              s.kind === memberType &&
+                              s.kind === effectiveMemberType &&
                               s.fileUri === contextSymbol.fileUri &&
                               s.parentId === classBlock2.id,
                           );
@@ -2720,7 +2732,7 @@ export async function resolveMemberInContext(
         const contextMembers = allSymbols.filter(
           (s) =>
             s.name?.toLowerCase() === memberName.toLowerCase() &&
-            s.kind === memberType,
+            s.kind === effectiveMemberType,
         );
 
         if (contextMembers.length > 0) {

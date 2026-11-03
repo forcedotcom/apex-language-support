@@ -764,6 +764,69 @@ describe('ApexSymbolManager - Symbol Resolution Fixes (Parser/AST)', () => {
     });
   });
 
+  describe('cross-file enum symbol resolution', () => {
+    it('resolves a closed public enum qualifier and value in its consumer', async () => {
+      const producerUri = 'file:///test/VisibilityMix.cls';
+      const consumerUri = 'file:///test/VisibilityConsumer.cls';
+      const producerSource =
+        'public enum VisibilityMix { PUBLIC_VALUE, INTERNAL_VALUE }';
+      const consumerSource = [
+        'public class VisibilityConsumer {',
+        '  void run() {',
+        '    VisibilityMix value = VisibilityMix.PUBLIC_VALUE;',
+        '  }',
+        '}',
+      ].join('\n');
+
+      const producerResult = compilerService.compileLayered(
+        producerSource,
+        producerUri,
+        ['public-api'],
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(producerResult.result!, producerUri),
+      );
+
+      const consumerResult = compilerService.compile(
+        consumerSource,
+        consumerUri,
+        new FullSymbolCollectorListener(),
+        { collectReferences: true, resolveReferences: true },
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(consumerResult.result!, consumerUri),
+      );
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(consumerUri),
+      );
+
+      const line = consumerSource.split('\n')[2];
+      const qualifierStart = line.lastIndexOf('VisibilityMix');
+      const valueStart = line.indexOf('PUBLIC_VALUE');
+      const qualifier = await symbolManager.getSymbolAtPosition(
+        consumerUri,
+        { line: 3, character: qualifierStart + 2 },
+        'precise',
+      );
+      const value = await symbolManager.getSymbolAtPosition(
+        consumerUri,
+        { line: 3, character: valueStart + 2 },
+        'precise',
+      );
+
+      expect(qualifier).toMatchObject({
+        name: 'VisibilityMix',
+        kind: 'enum',
+        fileUri: producerUri,
+      });
+      expect(value).toMatchObject({
+        name: 'PUBLIC_VALUE',
+        kind: 'enumValue',
+        fileUri: producerUri,
+      });
+    });
+  });
+
   describe('identifierRange accuracy', () => {
     it('should have accurate identifierRange for method references in this.methodName()', async () => {
       const sourceCode = loadFixture('IdentifierRangeMethod.cls');

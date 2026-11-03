@@ -318,10 +318,10 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           () =>
             `Using cached parse result for diagnostics ${document.uri} (version ${document.version})`,
         );
-        // Run prerequisites for diagnostics request
+        // Return parser diagnostics from the existing snapshot immediately.
+        // Semantic diagnostics are calculated after background enrichment and
+        // delivered by the subsequent workspace/diagnostic/refresh pull.
         if (this.prerequisiteOrchestrationService) {
-          // Diagnostics should not block on prerequisite orchestration.
-          // We enqueue prerequisites in background and continue with current state.
           LSPQueueManager.getInstance().submitNotification(
             'prerequisiteEnrichment',
             {
@@ -545,7 +545,8 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         parseTree: result.parseTree,
       });
 
-      // Run prerequisites for diagnostics request
+      // Preserve immediate parser diagnostics. Full semantic diagnostics are
+      // produced after the background prerequisite triggers a refresh pull.
       if (this.prerequisiteOrchestrationService) {
         LSPQueueManager.getInstance().submitNotification(
           'prerequisiteEnrichment',
