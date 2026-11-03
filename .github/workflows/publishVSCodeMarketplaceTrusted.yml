@@ -42,5 +42,4 @@ jobs:
       vsix-name-pattern: 'apex-language-server-extension-*.vsix'
       exclude-web-vsix: 'true'
       dry-run: ${{ inputs.dry-run || false }}
-      oidc: true
     secrets: inherit
