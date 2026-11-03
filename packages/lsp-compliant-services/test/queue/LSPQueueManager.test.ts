@@ -24,6 +24,7 @@ import {
   RequestCancelledError,
 } from '../../src/queue';
 import { ServiceRegistry } from '../../src/registry';
+import * as requestPolicy from '../../src/config/lspRequestPolicy';
 import { BackgroundProcessingInitializationService } from '../../src/services/BackgroundProcessingInitializationService'; // eslint-disable-line max-len
 
 // Mock the logger and settings manager, but keep Priority from actual module
@@ -230,6 +231,87 @@ describe('LSPQueueManager - New Effect-TS Implementation', () => {
     // Reset singleton instances
     LSPQueueManager.reset();
     SchedulerInitializationService.resetInstance();
+  });
+
+  describe('Request policy wiring', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it.each([
+      ['hover', 'submitHoverRequest'],
+      ['completion', 'submitCompletionRequest'],
+      ['definition', 'submitDefinitionRequest'],
+      ['references', 'submitReferencesRequest'],
+      ['implementation', 'submitImplementationRequest'],
+      ['foldingRange', 'submitFoldingRangeRequest'],
+      ['codeLens', 'submitCodeLensRequest'],
+      ['findMissingArtifact', 'submitFindMissingArtifactRequest'],
+      ['documentSymbol', 'submitDocumentSymbolRequest'],
+      ['semanticTokens', 'submitSemanticTokensRequest'],
+      ['workspaceSymbol', 'submitWorkspaceSymbolRequest'],
+      ['diagnostics', 'submitDiagnosticsRequest'],
+      ['codeAction', 'submitCodeActionRequest'],
+      ['rename', 'submitRenameRequest'],
+      ['prepareRename', 'submitPrepareRenameRequest'],
+    ] as const)(
+      'derives the %s wrapper priority from policy',
+      async (requestType, method) => {
+        const manager = LSPQueueManager.getInstance();
+        const policy = vi
+          .spyOn(requestPolicy, 'getLspRequestPolicy')
+          .mockReturnValue({
+            priority: Priority.Background,
+            enrichmentRequirement: 'none',
+          });
+        const submit = vi
+          .spyOn(manager, 'submitRequest')
+          .mockResolvedValue(null);
+
+        await manager[method]({});
+
+        expect(policy).toHaveBeenCalledWith(requestType);
+        expect(submit).toHaveBeenCalledWith(
+          requestType,
+          {},
+          expect.objectContaining({
+            priority: Priority.Background,
+          }),
+        );
+      },
+    );
+
+    it.each([
+      ['documentOpen', 'submitDocumentOpenNotification'],
+      ['documentSave', 'submitDocumentSaveNotification'],
+      ['documentChange', 'submitDocumentChangeNotification'],
+      ['documentClose', 'submitDocumentCloseNotification'],
+    ] as const)(
+      'derives the %s lifecycle priority from policy',
+      async (requestType, method) => {
+        const manager = LSPQueueManager.getInstance();
+        const policy = vi
+          .spyOn(requestPolicy, 'getLspRequestPolicy')
+          .mockReturnValue({
+            priority: Priority.Background,
+            enrichmentRequirement: 'none',
+          });
+        const submit = vi
+          .spyOn(manager, 'submitNotification')
+          .mockResolvedValue(undefined);
+
+        await manager[method]({});
+
+        expect(policy).toHaveBeenCalledWith(requestType);
+        expect(submit).toHaveBeenCalledWith(
+          requestType,
+          {},
+          {
+            priority: Priority.Background,
+          },
+        );
+      },
+    );
   });
 
   describe('Singleton Pattern', () => {

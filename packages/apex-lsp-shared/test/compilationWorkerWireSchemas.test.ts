@@ -47,6 +47,21 @@ describe('compilationWorkerWireSchemas', () => {
     expect(decoded.detailLevel).toBe('public-api');
   });
 
+  it('accepts private detail for interactive compilation', () => {
+    const request = new CompileApexFile({
+      uri: 'file:///workspace/Example.cls',
+      content: 'public class Example {}',
+      languageId: 'apex',
+      version: 7,
+      detailLevel: 'private',
+      collectReferences: true,
+    });
+
+    expect(Schema.decodeSync(CompileApexFile)(request).detailLevel).toBe(
+      'private',
+    );
+  });
+
   it('validates the explicit compilation result envelope', () => {
     const result = {
       uri: 'file:///workspace/Example.cls',

@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { DetailLevel } from '../types/DetailLevel';
+import { SymbolCollectionLevel } from '../types/SymbolCollectionLevel';
 
 /**
  * Base interface for operation prerequisites
@@ -14,7 +14,7 @@ import { DetailLevel } from '../types/DetailLevel';
  */
 export interface OperationPrerequisites {
   /** Required detail level */
-  requiredDetailLevel: DetailLevel | null;
+  requiredDetailLevel: SymbolCollectionLevel | null;
 
   /** Whether symbol references are needed */
   requiresReferences: boolean;

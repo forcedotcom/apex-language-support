@@ -34,7 +34,7 @@ import type {
   FileGraphData,
   TypeGraphData,
 } from '../../types/graph';
-import type { DetailLevel } from '../../types/DetailLevel';
+import type { SymbolCollectionLevel } from '../../types/SymbolCollectionLevel';
 import type { FQNOptions } from '../../utils/FQNUtils';
 import { SymbolIndexStore as SymbolIndexStoreTag } from './symbolIndexStore';
 import type { SymbolIndexStore } from './symbolIndexStore';
@@ -261,10 +261,10 @@ export interface IEffectSymbolManagerShape {
   ) => Effect.Effect<TypeGraphData>;
   readonly getDetailLevelForFile: (
     fileUri: string,
-  ) => Effect.Effect<DetailLevel | null>;
+  ) => Effect.Effect<SymbolCollectionLevel | null>;
   readonly enrichToLevel: (
     fileUri: string,
-    targetLevel: DetailLevel,
+    targetSymbolCollectionLevel: SymbolCollectionLevel,
     documentText: string,
   ) => Effect.Effect<void>;
   readonly resolveWithEnrichment: <T>(

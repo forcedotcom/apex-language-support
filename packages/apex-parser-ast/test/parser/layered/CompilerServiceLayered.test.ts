@@ -9,6 +9,7 @@
 import { CompilerService } from '../../../src/parser/compilerService';
 import { VisibilitySymbolListener } from '../../../src/parser/listeners/VisibilitySymbolListener';
 import { SymbolTable, SymbolKind } from '../../../src/types/symbol';
+import { parseSymbolId } from '../../../src/types/UriBasedIdGenerator';
 import { isBlockSymbol } from '../../../src/utils/symbolNarrowing';
 import { TestLogger } from '../../utils/testLogger';
 
@@ -120,8 +121,8 @@ describe('CompilerService.compileLayered', () => {
     expect(protectedField).toBeDefined();
     expect(privateField).toBeDefined();
 
-    expect(publicField?._detailLevel).toBe('public-api');
-    expect(protectedField?._detailLevel).toBe('protected');
+    expect(publicField?._detailLevel).toBe('private');
+    expect(protectedField?._detailLevel).toBe('private');
     expect(privateField?._detailLevel).toBe('private');
   });
 
@@ -145,4 +146,128 @@ describe('CompilerService.compileLayered', () => {
     // Should have errors but still return result
     expect(result.errors.length).toBeGreaterThan(0);
   });
+
+  it('keeps private detail declaration-only and promotes it to full body detail', () => {
+    const result = compilerService.compileLayered(
+      `public class TestClass {
+        private void run() {
+          String localValue = 'value';
+        }
+      }`,
+      'TestClass.cls',
+      ['private'],
+    );
+    const table = result.result as SymbolTable;
+
+    expect(table.getDetailLevel()).toBe('private');
+    expect(
+      table.getAllSymbols().find((symbol) => symbol.name === 'localValue'),
+    ).toBeUndefined();
+
+    const enriched = compilerService.compileLayered(
+      `public class TestClass {
+        private void run() {
+          String localValue = 'value';
+        }
+      }`,
+      'TestClass.cls',
+      ['full'],
+      table,
+    );
+    const fullTable = enriched.result as SymbolTable;
+
+    expect(fullTable.getDetailLevel()).toBe('full');
+    expect(
+      fullTable.getAllSymbols().find((symbol) => symbol.name === 'localValue'),
+    ).toBeDefined();
+  });
+
+  it('preserves overloads without duplicate errors during private and full enrichment', () => {
+    const source = `public class TestClass {
+      public void run(String value) { String localValue = value; }
+      public void run(Integer value) { Integer localValue = value; }
+    }`;
+    const privateResult = compilerService.compileLayered(
+      source,
+      'TestClass.cls',
+      ['private'],
+    );
+    const privateTable = privateResult.result as SymbolTable;
+
+    expect(
+      privateTable
+        .getAllSymbols()
+        .filter(
+          (symbol) =>
+            symbol.kind === SymbolKind.Method && symbol.name === 'run',
+        ),
+    ).toHaveLength(2);
+    expect(privateResult.errors).toEqual([]);
+
+    const fullResult = compilerService.compileLayered(
+      source,
+      'TestClass.cls',
+      ['full'],
+      privateTable,
+    );
+
+    const fullSymbols = (fullResult.result as SymbolTable).getAllSymbols();
+    const fullMethods = fullSymbols.filter(
+      (symbol) => symbol.kind === SymbolKind.Method && symbol.name === 'run',
+    );
+    expect(fullMethods).toHaveLength(2);
+    const methodBlocks = fullSymbols.filter(
+      (symbol) =>
+        isBlockSymbol(symbol) &&
+        symbol.scopeType === 'method' &&
+        symbol.name === 'run',
+    );
+    expect(methodBlocks).toHaveLength(2);
+    expect(new Set(methodBlocks.map((block) => block.id)).size).toBe(2);
+    expect(new Set(methodBlocks.map((block) => block.parentId))).toEqual(
+      new Set(fullMethods.map((method) => method.id)),
+    );
+    const childSymbols = fullSymbols.filter(
+      (symbol) =>
+        symbol.kind === SymbolKind.Parameter ||
+        (symbol.kind === SymbolKind.Variable && symbol.name === 'localValue'),
+    );
+    expect(new Set(childSymbols.map((symbol) => symbol.id)).size).toBe(
+      childSymbols.length,
+    );
+    for (const symbol of childSymbols) {
+      expect(parseSymbolId(symbol.id).name).toContain(symbol.name);
+    }
+    expect(fullResult.errors).toEqual([]);
+  });
+
+  const privateToFullDeclarations = [
+    ['constructor', 'public class TestClass { private TestClass() {} }'],
+    ['interface method', 'public interface TestClass { void run(); }'],
+    [
+      'interface overloads',
+      'public interface TestClass { void run(String value); void run(Integer value); }',
+    ],
+  ] as const;
+
+  it.each(privateToFullDeclarations)(
+    'does not report a duplicate %s during private to full enrichment',
+    (_kind: string, source: string) => {
+      const privateResult = compilerService.compileLayered(
+        source,
+        'TestClass.cls',
+        ['private'],
+      );
+
+      const fullResult = compilerService.compileLayered(
+        source,
+        'TestClass.cls',
+        ['full'],
+        privateResult.result as SymbolTable,
+      );
+
+      expect(privateResult.errors).toEqual([]);
+      expect(fullResult.errors).toEqual([]);
+    },
+  );
 });

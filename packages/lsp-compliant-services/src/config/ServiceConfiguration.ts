@@ -6,8 +6,12 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { LSPRequestType } from '../queue';
-import { Priority, getLogger } from '@salesforce/apex-lsp-shared';
+import {
+  type LSPRequestType,
+  type Priority,
+  getLogger,
+} from '@salesforce/apex-lsp-shared';
+import { getLspRequestPolicy } from './lspRequestPolicy';
 
 /**
  * Service configuration interface
@@ -26,14 +30,14 @@ export interface ServiceConfig {
 export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   {
     requestType: 'hover',
-    priority: Priority.Immediate,
+    priority: getLspRequestPolicy('hover').priority,
     timeout: 5000,
     maxRetries: 0,
     serviceFactory: (deps) => deps.serviceFactory.createHoverService(),
   },
   {
     requestType: 'completion',
-    priority: Priority.Immediate,
+    priority: getLspRequestPolicy('completion').priority,
     // Match CompletionHandler's progressive-completion budget. The
     // distributed request-pool path performs cursor compilation and targeted
     // dependency loading before producing a CompletionList; cancelling it at
@@ -45,14 +49,14 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   },
   {
     requestType: 'signatureHelp',
-    priority: Priority.Immediate,
+    priority: getLspRequestPolicy('signatureHelp').priority,
     timeout: 1000,
     maxRetries: 0,
     serviceFactory: (deps) => deps.serviceFactory.createSignatureHelpService(),
   },
   {
     requestType: 'definition',
-    priority: Priority.High,
+    priority: getLspRequestPolicy('definition').priority,
     // The request-pool path loads the cursor symbol subset, resolves
     // dependencies, performs strict/full enrichment, and writes enriched data
     // back to the data-owner before replying. The former local-service budget
@@ -64,14 +68,14 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   },
   {
     requestType: 'documentSymbol',
-    priority: Priority.High,
+    priority: getLspRequestPolicy('documentSymbol').priority,
     timeout: 5000,
     maxRetries: 1,
     serviceFactory: (deps) => deps.serviceFactory.createDocumentSymbolService(),
   },
   {
     requestType: 'documentOpen',
-    priority: Priority.High,
+    priority: getLspRequestPolicy('documentOpen').priority,
     timeout: 1000,
     maxRetries: 1,
     serviceFactory: (deps) =>
@@ -79,14 +83,14 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   },
   {
     requestType: 'documentLoad',
-    priority: Priority.High,
+    priority: getLspRequestPolicy('documentLoad').priority,
     timeout: 2000,
     maxRetries: 1,
     serviceFactory: (deps) => deps.serviceFactory.createDocumentLoadService(),
   },
   {
     requestType: 'findMissingArtifact',
-    priority: Priority.Low,
+    priority: getLspRequestPolicy('findMissingArtifact').priority,
     timeout: 30000,
     maxRetries: 1,
     serviceFactory: (deps) =>
@@ -94,7 +98,7 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   },
   {
     requestType: 'references',
-    priority: Priority.Low,
+    priority: getLspRequestPolicy('references').priority,
     // Find All References runs a workspace-wide two-phase search: a lexical
     // prefilter on the data-owner, then a FULL-detail recompile of every
     // candidate file on the request-pool worker so in-body call edges resolve.
@@ -135,14 +139,14 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   },
   {
     requestType: 'diagnostics',
-    priority: Priority.Normal,
+    priority: getLspRequestPolicy('diagnostics').priority,
     timeout: 15000,
     maxRetries: 2,
     serviceFactory: (deps) => deps.serviceFactory.createDiagnosticService(),
   },
   {
     requestType: 'workspaceSymbol',
-    priority: Priority.Normal,
+    priority: getLspRequestPolicy('workspaceSymbol').priority,
     timeout: 5000,
     maxRetries: 2,
     serviceFactory: (deps) =>
@@ -150,7 +154,7 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   },
   {
     requestType: 'documentSave',
-    priority: Priority.Normal,
+    priority: getLspRequestPolicy('documentSave').priority,
     timeout: 5000,
     maxRetries: 2,
     serviceFactory: (deps) =>
@@ -158,7 +162,7 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   },
   {
     requestType: 'documentChange',
-    priority: Priority.Normal,
+    priority: getLspRequestPolicy('documentChange').priority,
     timeout: 5000,
     maxRetries: 2,
     serviceFactory: (deps) =>
@@ -166,49 +170,49 @@ export const DEFAULT_SERVICE_CONFIG: ServiceConfig[] = [
   },
   {
     requestType: 'implementation',
-    priority: Priority.High,
+    priority: getLspRequestPolicy('implementation').priority,
     timeout: 1000,
     maxRetries: 1,
     serviceFactory: (deps) => deps.serviceFactory.createImplementationService(),
   },
   {
     requestType: 'foldingRange',
-    priority: Priority.Low,
+    priority: getLspRequestPolicy('foldingRange').priority,
     timeout: 5000,
     maxRetries: 0,
     serviceFactory: (deps) => deps.serviceFactory.createFoldingRangeService(),
   },
   {
     requestType: 'codeLens',
-    priority: Priority.Low,
+    priority: getLspRequestPolicy('codeLens').priority,
     timeout: 5000,
     maxRetries: 0,
     serviceFactory: (deps) => deps.serviceFactory.createCodeLensService(),
   },
   {
     requestType: 'codeAction',
-    priority: Priority.Low,
+    priority: getLspRequestPolicy('codeAction').priority,
     timeout: 30000,
     maxRetries: 3,
     serviceFactory: (deps) => deps.serviceFactory.createCodeActionService(),
   },
   {
     requestType: 'rename',
-    priority: Priority.Low,
+    priority: getLspRequestPolicy('rename').priority,
     timeout: 30000,
     maxRetries: 3,
     serviceFactory: (deps) => deps.serviceFactory.createRenameService(),
   },
   {
     requestType: 'documentClose',
-    priority: Priority.Immediate,
+    priority: getLspRequestPolicy('documentClose').priority,
     timeout: 100,
     maxRetries: 0,
     serviceFactory: (deps) => deps.serviceFactory.createDocumentSymbolService(),
   },
   {
     requestType: 'prerequisiteEnrichment',
-    priority: Priority.Background,
+    priority: getLspRequestPolicy('prerequisiteEnrichment').priority,
     timeout: 60000,
     maxRetries: 0,
     serviceFactory: (deps) =>

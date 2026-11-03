@@ -6,7 +6,7 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { DetailLevel } from '@salesforce/apex-lsp-parser-ast';
+import type { EnrichmentRequirement } from '../config/lspRequestPolicy';
 
 /**
  * Missing artifact resolution trigger conditions
@@ -44,8 +44,8 @@ export interface MissingArtifactResolutionConfig {
  * This interface defines what prerequisites are needed for each request type
  */
 export interface PrerequisiteRequirements {
-  /** Required detail level for symbol collection */
-  requiredDetailLevel: DetailLevel | null; // null = no requirement
+  /** Required symbol collection; 'none' skips enrichment. */
+  enrichmentRequirement: EnrichmentRequirement;
 
   /** Whether symbol references must be collected */
   requiresReferences: boolean;

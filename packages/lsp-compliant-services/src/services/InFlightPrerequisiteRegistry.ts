@@ -28,21 +28,24 @@
  * handle prerequisite coordination before routing to pool workers.
  */
 
-import type { DetailLevel } from './DocumentStateCache';
 import { getLayerOrderIndex } from './PrerequisiteHelpers';
 import { getLogger } from '@salesforce/apex-lsp-shared';
+import {
+  requiresEnrichment,
+  type EnrichmentRequirement,
+} from '../config/lspRequestPolicy';
 
 export interface PrerequisiteRequestSpec {
   readonly fileUri: string;
   readonly documentVersion: number;
-  readonly targetDetailLevel: DetailLevel | null;
+  readonly enrichmentRequirement: EnrichmentRequirement;
   readonly needsCrossFileResolution: boolean;
 }
 
 export interface InFlightPrerequisiteEntry extends PrerequisiteRequestSpec {
   readonly key: string;
   readonly createdAt: number;
-  targetDetailLevel: DetailLevel | null;
+  enrichmentRequirement: EnrichmentRequirement;
   needsCrossFileResolution: boolean;
   revision: number;
   promise: Promise<void>;
@@ -66,7 +69,7 @@ export class InFlightPrerequisiteRegistry {
   private readonly completed = new Map<
     string,
     {
-      targetDetailLevel: DetailLevel | null;
+      enrichmentRequirement: EnrichmentRequirement;
       needsCrossFileResolution: boolean;
     }
   >();
@@ -79,10 +82,10 @@ export class InFlightPrerequisiteRegistry {
     }
 
     const detailSatisfied =
-      !spec.targetDetailLevel ||
-      (!!completed.targetDetailLevel &&
-        getLayerOrderIndex(completed.targetDetailLevel) >=
-          getLayerOrderIndex(spec.targetDetailLevel));
+      !requiresEnrichment(spec.enrichmentRequirement) ||
+      (requiresEnrichment(completed.enrichmentRequirement) &&
+        getLayerOrderIndex(completed.enrichmentRequirement) >=
+          getLayerOrderIndex(spec.enrichmentRequirement));
     const crossFileSatisfied =
       !spec.needsCrossFileResolution || completed.needsCrossFileResolution;
     return detailSatisfied && crossFileSatisfied;
@@ -94,12 +97,12 @@ export class InFlightPrerequisiteRegistry {
     if (existing) {
       let upgraded = false;
       if (
-        spec.targetDetailLevel &&
-        (!existing.targetDetailLevel ||
-          getLayerOrderIndex(spec.targetDetailLevel) >
-            getLayerOrderIndex(existing.targetDetailLevel))
+        requiresEnrichment(spec.enrichmentRequirement) &&
+        (!requiresEnrichment(existing.enrichmentRequirement) ||
+          getLayerOrderIndex(spec.enrichmentRequirement) >
+            getLayerOrderIndex(existing.enrichmentRequirement))
       ) {
-        existing.targetDetailLevel = spec.targetDetailLevel;
+        existing.enrichmentRequirement = spec.enrichmentRequirement;
         upgraded = true;
       }
 
@@ -132,7 +135,7 @@ export class InFlightPrerequisiteRegistry {
       key,
       fileUri: spec.fileUri,
       documentVersion: spec.documentVersion,
-      targetDetailLevel: spec.targetDetailLevel,
+      enrichmentRequirement: spec.enrichmentRequirement,
       needsCrossFileResolution: spec.needsCrossFileResolution,
       createdAt: Date.now(),
       revision: 0,
@@ -156,7 +159,7 @@ export class InFlightPrerequisiteRegistry {
       return;
     }
     this.completed.set(key, {
-      targetDetailLevel: entry.targetDetailLevel,
+      enrichmentRequirement: entry.enrichmentRequirement,
       needsCrossFileResolution: entry.needsCrossFileResolution,
     });
     this.entries.delete(key);

@@ -136,7 +136,7 @@ describe('DocumentProcessingService - Batch Processing', () => {
       getSymbolResult: vi.fn().mockReturnValue(null),
       merge: vi.fn(),
       clear: vi.fn(),
-      hasDetailLevel: vi.fn().mockReturnValue(false),
+      hasSymbolCollectionLevel: vi.fn().mockReturnValue(false),
     };
     (
       getDocumentStateCache as MockedFunction<typeof getDocumentStateCache>

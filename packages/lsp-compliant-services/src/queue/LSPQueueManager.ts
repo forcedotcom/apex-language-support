@@ -30,6 +30,7 @@ import type {
   WorkerDispatchResult,
 } from './LSPDispatchContract';
 import { ServiceRegistry, GenericRequestHandler } from '../registry';
+import { getLspRequestPolicy } from '../config/lspRequestPolicy';
 
 /**
  * Thrown when a queued LSP request is cancelled — either before it is
@@ -540,7 +541,7 @@ export class LSPQueueManager {
     token?: CancellationLike,
   ): Promise<any> {
     return this.submitRequest('hover', params, {
-      priority: Priority.Immediate,
+      priority: getLspRequestPolicy('hover').priority,
       token,
     });
   }
@@ -550,7 +551,7 @@ export class LSPQueueManager {
    */
   async submitCompletionRequest(params: any): Promise<any> {
     return this.submitRequest('completion', params, {
-      priority: Priority.Immediate,
+      priority: getLspRequestPolicy('completion').priority,
     });
   }
 
@@ -559,7 +560,7 @@ export class LSPQueueManager {
    */
   async submitDefinitionRequest(params: any): Promise<any> {
     return this.submitRequest('definition', params, {
-      priority: Priority.High,
+      priority: getLspRequestPolicy('definition').priority,
     });
   }
 
@@ -571,7 +572,7 @@ export class LSPQueueManager {
     token?: CancellationLike,
   ): Promise<any> {
     return this.submitRequest('references', params, {
-      priority: Priority.Normal,
+      priority: getLspRequestPolicy('references').priority,
       token,
     });
   }
@@ -584,7 +585,7 @@ export class LSPQueueManager {
     token?: CancellationLike,
   ): Promise<any> {
     return this.submitRequest('implementation', params, {
-      priority: Priority.High,
+      priority: getLspRequestPolicy('implementation').priority,
       token,
     });
   }
@@ -594,7 +595,7 @@ export class LSPQueueManager {
    */
   async submitFoldingRangeRequest(params: any): Promise<any> {
     return this.submitRequest('foldingRange', params, {
-      priority: Priority.Low,
+      priority: getLspRequestPolicy('foldingRange').priority,
     });
   }
 
@@ -603,7 +604,7 @@ export class LSPQueueManager {
    */
   async submitCodeLensRequest(params: any): Promise<any> {
     return this.submitRequest('codeLens', params, {
-      priority: Priority.Low,
+      priority: getLspRequestPolicy('codeLens').priority,
     });
   }
 
@@ -612,7 +613,7 @@ export class LSPQueueManager {
    */
   async submitFindMissingArtifactRequest(params: any): Promise<any> {
     return this.submitRequest('findMissingArtifact', params, {
-      priority: Priority.Normal,
+      priority: getLspRequestPolicy('findMissingArtifact').priority,
     });
   }
 
@@ -621,14 +622,14 @@ export class LSPQueueManager {
    */
   async submitDocumentSymbolRequest(params: any): Promise<any> {
     return this.submitRequest('documentSymbol', params, {
-      priority: Priority.High,
+      priority: getLspRequestPolicy('documentSymbol').priority,
     });
   }
 
   /** Submit semantic tokens for the current editor buffer. */
   async submitSemanticTokensRequest(params: any): Promise<any> {
     return this.submitRequest('semanticTokens', params, {
-      priority: Priority.High,
+      priority: getLspRequestPolicy('semanticTokens').priority,
     });
   }
 
@@ -637,7 +638,7 @@ export class LSPQueueManager {
    */
   async submitWorkspaceSymbolRequest(params: any): Promise<any> {
     return this.submitRequest('workspaceSymbol', params, {
-      priority: Priority.Normal,
+      priority: getLspRequestPolicy('workspaceSymbol').priority,
     });
   }
 
@@ -646,7 +647,7 @@ export class LSPQueueManager {
    */
   async submitDiagnosticsRequest(params: any): Promise<any> {
     return this.submitRequest('diagnostics', params, {
-      priority: Priority.Normal,
+      priority: getLspRequestPolicy('diagnostics').priority,
     });
   }
 
@@ -670,7 +671,7 @@ export class LSPQueueManager {
     // Without a URI to key on we cannot coalesce; fall back to a plain submit.
     if (!uri) {
       return this.submitRequest('codeAction', params, {
-        priority: Priority.Low,
+        priority: getLspRequestPolicy('codeAction').priority,
         token,
       });
     }
@@ -717,7 +718,7 @@ export class LSPQueueManager {
 
     // Survived the debounce window as the latest request for this URI.
     return this.submitRequest('codeAction', params, {
-      priority: Priority.Low,
+      priority: getLspRequestPolicy('codeAction').priority,
       token,
     });
   }
@@ -730,7 +731,7 @@ export class LSPQueueManager {
     token?: CancellationLike,
   ): Promise<any> {
     return this.submitRequest('rename', params, {
-      priority: Priority.Low,
+      priority: getLspRequestPolicy('rename').priority,
       token,
     });
   }
@@ -743,7 +744,7 @@ export class LSPQueueManager {
     token?: CancellationLike,
   ): Promise<any> {
     return this.submitRequest('prepareRename', params, {
-      priority: Priority.Low,
+      priority: getLspRequestPolicy('prepareRename').priority,
       token,
     });
   }
@@ -828,7 +829,7 @@ export class LSPQueueManager {
    */
   submitDocumentOpenNotification(params: any): Promise<void> {
     return this.submitNotification('documentOpen', params, {
-      priority: Priority.High,
+      priority: getLspRequestPolicy('documentOpen').priority,
     });
   }
 
@@ -837,7 +838,7 @@ export class LSPQueueManager {
    */
   submitDocumentSaveNotification(params: any): Promise<void> {
     return this.submitNotification('documentSave', params, {
-      priority: Priority.Normal,
+      priority: getLspRequestPolicy('documentSave').priority,
     });
   }
 
@@ -846,7 +847,7 @@ export class LSPQueueManager {
    */
   submitDocumentChangeNotification(params: any): Promise<void> {
     return this.submitNotification('documentChange', params, {
-      priority: Priority.Normal,
+      priority: getLspRequestPolicy('documentChange').priority,
     });
   }
 
@@ -855,7 +856,7 @@ export class LSPQueueManager {
    */
   submitDocumentCloseNotification(params: any): Promise<void> {
     return this.submitNotification('documentClose', params, {
-      priority: Priority.Immediate,
+      priority: getLspRequestPolicy('documentClose').priority,
     });
   }
 

@@ -316,7 +316,7 @@ export class DocumentProcessingService {
               documentVersion: event.document.version,
               documentLength: event.document.getText().length,
               symbolsIndexed: false,
-              detailLevel: 'public-api', // Workspace load is public API only
+              symbolCollectionLevel: 'public-api', // Workspace load is public API only
               parseTree: compileResult.parseTree,
             }),
           );
@@ -464,7 +464,7 @@ export class DocumentProcessingService {
             documentVersion: event.document.version,
             documentLength: event.document.getText().length,
             symbolsIndexed: false,
-            detailLevel: 'public-api', // Initial level, will be enriched
+            symbolCollectionLevel: 'public-api', // Initial level, will be enriched
             parseTree: compileResult.parseTree,
           });
           // Run prerequisites for file-open-single request (async, non-blocking)

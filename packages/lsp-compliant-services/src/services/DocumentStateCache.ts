@@ -20,7 +20,8 @@ type ParseTree = any; // CompilationUnitContext | TriggerUnitContext | BlockCont
 /**
  * Detail level for layered symbol collection
  */
-export type DetailLevel = 'public-api' | 'protected' | 'private' | 'full';
+export type SymbolCollectionLevel =
+  'public-api' | 'protected' | 'private' | 'full';
 
 /**
  * Document state with version tracking and indexing status
@@ -30,7 +31,7 @@ export type DetailLevel = 'public-api' | 'protected' | 'private' | 'full';
  *
  * - ApexSymbolCollectorListener results: diagnostics field (SymbolTable stored in ApexSymbolManager)
  * - ApexFoldingRangeListener results: foldingRanges field
- * - Layered compilation: parseTree, detailLevel, listenersApplied, contentHash fields
+ * - Layered compilation: parseTree, symbolCollectionLevel, listenersApplied, contentHash fields
  *
  * The cache acts as a "todo list" for each file/version, tracking what work has been done.
  * Note: SymbolTable instances are stored in ApexSymbolManager, not in this cache.
@@ -46,7 +47,7 @@ export interface DocumentState {
   // Layered compilation support (optional)
   parseTree?: ParseTree; // Cached parse tree for reuse across listeners
   contentHash?: string; // Hash of file content for parse tree invalidation
-  detailLevel?: DetailLevel; // Highest detail level processed
+  symbolCollectionLevel?: SymbolCollectionLevel;
   listenersApplied?: string[]; // Track which listeners were applied
 
   // Common metadata
@@ -217,37 +218,44 @@ export class DocumentStateCache {
   }
 
   /**
-   * Get the detail level of symbols in the cached document state
+   * Get the collection level of symbols in the cached document state.
    * @param uri Document URI
    * @param version Document version number
-   * @returns The detail level if available, null otherwise
+   * @returns The collection level if available, undefined otherwise
    */
-  getDetailLevel(uri: string, version: number): DetailLevel | null {
+  getSymbolCollectionLevel(
+    uri: string,
+    version: number,
+  ): SymbolCollectionLevel | undefined {
     const cached = this.get(uri, version);
-    return cached?.detailLevel || null;
+    return cached?.symbolCollectionLevel;
   }
 
   /**
-   * Check if a specific detail level has been applied to the cached document
+   * Check if a specific symbol collection level has been applied to the cached document.
    * @param uri Document URI
    * @param version Document version number
-   * @param level The detail level to check
-   * @returns True if the detail level has been applied or exceeded
+   * @param level The symbol collection level to check
+   * @returns True if the collection level has been applied or exceeded
    */
-  hasDetailLevel(uri: string, version: number, level: DetailLevel): boolean {
+  hasSymbolCollectionLevel(
+    uri: string,
+    version: number,
+    level: SymbolCollectionLevel,
+  ): boolean {
     const cached = this.get(uri, version);
-    if (!cached?.detailLevel) {
+    if (!cached?.symbolCollectionLevel) {
       return false;
     }
 
-    const levelOrder: Record<DetailLevel, number> = {
+    const levelOrder: Record<SymbolCollectionLevel, number> = {
       'public-api': 1,
       protected: 2,
       private: 3,
       full: 4,
     };
 
-    const cachedLevel = levelOrder[cached.detailLevel] || 0;
+    const cachedLevel = levelOrder[cached.symbolCollectionLevel] || 0;
     const requestedLevel = levelOrder[level] || 0;
 
     return cachedLevel >= requestedLevel;
