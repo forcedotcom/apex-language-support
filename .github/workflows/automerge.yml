@@ -37,4 +37,5 @@ jobs:
     with:
       mergeMethod: squash
       maxVersionBump: minor
+      package-manager-version: '12.11.2'
       skipCI: ${{ github.event.inputs.skipCI == 'true' }}
