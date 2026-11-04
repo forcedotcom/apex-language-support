@@ -338,6 +338,51 @@ describe('HoverProcessingService semantic identity after enrichment', () => {
     expect(backgroundLookup).toHaveBeenCalledTimes(1);
   });
 
+  it('shows a not-found hover after the selected reference was recently not found', async () => {
+    const settings = ApexSettingsManager.getInstance().getSettings();
+    getSettingsSpy.mockReturnValue({
+      ...settings,
+      apex: {
+        ...settings.apex,
+        findMissingArtifact: {
+          ...settings.apex.findMissingArtifact,
+          enabled: true,
+        },
+      },
+    });
+    const manager = managerFor(
+      [reference('bar', ReferenceContext.CLASS_REFERENCE)],
+      [],
+      [],
+    );
+    const service = new HoverProcessingService(getLogger(), manager);
+    const backgroundLookup = vi.fn().mockResolvedValue('recently-not-found');
+    (
+      service as unknown as {
+        missingArtifactUtils: {
+          tryResolveMissingArtifactBackground: typeof backgroundLookup;
+        };
+      }
+    ).missingArtifactUtils = {
+      tryResolveMissingArtifactBackground: backgroundLookup,
+    };
+
+    const result = await service.processHover(params);
+    expect(result).not.toBeNull();
+    const content =
+      typeof result?.contents === 'object' && 'value' in result.contents
+        ? result.contents.value
+        : '';
+    expect(content).toContain('No definition found');
+    expect(content).toContain('Could not resolve: `bar`');
+    expect(isSearchingHover(result)).toBe(false);
+    expect(backgroundLookup).toHaveBeenCalledWith(
+      uri,
+      params.position,
+      'hover',
+    );
+  });
+
   it('uses a neutral searching label when no parser reference is available', () => {
     const manager = managerFor([], [], []);
     const service = new HoverProcessingService(getLogger(), manager);
