@@ -245,7 +245,7 @@ When working with semantics and validation, **error codes and messages must be a
   - Exact copy of the legacy Java compiler catalog
   - Refresh once per Apex major release; never edit baseline keys or text locally
 - **Apex-LS extension catalog**: `packages/apex-parser-ast/src/resources/messages/messages_apex_ls.properties`
-  - Explicit LS-only diagnostics for incomplete parser/symbol state
+  - Explicit Apex-LS-specific diagnostics, including incomplete parser/symbol-state and local file-metadata checks
   - Do not add LS-only entries to the legacy baseline
   - Format: `error.code.key=Error message text with {0} placeholders`
 - **Generated TypeScript Files** (auto-generated, do not edit manually):
@@ -263,7 +263,7 @@ When working with semantics and validation, **error codes and messages must be a
 
 3. **Choose the source catalog**: After receiving permission, add compiler-aligned
    messages to the legacy Java compiler source first and refresh at the next major release. Add
-   Apex-LS-only uncertainty diagnostics to `messages_apex_ls.properties`.
+   Apex-LS-specific diagnostics to `messages_apex_ls.properties`.
    ```properties
    my.new.error.code=Error message text with {0} placeholder
    ```
@@ -286,7 +286,7 @@ When working with semantics and validation, **error codes and messages must be a
 2. Copy its `messages_en_US.properties` unchanged into the baseline path.
 3. Curate relevant Java `FullCompileTester` snippets into
    `test/fixtures/validation/**/*.cls`; retain their expected diagnostic contract.
-4. Keep LS-only uncertainty diagnostics in `messages_apex_ls.properties`.
+4. Keep Apex-LS-specific diagnostics in `messages_apex_ls.properties`.
 5. Run `npm run precompile`, formatter/parity fixtures, and `npm run check:error-codes`.
 
 Fixtures are curated legacy Java cases, not ad hoc replacements. Convert supported

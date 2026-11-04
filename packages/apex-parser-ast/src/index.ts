@@ -295,6 +295,7 @@ export {
 // Validator implementations
 export { ParameterLimitValidator } from './semantics/validation/validators/ParameterLimitValidator';
 export { EnumLimitValidator } from './semantics/validation/validators/EnumLimitValidator';
+export { TopLevelTypeFilenameValidator } from './semantics/validation/validators/TopLevelTypeFilenameValidator';
 export { EnumConstantNamingValidator } from './semantics/validation/validators/EnumConstantNamingValidator';
 export { DuplicateMethodValidator } from './semantics/validation/validators/DuplicateMethodValidator';
 export { ConstructorNamingValidator } from './semantics/validation/validators/ConstructorNamingValidator';
