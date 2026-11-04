@@ -16,7 +16,7 @@ import {
 import { SymbolReference, ReferenceContext } from './symbolReference';
 import { generateSymbolId, type ParameterInfo } from './UriBasedIdGenerator';
 import { HierarchicalReference } from './hierarchicalReference';
-import { DetailLevel } from './DetailLevel';
+import { SymbolCollectionLevel } from './SymbolCollectionLevel';
 
 /**
  * Types of symbols that can be defined in Apex code
@@ -972,10 +972,9 @@ export class SymbolTable {
     const symbolKey = normalizedUnifiedId;
     let existing = this.symbolMap.get(symbolKey);
 
-    // Fallback for layered compilation: different listeners (VisibilitySymbolListener vs
-    // ApexSymbolCollectorListener) may produce different keys when run in sequence. Look up by
-    // name+parentId to merge. Applies to: (1) inner classes - different scope paths; (2) methods -
-    // both listeners add the same method.
+    // Fallback for layered compilation: different listeners may produce different
+    // keys for the same declaration. Location distinguishes that declaration from
+    // a same-named overload in the same parent scope.
     let effectiveKey = symbolKey;
     if (
       !existing &&
@@ -991,6 +990,10 @@ export class SymbolTable {
           s.name === symbol.name &&
           s.parentId === symbol.parentId &&
           s.fileUri === symbol.fileUri &&
+          s.location.identifierRange.startLine ===
+            symbol.location.identifierRange.startLine &&
+          s.location.identifierRange.startColumn ===
+            symbol.location.identifierRange.startColumn &&
           s._detailLevel &&
           s !== symbol,
       );
@@ -1529,20 +1532,20 @@ export class SymbolTable {
       return hierarchy;
     }
 
-    // Build hierarchy by following parentId chain using symbolMap for O(1) lookup
-    let current: ScopeSymbol | null = containingBlock as ScopeSymbol;
+    // A method block is parented through its semantic method/constructor before
+    // reaching the enclosing class block. Traverse the complete ancestry while
+    // returning only lexical block scopes.
+    let current: ApexSymbol | null = containingBlock;
     while (current) {
-      hierarchy.unshift(current);
+      if (current.kind === SymbolKind.Block) {
+        hierarchy.unshift(current as ScopeSymbol);
+      }
       if (current.parentId) {
         const parentResult = this.symbolMap.get(current.parentId);
         const parent = Array.isArray(parentResult)
           ? parentResult[0]
           : parentResult;
-        if (parent && parent.kind === SymbolKind.Block) {
-          current = parent as ScopeSymbol;
-        } else {
-          current = null;
-        }
+        current = parent ?? null;
       } else {
         current = null;
       }
@@ -1585,7 +1588,24 @@ export class SymbolTable {
       // Block ID format: fileUri:...:block:blockName
       // This ensures method IDs include: fileUri:...:block:blockName:method:methodName
       if (current.kind === SymbolKind.Block && current.scopeType) {
-        path.unshift('block', current.name);
+        const parentResult = current.parentId
+          ? this.symbolMap.get(current.parentId)
+          : undefined;
+        const parent = Array.isArray(parentResult)
+          ? parentResult[0]
+          : parentResult;
+        // Method names are not unique for overloads. Use the already-stable
+        // semantic owner identity rather than parser position or parameter
+        // collection timing so parameters and locals remain distinct across
+        // formatting-only recompiles.
+        const methodScopeName =
+          current.scopeType === 'method' &&
+          parent &&
+          (parent.kind === SymbolKind.Method ||
+            parent.kind === SymbolKind.Constructor)
+            ? encodeURIComponent(parent.id)
+            : current.name;
+        path.unshift('block', methodScopeName);
       } else {
         path.unshift(current.name);
       }
@@ -2011,20 +2031,20 @@ export class SymbolTable {
    * Returns the highest detail level found in any symbol, or null if no symbols
    * @returns The detail level or null
    */
-  getDetailLevel(): DetailLevel | null {
+  getDetailLevel(): SymbolCollectionLevel | null {
     const symbols = this.getAllSymbols();
     if (symbols.length === 0) {
       return null;
     }
 
-    const levelOrder: Record<DetailLevel, number> = {
+    const levelOrder: Record<SymbolCollectionLevel, number> = {
       'public-api': 1,
       protected: 2,
       private: 3,
       full: 4,
     };
 
-    let maxLevel: DetailLevel | null = null;
+    let maxLevel: SymbolCollectionLevel | null = null;
     let maxOrder = 0;
 
     for (const symbol of symbols) {
@@ -2035,13 +2055,6 @@ export class SymbolTable {
           maxLevel = symbol._detailLevel;
         }
       }
-    }
-
-    // 'private' level is equivalent to 'full' in the layered compilation system
-    // since 'full' means all layers (public-api + protected + private) are applied
-    // and there is no separate 'full' layer listener
-    if (maxLevel === 'private') {
-      return 'full';
     }
 
     return maxLevel;

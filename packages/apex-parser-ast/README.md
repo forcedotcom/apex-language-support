@@ -385,7 +385,9 @@ sequenceDiagram
     DiagnosticProcessingService->>ValidatorRegistry: initializeValidators()
     ValidatorRegistry->>ValidatorRegistry: Register 46 validators<br/>(42 TIER 1, 4 TIER 2)
 
-    DiagnosticProcessingService->>PrerequisiteOrchestrationService: runPrerequisitesForLspRequestType('diagnostics')
+    DiagnosticProcessingService->>LSPQueueManager: submitNotification('prerequisiteEnrichment')
+    DiagnosticProcessingService-->>Client: Parser diagnostics from cached snapshot
+    LSPQueueManager->>PrerequisiteOrchestrationService: runPrerequisitesForLspRequestType('diagnostics')
 
     PrerequisiteOrchestrationService->>PrerequisiteOrchestrationService: Verify document in storage
     PrerequisiteOrchestrationService->>PrerequisiteOrchestrationService: Get cached SymbolTable
@@ -393,7 +395,7 @@ sequenceDiagram
 
     alt detailLevel < 'full'
         Note over PrerequisiteOrchestrationService: Need enrichment for validation
-        PrerequisiteOrchestrationService->>LayerEnrichmentService: enrichToDetailLevel(table, 'full')
+        PrerequisiteOrchestrationService->>LayerEnrichmentService: enrichFiles([uri], 'full', 'same-file')
         LayerEnrichmentService->>LayerEnrichmentService: Reuse cached parse tree (no re-parsing!)
         LayerEnrichmentService->>CompilerService: Apply ProtectedSymbolListener
         LayerEnrichmentService->>CompilerService: Apply PrivateSymbolListener
@@ -401,7 +403,10 @@ sequenceDiagram
         LayerEnrichmentService-->>PrerequisiteOrchestrationService: Enriched SymbolTable
     end
 
-    PrerequisiteOrchestrationService-->>DiagnosticProcessingService: Prerequisites complete
+    PrerequisiteOrchestrationService-->>Client: workspace/diagnostic/refresh
+    Client->>LCSAdapter: textDocument/diagnostic (refresh pull)
+    LCSAdapter->>LSPQueueManager: submitRequest('diagnostics', params, {priority: Normal})
+    LSPQueueManager->>DiagnosticProcessingService: processDiagnostic()
     DiagnosticProcessingService->>DiagnosticProcessingService: Fetch enriched SymbolTable
 
     rect rgb(200, 230, 255)

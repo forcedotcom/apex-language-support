@@ -17,7 +17,11 @@ import { Schema } from 'effect';
  * same request and result schemas.
  */
 
-export const CompilationDetailLevel = Schema.Literal('public-api', 'full');
+export const CompilationDetailLevel = Schema.Literal(
+  'public-api',
+  'private',
+  'full',
+);
 export type CompilationDetailLevel = Schema.Schema.Type<
   typeof CompilationDetailLevel
 >;

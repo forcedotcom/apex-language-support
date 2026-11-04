@@ -31,13 +31,14 @@ import {
   CommentAssociation,
 } from './listeners/ApexCommentCollectorListener';
 import { CommentAssociator } from '../utils/CommentAssociator';
-import { SymbolTable } from '../types/symbol';
+import { SymbolKind, SymbolTable } from '../types/symbol';
+import { isBlockSymbol } from '../utils/symbolNarrowing';
 import { NamespaceResolutionService } from '../namespace/NamespaceResolutionService';
 import { ApexSymbolCollectorListener } from './listeners/ApexSymbolCollectorListener';
 import { FullSymbolCollectorListener } from './listeners/FullSymbolCollectorListener';
 import { ApexReferenceCollectorListener } from './listeners/ApexReferenceCollectorListener';
 import { ApexReferenceResolver } from './references/ApexReferenceResolver';
-import { type DetailLevel } from '../types/DetailLevel';
+import { type SymbolCollectionLevel } from '../types/SymbolCollectionLevel';
 import { VisibilitySymbolListener } from './listeners/VisibilitySymbolListener';
 import { BlockContentListener } from './listeners/BlockContentListener';
 import { StructureListener } from './listeners/StructureListener';
@@ -524,7 +525,7 @@ export class CompilerService {
   public compileLayered(
     fileContent: string,
     fileName: string = 'unknown.cls',
-    layers: DetailLevel[],
+    layers: SymbolCollectionLevel[],
     existingSymbolTable?: SymbolTable,
     options: LayeredCompilationOptions = {},
     cachedParseTree?: ParseTreeResult | RawParseTree,
@@ -604,9 +605,10 @@ export class CompilerService {
       // its _detailLevel reflects that higher layers (protected, private) were applied.
       const highestLayer = requestedLayers[requestedLayers.length - 1];
 
-      // CRITICAL: After all layers are processed, if the highest layer is 'private' (which maps to 'full'),
-      // apply BlockContentListener to collect local variables and block-level symbols
-      if (highestLayer === 'private' || highestLayer === 'full') {
+      // Full detail adds method-body locals and block contents. Private detail
+      // is declaration-only: it includes public, protected/default, and private
+      // declarations without paying the cost of body semantic capture.
+      if (highestLayer === 'full') {
         try {
           const blockContentListener = new BlockContentListener(symbolTable);
           blockContentListener.setCurrentFileUri(fileName);
@@ -617,9 +619,29 @@ export class CompilerService {
           );
         }
       }
-      const targetDetailLevel =
-        highestLayer === 'private' ? 'full' : highestLayer;
-      // INVARIANT: All symbols are updated to targetDetailLevel HERE, after all listeners
+      // Structure blocks predate semantic collection. Rebind method blocks by
+      // parser position after layered collection so overloads keep their own owner.
+      for (const block of symbolTable.getAllSymbols()) {
+        if (!isBlockSymbol(block) || block.scopeType !== 'method') {
+          continue;
+        }
+        const owner = symbolTable
+          .getAllSymbols()
+          .find(
+            (symbol) =>
+              (symbol.kind === SymbolKind.Method ||
+                symbol.kind === SymbolKind.Constructor) &&
+              symbol.location.symbolRange.startLine ===
+                block.location.symbolRange.startLine &&
+              symbol.location.symbolRange.startColumn ===
+                block.location.symbolRange.startColumn,
+          );
+        if (owner) {
+          block.parentId = owner.id;
+        }
+      }
+      const targetSymbolCollectionLevel = highestLayer;
+      // INVARIANT: All symbols are updated to targetSymbolCollectionLevel HERE, after all listeners
       // have run (including BlockContentListener at line ~586). This single write is the
       // authoritative source of truth for detailLevel on every symbol. It intentionally
       // overwrites any premature _detailLevel values that individual listeners may have set
@@ -630,12 +652,13 @@ export class CompilerService {
       //       compileLayered returns, so no external reader can observe a partially-updated table.
       for (const symbol of symbolTable.getAllSymbols()) {
         if (symbol._detailLevel) {
-          symbol._detailLevel = targetDetailLevel as DetailLevel;
+          symbol._detailLevel =
+            targetSymbolCollectionLevel as SymbolCollectionLevel;
         }
       }
       this.logger.debug(
         () =>
-          `Updated all symbols in ${fileName} to _detailLevel=${targetDetailLevel}`,
+          `Updated all symbols in ${fileName} to _detailLevel=${targetSymbolCollectionLevel}`,
       );
 
       // Optionally collect references using dedicated listener
@@ -720,15 +743,17 @@ export class CompilerService {
    * Layer 2 (protected) requires Layer 1
    * Layer 3 (private) requires Layers 1 and 2
    */
-  private ensureDependencies(requestedLayers: DetailLevel[]): DetailLevel[] {
-    const layerOrder: Record<DetailLevel, number> = {
+  private ensureDependencies(
+    requestedLayers: SymbolCollectionLevel[],
+  ): SymbolCollectionLevel[] {
+    const layerOrder: Record<SymbolCollectionLevel, number> = {
       'public-api': 1,
       protected: 2,
       private: 3,
       full: 4,
     };
 
-    const includedLayers = new Set<DetailLevel>();
+    const includedLayers = new Set<SymbolCollectionLevel>();
 
     // Add all requested layers and their dependencies
     for (const layer of requestedLayers) {
@@ -737,7 +762,7 @@ export class CompilerService {
       // Include all layers < layerNum
       for (const [level, num] of Object.entries(layerOrder)) {
         if (num < layerNum) {
-          includedLayers.add(level as DetailLevel);
+          includedLayers.add(level as SymbolCollectionLevel);
         }
       }
 
@@ -746,7 +771,7 @@ export class CompilerService {
     }
 
     // Return in order
-    const ordered: DetailLevel[] = [];
+    const ordered: SymbolCollectionLevel[] = [];
     if (includedLayers.has('public-api')) ordered.push('public-api');
     if (includedLayers.has('protected')) ordered.push('protected');
     if (includedLayers.has('private')) ordered.push('private');
@@ -759,7 +784,7 @@ export class CompilerService {
    * Create the appropriate listener for a given detail level
    */
   private createListenerForLayer(
-    layer: DetailLevel,
+    layer: SymbolCollectionLevel,
     symbolTable: SymbolTable,
   ): BaseApexParserListener<SymbolTable> {
     switch (layer) {

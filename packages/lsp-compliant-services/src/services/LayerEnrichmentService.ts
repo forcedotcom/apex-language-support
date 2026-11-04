@@ -17,7 +17,7 @@ import {
 import {
   ISymbolManager,
   CompilerService,
-  DetailLevel,
+  SymbolCollectionLevel,
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect } from 'effect';
 import { ApexStorageManager } from '../storage/ApexStorageManager';
@@ -75,7 +75,7 @@ export class LayerEnrichmentService {
   determineRequiredLevel(
     requestType: string,
     context: RequestContext,
-  ): DetailLevel {
+  ): SymbolCollectionLevel {
     switch (requestType) {
       case 'documentOpen':
         // Editor open needs full semantics
@@ -202,7 +202,7 @@ export class LayerEnrichmentService {
    */
   async enrichFiles(
     fileUris: string[],
-    targetLevel: DetailLevel,
+    targetSymbolCollectionLevel: SymbolCollectionLevel,
     strategy: FileSelectionStrategy,
     workDoneToken?: ProgressToken | SharedProgressToken,
   ): Promise<void> {
@@ -217,7 +217,7 @@ export class LayerEnrichmentService {
     // Filter files that need enrichment
     const filesToEnrich: Array<{
       uri: string;
-      currentLevel: DetailLevel | null;
+      currentSymbolCollectionLevel: SymbolCollectionLevel | undefined;
       version: number;
     }> = [];
 
@@ -229,11 +229,21 @@ export class LayerEnrichmentService {
           continue;
         }
 
-        const currentLevel = cache.getDetailLevel(fileUri, document.version);
-        if (!cache.hasDetailLevel(fileUri, document.version, targetLevel)) {
+        const currentSymbolCollectionLevel = cache.getSymbolCollectionLevel(
+          fileUri,
+          document.version,
+        );
+        if (
+          !cache.hasSymbolCollectionLevel(
+            fileUri,
+            document.version,
+            targetSymbolCollectionLevel,
+          )
+        ) {
           filesToEnrich.push({
             uri: fileUri,
-            currentLevel: currentLevel || 'public-api',
+            currentSymbolCollectionLevel:
+              currentSymbolCollectionLevel ?? 'public-api',
             version: document.version,
           });
         }
@@ -245,14 +255,14 @@ export class LayerEnrichmentService {
     if (filesToEnrich.length === 0) {
       this.logger.debug(
         () =>
-          `All ${fileUris.length} files already have detail level ${targetLevel}`,
+          `All ${fileUris.length} files already have symbol collection level ${targetSymbolCollectionLevel}`,
       );
       return;
     }
 
     this.logger.debug(
       () =>
-        `Enriching ${filesToEnrich.length} files to ${targetLevel} level (strategy: ${strategy})`,
+        `Enriching ${filesToEnrich.length} files to ${targetSymbolCollectionLevel} level (strategy: ${strategy})`,
     );
 
     // Report progress start
@@ -263,7 +273,7 @@ export class LayerEnrichmentService {
           value: {
             kind: 'begin',
             title: 'Enriching symbol layers',
-            message: `Enriching ${filesToEnrich.length} files to ${targetLevel} level`,
+            message: `Enriching ${filesToEnrich.length} files to ${targetSymbolCollectionLevel} level`,
             percentage: 0,
           } as WorkDoneProgressBegin,
         });
@@ -274,7 +284,11 @@ export class LayerEnrichmentService {
 
     // Enrich files with progress reporting
     await Effect.runPromise(
-      this.enrichFilesEffect(filesToEnrich, targetLevel, workDoneToken),
+      this.enrichFilesEffect(
+        filesToEnrich,
+        targetSymbolCollectionLevel,
+        workDoneToken,
+      ),
     );
 
     // Report progress end
@@ -299,10 +313,10 @@ export class LayerEnrichmentService {
   private enrichFilesEffect(
     filesToEnrich: Array<{
       uri: string;
-      currentLevel: DetailLevel | null;
+      currentSymbolCollectionLevel: SymbolCollectionLevel | undefined;
       version: number;
     }>,
-    targetLevel: DetailLevel,
+    targetSymbolCollectionLevel: SymbolCollectionLevel,
     workDoneToken?: ProgressToken | SharedProgressToken,
   ): Effect.Effect<void, never, never> {
     const self = this;
@@ -312,7 +326,7 @@ export class LayerEnrichmentService {
       const storage = storageManager.getStorage();
 
       for (let i = 0; i < filesToEnrich.length; i++) {
-        const { uri, currentLevel, version } = filesToEnrich[i];
+        const { uri, currentSymbolCollectionLevel, version } = filesToEnrich[i];
 
         try {
           const document = yield* Effect.promise(() =>
@@ -324,8 +338,8 @@ export class LayerEnrichmentService {
 
           // Determine which layers to apply
           const layersToApply = self.getLayersToApply(
-            currentLevel || 'public-api',
-            targetLevel,
+            currentSymbolCollectionLevel || 'public-api',
+            targetSymbolCollectionLevel,
           );
 
           if (layersToApply.length === 0) {
@@ -367,16 +381,20 @@ export class LayerEnrichmentService {
               version,
               result.errors.length > 0,
             );
-            // Update cache with new detail level even when there is no existing entry.
+            const achievedDetailLevel =
+              result.result.getDetailLevel() ??
+              currentSymbolCollectionLevel ??
+              'public-api';
+            // Cache the compiler's achieved level rather than the requested level.
             cache.merge(uri, {
               documentVersion: version,
               documentLength: document.getText().length,
-              detailLevel: targetLevel,
+              symbolCollectionLevel: achievedDetailLevel,
             });
 
             self.logger.debug(
               () =>
-                `Enriched ${uri} to ${targetLevel} level (applied layers: ${layersToApply.join(', ')})`,
+                `Enriched ${uri} to ${targetSymbolCollectionLevel} level (applied layers: ${layersToApply.join(', ')})`,
             );
           }
 
@@ -390,7 +408,9 @@ export class LayerEnrichmentService {
                 token: workDoneToken,
                 value: {
                   kind: 'report',
-                  message: `Enriched ${i + 1}/${filesToEnrich.length}: ${uri.split('/').pop()} (${targetLevel})`,
+                  message:
+                    `Enriched ${i + 1}/${filesToEnrich.length}: ` +
+                    `${uri.split('/').pop()} (${targetSymbolCollectionLevel})`,
                   percentage,
                 } as WorkDoneProgressReport,
               });
@@ -417,24 +437,24 @@ export class LayerEnrichmentService {
    * Determine which layers need to be applied to reach target level
    */
   private getLayersToApply(
-    currentLevel: DetailLevel,
-    targetLevel: DetailLevel,
-  ): DetailLevel[] {
-    const levelOrder: Record<DetailLevel, number> = {
+    currentSymbolCollectionLevel: SymbolCollectionLevel,
+    targetSymbolCollectionLevel: SymbolCollectionLevel,
+  ): SymbolCollectionLevel[] {
+    const levelOrder: Record<SymbolCollectionLevel, number> = {
       'public-api': 1,
       protected: 2,
       private: 3,
       full: 4,
     };
 
-    const currentOrder = levelOrder[currentLevel] || 0;
-    const targetOrder = levelOrder[targetLevel] || 0;
+    const currentOrder = levelOrder[currentSymbolCollectionLevel] || 0;
+    const targetOrder = levelOrder[targetSymbolCollectionLevel] || 0;
 
     if (targetOrder <= currentOrder) {
       return [];
     }
 
-    const layersToApply: DetailLevel[] = [];
+    const layersToApply: SymbolCollectionLevel[] = [];
 
     if (currentOrder < 2 && targetOrder >= 2) {
       layersToApply.push('protected');
@@ -442,7 +462,9 @@ export class LayerEnrichmentService {
     if (currentOrder < 3 && targetOrder >= 3) {
       layersToApply.push('private');
     }
-    // 'full' is equivalent to all layers, so if target is 'full' and we've added protected/private, we're done
+    if (currentOrder < 4 && targetOrder >= 4) {
+      layersToApply.push('full');
+    }
 
     return layersToApply;
   }

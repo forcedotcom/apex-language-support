@@ -21,7 +21,7 @@ import { ApexSymbolCollectorListener } from '../../../../../src/parser/listeners
 import type { ValidationOptions } from '../../../../../src/semantics/validation/ValidationTier';
 import { ValidationTier } from '../../../../../src/semantics/validation/ValidationTier';
 import { DEFAULT_SALESFORCE_API_VERSION } from '../../../../../src/constants/constants';
-import type { DetailLevel } from '../../../../../src/types/DetailLevel';
+import type { SymbolCollectionLevel } from '../../../../../src/types/SymbolCollectionLevel';
 import {
   GlobalTypeRegistry,
   GlobalTypeRegistryLive,
@@ -166,7 +166,7 @@ export const createValidationOptions = (
 
 export interface CompileSourceLayeredOptions {
   /** Layers to apply (default: ['full']). Use ['public-api', 'full'] to simulate layered diagnostic flow. */
-  layers?: DetailLevel[];
+  layers?: SymbolCollectionLevel[];
 }
 
 /**

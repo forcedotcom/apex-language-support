@@ -121,7 +121,7 @@ describe('Layered Listener Reference Collection', () => {
       expect(publicMethodRefs.length).toBe(0);
     });
 
-    it('should only collect declaration references in private methods for PrivateSymbolListener', () => {
+    it('should collect declaration references in all declarations for PrivateSymbolListener', () => {
       const sourceCode = `
         public class VisibilityTest {
           public Integer publicMethod(Integer param) {
@@ -148,7 +148,7 @@ describe('Layered Listener Reference Collection', () => {
           r.context === ReferenceContext.PARAMETER_TYPE,
       );
 
-      // Should only have declaration references from privateMethod
+      // Private detail is cumulative for tier-one declaration collection.
       const publicMethodRefs = declarationRefs.filter(
         (r) => r.parentContext === 'publicMethod',
       );
@@ -159,8 +159,8 @@ describe('Layered Listener Reference Collection', () => {
       // Private method declaration references should be captured
       expect(privateMethodRefs.length).toBeGreaterThan(0);
 
-      // Public method declaration references should NOT be captured
-      expect(publicMethodRefs.length).toBe(0);
+      // Public method declaration references are captured too.
+      expect(publicMethodRefs.length).toBeGreaterThan(0);
     });
   });
 

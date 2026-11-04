@@ -12,7 +12,7 @@ import type {
   SymbolResolutionContext,
   SymbolResolutionResult,
 } from '../../types/ISymbolManager';
-import type { DetailLevel } from '../../types/DetailLevel';
+import type { SymbolCollectionLevel } from '../../types/SymbolCollectionLevel';
 import { SymbolIndexStore } from '../services/symbolIndexStore';
 import { CacheStore } from '../services/cacheStore';
 import { FileStateStore } from '../services/fileStateStore';
@@ -99,7 +99,7 @@ export const createResolutionContextWithRequestType = (
 /** Get the current detail level for a file */
 export const getDetailLevelForFile = (
   fileUri: string,
-): Effect.Effect<DetailLevel | undefined, never, FileStateStore> =>
+): Effect.Effect<SymbolCollectionLevel | undefined, never, FileStateStore> =>
   Effect.gen(function* () {
     const fileState = yield* FileStateStore;
     return yield* fileState.getDetailLevel(fileUri);

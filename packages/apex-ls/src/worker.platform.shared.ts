@@ -99,7 +99,7 @@ import {
 } from '@salesforce/apex-lsp-compliant-services';
 import type {
   ApexSymbol,
-  DetailLevel,
+  SymbolCollectionLevel,
   SerializedSymbolTableData,
   SymbolReference,
   TypeSymbol,
@@ -1493,7 +1493,7 @@ const positionInParserRange = (
   (position.line < range.endLine ||
     (position.line === range.endLine && position.character <= range.endColumn));
 
-/** Select only parser references whose token or member-access range owns the cursor. */
+/** Select parser references whose token or member-access range owns the cursor. */
 export const dependencyReferencesAtCursor = (
   references: DependencyCursorReference[],
   position: { line: number; character: number },
@@ -1502,6 +1502,17 @@ export const dependencyReferencesAtCursor = (
     positionInParserRange(position, reference.location?.identifierRange),
   );
   if (exact.length > 0) {
+    // Preserve the enclosing chain when its leaf owns the cursor. The leaf is
+    // the right target for hover, while the chain head identifies the producer
+    // table needed to resolve that target in a request-pool worker.
+    const enclosingChains = references.filter(
+      (reference) =>
+        reference.chainNodes &&
+        reference.chainNodes.length >= 2 &&
+        reference.chainNodes.some((node) =>
+          positionInParserRange(position, node.location?.identifierRange),
+        ),
+    );
     const rangeSize = (reference: DependencyCursorReference): number => {
       const range = reference.location?.identifierRange;
       if (!range) return Number.POSITIVE_INFINITY;
@@ -1511,7 +1522,10 @@ export const dependencyReferencesAtCursor = (
       );
     };
     const narrowest = Math.min(...exact.map(rangeSize));
-    return exact.filter((reference) => rangeSize(reference) === narrowest);
+    return [
+      ...exact.filter((reference) => rangeSize(reference) === narrowest),
+      ...enclosingChains,
+    ];
   }
 
   return references.filter((reference) => {
@@ -1700,6 +1714,16 @@ function loadCursorTargetDependencies(
         }
         yield* addResolvedSymbolType(node.resolvedSymbolId);
         yield* addResolvedSymbolType(node.resolvedTypeId, true);
+      }
+
+      // The parser may conservatively classify a static type receiver as a
+      // value reference in a member chain. When the receiver is unresolved,
+      // fetch its owning table from the data owner so the member can be bound
+      // locally instead of falling through to missing-artifact search.
+      const chainNodes = reference.chainNodes;
+      const chainHead = chainNodes?.[0];
+      if (chainHead && chainNodes.length >= 2) {
+        addCandidate(chainHead.name);
       }
     }
 
@@ -2410,8 +2434,8 @@ export interface PreparedLspRequestContext {
   readonly requestType: LSPRequestType;
   readonly uri: string;
   readonly documentVersion: number;
-  readonly initialDetailLevel: DetailLevel;
-  readonly achievedDetailLevel: DetailLevel;
+  readonly initialSymbolCollectionLevel: SymbolCollectionLevel;
+  readonly achievedSymbolCollectionLevel: SymbolCollectionLevel;
   readonly cacheHit: boolean;
   readonly localTableChanged: boolean;
   readonly ready: boolean;
@@ -2426,7 +2450,7 @@ const shouldMaterializeWholeFile = (
   policy: LspRequestPreparationPolicy,
 ): boolean => policy.dependencyScope === 'outbound-file';
 
-const asDetailLevel = (value: string): DetailLevel => {
+const asSymbolCollectionLevel = (value: string): SymbolCollectionLevel => {
   switch (value) {
     case 'public-api':
     case 'protected':
@@ -2479,16 +2503,18 @@ export function prepareLspRequestCursor(
     // supplied `content`, falling back to the owner version only for callers
     // that do not carry a document version.
     const cursorDocumentVersion = documentVersion ?? loadResult.version;
-    const initialDetailLevel = asDetailLevel(loadResult.detailLevel);
-    let achievedDetailLevel = asDetailLevel(
+    const initialSymbolCollectionLevel = asSymbolCollectionLevel(
+      loadResult.detailLevel,
+    );
+    let achievedSymbolCollectionLevel = asSymbolCollectionLevel(
       loadResult.localDetailLevel ?? loadResult.detailLevel,
     );
     let cacheHit = false;
     let localTableChanged = false;
 
     const requiresDetailedCursor =
-      policy.requiredDetailLevel === 'private' ||
-      policy.requiredDetailLevel === 'full';
+      policy.enrichmentRequirement === 'private' ||
+      policy.enrichmentRequirement === 'full';
     if (
       requiresDetailedCursor &&
       isLiveContentPolicy(policy) &&
@@ -2525,7 +2551,7 @@ export function prepareLspRequestCursor(
           svc.symbolManager.getSymbolTableForFile(uri),
         );
         if (canonicalTable?.getDetailLevel() === 'full') {
-          achievedDetailLevel = 'full';
+          achievedSymbolCollectionLevel = 'full';
         }
       }
 
@@ -2550,15 +2576,18 @@ export function prepareLspRequestCursor(
         };
 
     const detailReady =
-      policy.requiredDetailLevel === null ||
-      !shouldEnrich(achievedDetailLevel, policy.requiredDetailLevel);
+      policy.enrichmentRequirement === 'none' ||
+      !shouldEnrich(
+        achievedSymbolCollectionLevel,
+        policy.enrichmentRequirement,
+      );
     const contentReady =
       policy.content !== 'live-required' || content !== undefined;
     const ready = detailReady && contentReady;
     const writeBackRequired =
       policy.writeBack &&
       ready &&
-      shouldEnrich(initialDetailLevel, achievedDetailLevel);
+      shouldEnrich(initialSymbolCollectionLevel, achievedSymbolCollectionLevel);
 
     const stateSnapshot = symbolStateTracingEnabled()
       ? yield* Effect.tryPromise({
@@ -2580,8 +2609,8 @@ export function prepareLspRequestCursor(
 
     yield* Effect.annotateCurrentSpan({
       'request.content_available': content !== undefined,
-      'request.initial_detail_level': initialDetailLevel,
-      'request.achieved_detail_level': achievedDetailLevel,
+      'request.initial_symbol_collection_level': initialSymbolCollectionLevel,
+      'request.achieved_symbol_collection_level': achievedSymbolCollectionLevel,
       'request.dependency_scope': policy.dependencyScope,
       'request.failure_mode': policy.failureMode,
       'request.local_tables_reused': loadTelemetry.reusedLocalTables ?? 0,
@@ -2608,7 +2637,8 @@ export function prepareLspRequestCursor(
         tableVersion: stateSnapshot?.tableVersion,
         parseCompleteness: stateSnapshot?.parseCompleteness,
         content,
-        detailLevel: stateSnapshot?.detailLevel ?? achievedDetailLevel,
+        detailLevel:
+          stateSnapshot?.detailLevel ?? achievedSymbolCollectionLevel,
         symbols: stateSnapshot?.symbols,
         references: stateSnapshot?.references,
         cursorReferences: stateSnapshot?.cursorReferences,
@@ -2629,8 +2659,8 @@ export function prepareLspRequestCursor(
       requestType,
       uri,
       documentVersion: cursorDocumentVersion,
-      initialDetailLevel,
-      achievedDetailLevel,
+      initialSymbolCollectionLevel,
+      achievedSymbolCollectionLevel,
       cacheHit,
       localTableChanged,
       ready,
@@ -2649,7 +2679,7 @@ export function writeBackPreparedLspRequest(
     svc,
     prepared.uri,
     prepared.documentVersion,
-    prepared.achievedDetailLevel,
+    prepared.achievedSymbolCollectionLevel,
   );
 }
 
@@ -6141,16 +6171,16 @@ const requestHandlers = {
         const table = yield* Effect.promise(() =>
           svc.symbolManager.getSymbolTableForFile(req.textDocument.uri),
         );
-        const achievedDetailLevel = table?.getDetailLevel() ?? null;
+        const achievedSymbolCollectionLevel = table?.getDetailLevel() ?? null;
         if (
-          achievedDetailLevel !== null &&
-          shouldEnrich(detailLevel, achievedDetailLevel)
+          achievedSymbolCollectionLevel !== null &&
+          shouldEnrich(detailLevel, achievedSymbolCollectionLevel)
         ) {
           yield* writeBackEnrichedSymbols(
             svc,
             req.textDocument.uri,
             version,
-            achievedDetailLevel,
+            achievedSymbolCollectionLevel,
           );
         }
 
@@ -6513,7 +6543,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
 
               // Get detail level from cache
               const state = cache.getCurrentState(uri);
-              const level = state?.detailLevel ?? 'public-api';
+              const level = state?.symbolCollectionLevel ?? 'public-api';
               // Ensure type safety
               detailLevels[uri] =
                 level === 'public-api' ||
@@ -6706,7 +6736,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
             // When no cache entry exists (file not yet compiled on data-owner),
             // currentOrder is 0 so any write-back level is accepted.
             const currentState = cache.getCurrentState(req.uri);
-            const rawLevel = currentState?.detailLevel;
+            const rawLevel = currentState?.symbolCollectionLevel;
             const currentOrder =
               rawLevel === 'public-api' ||
               rawLevel === 'protected' ||
@@ -6809,10 +6839,10 @@ const untracedHandlers: SerializedWorkerHandlers = {
               })(svc.symbolManager.resolveCrossFileReferencesForFile(req.uri));
             }
 
-            // Update cache with new detail level
+            // Update cache with the enriched symbol collection level.
             cache.merge(req.uri, {
               documentVersion: req.documentVersion,
-              detailLevel: req.enrichedDetailLevel,
+              symbolCollectionLevel: req.enrichedDetailLevel,
               timestamp: Date.now(),
             });
 
@@ -7787,7 +7817,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
                   const mergeMs = Date.now() - mergeStart;
                   getDocumentStateCache().merge(entry.uri, {
                     documentVersion: entry.version,
-                    detailLevel: 'public-api',
+                    symbolCollectionLevel: 'public-api',
                     timestamp: Date.now(),
                   });
                   resolveReadiness(entry.uri, entry.version);
@@ -8181,7 +8211,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
               content: req.content,
               languageId: req.languageId,
               version: req.version,
-              detailLevel: 'public-api',
+              detailLevel: 'private',
               collectReferences: true,
               traceContext: req.traceContext,
             }),
@@ -8254,7 +8284,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
                 Effect.sync(() => {
                   getDocumentStateCache().merge(req.uri, {
                     documentVersion: req.version,
-                    detailLevel: 'public-api',
+                    symbolCollectionLevel: 'private',
                     timestamp: Date.now(),
                   });
                   resolveReadiness(req.uri, req.version);

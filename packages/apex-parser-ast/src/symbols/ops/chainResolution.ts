@@ -441,7 +441,9 @@ export async function resolveChainedSymbolReference(
             // Filter for class symbols
             const classSymbols = qualifierSymbols.filter(
               (s) =>
-                s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+                s.kind === SymbolKind.Class ||
+                s.kind === SymbolKind.Interface ||
+                s.kind === SymbolKind.Enum,
             );
 
             if (classSymbols.length > 0) {
@@ -1223,7 +1225,10 @@ export async function resolveFirstNodeAsClass(
   // Try finding by name (prefer class symbols)
   const qualifierSymbols = await self.findSymbolByName(firstNodeName);
   const classSymbols = qualifierSymbols.filter(
-    (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+    (s) =>
+      s.kind === SymbolKind.Class ||
+      s.kind === SymbolKind.Interface ||
+      s.kind === SymbolKind.Enum,
   );
   if (classSymbols.length > 0) {
     // Prefer standard Apex classes
@@ -1287,7 +1292,10 @@ export async function resolveFirstNodeAsClass(
   if (includeRetry) {
     const retrySymbols = await self.findSymbolByName(firstNodeName);
     const retryClassSymbols = retrySymbols.filter(
-      (s) => s.kind === SymbolKind.Class || s.kind === SymbolKind.Interface,
+      (s) =>
+        s.kind === SymbolKind.Class ||
+        s.kind === SymbolKind.Interface ||
+        s.kind === SymbolKind.Enum,
     );
     if (retryClassSymbols.length > 0) {
       const retryStdClass = retryClassSymbols.find(
@@ -1360,20 +1368,24 @@ export async function tryResolveAsClass(
   currentContext: ChainResolutionContext,
   stepContext?: ReferenceContext,
 ): Promise<ApexSymbol | null> {
+  const resolvingNestedType =
+    currentContext?.type === 'symbol' &&
+    isReferenceableTypeSymbol(currentContext.symbol);
   if (
-    stepContext === ReferenceContext.METHOD_CALL ||
-    stepContext === ReferenceContext.FIELD_ACCESS ||
-    stepContext === ReferenceContext.VARIABLE_USAGE
+    !resolvingNestedType &&
+    (stepContext === ReferenceContext.METHOD_CALL ||
+      stepContext === ReferenceContext.FIELD_ACCESS ||
+      stepContext === ReferenceContext.VARIABLE_USAGE)
   ) {
     return null;
   }
 
   if (currentContext?.type === 'namespace') {
-    // Look for class in the namespace
+    // Look for an Apex type in the namespace.
     const namespaceSymbols = await findSymsInNsOp(self, currentContext.name);
 
     let classSymbol = namespaceSymbols.find(
-      (s) => s.name === stepName && s.kind === 'class',
+      (s) => s.name === stepName && isReferenceableTypeSymbol(s),
     );
 
     // If not found in loaded symbols, try to resolve as standard Apex class
@@ -1387,20 +1399,43 @@ export async function tryResolveAsClass(
   }
 
   if (currentContext?.type === 'symbol') {
-    // Look for nested class in the current symbol
-    const nestedClasses = await findSymsInNsOp(
-      self,
-      currentContext.symbol.name,
-    );
-    return (
-      nestedClasses.find((s) => s.name === stepName && s.kind === 'class') ||
-      null
-    );
+    // Workspace inner types are owned by the containing type's parser block,
+    // not a namespace. Resolve through that ownership graph instead of the
+    // standard-library namespace index.
+    const ownerFile = currentContext.symbol.fileUri;
+    const ownerTable = ownerFile
+      ? self.symbolRefManager.getSymbolTableForFile(ownerFile)
+      : undefined;
+    if (ownerTable) {
+      const symbols = ownerTable.getAllSymbols();
+      const nestedType = symbols.find((symbol) => {
+        if (
+          symbol.name !== stepName ||
+          !isReferenceableTypeSymbol(symbol) ||
+          symbol.fileUri !== ownerFile
+        ) {
+          return false;
+        }
+        if (symbol.parentId === currentContext.symbol.id) {
+          return true;
+        }
+        const parent = symbols.find(
+          (candidate) => candidate.id === symbol.parentId,
+        );
+        return (
+          isBlockSymbol(parent) && parent.parentId === currentContext.symbol.id
+        );
+      });
+      if (nestedType) {
+        return nestedType;
+      }
+    }
+    return null;
   }
 
-  // Look in global scope
+  // Look for an Apex type in global scope.
   const globalSymbols = await self.findSymbolByName(stepName);
-  let classSymbol = globalSymbols.find((s) => s.kind === 'class');
+  let classSymbol = globalSymbols.find(isReferenceableTypeSymbol);
 
   // If not found in global symbols, try to resolve as standard Apex class
   if (!classSymbol) {
@@ -1876,6 +1911,10 @@ export async function resolveMemberInContext(
 ): Promise<ApexSymbol | null> {
   if (context?.type === 'symbol') {
     const contextSymbol = context.symbol;
+    const effectiveMemberType =
+      contextSymbol.kind === SymbolKind.Enum && memberType === 'property'
+        ? SymbolKind.EnumValue
+        : memberType;
     const contextFile = contextSymbol.fileUri;
     if (contextFile) {
       let symbolTable =
@@ -2423,7 +2462,7 @@ export async function resolveMemberInContext(
                 isBlockSymbol(s) ||
                 s.fileUri !== contextSymbol.fileUri ||
                 s.name !== memberName ||
-                s.kind !== memberType
+                s.kind !== effectiveMemberType
               ) {
                 return false;
               }
@@ -2520,7 +2559,7 @@ export async function resolveMemberInContext(
               (s) =>
                 !isBlockSymbol(s) &&
                 s.name?.toLowerCase() === memberName.toLowerCase() &&
-                s.kind === memberType &&
+                s.kind === effectiveMemberType &&
                 s.fileUri === contextSymbol.fileUri,
             );
             self.logger.debug(
@@ -2637,7 +2676,7 @@ export async function resolveMemberInContext(
                               !isBlockSymbol(s) &&
                               s.name?.toLowerCase() ===
                                 memberName.toLowerCase() &&
-                              s.kind === memberType &&
+                              s.kind === effectiveMemberType &&
                               s.fileUri === contextSymbol.fileUri &&
                               s.parentId === classBlock2.id,
                           );
@@ -2720,7 +2759,7 @@ export async function resolveMemberInContext(
         const contextMembers = allSymbols.filter(
           (s) =>
             s.name?.toLowerCase() === memberName.toLowerCase() &&
-            s.kind === memberType,
+            s.kind === effectiveMemberType,
         );
 
         if (contextMembers.length > 0) {

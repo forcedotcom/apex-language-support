@@ -158,7 +158,7 @@ type DependencyScope =
 type PreparationFailureMode = 'best-effort' | 'strict';
 
 interface RequestPreparationPolicy {
-  requiredDetailLevel: DetailLevel | null;
+  enrichmentRequirement: EnrichmentRequirement;
   content: 'none' | 'stored' | 'live-if-available' | 'live-required';
   dependencyScope: DependencyScope;
   reuseUnchangedCursor: boolean;
@@ -169,8 +169,8 @@ interface RequestPreparationPolicy {
 interface PreparedRequestContext {
   uri: string;
   documentVersion: number;
-  initialDetailLevel: DetailLevel | null;
-  achievedDetailLevel: DetailLevel | null;
+  initialSymbolCollectionLevel: SymbolCollectionLevel | null;
+  achievedSymbolCollectionLevel: SymbolCollectionLevel | null;
   cacheHit: boolean;
   localTableChanged: boolean;
   dependencyScopeCompleted: DependencyScope;

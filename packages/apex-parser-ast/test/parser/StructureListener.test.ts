@@ -178,7 +178,7 @@ describe('StructureListener', () => {
   });
 
   describe('block parent chain', () => {
-    it('should set method block parentId to class block', () => {
+    it('should set method block parentId to its semantic method', () => {
       const content = loadFixture('SimpleClass.cls');
       const result = compileWithStructure(
         content,
@@ -196,7 +196,10 @@ describe('StructureListener', () => {
 
       expect(classBlock).toBeDefined();
       expect(methodBlock).toBeDefined();
-      expect(methodBlock!.parentId).toBe(classBlock!.id);
+      expect(methodBlock!.parentId).not.toBe(classBlock!.id);
+      expect(symbolTable.getSymbolById(methodBlock!.parentId!)).toEqual(
+        expect.objectContaining({ kind: SymbolKind.Method, name: 'method' }),
+      );
     });
 
     it('should set control-flow block parentId to method block', () => {
@@ -259,7 +262,10 @@ describe('StructureListener', () => {
       );
       expect(classBlock).toBeDefined();
       expect(methodBlock).toBeDefined();
-      expect(methodBlock!.parentId).toBe(classBlock!.id);
+      expect(methodBlock!.parentId).not.toBe(classBlock!.id);
+      expect(symbolTable.getSymbolById(methodBlock!.parentId!)).toEqual(
+        expect.objectContaining({ kind: SymbolKind.Method, name: 'method' }),
+      );
     });
 
     it('should handle missing if block closing brace', () => {
