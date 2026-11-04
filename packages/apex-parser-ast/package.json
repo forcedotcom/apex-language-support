@@ -60,6 +60,7 @@
       ],
       "files": [
         "src/resources/StandardApexLibrary/**/*.cls",
+        "src/resources/builtins/**/*.cls",
         "scripts/generate-stdlib-cache.mjs"
       ]
     },

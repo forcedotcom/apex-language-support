@@ -17,18 +17,33 @@ import {
   runValidator,
   createValidationOptions,
 } from './helpers/validation-test-helpers';
+import {
+  getResourceLoaderServiceShapeFromSingleton,
+  initializeResourceLoaderForTests,
+  resetResourceLoader,
+} from '../../../helpers/testHelpers';
 
 describe('ClassHierarchyValidator', () => {
   let symbolManager: ApexSymbolManager;
   let compilerService: CompilerService;
 
+  beforeAll(async () => {
+    await initializeResourceLoaderForTests();
+  });
+
   beforeEach(() => {
-    symbolManager = new ApexSymbolManager();
+    symbolManager = new ApexSymbolManager(
+      getResourceLoaderServiceShapeFromSingleton(),
+    );
     compilerService = new CompilerService();
   });
 
   afterEach(() => {
     symbolManager.clear();
+  });
+
+  afterAll(() => {
+    resetResourceLoader();
   });
 
   const VALIDATOR_CATEGORY = 'class-hierarchy';
@@ -160,18 +175,50 @@ describe('ClassHierarchyValidator', () => {
       symbolManager,
     );
 
-    // Missing superclass should generate a warning, not an error
-    expect(result.warnings.length).toBeGreaterThan(0);
-    expect(
-      result.warnings.some((w) => {
-        const msg = getMessage(w);
-        return (
-          msg.includes('Superclass') &&
-          msg.includes('NonExistentParent') &&
-          msg.includes('not found')
-        );
+    // Missing superclass should generate one warning, not an error.
+    expect(result.errors).toHaveLength(0);
+    expect(result.warnings).toContainEqual(
+      expect.objectContaining({
+        code: 'MISSING_SUPERCLASS',
+        message:
+          "Superclass 'NonExistentParent' extended by class 'ChildClass' " +
+          'not found in current file or symbol manager',
       }),
-    ).toBe(true);
+    );
+  });
+
+  it('should recognize Exception as a standard library superclass', async () => {
+    const symbolTable = await compileFixtureForValidator('CustomException.cls');
+
+    const result = await runValidator(
+      ClassHierarchyValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager, { allowArtifactLoading: false }),
+      ),
+      symbolManager,
+    );
+
+    expect(result.warnings).not.toContainEqual(
+      expect.objectContaining({ code: 'MISSING_SUPERCLASS' }),
+    );
+  });
+
+  it('should recognize System.Exception as a standard library superclass', async () => {
+    const symbolTable = await compileFixtureForValidator(
+      'QualifiedCustomException.cls',
+    );
+
+    const result = await runValidator(
+      ClassHierarchyValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager, { allowArtifactLoading: false }),
+      ),
+      symbolManager,
+    );
+
+    expect(result.warnings).not.toContainEqual(
+      expect.objectContaining({ code: 'MISSING_SUPERCLASS' }),
+    );
   });
 
   it('should pass validation for class without extends', async () => {
