@@ -1,6 +1,6 @@
 ---
 name: apex-stubs-generator
-description: Everything about generating, maintaining, and troubleshooting the Apex standard library stubs in StandardApexLibrary. Use when regenerating stubs, debugging casing failures on Linux CI, working on the API generator pipeline, or syncing stubs to jorje.
+description: Everything about generating, maintaining, and troubleshooting the Apex standard library stubs in StandardApexLibrary. Use when regenerating stubs, debugging casing failures on Linux CI, working on the API generator pipeline, or syncing stubs to the legacy Java repository.
 ---
 
 # Apex Stubs Generator
@@ -11,7 +11,7 @@ description: Everything about generating, maintaining, and troubleshooting the A
 They live in two places:
 
 - **This repo**: `packages/apex-parser-ast/src/resources/StandardApexLibrary/`
-- **jorje**: `apex-jorje/apex-jorje-lsp/src/main/resources/StandardApexLibrary/`
+- **Legacy Java repository**: destination configured by its release process
 
 Both copies must be kept in sync. The authoritative source is this repo's generator pipeline.
 
@@ -132,10 +132,19 @@ npx jest emptyStubDetection --updateSnapshot
 local file read returns the wrong casing. Trust what CI sees — edit the snapshot directly if
 needed to match the correct committed name.
 
-## Syncing stubs to jorje
+## Syncing stubs to the legacy Java repository
 
-After regenerating stubs in this repo, the same files must be copied to:
-`apex-jorje/apex-jorje-lsp/src/main/resources/StandardApexLibrary/`
+After regenerating stubs in this repo, copy the `StandardApexLibrary/` tree to
+the legacy Java repository using its release process. Its branch conventions and
+build process are separate.
 
-jorje's branch conventions and build process are separate — sync is a manual copy
-of the `StandardApexLibrary/` tree, then build/test in jorje.
+## Major-release companion: diagnostics
+
+When refreshing StandardApexLibrary for an Apex major release, also copy the
+legacy Java compiler's `messages_en_US.properties` unchanged to
+`packages/apex-parser-ast/src/resources/messages/messages_en_US.properties`.
+Also curate relevant legacy Java `FullCompileTester` snippets
+into Apex-LS `.cls` validation fixtures, retaining their diagnostic contract.
+Then run the generator and parity fixtures. Stub generation does not generate
+diagnostic catalogs or fixtures; Apex-LS-only uncertainty diagnostics stay in
+`messages_apex_ls.properties`.

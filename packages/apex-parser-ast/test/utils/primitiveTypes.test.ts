@@ -55,6 +55,10 @@ describe('primitiveTypes', () => {
       expect(APEX_PRIMITIVE_TYPES.has('map')).toBe(false);
       expect(APEX_PRIMITIVE_TYPES.has('set')).toBe(false);
     });
+
+    it('should exclude reference-type builtins', () => {
+      expect(APEX_PRIMITIVE_TYPES.has('exception')).toBe(false);
+    });
   });
 
   describe('INSTANCEOF_PRIMITIVE_TYPES', () => {
@@ -65,6 +69,10 @@ describe('primitiveTypes', () => {
     it('should include other primitives', () => {
       expect(INSTANCEOF_PRIMITIVE_TYPES.has('string')).toBe(true);
       expect(INSTANCEOF_PRIMITIVE_TYPES.has('integer')).toBe(true);
+    });
+
+    it('should exclude reference-type builtins', () => {
+      expect(INSTANCEOF_PRIMITIVE_TYPES.has('exception')).toBe(false);
     });
   });
 

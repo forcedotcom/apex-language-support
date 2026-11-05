@@ -702,9 +702,6 @@ importers:
       '@salesforce/apex-lsp-shared':
         specifier: workspace:*
         version: link:../apex-lsp-shared
-      '@salesforce/vscode-i18n':
-        specifier: ^66.8.0
-        version: 66.8.0
       antlr4:
         specifier: 4.13.2
         version: 4.13.2
@@ -2347,9 +2344,6 @@ packages:
   '@salesforce/types@1.8.0':
     resolution: {integrity: sha512-sliQcoI0XeR3YYUElIV3z93l7ZL9lDtnegVGbknBFbQKjN/oxH/PQSiM4imnXnModhFQSoe/V3mGXniASoLNvA==}
     engines: {node: '>=18'}
-
-  '@salesforce/vscode-i18n@66.8.0':
-    resolution: {integrity: sha512-i1OCn0lC/yAwHH3F5Ky3Z66W1UyiucGNhPiaHuW/7PW9xaiMEtYwsPg6oGqT47XwFPhgb8VGjxUd6u0j+XhtJQ==}
 
   '@salesforce/vscode-services@67.27.5':
     resolution: {integrity: sha512-5lZIy21VktLOI5n8/gp16+lNSvH1X+diyYoqHptNU1s0uXXrmtjr/PwI4YlO+D4pIKyJLUwrGwXf8eUefiT72g==}
@@ -8463,8 +8457,6 @@ snapshots:
   '@salesforce/ts-types@3.2.1': {}
 
   '@salesforce/types@1.8.0': {}
-
-  '@salesforce/vscode-i18n@66.8.0': {}
 
   '@salesforce/vscode-services@67.27.5(@effect/platform@0.96.3(effect@3.22.4))(@opentelemetry/resources@2.12.0(@opentelemetry/api@1.9.1))(@opentelemetry/semantic-conventions@1.43.0)(@types/node@20.19.43)(supports-color@7.2.0)':
     dependencies:

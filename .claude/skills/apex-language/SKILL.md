@@ -241,8 +241,12 @@ Comprehensive validations that may require cross-file analysis:
 When working with semantics and validation, **error codes and messages must be aligned with the Salesforce org compiler**.
 
 **Error Messages Reference:**
-- **Source File**: `packages/apex-parser-ast/src/resources/messages/messages_en_US.properties`
-  - Contains all error codes and messages (English) used by the Salesforce compiler
+- **Legacy Java baseline**: `packages/apex-parser-ast/src/resources/messages/messages_en_US.properties`
+  - Exact copy of the legacy Java compiler catalog
+  - Refresh once per Apex major release; never edit baseline keys or text locally
+- **Apex-LS extension catalog**: `packages/apex-parser-ast/src/resources/messages/messages_apex_ls.properties`
+  - Explicit LS-only diagnostics for incomplete parser/symbol state
+  - Do not add LS-only entries to the legacy baseline
   - Format: `error.code.key=Error message text with {0} placeholders`
 - **Generated TypeScript Files** (auto-generated, do not edit manually):
   - `packages/apex-parser-ast/src/generated/ErrorCodes.ts` - Error code constants
@@ -257,7 +261,9 @@ When working with semantics and validation, **error codes and messages must be a
    - Explain why a new code is needed vs. using an existing one
    - Wait for explicit user approval before making changes
 
-3. **Edit the properties file**: After receiving permission, add your new error code to `messages_en_US.properties`
+3. **Choose the source catalog**: After receiving permission, add compiler-aligned
+   messages to the legacy Java compiler source first and refresh at the next major release. Add
+   Apex-LS-only uncertainty diagnostics to `messages_apex_ls.properties`.
    ```properties
    my.new.error.code=Error message text with {0} placeholder
    ```
@@ -273,6 +279,25 @@ When working with semantics and validation, **error codes and messages must be a
    ```
 
 **Critical**: When implementing validators that require error reporting, if you determine that a new error code needs to be created, **you must ask the user for permission before proceeding**. Do not create new error codes without explicit user approval.
+
+### Major-release diagnostic refresh
+
+1. Checkout the target legacy Java compiler release.
+2. Copy its `messages_en_US.properties` unchanged into the baseline path.
+3. Curate relevant Java `FullCompileTester` snippets into
+   `test/fixtures/validation/**/*.cls`; retain their expected diagnostic contract.
+4. Keep LS-only uncertainty diagnostics in `messages_apex_ls.properties`.
+5. Run `npm run precompile`, formatter/parity fixtures, and `npm run check:error-codes`.
+
+Fixtures are curated legacy Java cases, not ad hoc replacements. Convert supported
+parser-owned cases to `.cls` fixtures and assert code, message, severity, and
+parser-owned range through the Apex-LS harness. Mark unsupported compiler-only
+cases deferred; never emulate them with raw-source semantic inference.
+
+Generated TypeScript preserves Java `MessageFormat`: `{n}` selects argument `n`,
+repeated placeholders repeat that argument, and `''` is one literal apostrophe.
+Pass logical arguments in catalog order; never duplicate or reorder values for
+printf-style formatting.
 
 **When to Consult This File:**
 - **Before introducing a new error code**: Check if an appropriate error code already exists

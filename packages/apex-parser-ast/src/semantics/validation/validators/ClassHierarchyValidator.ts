@@ -226,6 +226,16 @@ export const ClassHierarchyValidator: Validator = {
         );
 
         if (!superClass) {
+          const standardSuperClass = options.symbolManager
+            ? yield* Effect.promise(() =>
+                options.symbolManager.findFQNForStandardClass(cls.superClass!),
+              )
+            : null;
+
+          if (standardSuperClass) {
+            continue;
+          }
+
           // Superclass not found even after attempting to load
           warnings.push({
             message:

@@ -868,6 +868,9 @@ export class DispatchCodeLens extends Schema.TaggedRequest<DispatchCodeLens>()(
     failure: DispatchError,
     payload: {
       textDocument: WireTextDocumentId,
+      // CodeLens must read the current editor buffer even when documentOpen has
+      // not yet reached the data owner.
+      content: Schema.optional(Schema.String),
       /** W3C traceparent for distributed tracing (optional) */
       traceContext: Schema.optional(Schema.String),
     },
