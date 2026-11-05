@@ -43,15 +43,15 @@ import {
   stopLanguageServer,
   getClient,
 } from './language-server';
-import type {
-  ApexClient,
-  CodeLensCallbackRegistry,
-} from '@salesforce/apex-lsp-client';
+import type { CodeLensCallbackRegistry } from '@salesforce/apex-lsp-client';
+import {
+  APEX_EXTENSION_API_VERSION,
+  type ApexClient as PublicApexClient,
+  type ApexExtensionApi as PublicApexExtensionApi,
+} from '@salesforce/apex-language-server-extension-api';
 
 /** Public extension API for consumers that depend on this extension. */
-export type ApexExtensionApi = {
-  /** Materialized language-server client, ready when activate() resolves. */
-  readonly client: ApexClient;
+export type ApexExtensionApi = PublicApexExtensionApi<vscode.CodeLens> & {
   /** Semantic CodeLens callbacks that companion extensions can register. */
   readonly codeLens: CodeLensCallbackRegistry<vscode.CodeLens>;
 };
@@ -77,6 +77,30 @@ const handleRestart = async (
 ): Promise<void> => {
   await restartLanguageServer(context, codeLens);
 };
+
+const unavailableClient = (): Promise<never> =>
+  Promise.reject(new Error('Apex Language Server client is unavailable'));
+
+const createPublicClient = (): PublicApexClient => ({
+  getLineBreakpointInfo: (uri) =>
+    getClient()?.getLineBreakpointInfo(uri) ?? unavailableClient(),
+  getExceptionBreakpointInfo: (uri) =>
+    getClient()?.getExceptionBreakpointInfo(uri) ?? unavailableClient(),
+  getFeatureState: (feature) =>
+    getClient()?.getFeatureState(feature) ?? {
+      supported: false,
+      enabled: false,
+    },
+  hover: (params) => getClient()?.hover(params) ?? unavailableClient(),
+  completion: (params) =>
+    getClient()?.completion(params) ?? unavailableClient(),
+  definition: (params) =>
+    getClient()?.definition(params) ?? unavailableClient(),
+  documentSymbol: (params) =>
+    getClient()?.documentSymbol(params) ?? unavailableClient(),
+  semanticTokens: ({ partialResultToken: _partialResultToken, ...params }) =>
+    getClient()?.semanticTokens(params) ?? unavailableClient(),
+});
 
 /**
  * Main extension activation function
@@ -228,7 +252,8 @@ async function activateExtension(
   logToOutputChannel('Language server started successfully', 'info');
 
   return {
-    client,
+    apiVersion: APEX_EXTENSION_API_VERSION,
+    client: createPublicClient(),
     codeLens,
   };
 }
