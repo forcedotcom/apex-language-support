@@ -137,6 +137,15 @@ describe('messageInstance', () => {
       expect(result).toBe("Missing ']' at ';'");
     });
 
+    it('should preserve literal apostrophes in legacy diagnostic templates', () => {
+      expect(localizeTyped('invalid.super.call')).toBe(
+        "Call to 'super()' must be the first statement in a constructor method",
+      );
+      expect(localizeTyped('non.static.aura.method.must.begin.with.get')).toBe(
+        "Non static AuraEnabled methods must be named with a prefix 'get'",
+      );
+    });
+
     it('should reuse repeated placeholders', () => {
       const result = localizeTyped(
         'invalid.list.initializer',

@@ -17,7 +17,6 @@ import { messages, ErrorCodeKey } from '../generated/messages_en_US';
  */
 function formatMessage(template: string, args: readonly unknown[]): string {
   let result = '';
-  let quoted = false;
 
   for (let index = 0; index < template.length; index += 1) {
     const character = template[index];
@@ -26,12 +25,13 @@ function formatMessage(template: string, args: readonly unknown[]): string {
         result += "'";
         index += 1;
       } else {
-        quoted = !quoted;
+        // Legacy catalog templates use lone apostrophes as literal quotes.
+        result += "'";
       }
       continue;
     }
 
-    if (!quoted && character === '{') {
+    if (character === '{') {
       const end = template.indexOf('}', index + 1);
       const placeholder = end === -1 ? '' : template.slice(index + 1, end);
       if (/^\d+$/.test(placeholder)) {

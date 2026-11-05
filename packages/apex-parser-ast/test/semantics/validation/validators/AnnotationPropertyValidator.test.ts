@@ -106,7 +106,7 @@ describe('AnnotationPropertyValidator', () => {
       expect(result.errors).toEqual([
         expect.objectContaining({
           code: ErrorCodes.REST_RESOURCE_URL_NO_SLASH,
-          message: 'Rest Resource url must begin with a forward slash, /',
+          message: "Rest Resource url must begin with a forward slash, '/'",
         }),
       ]);
       expect(result.warnings).toHaveLength(0);
@@ -159,12 +159,12 @@ describe('AnnotationPropertyValidator', () => {
         expect.objectContaining({
           code: ErrorCodes.REST_RESOURCE_URL_ILLEGAL_WILDCARD_PREDECESSOR,
           message:
-            'Rest Resource url wildcard, *, must be preceded by a forward slash, /',
+            "Rest Resource url wildcard, '*', must be preceded by a forward slash, '/'",
         }),
         expect.objectContaining({
           code: ErrorCodes.REST_RESOURCE_URL_ILLEGAL_WILDCARD_SUCCESSOR,
           message:
-            'Rest Resource url wildcard, *, must be followed by a forward slash, /, ' +
+            "Rest Resource url wildcard, '*', must be followed by a forward slash, '/', " +
             'or be the last character',
         }),
       ]);
