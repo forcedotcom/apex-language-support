@@ -18,8 +18,10 @@ import {
   MethodSymbol,
   ApexSymbol,
   ScopeSymbol,
+  type TriggerSymbol,
 } from '../../src/types/symbol';
 import { isBlockSymbol } from '../../src/utils/symbolNarrowing';
+import { ReferenceContext } from '../../src/types/symbolReference';
 import {
   ErrorType,
   ErrorSeverity,
@@ -863,9 +865,39 @@ describe('ApexSymbolCollectorListener', () => {
       expect(triggerSymbols.length).toBe(1);
       logger.debug('Found trigger symbol');
 
-      const triggerSymbol = semanticSymbols[0];
+      const triggerSymbol = semanticSymbols[0] as TriggerSymbol;
       expect(triggerSymbol?.name).toBe('TestTrigger');
       expect(triggerSymbol?.kind).toBe(SymbolKind.Trigger);
+      expect(triggerSymbol?.targetSObject).toMatchObject({
+        name: 'Account',
+        location: {
+          identifierRange: {
+            startLine: 2,
+            startColumn: 31,
+            endLine: 2,
+            endColumn: 38,
+          },
+        },
+      });
+      expect(triggerSymbol?.events).toEqual([
+        { timing: 'before', operation: 'insert' },
+        { timing: 'after', operation: 'update' },
+      ]);
+      expect(symbolTable?.getAllReferences()).toContainEqual(
+        expect.objectContaining({
+          name: 'Account',
+          context: ReferenceContext.TRIGGER_TARGET_SOBJECT,
+          isSObject: true,
+          location: expect.objectContaining({
+            identifierRange: {
+              startLine: 2,
+              startColumn: 31,
+              endLine: 2,
+              endColumn: 38,
+            },
+          }),
+        }),
+      );
       expect(triggerSymbol?.modifiers.visibility).toBe(
         SymbolVisibility.Default,
       );

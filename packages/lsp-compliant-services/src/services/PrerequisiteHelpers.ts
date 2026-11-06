@@ -109,7 +109,8 @@ export function hasCrossFileResolution(
         ref.context === ReferenceContext.CONSTRUCTOR_CALL ||
         ref.context === ReferenceContext.RETURN_TYPE ||
         ref.context === ReferenceContext.PARAMETER_TYPE ||
-        ref.context === ReferenceContext.SOQL_FROM_TYPE),
+        ref.context === ReferenceContext.SOQL_FROM_TYPE ||
+        ref.context === ReferenceContext.TRIGGER_TARGET_SOBJECT),
   );
 
   // No policy-based bypass: all unresolved type refs need cross-file resolution.

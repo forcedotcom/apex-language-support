@@ -13,6 +13,7 @@ import {
   EnumSymbol,
   MethodSymbol,
   TypeSymbol,
+  TriggerSymbol,
   VariableSymbol,
   ScopeSymbol,
   SymbolKind,
@@ -101,7 +102,17 @@ export const isClassOrInterfaceSymbol = (
  */
 export const isTriggerSymbol = (
   symbol: ApexSymbol | undefined | null,
-): symbol is TypeSymbol => !!symbol && symbol.kind === SymbolKind.Trigger;
+): symbol is TriggerSymbol => !!symbol && symbol.kind === SymbolKind.Trigger;
+
+/** True when a symbol may satisfy an Apex `typeRef`; triggers are declarations, not types. */
+export const isReferenceableApexType = (
+  symbol: ApexSymbol | undefined | null,
+): symbol is TypeSymbol =>
+  !!symbol &&
+  (symbol.kind === SymbolKind.Class ||
+    symbol.kind === SymbolKind.Interface ||
+    symbol.kind === SymbolKind.Enum ||
+    symbol.kind === SymbolKind.SObject);
 
 export const isFieldSymbol = (
   symbol: ApexSymbol | undefined | null,

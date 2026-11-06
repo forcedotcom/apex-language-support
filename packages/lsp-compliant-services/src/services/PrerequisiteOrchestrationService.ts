@@ -607,7 +607,8 @@ export class PrerequisiteOrchestrationService {
           r.context === ReferenceContext.CONSTRUCTOR_CALL ||
           r.context === ReferenceContext.RETURN_TYPE ||
           r.context === ReferenceContext.PARAMETER_TYPE ||
-          r.context === ReferenceContext.SOQL_FROM_TYPE),
+          r.context === ReferenceContext.SOQL_FROM_TYPE ||
+          r.context === ReferenceContext.TRIGGER_TARGET_SOBJECT),
     );
 
     // Exclude stdlib types from artifact loading: findMissingArtifact is for org/user
