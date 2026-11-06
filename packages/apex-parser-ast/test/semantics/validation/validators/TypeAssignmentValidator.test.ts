@@ -16,12 +16,12 @@ import { ErrorType } from '../../../../src/parser/listeners/ApexErrorListener';
 import { EffectTestLoggerLive } from '../../../../src/utils/EffectLspLoggerLayer';
 import {
   compileFixture,
-  getMessage,
   runValidator,
   createValidationOptions,
   loadFixture,
 } from './helpers/validation-test-helpers';
 import { enableConsoleLogging, setLogLevel } from '@salesforce/apex-lsp-shared';
+import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
 
 describe('TypeAssignmentValidator', () => {
   let symbolManager: ApexSymbolManager;
@@ -73,13 +73,6 @@ describe('TypeAssignmentValidator', () => {
       symbolManager,
     );
 
-    if (!result.isValid && result.errors.length > 0) {
-      console.log(
-        'Validation errors:',
-        result.errors.map((e) => getMessage(e)),
-      );
-    }
-
     expect(result.isValid).toBe(true);
     expect(result.errors).toHaveLength(0);
   });
@@ -98,16 +91,27 @@ describe('TypeAssignmentValidator', () => {
     );
 
     expect(result.isValid).toBe(false);
-    expect(result.errors.length).toBeGreaterThan(0);
-    const errorMessage = getMessage(result.errors[0]);
-    expect(errorMessage).toContain('Type mismatch');
-    expect(errorMessage).toContain('String');
-    // Error may mention the source type (Integer) or just the value ('123')
-    expect(
-      errorMessage.includes('Integer') ||
-        errorMessage.includes('123') ||
-        errorMessage.includes('cannot assign'),
-    ).toBe(true);
+    expect(result.errors).toEqual([
+      expect.objectContaining({
+        code: ErrorCodes.ILLEGAL_ASSIGNMENT,
+        message: 'Illegal assignment from 123 to String',
+        location: {
+          identifierRange: {
+            startLine: 3,
+            startColumn: 15,
+            endLine: 3,
+            endColumn: 16,
+          },
+          symbolRange: {
+            startLine: 3,
+            startColumn: 15,
+            endLine: 3,
+            endColumn: 22,
+          },
+        },
+      }),
+    ]);
+    expect(result.warnings).toHaveLength(0);
   });
 
   it('should detect incompatible collection type assignment', async () => {
@@ -124,11 +128,27 @@ describe('TypeAssignmentValidator', () => {
     );
 
     expect(result.isValid).toBe(false);
-    expect(result.errors.length).toBeGreaterThan(0);
-    const errorMessage = getMessage(result.errors[0]);
-    expect(errorMessage).toContain('Type mismatch');
-    expect(errorMessage).toContain('ContentDocumentLink');
-    expect(errorMessage).toContain('List');
+    expect(result.errors).toEqual([
+      expect.objectContaining({
+        code: ErrorCodes.ILLEGAL_ASSIGNMENT,
+        message: 'Illegal assignment from List to ContentDocumentLink',
+        location: {
+          identifierRange: {
+            startLine: 3,
+            startColumn: 28,
+            endLine: 3,
+            endColumn: 32,
+          },
+          symbolRange: {
+            startLine: 3,
+            startColumn: 28,
+            endLine: 3,
+            endColumn: 53,
+          },
+        },
+      }),
+    ]);
+    expect(result.warnings).toHaveLength(0);
   });
 
   it('should pass validation for compatible collection types', async () => {
@@ -194,9 +214,27 @@ describe('TypeAssignmentValidator', () => {
     );
 
     expect(result.isValid).toBe(false);
-    expect(result.errors.length).toBeGreaterThan(0);
-    const errorMessage = getMessage(result.errors[0]);
-    expect(errorMessage).toContain('Type mismatch');
+    expect(result.errors).toEqual([
+      expect.objectContaining({
+        code: ErrorCodes.ILLEGAL_ASSIGNMENT,
+        message: 'Illegal assignment from 123 to String',
+        location: {
+          identifierRange: {
+            startLine: 2,
+            startColumn: 11,
+            endLine: 2,
+            endColumn: 15,
+          },
+          symbolRange: {
+            startLine: 2,
+            startColumn: 11,
+            endLine: 2,
+            endColumn: 21,
+          },
+        },
+      }),
+    ]);
+    expect(result.warnings).toHaveLength(0);
   });
 
   describe('Cross-file method call assignments', () => {
@@ -238,7 +276,7 @@ describe('TypeAssignmentValidator', () => {
       if (!result.isValid && result.errors.length > 0) {
         console.log(
           '[TEST] Validation errors (should be empty for valid code):',
-          result.errors.map((e) => getMessage(e)),
+          result.errors.map((e) => (typeof e === 'string' ? e : e.message)),
         );
       }
 
@@ -320,7 +358,9 @@ describe('TypeAssignmentValidator', () => {
       console.log(
         `[TEST] Syntax errors present: ${hasSyntaxErrors}, ` +
           `Validation errors: ${result.errors.length}, ` +
-          `Errors: ${result.errors.map((e) => getMessage(e)).join(', ')}`,
+          `Errors: ${result.errors
+            .map((e) => (typeof e === 'string' ? e : e.message))
+            .join(', ')}`,
       );
 
       // Verify syntax errors are present (this is expected for this test)

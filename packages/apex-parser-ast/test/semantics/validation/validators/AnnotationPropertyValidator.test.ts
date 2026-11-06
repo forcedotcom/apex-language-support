@@ -77,9 +77,13 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-      const error = result.errors[0] as any;
-      expect(error.code).toBe(ErrorCodes.REST_RESOURCE_URL_EMPTY);
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.REST_RESOURCE_URL_EMPTY,
+          message: 'Rest Resource url cannot be empty',
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
 
     it('should detect URL without leading slash', async () => {
@@ -99,11 +103,13 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-      const error = result.errors.find(
-        (e: any) => e.code === ErrorCodes.REST_RESOURCE_URL_NO_SLASH,
-      );
-      expect(error).toBeDefined();
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.REST_RESOURCE_URL_NO_SLASH,
+          message: "Rest Resource url must begin with a forward slash, '/'",
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
 
     it('should detect URL that is too long', async () => {
@@ -123,11 +129,13 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-      const error = result.errors.find(
-        (e: any) => e.code === ErrorCodes.REST_RESOURCE_URL_TOO_LONG,
-      );
-      expect(error).toBeDefined();
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.REST_RESOURCE_URL_TOO_LONG,
+          message: 'Rest Resource url cannot be longer than 255 characters',
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
 
     it('should detect invalid wildcard usage', async () => {
@@ -147,12 +155,20 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-      const error = result.errors.find(
-        (e: any) =>
-          e.code === ErrorCodes.REST_RESOURCE_URL_ILLEGAL_WILDCARD_SUCCESSOR,
-      );
-      expect(error).toBeDefined();
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.REST_RESOURCE_URL_ILLEGAL_WILDCARD_PREDECESSOR,
+          message:
+            "Rest Resource url wildcard, '*', must be preceded by a forward slash, '/'",
+        }),
+        expect.objectContaining({
+          code: ErrorCodes.REST_RESOURCE_URL_ILLEGAL_WILDCARD_SUCCESSOR,
+          message:
+            "Rest Resource url wildcard, '*', must be followed by a forward slash, '/', " +
+            'or be the last character',
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
 
     it('should detect invalid URL format (invalid characters)', async () => {
@@ -172,11 +188,13 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-      const error = result.errors.find(
-        (e: any) => e.code === ErrorCodes.REST_RESOURCE_URL_INVALID_URL,
-      );
-      expect(error).toBeDefined();
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.REST_RESOURCE_URL_INVALID_URL,
+          message: 'Rest Resource url was invalid',
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
 
     it('should pass validation for valid RestResource URL', async () => {
@@ -218,9 +236,28 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-      const error = result.errors[0] as any;
-      expect(error.code).toBe(ErrorCodes.INVOCABLE_METHOD_SINGLE_PARAM);
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.INVOCABLE_METHOD_SINGLE_PARAM,
+          message:
+            'Only one parameter is supported on methods with @Invocable annotation',
+          location: {
+            identifierRange: {
+              startLine: 3,
+              startColumn: 23,
+              endLine: 3,
+              endColumn: 37,
+            },
+            symbolRange: {
+              startLine: 3,
+              startColumn: 18,
+              endLine: 5,
+              endColumn: 5,
+            },
+          },
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
 
     it('should detect method with multiple parameters', async () => {
@@ -240,9 +277,28 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-      const error = result.errors[0] as any;
-      expect(error.code).toBe(ErrorCodes.INVOCABLE_METHOD_SINGLE_PARAM);
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.INVOCABLE_METHOD_SINGLE_PARAM,
+          message:
+            'Only one parameter is supported on methods with @Invocable annotation',
+          location: {
+            identifierRange: {
+              startLine: 3,
+              startColumn: 23,
+              endLine: 3,
+              endColumn: 37,
+            },
+            symbolRange: {
+              startLine: 3,
+              startColumn: 18,
+              endLine: 5,
+              endColumn: 5,
+            },
+          },
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
 
     it('should detect non-list parameter type', async () => {
@@ -262,9 +318,29 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-      const error = result.errors[0] as any;
-      expect(error.code).toBe(ErrorCodes.INVOCABLE_METHOD_NON_LIST_PARAMETER);
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.INVOCABLE_METHOD_NON_LIST_PARAMETER,
+          message:
+            'Unsupported parameter type String. Valid invocable parameters must be ' +
+            'List types like List<T> where T is a supported type',
+          location: {
+            identifierRange: {
+              startLine: 3,
+              startColumn: 45,
+              endLine: 3,
+              endColumn: 51,
+            },
+            symbolRange: {
+              startLine: 3,
+              startColumn: 38,
+              endLine: 3,
+              endColumn: 51,
+            },
+          },
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
 
     it('should detect invalid annotation combination', async () => {
@@ -284,12 +360,14 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-      const error = result.errors.find(
-        (e: any) =>
-          e.code === ErrorCodes.INVOCABLE_METHOD_CAN_ONLY_HAVE_DEPRECATED,
-      );
-      expect(error).toBeDefined();
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.INVOCABLE_METHOD_CAN_ONLY_HAVE_DEPRECATED,
+          message:
+            'The only annotation that can be used with InvocableMethod is Deprecated',
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
 
     it('should pass validation for valid InvocableMethod', async () => {
@@ -331,11 +409,13 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-      const error = result.errors.find(
-        (e: any) => e.code === ErrorCodes.ANNOTATION_PROPERTY_MISSING,
-      );
-      expect(error).toBeDefined();
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.ANNOTATION_PROPERTY_MISSING,
+          message: 'Required property is missing: value',
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
 
     it('should pass validation for valid SuppressWarnings', async () => {
@@ -459,7 +539,14 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.ANNOTATION_PROPERTY_VALUE_IS_NOT_ALLOWED,
+          message:
+            'Invalid annotation property value, invalid, for property useReplica on ReadOnly',
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
   });
 
@@ -497,7 +584,22 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.ANNOTATION_PROPERTY_INVALID_VALUE,
+          message: 'Invalid value for property delay expected type number',
+        }),
+        expect.objectContaining({
+          code: ErrorCodes.ANNOTATION_PROPERTY_INVALID_VALUE,
+          message: 'Invalid value for property delay expected type number',
+        }),
+        expect.objectContaining({
+          code: ErrorCodes.ANNOTATION_PROPERTY_VALUE_IS_NOT_ALLOWED,
+          message:
+            'Invalid annotation property value, INVALID, for property limits on Future',
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
   });
 
@@ -564,7 +666,7 @@ describe('AnnotationPropertyValidator', () => {
       expect(result.errors).toHaveLength(0);
     });
 
-    it('should detect invalid enum values', async () => {
+    it('should detect the invalid enum value on the compiled JsonAccess type', async () => {
       const symbolTable = await compileFixtureForValidator(
         'JsonAccessInvalid.cls',
       );
@@ -581,7 +683,14 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.ANNOTATION_PROPERTY_VALUE_IS_NOT_ALLOWED,
+          message:
+            'Invalid annotation property value, invalid, for property serializable on JsonAccess',
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
   });
 
@@ -666,11 +775,19 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-      const error = result.errors.find(
-        (e: any) => e.code === ErrorCodes.ANNOTATION_PROPERTY_NOT_SUPPORTED,
-      );
-      expect(error).toBeDefined();
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.ANNOTATION_PROPERTY_NOT_SUPPORTED,
+          message:
+            'No such property, invalidParam, defined on this annotation: HttpGet',
+        }),
+        expect.objectContaining({
+          code: ErrorCodes.ANNOTATION_PROPERTY_NOT_SUPPORTED,
+          message:
+            'No such property, invalidParam, defined on this annotation: HttpPost',
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
   });
 
@@ -692,13 +809,14 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-      const error = result.errors.find(
-        (e: any) =>
-          e.code ===
-          ErrorCodes.ANNOTATION_JSONACCESS_MUST_SPECIFY_CONTROL_PARAMETER,
-      );
-      expect(error).toBeDefined();
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.ANNOTATION_JSONACCESS_MUST_SPECIFY_CONTROL_PARAMETER,
+          message:
+            'At least one JSON serialization control parameter must be specified',
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
 
     it('should pass validation with serializable parameter', async () => {
@@ -746,11 +864,27 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-      const error = result.errors.find(
-        (e: any) => e.code === ErrorCodes.ANNOTATION_PROPERTY_CANNOT_BE_EMPTY,
-      );
-      expect(error).toBeDefined();
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.ANNOTATION_PROPERTY_CANNOT_BE_EMPTY,
+          message: 'Specify a value for the label annotation property',
+          location: {
+            identifierRange: {
+              startLine: 1,
+              startColumn: 1,
+              endLine: 1,
+              endColumn: 16,
+            },
+            symbolRange: {
+              startLine: 1,
+              startColumn: 0,
+              endLine: 1,
+              endColumn: 26,
+            },
+          },
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
   });
 
@@ -772,12 +906,14 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-      const error = result.errors.find(
-        (e: any) =>
-          e.code === ErrorCodes.ANNOTATION_PROPERTY_INVALID_MULTIPLE_PARAMETER,
-      );
-      expect(error).toBeDefined();
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.ANNOTATION_PROPERTY_INVALID_MULTIPLE_PARAMETER,
+          message:
+            'Annotation property seeAllData does not support multiple isTest parameters',
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
   });
 
@@ -797,11 +933,28 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-      const error = result.errors.find(
-        (e: any) => e.code === ErrorCodes.ANNOTATION_PROPERTY_INVALID_TYPE,
-      );
-      expect(error).toBeDefined();
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.ANNOTATION_PROPERTY_INVALID_TYPE,
+          message:
+            'Annotation property, seeAllData on isTest is not supported for type boolean',
+          location: {
+            identifierRange: {
+              startLine: 1,
+              startColumn: 1,
+              endLine: 1,
+              endColumn: 7,
+            },
+            symbolRange: {
+              startLine: 1,
+              startColumn: 0,
+              endLine: 1,
+              endColumn: 26,
+            },
+          },
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
   });
 
@@ -823,12 +976,14 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-      const error = result.errors.find(
-        (e: any) =>
-          e.code === ErrorCodes.ANNOTATION_PROPERTY_INVALID_API_VERSION,
-      );
-      expect(error).toBeDefined();
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.ANNOTATION_PROPERTY_INVALID_API_VERSION,
+          message:
+            'Annotation property, apiVersion on Deprecated, invalid version: 65',
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
   });
 
@@ -850,12 +1005,14 @@ describe('AnnotationPropertyValidator', () => {
       );
 
       expect(result.isValid).toBe(false);
-      expect(result.errors.length).toBeGreaterThan(0);
-      const error = result.errors.find(
-        (e: any) =>
-          e.code === ErrorCodes.ANNOTATION_PROPERTY_VALUE_IS_NOT_ALLOWED,
-      );
-      expect(error).toBeDefined();
+      expect(result.errors).toEqual([
+        expect.objectContaining({
+          code: ErrorCodes.ANNOTATION_PROPERTY_VALUE_IS_NOT_ALLOWED,
+          message:
+            'Invalid annotation property value, invalid, for property scope on AuraEnabled',
+        }),
+      ]);
+      expect(result.warnings).toHaveLength(0);
     });
   });
 

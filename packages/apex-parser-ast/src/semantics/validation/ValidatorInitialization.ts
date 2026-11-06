@@ -16,6 +16,7 @@ import {
 
 // TIER 1 (IMMEDIATE) validators
 import { SourceSizeValidator } from './validators/SourceSizeValidator';
+import { TopLevelTypeFilenameValidator } from './validators/TopLevelTypeFilenameValidator';
 import { ParameterLimitValidator } from './validators/ParameterLimitValidator';
 import { EnumLimitValidator } from './validators/EnumLimitValidator';
 import { EnumConstantNamingValidator } from './validators/EnumConstantNamingValidator';
@@ -79,6 +80,7 @@ import { MethodTypeClashValidator } from './validators/MethodTypeClashValidator'
 const ALL_VALIDATORS: readonly Validator[] = [
   // TIER 1 (IMMEDIATE) validators
   SourceSizeValidator, // Highest priority (runs first)
+  TopLevelTypeFilenameValidator,
   UnreachableStatementValidator,
   ControlFlowValidator,
   TryCatchFinallyValidator,

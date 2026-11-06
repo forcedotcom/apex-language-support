@@ -1412,12 +1412,13 @@ export function loadSymbolDataForEnrichment(
 export function loadCodeLensSymbolData(
   svc: RequestServices,
   uri: string,
+  content?: string,
 ): Effect.Effect<
   { version: number; detailLevel: string; localDetailLevel?: string },
   never,
   never
 > {
-  return loadSymbolDataForEnrichment(svc, uri, undefined, {
+  return loadSymbolDataForEnrichment(svc, uri, content, {
     materializeCrossFileReferences: false,
     deferDependencyPrefetch: true,
   });
@@ -6137,7 +6138,20 @@ const requestHandlers = {
     'DispatchCodeLens',
     (svc, req) =>
       Effect.gen(function* () {
-        yield* loadCodeLensSymbolData(svc, req.textDocument.uri);
+        // The owner-side documentOpen compile is asynchronous and can time out.
+        // Compile the live buffer locally so CodeLens descriptors remain available
+        // rather than returning an empty response while that write is pending.
+        if (req.content !== undefined) {
+          yield* Effect.promise(() =>
+            recompileCursorFileAtFullDetail(
+              svc,
+              req.textDocument.uri,
+              req.content,
+              { resolveCrossFileReferences: false },
+            ),
+          );
+        }
+        yield* loadCodeLensSymbolData(svc, req.textDocument.uri, req.content);
         return yield* Effect.fn('worker.lspRequest.processCodeLens', {
           attributes: { uri: req.textDocument.uri },
         })(function* () {

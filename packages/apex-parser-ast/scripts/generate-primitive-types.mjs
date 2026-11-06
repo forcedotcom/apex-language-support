@@ -35,6 +35,9 @@ async function generatePrimitiveTypes() {
     const collections = new Set(
       (config.collections ?? []).map((s) => s.toLowerCase()),
     );
+    const referenceTypes = new Set(
+      (config.referenceTypes ?? []).map((s) => s.toLowerCase()),
+    );
     const special = (config.special ?? []).map((s) => s.toLowerCase());
     const nonNullable = (config.nonNullable ?? []).map((s) => s.toLowerCase());
     const numeric = (config.numeric ?? []).map((s) => s.toLowerCase());
@@ -66,9 +69,9 @@ async function generatePrimitiveTypes() {
       ...new Set([...builtinNames, ...standardLibraryNames]),
     ];
 
-    // Scalar primitives = all primitives minus collections
+    // Scalar primitives exclude collections and explicit reference-type builtins.
     const scalarPrimitives = allPrimitiveNames.filter(
-      (n) => !collections.has(n),
+      (n) => !collections.has(n) && !referenceTypes.has(n),
     );
     const allPrimitives = [...new Set([...scalarPrimitives, ...special])].sort();
 

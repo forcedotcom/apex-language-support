@@ -8,7 +8,10 @@
 
 import type { Mock } from 'vitest';
 import { vi } from 'vitest';
-import { DocumentDiagnosticParams } from 'vscode-languageserver';
+import {
+  DiagnosticSeverity,
+  DocumentDiagnosticParams,
+} from 'vscode-languageserver';
 import {
   LoggerInterface,
   getLogger,
@@ -184,6 +187,38 @@ describe('DiagnosticProcessingService', () => {
         ErrorCodes.MISMATCHED_SYNTAX,
         ErrorCodes.UNEXPECTED_SYNTAX_ERROR,
       ]).toContain(syntaxDiagnostics[0].code);
+    });
+
+    it('should preserve parser-owned semantic diagnostic details', async () => {
+      const source = [
+        'public class InvalidListInitializer {',
+        '    public void testCollections() {',
+        "        List<String> list1 = new List<String>('test');",
+        '    }',
+        '}',
+      ].join('\n');
+      const uri = 'file:///InvalidListInitializer.cls';
+      const params: DocumentDiagnosticParams = { textDocument: { uri } };
+
+      mockStorage.getDocument.mockResolvedValue(
+        TextDocument.create(uri, 'apex', 1, source),
+      );
+
+      const diagnostics = await service.processDiagnostic(params);
+
+      expect(diagnostics).toContainEqual(
+        expect.objectContaining({
+          code: ErrorCodes.INVALID_LIST_INITIALIZER,
+          message:
+            'Invalid initializer type String found for List<String>: expected an Integer or a List of type String',
+          severity: DiagnosticSeverity.Error,
+          range: {
+            start: { line: 2, character: 29 },
+            end: { line: 2, character: 53 },
+          },
+          source: 'apex-semantic-validator',
+        }),
+      );
     });
 
     it('should return empty array when no errors found', async () => {
