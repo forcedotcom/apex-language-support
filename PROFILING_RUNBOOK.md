@@ -88,39 +88,42 @@ cat ~/.sf/vscode-spans/*.jsonl | jq -r '.name' | sort | uniq -c | sort -rn | hea
 #### Workspace Load Total
 
 ```bash
-cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.load.total") | {duration_ms: (.duration / 1000000), start: .startTimeUnixNano}'
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.load.total") | {duration_ms: (((.endTimeUnixNano | tonumber) - (.startTimeUnixNano | tonumber)) / 1000000), start: .startTimeUnixNano}'
 ```
 
 #### Per-Phase Breakdown
 
 ```bash
 # Decode phase
-cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.batch.decode") | .duration / 1000000' | jq -s 'add'
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.batch.decode") | ((.endTimeUnixNano | tonumber) - (.startTimeUnixNano | tonumber)) / 1000000' | jq -s 'add'
 
 # Ingest phase (data-owner)
-cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.batch.ingestChunk") | .duration / 1000000' | jq -s 'add'
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.batch.ingestChunk") | ((.endTimeUnixNano | tonumber) - (.startTimeUnixNano | tonumber)) / 1000000' | jq -s 'add'
 
 # Compile phase
-cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.batch.compileChunk") | .duration / 1000000' | jq -s 'add'
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.batch.compileChunk") | ((.endTimeUnixNano | tonumber) - (.startTimeUnixNano | tonumber)) / 1000000' | jq -s 'add'
 
 # Enrichment phase
-cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.crossFileEnrichment") | .duration / 1000000' | jq -s 'add'
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.crossFileEnrichment") | ((.endTimeUnixNano | tonumber) - (.startTimeUnixNano | tonumber)) / 1000000' | jq -s 'add'
 ```
 
 #### Per-File Compile Costs (Top 10 Slowest)
 
 ```bash
-cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "worker.compilation.batchCompile.file") | {file: .attributes.file, duration_ms: (.duration / 1000000)}' | jq -s 'sort_by(.duration_ms) | reverse | .[:10]'
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "worker.compilation.batchCompile.file") | {file: .attributes.file, duration_ms: (((.endTimeUnixNano | tonumber) - (.startTimeUnixNano | tonumber)) / 1000000)}' | jq -s 'sort_by(.duration_ms) | reverse | .[:10]'
 ```
 
 #### Contention Evidence
 
 ```bash
-# coldReadGate.wait spans (blocking on data-owner)
-cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "coldReadGate.wait") | {duration_ms: (.duration / 1000000), traceId, spanId}'
+# Cold-read gate: distinguish dispatch, handler, and response delivery time
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "coldReadGate.wait") | {outcome: .attributes["cold_read_gate.outcome"], ready: .attributes["cold_read_gate.ready"], wait_ms: .attributes["cold_read_gate.wait_ms"], data_owner_round_trip_ms: .attributes["cold_read_gate.data_owner_round_trip_ms"], data_owner_dispatch_ms: .attributes["cold_read_gate.data_owner_dispatch_ms"], data_owner_handler_ms: .attributes["cold_read_gate.data_owner_handler_ms"], data_owner_response_delivery_ms: .attributes["cold_read_gate.data_owner_response_delivery_ms"], traceId, spanId}'
 
-# Total wait time
-cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "coldReadGate.wait") | .duration / 1000000' | jq -s 'add'
+# Cold-read gate waits grouped by outcome
+cat ~/.sf/vscode-spans/*.jsonl | jq -s '[.[] | select(.name == "coldReadGate.wait") | {outcome: (.attributes["cold_read_gate.outcome"] // "unknown"), wait_ms: .attributes["cold_read_gate.wait_ms"]}] | group_by(.outcome) | map({outcome: .[0].outcome, count: length, total_wait_ms: (map(.wait_ms) | add)})'
+
+# Data-owner queue contention grouped by lane and operation
+cat ~/.sf/vscode-spans/*.jsonl | jq -s '[.[] | select(.attributes["data_owner.queue_lane"] != null) | {lane: .attributes["data_owner.queue_lane"], operation: .attributes["data_owner.queue_operation"], wait_ms: .attributes["data_owner.queue_wait_ms"], depth: .attributes["data_owner.queue_depth"]}] | group_by([.lane, .operation]) | map({lane: .[0].lane, operation: .[0].operation, count: length, total_wait_ms: (map(.wait_ms) | add), max_queue_depth: (map(.depth) | max)})'
 ```
 
 #### Find-All-References Latency (if triggered during load)
@@ -187,7 +190,9 @@ Check:
 
 ### Contention Evidence
 
-- coldReadGate.wait total: XX ms across XX spans
+- coldReadGate.wait: XX spans; outcomes: ready XX, timeout XX, no-compile-pending XX, stale-version XX
+- coldReadGate.wait totals by outcome: ready XX ms, timeout XX ms, no-compile-pending XX ms, stale-version XX ms
+- Data-owner queue: [read/write] [operation] waited XX ms across XX spans; maximum queue depth XX
 - Find-all-references latency: XX ms (vs. XX ms baseline)
 
 ### Critical Path

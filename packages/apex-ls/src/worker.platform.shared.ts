@@ -369,7 +369,7 @@ export function requestCoordinatorAssistancePromiseShared(
 }
 
 type WorkerTracingHooks = {
-  readonly initialize: (url: string, serviceName: string) => void;
+  readonly initialize: (url: string, serviceName: string) => Promise<void>;
   readonly provide: <A, E, R>(
     effect: Effect.Effect<A, E, R>,
   ) => Effect.Effect<A, E, R>;
@@ -380,7 +380,7 @@ type WorkerTracingHooks = {
 };
 
 let workerTracingHooks: WorkerTracingHooks = {
-  initialize: () => {},
+  initialize: async () => {},
   provide: (effect) => effect,
   withParent: (_request, effect) => effect,
 };
@@ -676,6 +676,7 @@ export interface DOQueueItem {
   readonly deferred: Deferred.Deferred<unknown, unknown>;
   readonly enqueuedAt: number;
   readonly queueDepth: number;
+  readonly lane: 'read' | 'write';
   readonly parentSpan: Option.Option<Tracer.AnySpan>;
   readonly trace?: {
     readonly spanName: string;
@@ -692,16 +693,19 @@ const processItem = (item: DOQueueItem) =>
   Effect.gen(function* () {
     let execution = item.eff;
     if (item.trace) {
+      const trace = item.trace;
       const queueWaitMs = Date.now() - item.enqueuedAt;
       execution = Effect.gen(function* () {
         yield* Effect.annotateCurrentSpan({
           'data_owner.queue_wait_ms': queueWaitMs,
           'data_owner.queue_depth': item.queueDepth,
+          'data_owner.queue_lane': item.lane,
+          'data_owner.queue_operation': trace.spanName,
         });
         return yield* item.eff;
       }).pipe(
-        Effect.withSpan(item.trace.spanName, {
-          attributes: { ...item.trace.attributes },
+        Effect.withSpan(trace.spanName, {
+          attributes: { ...trace.attributes },
         }),
       );
     }
@@ -769,6 +773,7 @@ export const dataOwnerRead = <A, E>(
       deferred: deferred as Deferred.Deferred<unknown, unknown>,
       enqueuedAt: Date.now(),
       queueDepth,
+      lane: 'read',
       parentSpan,
       trace,
     });
@@ -789,6 +794,7 @@ export const dataOwnerWrite = <A, E>(
       deferred: deferred as Deferred.Deferred<unknown, unknown>,
       enqueuedAt: Date.now(),
       queueDepth,
+      lane: 'write',
       parentSpan,
       trace,
     });
@@ -6177,9 +6183,12 @@ const requestHandlers = {
         );
 
         const result = yield* Effect.promise(() =>
-          svc.diagnosticService.processDiagnostic({
-            textDocument: { uri: req.textDocument.uri },
-          }),
+          svc.diagnosticService.processDiagnostic(
+            {
+              textDocument: { uri: req.textDocument.uri },
+            },
+            { waitForDocumentCache: false },
+          ),
         );
 
         const table = yield* Effect.promise(() =>
@@ -6424,13 +6433,22 @@ const untracedHandlers: SerializedWorkerHandlers = {
     (globalThis as Record<string, unknown>).__apexWorkerInitServerMode =
       resolvedServerMode;
 
-    // Initialize worker tracing if span collector URL provided (desktop only)
-    if (req.spanCollectorUrl) {
-      const serviceName = `apex-ls-worker-${req.role}`;
-      workerTracingHooks.initialize(req.spanCollectorUrl, serviceName);
-    }
-
     return Effect.gen(function* () {
+      // Acquire the worker-lifetime exporter before tracing requests.
+      if (req.spanCollectorUrl) {
+        const serviceName = `apex-ls-worker-${req.role}`;
+        yield* Effect.tryPromise({
+          try: () =>
+            workerTracingHooks.initialize(req.spanCollectorUrl!, serviceName),
+          catch: (error) => {
+            getLogger().log(
+              'error',
+              `Failed to initialize worker tracing: ${error}`,
+            );
+            return undefined;
+          },
+        }).pipe(Effect.ignore);
+      }
       yield* Effect.logInfo(
         `[worker] role=${req.role} protocol=v${req.protocolVersion}/${WIRE_PROTOCOL_VERSION}` +
           ` logLevel=${currentWorkerLogLevel}` +
@@ -6618,15 +6636,28 @@ const untracedHandlers: SerializedWorkerHandlers = {
         );
 
         return Effect.gen(function* () {
+          const startedAt = Date.now();
+          const withElapsed = <T extends { ready: boolean }>(result: T) => ({
+            ...result,
+            handlerElapsedMs: Date.now() - startedAt,
+            handlerStartedAtMs: startedAt,
+            responseReadyAtMs: Date.now(),
+          });
           const snapshot = yield* peekReadiness;
           if (snapshot.kind === 'ready') {
-            return { ready: true };
+            return withElapsed({ ready: true });
           }
           if (snapshot.kind === 'no-latch') {
-            return { ready: false, reason: 'no-compile-pending' as const };
+            return withElapsed({
+              ready: false,
+              reason: 'no-compile-pending' as const,
+            });
           }
           if (snapshot.kind === 'stale-version') {
-            return { ready: false, reason: 'stale-version' as const };
+            return withElapsed({
+              ready: false,
+              reason: 'stale-version' as const,
+            });
           }
 
           // Await the latch off the serial fiber, bounded by the caller's
@@ -6640,7 +6671,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
             }),
           );
           if (!fired) {
-            return { ready: false, reason: 'timeout' as const };
+            return withElapsed({ ready: false, reason: 'timeout' as const });
           }
 
           // The latch resolves on a successful merge, on supersession by a newer
@@ -6661,9 +6692,11 @@ const untracedHandlers: SerializedWorkerHandlers = {
               return symbolsAreCurrent(req.uri, req.version, st != null);
             }),
           );
-          return after
-            ? { ready: true }
-            : { ready: false, reason: 'stale-version' as const };
+          return withElapsed(
+            after
+              ? { ready: true }
+              : { ready: false, reason: 'stale-version' as const },
+          );
         });
       }),
     ),
