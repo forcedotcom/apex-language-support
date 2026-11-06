@@ -21,6 +21,7 @@ import {
 import { Effect } from 'effect';
 import {
   type BlockingResult,
+  type BackgroundResolutionOutcome,
   type MissingArtifactResolutionService,
 } from './MissingArtifactResolutionService';
 import { classifyMissingArtifactIdentifier } from './PrerequisiteHelpers';
@@ -192,7 +193,9 @@ export class SObjectEnrichmentService {
    * Install placeholders before returning, then continue resolution without
    * blocking the diagnostic/request path.
    */
-  async resolveInBackground(params: FindMissingArtifactParams): Promise<void> {
+  async resolveInBackground(
+    params: FindMissingArtifactParams,
+  ): Promise<BackgroundResolutionOutcome> {
     const normalizedParams = this.normalizeParams(params);
     const sObjects = normalizedParams.identifiers.filter(
       (identifier) => identifier.identifierType === 'sobject',
@@ -201,15 +204,16 @@ export class SObjectEnrichmentService {
       (identifier) => identifier.identifierType !== 'sobject',
     );
 
-    if (apexArtifacts.length > 0) {
-      await this.artifactResolutionService.resolveInBackground({
-        ...normalizedParams,
-        identifiers: apexArtifacts,
-        mode: 'background',
-      });
-    }
+    const apexOutcome =
+      apexArtifacts.length > 0
+        ? await this.artifactResolutionService.resolveInBackground({
+            ...normalizedParams,
+            identifiers: apexArtifacts,
+            mode: 'background',
+          })
+        : 'not-applicable';
     if (sObjects.length === 0) {
-      return;
+      return apexOutcome;
     }
 
     await this.ensurePlaceholders(sObjects);
@@ -231,6 +235,7 @@ export class SObjectEnrichmentService {
           () => `Background sObject enrichment failed: ${error}`,
         );
       });
+    return 'scheduled';
   }
 
   /**

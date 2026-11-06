@@ -140,7 +140,7 @@ function createHarness(options: { coordinator?: boolean } = {}) {
       status: 'resolved' as const,
       artifacts: [artifact],
     })),
-    resolveInBackground: vi.fn(async () => undefined),
+    resolveInBackground: vi.fn(async () => 'not-applicable' as const),
   };
   const signalDiagnosticRefresh = vi.fn(async () => undefined);
   const service = new SObjectEnrichmentService(

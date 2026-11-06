@@ -19,6 +19,7 @@ import type {
   MissingArtifactPayload,
 } from '@salesforce/apex-lsp-shared';
 import { Cause, Effect, Exit, Option, Schema } from 'effect';
+import { HashMap } from 'data-structure-typed';
 import { LSPQueueManager } from '../queue';
 import type { Connection } from 'vscode-languageserver';
 import { sanitizeMissingArtifactParams } from '../utils/missingArtifactProvenance';
@@ -122,6 +123,9 @@ export interface MissingArtifactConfig {
   readonly indexingBarrierPollMs?: number;
 }
 
+export type BackgroundResolutionOutcome =
+  'scheduled' | 'in-flight' | 'recently-not-found' | 'not-applicable';
+
 /**
  * Service interface for missing artifact resolution
  */
@@ -131,7 +135,7 @@ export interface MissingArtifactResolutionService {
   ) => Promise<BlockingResult>;
   readonly resolveInBackground: (
     params: FindMissingArtifactParams,
-  ) => Promise<void>;
+  ) => Promise<BackgroundResolutionOutcome>;
 }
 
 /**
@@ -140,12 +144,21 @@ export interface MissingArtifactResolutionService {
  */
 export class EnhancedMissingArtifactResolutionService implements MissingArtifactResolutionService {
   private queueManager: LSPQueueManager | null = null;
-  private static inFlightBlockingRequests = new Map<
+  private static inFlightBlockingRequests = new HashMap<
     string,
     Promise<BlockingResult>
   >();
-  private static recentBlockingTimeouts = new Map<string, number>();
+  private static recentBlockingTimeouts = new HashMap<string, number>();
   private static readonly BLOCKING_TIMEOUT_COOLDOWN_MS = 3000;
+  private static readonly BACKGROUND_HOVER_MAX_NOT_FOUND_ATTEMPTS = 1;
+  private static backgroundHoverInFlight = new HashMap<
+    string,
+    Promise<unknown>
+  >();
+  private static backgroundHoverNotFoundAttempts = new HashMap<
+    string,
+    number
+  >();
 
   /**
    * Optional proxy for sending `apex/findMissingArtifact` when no direct LSP
@@ -408,7 +421,9 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
    * Resolve missing artifact in background mode
    * Sends request directly to client for background processing
    */
-  async resolveInBackground(params: FindMissingArtifactParams): Promise<void> {
+  async resolveInBackground(
+    params: FindMissingArtifactParams,
+  ): Promise<BackgroundResolutionOutcome> {
     const names = params.identifiers.map((s) => s.name).join(', ');
     this.logger.debug(
       () => `Starting background resolution for identifiers: ${names}`,
@@ -420,7 +435,7 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
       this.logger.debug(
         () => 'Missing artifact resolution is disabled in settings',
       );
-      return;
+      return 'not-applicable';
     }
 
     try {
@@ -431,7 +446,33 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
           () =>
             'Rejecting missing-artifact request without complete semantic provenance',
         );
-        return;
+        return 'not-applicable';
+      }
+      const backgroundHoverKey = this.backgroundHoverKey(safeParams);
+      if (backgroundHoverKey) {
+        const notFoundAttempts =
+          EnhancedMissingArtifactResolutionService.backgroundHoverNotFoundAttempts.get(
+            backgroundHoverKey,
+          ) ?? 0;
+        if (
+          notFoundAttempts >=
+          EnhancedMissingArtifactResolutionService.BACKGROUND_HOVER_MAX_NOT_FOUND_ATTEMPTS
+        ) {
+          this.logger.debug(
+            () => `Suppressing repeated hover artifact lookup for: ${names}`,
+          );
+          return 'recently-not-found';
+        }
+        if (
+          EnhancedMissingArtifactResolutionService.backgroundHoverInFlight.has(
+            backgroundHoverKey,
+          )
+        ) {
+          this.logger.debug(
+            () => `Joining in-flight hover artifact lookup for: ${names}`,
+          );
+          return 'in-flight';
+        }
       }
 
       const connection = this.getConnection();
@@ -443,18 +484,19 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
             () =>
               `Forwarding background resolution via assistance proxy for: ${names}`,
           );
-          proxy(safeParams).catch((error) => {
-            this.logger.debug(
-              () => `Assistance proxy resolution failed for ${names}: ${error}`,
-            );
-          });
-          return;
+          this.observeBackgroundHoverResult(
+            proxy(safeParams),
+            safeParams,
+            backgroundHoverKey,
+            names,
+          );
+          return 'scheduled';
         }
         this.logger.warn(
           () =>
             `No LSP connection or assistance proxy available for background resolution of: ${names}`,
         );
-        return;
+        return 'not-applicable';
       }
 
       // Default-allow: send if capabilities are undefined (legacy client) OR
@@ -468,7 +510,7 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
               `Suppressing apex/findMissingArtifact for ${names}` +
               ' — client did not advertise findMissingArtifactProvider',
           );
-          return;
+          return 'not-applicable';
         }
       } catch (e) {
         // getInstance() creates instance if absent — this only fires if the
@@ -480,24 +522,24 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
       }
 
       // Send request directly to client (fire-and-forget for background mode)
-      connection
-        .sendRequest('apex/findMissingArtifact', safeParams)
-        .catch((error) => {
-          this.logger.debug(
-            () => `Background resolution request failed for ${names}: ${error}`,
-          );
-          // Don't throw - background resolution failures shouldn't block the main flow
-        });
+      this.observeBackgroundHoverResult(
+        connection.sendRequest('apex/findMissingArtifact', safeParams),
+        safeParams,
+        backgroundHoverKey,
+        names,
+      );
 
       this.logger.debug(
         () => `Background resolution request sent for: ${names}`,
       );
+      return 'scheduled';
     } catch (error) {
       this.logger.error(
         () =>
           `Failed to send background resolution request for ${names}: ${error}`,
       );
       // Don't throw - background resolution failures shouldn't block the main flow
+      return 'not-applicable';
     }
   }
 
@@ -536,6 +578,79 @@ export class EnhancedMissingArtifactResolutionService implements MissingArtifact
 
       throw Cause.squash(exit.cause);
     });
+  }
+
+  private backgroundHoverKey(
+    params: FindMissingArtifactParams,
+  ): string | undefined {
+    if (params.origin.requestKind !== 'hover') return undefined;
+    const identities = params.identifiers
+      .map((identifier) => {
+        const provenance = identifier.provenance;
+        if (!provenance) return undefined;
+        const range = provenance.referenceRange;
+        return [
+          identifier.identifierType ?? 'apex-class',
+          identifier.name.trim().toLowerCase(),
+          provenance.sourceUri,
+          provenance.documentVersion ?? 'unknown',
+          provenance.referenceIdentity,
+          range.startLine,
+          range.startColumn,
+          range.endLine,
+          range.endColumn,
+        ].join('|');
+      })
+      .filter((identity): identity is string => identity !== undefined)
+      .sort();
+    return identities.length > 0
+      ? `${params.origin.uri}|${identities.join(',')}`
+      : undefined;
+  }
+
+  private observeBackgroundHoverResult(
+    result: Promise<unknown>,
+    params: FindMissingArtifactParams,
+    backgroundHoverKey: string | undefined,
+    names: string,
+  ): void {
+    if (backgroundHoverKey) {
+      EnhancedMissingArtifactResolutionService.backgroundHoverInFlight.set(
+        backgroundHoverKey,
+        result,
+      );
+    }
+    void result.then(
+      (value) => {
+        const decoded = decodeFindMissingArtifactResult(value, params);
+        if (backgroundHoverKey && decoded && 'notFound' in decoded) {
+          EnhancedMissingArtifactResolutionService.backgroundHoverNotFoundAttempts.set(
+            backgroundHoverKey,
+            (EnhancedMissingArtifactResolutionService.backgroundHoverNotFoundAttempts.get(
+              backgroundHoverKey,
+            ) ?? 0) + 1,
+          );
+        }
+      },
+      (error) => {
+        this.logger.debug(
+          () => `Background resolution request failed for ${names}: ${error}`,
+        );
+      },
+    );
+    const cleanup = () => {
+      if (
+        backgroundHoverKey &&
+        EnhancedMissingArtifactResolutionService.backgroundHoverInFlight.get(
+          backgroundHoverKey,
+        ) === result
+      ) {
+        EnhancedMissingArtifactResolutionService.backgroundHoverInFlight.delete(
+          backgroundHoverKey,
+        );
+      }
+    };
+    void result.then(cleanup, cleanup);
   }
 
   /**

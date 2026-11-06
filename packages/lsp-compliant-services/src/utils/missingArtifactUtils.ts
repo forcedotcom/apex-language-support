@@ -18,6 +18,7 @@ import {
   type BlockingResult,
   MissingArtifactResolutionService,
   createMissingArtifactResolutionService,
+  BackgroundResolutionOutcome,
 } from '../services/MissingArtifactResolutionService';
 import { SObjectEnrichmentService } from '../services/SObjectEnrichmentService';
 import { classifyMissingArtifactIdentifier } from '../services/PrerequisiteHelpers';
@@ -90,13 +91,13 @@ export class MissingArtifactUtils {
     uri: string,
     position: any,
     requestKind: 'hover' | 'definition' | 'completion' | 'references',
-  ): Promise<void> {
+  ): Promise<BackgroundResolutionOutcome> {
     const service = this.getSObjectEnrichmentService();
     if (!service) {
       this.logger.debug(
         () => 'Missing artifact resolution service not available',
       );
-      return;
+      return 'not-applicable';
     }
 
     // Transform LSP position to parser position for logging consistency
@@ -110,13 +111,14 @@ export class MissingArtifactUtils {
 
     try {
       // Extract reference information from the position
-      const reference = await this.extractReferenceAtPosition(uri, position);
-      if (!reference) {
+      const extracted = await this.extractReferenceAtPosition(uri, position);
+      if (!extracted) {
         this.logger.debug(() => 'Could not extract reference from position');
-        return;
+        return 'not-applicable';
       }
 
       // Build parent context for better search hints
+      const { reference, cursorReference } = extracted;
       const parentContext = await this.extractParentContext(uri, reference);
       const superClass = await this.extractSuperClassForRef(uri, reference);
       const searchHints = this.generateSearchHints(
@@ -135,13 +137,17 @@ export class MissingArtifactUtils {
       const identifierName = reference.qualifier
         ? `${reference.qualifier}.${reference.name}`
         : reference.name;
-      const provenance = await this.createSemanticProvenance(uri, reference);
+      const provenance = await this.createSemanticProvenance(
+        uri,
+        reference,
+        cursorReference,
+      );
       const identifierType = classifyMissingArtifactIdentifier({
         ...reference,
         name: identifierName,
         searchHints,
       });
-      await service.resolveInBackground({
+      const outcome = await service.resolveInBackground({
         identifiers: [
           {
             name: identifierName,
@@ -166,8 +172,10 @@ export class MissingArtifactUtils {
         () =>
           `Background resolution initiated for ${reference.name} in ${requestKind} request`,
       );
+      return outcome;
     } catch (error) {
       this.logger.debug(() => `Error in background resolution: ${error}`);
+      return 'not-applicable';
     }
   }
 
@@ -193,13 +201,14 @@ export class MissingArtifactUtils {
 
     try {
       // Extract reference information from the position
-      const reference = await this.extractReferenceAtPosition(uri, position);
-      if (!reference) {
+      const extracted = await this.extractReferenceAtPosition(uri, position);
+      if (!extracted) {
         this.logger.debug(() => 'Could not extract reference from position');
         return { status: 'not-found' };
       }
 
       // Build parent context for better search hints
+      const { reference, cursorReference } = extracted;
       const parentContext = await this.extractParentContext(uri, reference);
       const superClass = await this.extractSuperClassForRef(uri, reference);
       const searchHints = this.generateSearchHints(
@@ -218,7 +227,11 @@ export class MissingArtifactUtils {
       const identifierName = reference.qualifier
         ? `${reference.qualifier}.${reference.name}`
         : reference.name;
-      const provenance = await this.createSemanticProvenance(uri, reference);
+      const provenance = await this.createSemanticProvenance(
+        uri,
+        reference,
+        cursorReference,
+      );
       const identifierType = classifyMissingArtifactIdentifier({
         ...reference,
         name: identifierName,
@@ -389,7 +402,7 @@ export class MissingArtifactUtils {
   private async extractReferenceAtPosition(
     uri: string,
     position: any,
-  ): Promise<any | null> {
+  ): Promise<{ reference: any; cursorReference: SymbolReference } | null> {
     try {
       // Transform LSP position to parser position for symbol manager
       const parserPosition = transformLspToParserPosition(position);
@@ -402,10 +415,11 @@ export class MissingArtifactUtils {
       );
 
       if (references && references.length > 0) {
-        const preciseReference = this.selectReferenceAtPosition(
+        const preciseSelection = this.selectReferenceAtPosition(
           references,
           parserPosition,
         );
+        const preciseReference = preciseSelection?.reference;
         if (!preciseReference) return null;
 
         // `this` and `super` are receiver keywords, never artifact/type names.
@@ -428,7 +442,8 @@ export class MissingArtifactUtils {
               parserPosition,
             )
           : undefined;
-        const reference = receiverMember ?? preciseReference;
+        const selection = receiverMember ?? preciseSelection;
+        const reference = selection.reference;
         const referenceName = reference.name.trim().toLowerCase();
         if (
           this.isReceiverKeyword(referenceName) ||
@@ -445,7 +460,7 @@ export class MissingArtifactUtils {
           () =>
             `Found reference at position: ${reference.name} (context: ${reference.context})`,
         );
-        return reference;
+        return { reference, cursorReference: selection.cursorReference };
       }
 
       // No references found at precise position
@@ -471,7 +486,9 @@ export class MissingArtifactUtils {
   private selectReferenceAtPosition(
     references: SymbolReference[],
     position: { line: number; character: number },
-  ): SymbolReference | undefined {
+  ):
+    | { reference: SymbolReference; cursorReference: SymbolReference }
+    | undefined {
     const candidates = references
       .map((reference) => {
         const matchingNode = isChainedSymbolReference(reference)
@@ -495,6 +512,7 @@ export class MissingArtifactUtils {
         const cursorReference = matchingNode ?? reference;
         return {
           reference,
+          cursorReference,
           resolved: Boolean(
             cursorReference.resolvedSymbolId ||
             cursorReference.resolvedTypeId ||
@@ -519,7 +537,13 @@ export class MissingArtifactUtils {
         this.referenceIdentity(right.reference),
       );
     });
-    return candidates[0]?.reference;
+    const selected = candidates[0];
+    return selected
+      ? {
+          reference: selected.reference,
+          cursorReference: selected.cursorReference,
+        }
+      : undefined;
   }
 
   private positionInIdentifierRange(
@@ -554,8 +578,6 @@ export class MissingArtifactUtils {
   private referenceIdentity(reference: SymbolReference): string {
     const range = reference.location.identifierRange;
     return [
-      reference.resolvedSymbolId ?? '',
-      reference.resolvedTypeId ?? '',
       reference.context,
       reference.name,
       range.startLine,
@@ -568,6 +590,7 @@ export class MissingArtifactUtils {
   private async createSemanticProvenance(
     uri: string,
     reference: SymbolReference,
+    cursorReference: SymbolReference = reference,
   ): Promise<{
     sourceUri: string;
     documentVersion?: number;
@@ -584,13 +607,13 @@ export class MissingArtifactUtils {
       ...(metadata?.documentVersion !== undefined && {
         documentVersion: metadata.documentVersion,
       }),
-      referenceRange: reference.location.identifierRange,
-      referenceIdentity: this.referenceIdentity(reference),
-      ...(reference.resolvedSymbolId && {
-        resolvedSymbolId: reference.resolvedSymbolId,
+      referenceRange: cursorReference.location.identifierRange,
+      referenceIdentity: this.referenceIdentity(cursorReference),
+      ...(cursorReference.resolvedSymbolId && {
+        resolvedSymbolId: cursorReference.resolvedSymbolId,
       }),
-      ...(reference.resolvedTypeId && {
-        resolvedTypeId: reference.resolvedTypeId,
+      ...(cursorReference.resolvedTypeId && {
+        resolvedTypeId: cursorReference.resolvedTypeId,
       }),
       parseCompleteness: metadata?.parseCompleteness ?? 'unknown',
     };
