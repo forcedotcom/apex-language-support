@@ -107,6 +107,7 @@ export enum ReferenceContext {
   VARIABLE_USAGE = 5,
   PARAMETER_TYPE = 6,
   VARIABLE_DECLARATION = 7,
+  TRIGGER_TARGET_SOBJECT = 20,
 }
 
 // Enhanced search hints for client-side artifact resolution

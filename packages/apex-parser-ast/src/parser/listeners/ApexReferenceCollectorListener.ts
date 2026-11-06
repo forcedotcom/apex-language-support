@@ -29,6 +29,7 @@ import {
   WhenValueContext,
   InstanceOfExpressionContext,
   TypeRefPrimaryContext,
+  TriggerUnitContext,
 } from '@apexdevtools/apex-parser';
 import { ParserRuleContext } from 'antlr4';
 import { getLogger } from '@salesforce/apex-lsp-shared';
@@ -110,6 +111,33 @@ export function isAssignInsideSObjectConstructor(
  * Works with any SymbolTable, regardless of how symbols were collected.
  */
 export class ApexReferenceCollectorListener extends BaseApexParserListener<SymbolTable> {
+  enterTriggerUnit(ctx: TriggerUnitContext): void {
+    const targetSObject = ctx.id(1);
+    if (!targetSObject) return;
+
+    const location = this.getLocationForReference(targetSObject);
+    const alreadyCollected = this.symbolTable
+      .getAllReferences()
+      .some(
+        (reference) =>
+          reference.context === ReferenceContext.TRIGGER_TARGET_SOBJECT &&
+          reference.name === targetSObject.getText() &&
+          reference.location.identifierRange.startLine ===
+            location.identifierRange.startLine &&
+          reference.location.identifierRange.startColumn ===
+            location.identifierRange.startColumn,
+      );
+    if (!alreadyCollected) {
+      this.symbolTable.addTypeReference(
+        new EnhancedSymbolReference(
+          targetSObject.getText(),
+          location,
+          ReferenceContext.TRIGGER_TARGET_SOBJECT,
+          { isSObject: true },
+        ),
+      );
+    }
+  }
   private readonly logger = getLogger();
   private symbolTable: SymbolTable;
   private currentFilePath: string = '';

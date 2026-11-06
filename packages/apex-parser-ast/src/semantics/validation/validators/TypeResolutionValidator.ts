@@ -15,6 +15,7 @@ import type {
 import {
   inTypeSymbolGroup,
   isInterfaceSymbol,
+  isReferenceableApexType,
 } from '../../../utils/symbolNarrowing';
 import { ReferenceContext } from '../../../types/symbolReference';
 import type {
@@ -141,10 +142,13 @@ export const TypeResolutionValidator: Validator = {
         let typeSymbol: TypeSymbol | null = null;
 
         // Same-file lookup
-        const sameFileType = allSymbols.find(
+        const sameFileCandidates = allSymbols.filter(
           (s): s is TypeSymbol =>
             inTypeSymbolGroup(s) && s.name.toLowerCase() === baseName,
         );
+        const sameFileType =
+          sameFileCandidates.find(isReferenceableApexType) ??
+          sameFileCandidates[0];
 
         if (sameFileType) {
           typeSymbol = sameFileType;
@@ -153,9 +157,11 @@ export const TypeResolutionValidator: Validator = {
           const symbols = yield* Effect.promise(() =>
             symbolManager.findSymbolByName(typeName),
           );
-          const found = symbols.find((s: ApexSymbol): s is TypeSymbol =>
-            inTypeSymbolGroup(s),
+          const typeCandidates = symbols.filter(
+            (s: ApexSymbol): s is TypeSymbol => inTypeSymbolGroup(s),
           );
+          const found =
+            typeCandidates.find(isReferenceableApexType) ?? typeCandidates[0];
           if (found) {
             typeSymbol = found;
           } else {
@@ -183,6 +189,19 @@ export const TypeResolutionValidator: Validator = {
             ),
             location: ref.location,
             code: ErrorCodes.INVALID_UNRESOLVED_TYPE,
+          });
+          continue;
+        }
+
+        // `typeRef` accepts an identifier syntactically, but only parser-resolved
+        // Apex types may satisfy it. A trigger has its own triggerUnit declaration
+        // and is never a valid variable, parameter, return, cast, generic, or
+        // constructor type.
+        if (!isReferenceableApexType(typeSymbol)) {
+          errors.push({
+            message: localizeTyped(ErrorCodes.INVALID_CLASS, typeName),
+            location: ref.location,
+            code: ErrorCodes.INVALID_CLASS,
           });
           continue;
         }

@@ -246,6 +246,14 @@ The package provides **comprehensive reference capture** with 95%+ coverage of a
 
 References are captured for all expression types: primary expressions, assignments, array access, casts, arithmetic/comparison/logical/bitwise operations, unary increment/decrement, ternary conditionals, `instanceof` checks, and chained expressions (e.g., `obj.method().field`).
 
+Trigger headers also contribute parser-owned declaration data: a `TriggerSymbol`
+records its target sObject and declared timing/operation pairs, while the target
+sObject is captured as a `TRIGGER_TARGET_SOBJECT` reference. That reference
+resolves only to an sObject symbol and participates in missing-artifact loading
+and semantic-token classification. A trigger declaration itself is not an Apex
+type and cannot satisfy variable, parameter, return, cast, generic, or
+constructor type references.
+
 ### LSP Features Powered
 
 - **Go to Definition**: Works for all variable usage, not just declarations
@@ -277,6 +285,10 @@ Core queries:
 ### Type Reference Resolution
 
 Type names in variables/parameters are resolved post-parse using `NamespaceResolutionService` and a `SymbolProvider` implementation. The resolver handles project namespace, global scope, and standard library namespaces, updating symbols with `resolvedSymbol` and `resolutionConfidence`.
+
+Classes, interfaces, enums, and sObjects are valid Apex type-reference targets.
+Triggers are declarations with a separate `triggerUnit` grammar rule and are
+never resolved as ordinary type references.
 
 ## Semantic Validation
 

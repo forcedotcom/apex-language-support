@@ -58,6 +58,7 @@ const REFERENCE_TOKEN_TYPES: Partial<
   17: 'type', // INTERFACE_IMPLEMENTATION
   18: 'keyword', // KEYWORD_USAGE
   19: 'type', // SOQL_FROM_TYPE
+  20: 'type', // TRIGGER_TARGET_SOBJECT
 };
 
 /**

@@ -3443,7 +3443,10 @@ export async function findTargetSymbolForReference(
     const directLookupStart = Date.now();
     const allFileSymbols = symbolTable.getAllSymbols();
     const directMatch = allFileSymbols.find(
-      (s) => s.name?.toLowerCase() === typeRef.name.toLowerCase(),
+      (symbol) =>
+        symbol.name?.toLowerCase() === typeRef.name.toLowerCase() &&
+        (typeRef.context !== ReferenceContext.TRIGGER_TARGET_SOBJECT ||
+          symbol.kind === SymbolKind.SObject),
     );
     if (resolverStats) {
       resolverStats.resolverDirectLookupMs += Date.now() - directLookupStart;
@@ -3511,7 +3514,8 @@ export async function resolveSymbolReferenceToSymbol(
     const isDeclaredTypeReference =
       typeReference.context === ReferenceContext.TYPE_DECLARATION ||
       typeReference.context === ReferenceContext.PARAMETER_TYPE ||
-      typeReference.context === ReferenceContext.RETURN_TYPE;
+      typeReference.context === ReferenceContext.RETURN_TYPE ||
+      typeReference.context === ReferenceContext.TRIGGER_TARGET_SOBJECT;
     if (typeReference.resolvedSymbolId && !isDeclaredTypeReference) {
       let shouldSkipFastPath = false;
       if (position && isChainedSymbolReference(typeReference)) {
@@ -3699,10 +3703,16 @@ export async function resolveSymbolReferenceToSymbol(
       typeReference.context === ReferenceContext.SOQL_FROM_TYPE ||
       (typeReference.context === ReferenceContext.VARIABLE_USAGE &&
         variableUsageLooksLikeClass);
-    if (isClassReferenceContext) {
+    const isTriggerTargetSObject =
+      typeReference.context === ReferenceContext.TRIGGER_TARGET_SOBJECT;
+    if (isClassReferenceContext || isTriggerTargetSObject) {
       const candidates = await self.findSymbolByName(typeReference.name);
 
-      let classCandidates = candidates.filter(isReferenceableTypeSymbol);
+      let classCandidates = candidates.filter((symbol) =>
+        isTriggerTargetSObject
+          ? symbol.kind === SymbolKind.SObject
+          : isReferenceableTypeSymbol(symbol),
+      );
 
       if (classCandidates.length === 0) {
         const sourceSymbolTable =
@@ -3711,7 +3721,10 @@ export async function resolveSymbolReferenceToSymbol(
           const allSymbols = sourceSymbolTable.getAllSymbols();
           classCandidates = allSymbols.filter(
             (s) =>
-              s.name === typeReference.name && isReferenceableTypeSymbol(s),
+              s.name === typeReference.name &&
+              (isTriggerTargetSObject
+                ? s.kind === SymbolKind.SObject
+                : isReferenceableTypeSymbol(s)),
           );
         }
 
@@ -3781,7 +3794,10 @@ export async function resolveSymbolReferenceToSymbol(
                 }
               }
 
-              if (symbol) {
+              if (
+                symbol &&
+                (!isTriggerTargetSObject || symbol.kind === SymbolKind.SObject)
+              ) {
                 classCandidates = [symbol];
                 self.logger.debug(
                   () =>
@@ -3827,8 +3843,9 @@ export async function resolveSymbolReferenceToSymbol(
         return classCandidates[0];
       }
 
-      const builtInSymbol2 =
-        await self.resolveStandardLibraryType(typeReference);
+      const builtInSymbol2 = isTriggerTargetSObject
+        ? null
+        : await self.resolveStandardLibraryType(typeReference);
       if (builtInSymbol2) {
         self.logger.debug(
           () =>
@@ -3837,9 +3854,9 @@ export async function resolveSymbolReferenceToSymbol(
         return builtInSymbol2;
       }
 
-      const standardClass2 = await self.resolveStandardApexClass(
-        typeReference.name,
-      );
+      const standardClass2 = isTriggerTargetSObject
+        ? null
+        : await self.resolveStandardApexClass(typeReference.name);
       if (standardClass2) {
         self.logger.debug(
           () =>
@@ -3863,7 +3880,11 @@ export async function resolveSymbolReferenceToSymbol(
       }
     }
 
-    const candidates2 = await self.findSymbolByName(typeReference.name);
+    const candidates2 = (
+      await self.findSymbolByName(typeReference.name)
+    ).filter(
+      (symbol) => !isTriggerTargetSObject || symbol.kind === SymbolKind.SObject,
+    );
 
     if (candidates2.length === 0) {
       return null;

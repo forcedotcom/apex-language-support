@@ -372,6 +372,31 @@ describe('AnnotationUtils', () => {
 
       expect(AnnotationUtils.isTestClass(classSymbol)).toBe(true);
     });
+
+    it('does not treat a trigger annotation as test-class context', () => {
+      const triggerSymbol: TypeSymbol = {
+        name: 'TestTrigger',
+        kind: SymbolKind.Trigger,
+        location: sampleLocation,
+        modifiers: sampleModifiers,
+        parent: null,
+        interfaces: [],
+        key: {
+          prefix: SymbolKind.Trigger,
+          name: 'TestTrigger',
+          path: ['TestTrigger'],
+        },
+        parentKey: null,
+        annotations: [{ name: 'isTest', location: sampleLocation }],
+        id: '',
+        fileUri: '',
+        parentId: null,
+        _modifierFlags: 0,
+        _isLoaded: false,
+      };
+
+      expect(AnnotationUtils.isTestClass(triggerSymbol)).toBe(false);
+    });
   });
 
   describe('isRestResource', () => {
