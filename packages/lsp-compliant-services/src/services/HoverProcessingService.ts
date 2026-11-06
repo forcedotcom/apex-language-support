@@ -588,11 +588,17 @@ export class HoverProcessingService implements IHoverProcessor {
               );
 
           if (!variableRef) {
-            this.missingArtifactUtils.tryResolveMissingArtifactBackground(
-              params.textDocument.uri,
-              params.position,
-              'hover',
-            );
+            const backgroundOutcome =
+              await this.missingArtifactUtils.tryResolveMissingArtifactBackground(
+                params.textDocument.uri,
+                params.position,
+                'hover',
+              );
+            if (backgroundOutcome === 'recently-not-found') {
+              return this.createNotFoundHover(
+                this.getSearchingSymbolName(references, parserPosition),
+              );
+            }
 
             const searchingHover = this.createSearchingHover(
               this.getSearchingSymbolName(references, parserPosition),
@@ -793,11 +799,17 @@ export class HoverProcessingService implements IHoverProcessor {
 
         const settings = ApexSettingsManager.getInstance().getSettings();
         if (settings?.apex?.findMissingArtifact?.enabled) {
-          this.missingArtifactUtils.tryResolveMissingArtifactBackground(
-            params.textDocument.uri,
-            params.position,
-            'hover',
-          );
+          const backgroundOutcome =
+            await this.missingArtifactUtils.tryResolveMissingArtifactBackground(
+              params.textDocument.uri,
+              params.position,
+              'hover',
+            );
+          if (backgroundOutcome === 'recently-not-found') {
+            return this.createNotFoundHover(
+              this.getSearchingSymbolName(references, parserPosition),
+            );
+          }
 
           const searchingHover = this.createSearchingHover(
             this.getSearchingSymbolName(references, parserPosition),
@@ -888,11 +900,15 @@ export class HoverProcessingService implements IHoverProcessor {
 
         const settings = ApexSettingsManager.getInstance().getSettings();
         if (settings?.apex?.findMissingArtifact?.enabled) {
-          this.missingArtifactUtils.tryResolveMissingArtifactBackground(
-            params.textDocument.uri,
-            params.position,
-            'hover',
-          );
+          const backgroundOutcome =
+            await this.missingArtifactUtils.tryResolveMissingArtifactBackground(
+              params.textDocument.uri,
+              params.position,
+              'hover',
+            );
+          if (backgroundOutcome === 'recently-not-found') {
+            return this.createNotFoundHover(undefined);
+          }
 
           return this.createSearchingHover(undefined);
         }
@@ -1213,6 +1229,23 @@ export class HoverProcessingService implements IHoverProcessor {
     };
     searchingHovers.add(hover);
     return hover;
+  }
+
+  /** Create a terminal hover after missing-artifact resolution found no candidate. */
+  private createNotFoundHover(selectedReferenceName?: string): Hover {
+    const symbolName = selectedReferenceName || 'Unknown Symbol';
+    return {
+      contents: {
+        kind: MarkupKind.Markdown,
+        value: [
+          '**No definition found**',
+          '',
+          `Could not resolve: \`${symbolName}\``,
+          '',
+          '*The Apex Language Server did not find this symbol in the available workspace or org metadata.*',
+        ].join('\n'),
+      },
+    };
   }
 
   /**

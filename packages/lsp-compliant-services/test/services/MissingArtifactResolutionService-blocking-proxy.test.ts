@@ -183,6 +183,94 @@ describe('MissingArtifactResolutionService — blocking assistance proxy', () =>
     expect(proxy).toHaveBeenCalledTimes(2);
   });
 
+  it('suppresses repeated hover lookups after an explicit not-found response', async () => {
+    const proxy = vi.fn().mockResolvedValue({ notFound: true });
+    EnhancedMissingArtifactResolutionService.setAssistanceProxy(proxy);
+    const params = {
+      ...makeParams(),
+      mode: 'background' as const,
+      origin: {
+        uri: `file:///test-${requestNumber}.cls`,
+        position: { line: 0, character: 4 },
+        requestKind: 'hover' as const,
+      },
+    };
+
+    await expect(service.resolveInBackground(params)).resolves.toBe(
+      'scheduled',
+    );
+    await vi.waitFor(() => expect(proxy).toHaveBeenCalledTimes(1));
+    await expect(service.resolveInBackground(params)).resolves.toBe(
+      'recently-not-found',
+    );
+
+    expect(proxy).toHaveBeenCalledTimes(1);
+  });
+
+  it('coalesces repeated hover lookups while the prior lookup is in flight', async () => {
+    let resolveLookup: ((value: { notFound: true }) => void) | undefined;
+    const lookup = new Promise<{ notFound: true }>((resolve) => {
+      resolveLookup = resolve;
+    });
+    const proxy = vi.fn().mockReturnValue(lookup);
+    EnhancedMissingArtifactResolutionService.setAssistanceProxy(proxy);
+    const params = {
+      ...makeParams(),
+      mode: 'background' as const,
+      origin: {
+        uri: `file:///test-${requestNumber}.cls`,
+        position: { line: 0, character: 4 },
+        requestKind: 'hover' as const,
+      },
+    };
+
+    await service.resolveInBackground(params);
+    await service.resolveInBackground(params);
+
+    expect(proxy).toHaveBeenCalledTimes(1);
+    resolveLookup?.({ notFound: true });
+    await vi.waitFor(() => expect(proxy).toHaveBeenCalledTimes(1));
+  });
+
+  it('keeps separate hover reference ranges independently retryable', async () => {
+    const proxy = vi.fn().mockResolvedValue({ notFound: true });
+    EnhancedMissingArtifactResolutionService.setAssistanceProxy(proxy);
+    const first = {
+      ...makeParams(),
+      mode: 'background' as const,
+      origin: {
+        uri: `file:///test-${requestNumber}.cls`,
+        position: { line: 0, character: 4 },
+        requestKind: 'hover' as const,
+      },
+    };
+    const second = {
+      ...first,
+      origin: { ...first.origin, position: { line: 0, character: 20 } },
+      identifiers: [
+        {
+          ...first.identifiers[0],
+          provenance: {
+            ...first.identifiers[0].provenance,
+            referenceRange: {
+              startLine: 0,
+              startColumn: 20,
+              endLine: 0,
+              endColumn: 32,
+            },
+            referenceIdentity: `class-ref|OtherClass|${requestNumber}|0|20|32`,
+          },
+        },
+      ],
+    };
+
+    await service.resolveInBackground(first);
+    await vi.waitFor(() => expect(proxy).toHaveBeenCalledTimes(1));
+    await service.resolveInBackground(second);
+
+    await vi.waitFor(() => expect(proxy).toHaveBeenCalledTimes(2));
+  });
+
   it.each([
     new Error('timeout configuration error'),
     { _tag: 'TimeoutException' },
