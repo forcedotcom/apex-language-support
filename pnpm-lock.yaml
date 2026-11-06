@@ -416,8 +416,8 @@ importers:
         specifier: ^0.97.1
         version: 0.97.2(effect@3.22.4)
       '@effect/platform-browser':
-        specifier: ^0.77.1
-        version: 0.77.1(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4)
+        specifier: ^0.77.2
+        version: 0.77.2(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4)
       '@effect/platform-node':
         specifier: ^0.108.4
         version: 0.108.4(@effect/cluster@0.60.5(@effect/platform@0.97.2(effect@3.22.4))(@effect/rpc@0.76.4(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4))(@effect/sql@0.52.2(@effect/experimental@0.61.2(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4))(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4))(@effect/workflow@0.19.1(@effect/experimental@0.61.2(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4))(@effect/platform@0.97.2(effect@3.22.4))(@effect/rpc@0.76.4(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4))(effect@3.22.4))(effect@3.22.4))(@effect/platform@0.97.2(effect@3.22.4))(@effect/rpc@0.76.4(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4))(@effect/sql@0.52.2(@effect/experimental@0.61.2(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4))(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4))(effect@3.22.4)
@@ -1079,11 +1079,11 @@ packages:
       '@opentelemetry/semantic-conventions': ^1.33.0
       effect: ^3.22.2
 
-  '@effect/platform-browser@0.77.1':
-    resolution: {integrity: sha512-QnncLCTIynGUatlMQY3CNK08tVKTbPLGPIzR9I1HThOHIVV4RIqicV94/zTzbyV/dQaaw6JpgXZALaTM1jJEFw==}
+  '@effect/platform-browser@0.77.2':
+    resolution: {integrity: sha512-A+bp3UcaCACtNo/Vyrowck46Rw/0Obu0uI0mE6EELZreyGg6ejjtfg3bhHH7OTO8H1H10zacjMLuMUeuEM9CLw==}
     peerDependencies:
-      '@effect/platform': ^0.97.1
-      effect: ^3.22.1
+      '@effect/platform': ^0.97.3
+      effect: ^3.22.4
 
   '@effect/platform-node-shared@0.61.2':
     resolution: {integrity: sha512-TpmCdBxxrOh4oCi9yckOic9mvOdfSD54iRN6AvM47Qb/3+YZB+jdfOgMxE4jaMdTKgNaK55D7EODtgoSAcgCqA==}
@@ -7345,11 +7345,11 @@ snapshots:
       '@opentelemetry/semantic-conventions': 1.43.0
       effect: 3.22.4
 
-  '@effect/platform-browser@0.77.1(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4)':
+  '@effect/platform-browser@0.77.2(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4)':
     dependencies:
       '@effect/platform': 0.97.2(effect@3.22.4)
       effect: 3.22.4
-      multipasta: 0.2.8
+      multipasta: 0.2.9
 
   '@effect/platform-node-shared@0.61.2(@effect/cluster@0.60.5(@effect/platform@0.97.2(effect@3.22.4))(@effect/rpc@0.76.4(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4))(@effect/sql@0.52.2(@effect/experimental@0.61.2(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4))(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4))(@effect/workflow@0.19.1(@effect/experimental@0.61.2(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4))(@effect/platform@0.97.2(effect@3.22.4))(@effect/rpc@0.76.4(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4))(effect@3.22.4))(effect@3.22.4))(@effect/platform@0.97.2(effect@3.22.4))(@effect/rpc@0.76.4(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4))(@effect/sql@0.52.2(@effect/experimental@0.61.2(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4))(@effect/platform@0.97.2(effect@3.22.4))(effect@3.22.4))(effect@3.22.4)':
     dependencies:
