@@ -146,5 +146,5 @@ legacy Java compiler's `messages_en_US.properties` unchanged to
 Also curate relevant legacy Java `FullCompileTester` snippets
 into Apex-LS `.cls` validation fixtures, retaining their diagnostic contract.
 Then run the generator and parity fixtures. Stub generation does not generate
-diagnostic catalogs or fixtures; Apex-LS-only uncertainty diagnostics stay in
+diagnostic catalogs or fixtures; Apex-LS-specific diagnostics stay in
 `messages_apex_ls.properties`.

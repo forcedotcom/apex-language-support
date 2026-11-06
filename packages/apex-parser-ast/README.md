@@ -144,7 +144,7 @@ const methods = symbolTable
     - `ValidationResult.ts`: Structured validation results with location-aware errors
     - `ValidatorInitialization.ts`: Validator registration and initialization
     - `ArtifactLoadingHelper.ts`: Cross-file type resolution and artifact loading
-    - `validators/`: 46 validator implementations (42 TIER 1, 4 TIER 2)
+    - `validators/`: 55 validator implementations (43 TIER 1, 12 TIER 2)
   - `i18n/`: Internationalization support for error messages:
     - `messageInstance.ts`: Message formatting using @salesforce/vscode-i18n
   - `generated/`: Auto-generated TypeScript modules (ignored by git, do not edit):
@@ -295,13 +295,13 @@ The package provides a comprehensive **2-tier semantic validation system** that 
 - **`ErrorCodes`**: Generated error code constants enabling linting detection of unused codes
 - **`localizeTyped`**: Type-safe message formatting using @salesforce/vscode-i18n
 - **`ArtifactLoadingHelper`**: Service for loading missing type definitions across files
-- **46 Validators**: 42 TIER 1 + 4 TIER 2
+- **55 Validators**: 43 TIER 1 + 12 TIER 2
 
 See [SEMANTIC_VALIDATION_STATUS.md](./SEMANTIC_VALIDATION_STATUS.md) for the complete validator list and error code coverage.
 
 ### TIER 1 (IMMEDIATE) Validators
 
-Fast, same-file validations. Examples include `SourceSizeValidator`, `ParameterLimitValidator` (max 32), `EnumLimitValidator` (max 100), `DuplicateMethodValidator`, `ConstructorNamingValidator`, `AbstractMethodBodyValidator`, `InnerTypeValidator`, plus 35 more.
+Fast, same-file validations. Examples include `SourceSizeValidator`, `TopLevelTypeFilenameValidator` (top-level class, interface, or enum name must match its `.cls` filename), `ParameterLimitValidator` (max 32), `EnumLimitValidator` (max 100), `DuplicateMethodValidator`, `ConstructorNamingValidator`, `AbstractMethodBodyValidator`, `InnerTypeValidator`, plus 35 more.
 
 ### TIER 2 (THOROUGH) Validators
 
@@ -359,8 +359,8 @@ sequenceDiagram
     participant PrerequisiteOrchestrationService
     participant LayerEnrichmentService
     participant ValidatorRegistry
-    participant TIER1Validators as TIER 1 Validators<br/>(42 validators)
-    participant TIER2Validators as TIER 2 Validators<br/>(4 validators)
+    participant TIER1Validators as TIER 1 Validators<br/>(43 validators)
+    participant TIER2Validators as TIER 2 Validators<br/>(12 validators)
     participant ArtifactLoadingHelper
     participant MissingArtifactResolutionService
     participant MissingArtifactProcessingService
@@ -383,7 +383,7 @@ sequenceDiagram
 
     Note over DiagnosticProcessingService: Initialize validators<br/>(static, one-time)
     DiagnosticProcessingService->>ValidatorRegistry: initializeValidators()
-    ValidatorRegistry->>ValidatorRegistry: Register 46 validators<br/>(42 TIER 1, 4 TIER 2)
+    ValidatorRegistry->>ValidatorRegistry: Register 55 validators<br/>(43 TIER 1, 12 TIER 2)
 
     DiagnosticProcessingService->>LSPQueueManager: submitNotification('prerequisiteEnrichment')
     DiagnosticProcessingService-->>Client: Parser diagnostics from cached snapshot
@@ -412,7 +412,7 @@ sequenceDiagram
     rect rgb(200, 230, 255)
         Note over DiagnosticProcessingService,TIER1Validators: TIER 1: IMMEDIATE Validation<br/>(<500ms, same-file only)
         DiagnosticProcessingService->>ValidatorRegistry: runValidatorsForTier(IMMEDIATE, table, options)
-        ValidatorRegistry->>TIER1Validators: Execute 42 validators
+        ValidatorRegistry->>TIER1Validators: Execute 43 validators
 
         loop For each TIER 1 validator
             TIER1Validators->>TIER1Validators: Validate symbols<br/>(SourceSize, ParameterLimit, EnumLimit, etc.)
@@ -425,7 +425,7 @@ sequenceDiagram
     rect rgb(255, 230, 200)
         Note over DiagnosticProcessingService,TIER2Validators: TIER 2: THOROUGH Validation<br/>(2-5s, may load artifacts)
         DiagnosticProcessingService->>ValidatorRegistry: runValidatorsForTier(THOROUGH, table, options)
-        ValidatorRegistry->>TIER2Validators: Execute 4 validators
+        ValidatorRegistry->>TIER2Validators: Execute 12 validators
 
         loop For each TIER 2 validator
             TIER2Validators->>TIER2Validators: Check if types need resolution
