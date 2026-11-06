@@ -973,6 +973,7 @@ export const AnnotationPropertyValidator: Validator = {
                   message: localizeTyped(
                     ErrorCodes.ANNOTATION_PROPERTY_INVALID_MULTIPLE_PARAMETER,
                     paramName,
+                    annotation.name,
                   ),
                   location: annotation.location,
                   code: ErrorCodes.ANNOTATION_PROPERTY_INVALID_MULTIPLE_PARAMETER,

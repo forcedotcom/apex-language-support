@@ -64,10 +64,13 @@ describe('ConstructorValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    const hasSuperCallError = result.errors.some(
-      (e: any) => e.code === ErrorCodes.INVALID_SUPER_CALL,
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({
+        code: ErrorCodes.INVALID_SUPER_CALL,
+        message:
+          "Call to 'super()' must be the first statement in a constructor method",
+      }),
     );
-    expect(hasSuperCallError).toBe(true);
   });
 
   it('should use statement structure when an invalid super() call shares the first statement line', async () => {

@@ -267,6 +267,9 @@ describe('ResourceLoader Integration', () => {
       expect(await symbolManager.findFQNForStandardClass('Assert')).toBe(
         'System.Assert',
       );
+      expect(await symbolManager.findFQNForStandardClass('Exception')).toBe(
+        'System.Exception',
+      );
       expect(await symbolManager.findFQNForStandardClass('Batchable')).toBe(
         'Database.Batchable',
       );

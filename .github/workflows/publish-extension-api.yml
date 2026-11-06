@@ -1,0 +1,39 @@
+name: Publish Extension API
+
+# This registration stub makes the workflow selectable from the Actions UI.
+# The extension API package and publish implementation land separately.
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Reserved for the extension release tag'
+        required: false
+        type: string
+      source_ref:
+        description: 'Reserved for the source ref'
+        required: false
+        type: string
+      version:
+        description: 'Reserved for the API version'
+        required: false
+        type: string
+      dry_run:
+        description: 'Reserved for dry-run mode'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+permissions:
+  contents: read
+
+jobs:
+  registered:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain registration-only workflow
+        run: |
+          echo "The extension API publication implementation has not been merged yet."
+          echo "Select the implementation branch to run its dry-run workflow."
