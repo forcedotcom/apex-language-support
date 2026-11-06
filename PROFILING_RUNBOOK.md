@@ -129,7 +129,21 @@ cat ~/.sf/vscode-spans/*.jsonl | jq -s '[.[] | select(.attributes["data_owner.qu
 #### Find-All-References Latency (if triggered during load)
 
 ```bash
-cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name | test("references")) | {name, duration_ms: (.duration / 1000000)}' | jq -s .
+# Stage latency and aggregate scan metrics. Candidate scans are intentionally
+# aggregate-only: do not expect per-file spans or source, URI, or symbol values.
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "references.cursor.compile" or .name == "references.cursor.prerequisites" or .name == "references.discovery.roundTrip" or .name == "references.candidates.scan" or .name == "references.response.assemble" or .name == "dataOwner.references.discovery") | {name, duration_ms: (((.endTimeUnixNano | tonumber) - (.startTimeUnixNano | tonumber)) / 1000000), attributes}' | jq -s .
+
+# Candidate scan pressure and reliability: compare parser time with occurrence
+# scan time, then investigate any nonzero unreliable-candidate count.
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "references.candidates.scan") | {candidates: .attributes["references.candidate_count"], unique_scans: .attributes["references.unique_scan_count"], parser_ms: .attributes["references.parser_ms"], occurrence_scan_ms: .attributes["references.occurrence_scan_ms"], unreliable_candidates: .attributes["references.candidate_failure_count"], occurrences: .attributes["references.occurrence_count"], outcome: .attributes["references.outcome"]}' | jq -s .
+
+# Response assembly: declaration handling and deduplication are separate from
+# scan completeness. `assembled` only means Location[] construction finished.
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "references.response.assemble") | {locations: .attributes["references.location_count"], occurrences: .attributes["references.occurrence_count"], duplicates: .attributes["references.duplicate_location_count"], declaration: .attributes["references.declaration_outcome"], outcome: .attributes["references.outcome"]}' | jq -s .
+
+# Data-owner discovery remains serial-fiber work; use its queue values to
+# distinguish candidate lookup contention from request-pool parse/scan cost.
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "dataOwner.references.discovery") | {documents: .attributes["references.document_count"], candidates: .attributes["references.candidate_count"], chars: .attributes["references.content_chars"], queue_wait_ms: .attributes["data_owner.queue_wait_ms"], queue_depth: .attributes["data_owner.queue_depth"]}' | jq -s .
 ```
 
 ## Troubleshooting
