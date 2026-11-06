@@ -1,5 +1,6 @@
 {
   "name": "@salesforce/apex-lsp-client",
+  "private": true,
   "version": "1.0.0",
   "description": "Apex LSP client SDK (transport-agnostic ApexClientCore + RpcConnection port)",
   "main": "out/index.js",

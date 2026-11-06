@@ -33,10 +33,6 @@ export type ApexClient = {
   getExceptionBreakpointInfo(uri: string): Promise<ExceptionBreakpointInfo[]>;
   /** Returns false/false for feature names the server did not define. */
   getFeatureState(feature: string): ApexServerFeatureState;
-};
-
-/** Public portable standard-LSP request contract. */
-export type ApexStandardLspClient = ApexClient & {
   hover(params: HoverParams): Promise<Hover | null>;
   completion(
     params: CompletionParams,
@@ -51,3 +47,6 @@ export type ApexStandardLspClient = ApexClient & {
     params: SemanticTokensParams,
   ): Promise<readonly DecodedSemanticToken[] | undefined>;
 };
+
+/** @deprecated Use {@link ApexClient}; standard LSP requests are public client methods. */
+export type ApexStandardLspClient = ApexClient;

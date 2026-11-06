@@ -13,12 +13,12 @@ the manual escape hatches for when you need to publish out of band.
 
 ## TL;DR
 
-| I want to… | Do this |
-| --- | --- |
-| Ship a normal nightly/pre-release | Nothing — `nightly.yml` runs daily at 04:00 UTC |
-| Promote a nightly to the pre-release slot | Nothing — `promote-prerelease.yml` runs Wed 07:00 UTC (or dispatch it) |
-| Promote a pre-release to stable | Nothing — `promote-stable.yml` runs Wed 06:00 UTC (or dispatch it) |
-| Publish a specific build right now | Run **Manual Publish** (`manual-publish.yml`) |
+| I want to…                                | Do this                                                                            |
+| ----------------------------------------- | ---------------------------------------------------------------------------------- |
+| Ship a normal nightly/pre-release         | Nothing — `nightly.yml` runs daily at 04:00 UTC                                    |
+| Promote a nightly to the pre-release slot | Nothing — `promote-prerelease.yml` runs Wed 07:00 UTC (or dispatch it)             |
+| Promote a pre-release to stable           | Nothing — `promote-stable.yml` runs Wed 06:00 UTC (or dispatch it)                 |
+| Publish a specific build right now        | Run **Manual Publish** (`manual-publish.yml`)                                      |
 | Pick up a new version in code-builder-web | Bump the pin and update the lock file (see [below](#manual-step-code-builder-web)) |
 
 ---
@@ -29,7 +29,7 @@ the manual escape hatches for when you need to publish out of band.
 - **Marketplace ID:** `salesforce.apex-language-server-extension`
   - publisher: `salesforce`
   - package name: `apex-language-server-extension`
-  - display name: *Salesforce Apex Language Server (Typescript)*
+  - display name: _Salesforce Apex Language Server (Typescript)_
 - **Publish tools:** [`@vscode/vsce`](https://github.com/microsoft/vscode-vsce)
   (VS Code Marketplace) and [`ovsx`](https://github.com/eclipse/openvsx) (Open VSX).
 - **Versioning is automated** from conventional commits — there is no Lerna /
@@ -39,10 +39,10 @@ the manual escape hatches for when you need to publish out of band.
 
 The minor version encodes the channel:
 
-| Minor | Channel | Example |
-| --- | --- | --- |
-| **Odd** (`0.1.x`, `0.3.x`, `0.5.x`) | Pre-release / nightly | `0.5.95` |
-| **Even** (`0.2.x`, `0.4.x`, `0.6.x`) | Stable | `0.6.0` |
+| Minor                                | Channel               | Example  |
+| ------------------------------------ | --------------------- | -------- |
+| **Odd** (`0.1.x`, `0.3.x`, `0.5.x`)  | Pre-release / nightly | `0.5.95` |
+| **Even** (`0.2.x`, `0.4.x`, `0.6.x`) | Stable                | `0.6.0`  |
 
 The version bumper enforces this automatically. Promotion to stable rounds the
 odd minor up to the next even minor (e.g. `0.5.3` → `0.6.0`).
@@ -51,32 +51,37 @@ odd minor up to the next even minor (e.g. `0.5.3` → `0.6.0`).
 
 These live in repo/org secrets — you only need to know they exist:
 
-| Secret | Used for |
-| --- | --- |
-| `VSCE_PERSONAL_ACCESS_TOKEN` | Publishing to VS Code Marketplace |
-| `IDEE_OVSX_PAT` | Publishing to Open VSX |
-| `IDEE_GH_TOKEN` | Tagging / committing with branch-protection bypass |
-| `MARKETPLACE_DEPLOY_TOKEN` / `MARKETPLACE_URL` | Internal CBWeb marketplace |
+| Secret                                         | Used for                                           |
+| ---------------------------------------------- | -------------------------------------------------- |
+| `VSCE_PERSONAL_ACCESS_TOKEN`                   | Publishing to VS Code Marketplace                  |
+| `IDEE_OVSX_PAT`                                | Publishing to Open VSX                             |
+| `IDEE_GH_TOKEN`                                | Tagging / committing with branch-protection bypass |
+| `MARKETPLACE_DEPLOY_TOKEN` / `MARKETPLACE_URL` | Internal CBWeb marketplace                         |
 
 ---
 
 ## The release pipeline (automated)
 
 Releases flow through three channels. Each stage publishes the **same VSIX**
-(repackaged with a new version string only at the stable step).
+(repackaged with a new version string only at the stable step). The public
+extension API is published and promoted in lockstep, so companion extensions
+can install the npm contract that matches their VSIX.
 
 ```
  nightly.yml (daily 04:00 UTC)
    └─> nightly-extensions.yml
          bump (odd minor) → package → GitHub Release + tag (no marketplace publish)
-                                                              │
- promote-prerelease.yml (Wed 07:00 UTC)                       │
-   └─> takes a nightly ≥7 days old ──────────────────────────┘
+         npm API → identical version under `nightly`
+                                                               │
+  promote-prerelease.yml (Wed 07:00 UTC)                       │
+    └─> takes a nightly ≥7 days old ──────────────────────────┘
          publishes unchanged VSIX to the PRE-RELEASE slot
-                                                              │
- promote-stable.yml (Wed 06:00 UTC)                           │
-   └─> takes latest pre-release ──────────────────────────────┘
+         npm API → same nightly version also under `pre-release`
+                                                               │
+  promote-stable.yml (Wed 06:00 UTC)                           │
+    └─> takes latest pre-release ──────────────────────────────┘
          repackages VSIX with EVEN minor → publishes to STABLE slot
+         npm API → matching stable version under `latest`
 ```
 
 ### Stage 1 — Nightly (`nightly.yml` → `nightly-extensions.yml`)
@@ -89,8 +94,10 @@ Releases flow through three channels. Each stage publishes the **same VSIX**
      `chore: bump versions for release [skip ci]`, and tags
      `v{VERSION}-nightly.{DATE}` (e.g. `v0.5.3-nightly.20260301`; non-main branches append the branch: `v{VERSION}-nightly.{BRANCH}.{DATE}`).
   3. Packages the VSIX (`npm run package:packages:prerelease`).
-   4. Creates a GitHub Release with desktop and web VSIX assets plus MD5 checksums attached (no marketplace publish at this stage).
-   5. Manual Publish can send the released web VSIX to the internal CBWeb marketplace.
+  4. Creates a GitHub Release with desktop and web VSIX assets plus MD5 checksums attached (no marketplace publish at this stage).
+  5. Publishes `@salesforce/apex-language-server-extension-api` at the same
+     version as the nightly tag under npm's `nightly` dist-tag.
+  6. Manual Publish can send the released web VSIX to the internal CBWeb marketplace.
 - **Manual dispatch inputs:** `branch`, `extensions`, `dry-run`.
 
 ### Stage 2 — Promote to pre-release (`promote-prerelease.yml`)
@@ -100,6 +107,8 @@ Releases flow through three channels. Each stage publishes the **same VSIX**
   that exact VSIX from its GitHub Release, and publishes it **unchanged** to the
   pre-release marketplace slot. Records a tracking tag
   `marketplace-prerelease-apex-lsp-vscode-extension-v{VERSION}`.
+  The same `@salesforce/apex-language-server-extension-api@{VERSION}-nightly.*`
+  artifact receives npm's `pre-release` dist-tag.
 
 ### Stage 3 — Promote to stable (`promote-stable.yml`)
 
@@ -109,6 +118,18 @@ Releases flow through three channels. Each stage publishes the **same VSIX**
   version and `extension.vsixmanifest`), publishes to the stable slot with
   `--pre-release: false`, creates a stable GitHub Release, and tags
   `marketplace-stable-apex-lsp-vscode-extension-v{VERSION}`.
+  The stable GitHub Release publishes the matching
+  `@salesforce/apex-language-server-extension-api@{VERSION}` under npm's
+  `latest` dist-tag.
+
+If the API publish job fails after the extension release is created, dispatch
+**Publish Extension API** with that existing release tag. The retry builds and
+publishes only the matching npm package; it does not alter the VSIX release.
+
+To validate a feature branch before merging, dispatch **Publish Extension API**
+from that branch with `dry_run: true` and a prospective npm `version` such as
+`0.11.71-nightly.20261106`. The dry run builds, typechecks, tests, lints, and
+packs the API without creating an npm version or altering a VSIX release.
 
 ---
 
@@ -119,21 +140,29 @@ immediately (e.g. a hotfix) instead of waiting for the scheduled promotions.
 
 Run it from **Actions → Manual Publish → Run workflow**. Inputs:
 
-| Input | Notes |
-| --- | --- |
-| `extension` | `apex-lsp-vscode-extension` (only option) |
-| `version-tag` | **Tag path (normal):** a nightly git tag, e.g. `v0.5.3-nightly.20260301`. Mutually exclusive with `source-run-id`. |
-| `source-run-id` | **Run path (bypass):** an Actions run ID whose VSIX artifact to publish. For branch builds with no GH release. Requires `skip-quality-checks=true` **and** `confirm-bypass=BYPASS`. |
-| `slot` | `pre-release` or `stable`. |
-| `registries` | `all` (default), `vsce`, `ovsx`, or `none`. Use `none` with `publish-web-vsix: true` for an internal-only publish. |
-| `publish-web-vsix` | `false` (default) excludes the web VSIX. Set to `true` to publish it to the internal CBWeb marketplace; use only with `slot: pre-release`. |
-| `target-stable-version` | Optional stable override (valid semver, **even** minor). Required when using `source-run-id` with `slot: stable`. |
-| `skip-quality-checks` | Bypass the CI quality gate. Required for the `source-run-id` path. |
-| `confirm-bypass` | Must be exactly `BYPASS` when skipping the quality gate. |
-| `dry-run` | `true` runs the whole flow without publishing or tagging. |
+| Input                   | Notes                                                                                                                                                                               |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `extension`             | `apex-lsp-vscode-extension` (only option)                                                                                                                                           |
+| `version-tag`           | **Tag path (normal):** a nightly git tag, e.g. `v0.5.3-nightly.20260301`. Mutually exclusive with `source-run-id`.                                                                  |
+| `source-run-id`         | **Run path (bypass):** an Actions run ID whose VSIX artifact to publish. For branch builds with no GH release. Requires `skip-quality-checks=true` **and** `confirm-bypass=BYPASS`. |
+| `slot`                  | `pre-release` or `stable`.                                                                                                                                                          |
+| `registries`            | `all` (default), `vsce`, `ovsx`, or `none`. Use `none` with `publish-web-vsix: true` for an internal-only publish.                                                                  |
+| `publish-web-vsix`      | `false` (default) excludes the web VSIX. Set to `true` to publish it to the internal CBWeb marketplace; use only with `slot: pre-release`.                                          |
+| `target-stable-version` | Optional stable override (valid semver, **even** minor). Required when using `source-run-id` with `slot: stable`.                                                                   |
+| `publish-extension-api` | `auto` (default) coordinates a tag-based pre-release and lets the stable GitHub Release publish npm `latest`; `required` rejects `source-run-id`; `skip` publishes only the VSIX.   |
+| `skip-quality-checks`   | Bypass the CI quality gate. Required for the `source-run-id` path.                                                                                                                  |
+| `confirm-bypass`        | Must be exactly `BYPASS` when skipping the quality gate.                                                                                                                            |
+| `dry-run`               | `true` runs the whole flow without publishing or tagging.                                                                                                                           |
 
 The workflow has an environment approval gate, so a maintainer must approve the
 publish job after the preview step.
+
+For `version-tag` sources, `slot: pre-release` assigns npm's `pre-release`
+dist-tag to the matching nightly API package. `slot: stable` creates a stable
+GitHub Release, which triggers the matching stable API publish under `latest`.
+For `source-run-id`, `auto` skips API coordination because a CI artifact has no
+immutable release tag; choose `required` to make that unsupported combination
+fail rather than publish a potentially mismatched API.
 
 > **Tip:** always do a `dry-run: true` pass first and read the preview summary
 > before publishing for real.
@@ -183,10 +212,10 @@ version + SHA in **`cbweb/.extensions-lock.json`**:
 {
   "publisher": "salesforce",
   "name": "apex-language-server-extension",
-  "version": "pre-release",            // dynamic: "pre-release" | "latest" | a pinned "X.Y.Z"
+  "version": "pre-release", // dynamic: "pre-release" | "latest" | a pinned "X.Y.Z"
   "shaVerification": {
-    "repo": "forcedotcom/apex-language-support"
-  }
+    "repo": "forcedotcom/apex-language-support",
+  },
 }
 ```
 
@@ -219,12 +248,12 @@ To freeze Code Builder on an exact build:
 
 ### Useful code-builder-web scripts
 
-| Script | Purpose |
-| --- | --- |
-| `npm run install-extensions` | Install the locked versions |
-| `npm run install-extensions:update` | Resolve dynamic versions → update lock |
-| `npm run install-extensions:update-verified` | Update **and** verify SHA256 |
-| `npm run install-extensions:verify` | Verify locked SHA256 only |
+| Script                                       | Purpose                                |
+| -------------------------------------------- | -------------------------------------- |
+| `npm run install-extensions`                 | Install the locked versions            |
+| `npm run install-extensions:update`          | Resolve dynamic versions → update lock |
+| `npm run install-extensions:update-verified` | Update **and** verify SHA256           |
+| `npm run install-extensions:verify`          | Verify locked SHA256 only              |
 
 > **Always commit both files.** `extensions.json` is the source of truth and
 > `.extensions-lock.json` guarantees every developer/build gets the same VSIX.
