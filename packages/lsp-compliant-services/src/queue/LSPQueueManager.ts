@@ -105,6 +105,10 @@ export interface WorkerDispatcher {
   ): Promise<{
     ready: boolean;
     reason?: 'no-compile-pending' | 'timeout' | 'stale-version';
+    handlerElapsedMs?: number;
+    dispatchToHandlerMs?: number;
+    responseDeliveryMs?: number;
+    roundTripMs: number;
   }>;
   /** Offload the request to a worker, resolving with its result. */
   dispatch<T extends WorkerDispatchArgs>(
@@ -400,6 +404,21 @@ export class LSPQueueManager {
                     budget_ms: gateBudgetMs,
                     request_type: type,
                   },
+                  (result) => ({
+                    'cold_read_gate.ready': result.ready,
+                    'cold_read_gate.outcome': result.ready
+                      ? 'ready'
+                      : (result.reason ?? 'unknown'),
+                    'cold_read_gate.wait_ms': Date.now() - gateStartTime,
+                    'cold_read_gate.data_owner_round_trip_ms':
+                      result.roundTripMs,
+                    'cold_read_gate.data_owner_handler_ms':
+                      result.handlerElapsedMs,
+                    'cold_read_gate.data_owner_dispatch_ms':
+                      result.dispatchToHandlerMs,
+                    'cold_read_gate.data_owner_response_delivery_ms':
+                      result.responseDeliveryMs,
+                  }),
                 );
                 const actualWaitMs = Date.now() - gateStartTime;
                 if (!readiness.ready) {

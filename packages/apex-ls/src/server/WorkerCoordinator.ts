@@ -913,7 +913,12 @@ function createDispatcher(
     ): Promise<{
       ready: boolean;
       reason?: 'no-compile-pending' | 'timeout' | 'stale-version';
+      handlerElapsedMs?: number;
+      dispatchToHandlerMs?: number;
+      responseDeliveryMs?: number;
+      roundTripMs: number;
     }> {
+      const startedAt = Date.now();
       const res = (await this.queryDataOwner('AwaitSymbolReadiness', {
         uri,
         version,
@@ -922,9 +927,26 @@ function createDispatcher(
         | {
             ready?: boolean;
             reason?: 'no-compile-pending' | 'timeout' | 'stale-version';
+            handlerElapsedMs?: number;
+            handlerStartedAtMs?: number;
+            responseReadyAtMs?: number;
           }
         | undefined;
-      return { ready: res?.ready === true, reason: res?.reason };
+      const receivedAt = Date.now();
+      return {
+        ready: res?.ready === true,
+        reason: res?.reason,
+        handlerElapsedMs: res?.handlerElapsedMs,
+        dispatchToHandlerMs:
+          res?.handlerStartedAtMs == null
+            ? undefined
+            : res.handlerStartedAtMs - startedAt,
+        responseDeliveryMs:
+          res?.responseReadyAtMs == null
+            ? undefined
+            : receivedAt - res.responseReadyAtMs,
+        roundTripMs: receivedAt - startedAt,
+      };
     },
 
     async dispatch<T extends WorkerDispatchArgs>(

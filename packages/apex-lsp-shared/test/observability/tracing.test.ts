@@ -6,7 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { trace } from '@opentelemetry/api';
 import {
   enableTracing,
   isTracingEnabled,
@@ -72,6 +73,22 @@ describe('tracing', () => {
       enableTracing();
     });
 
+    const mockActiveSpan = () => {
+      const span = {
+        setAttribute: vi.fn(),
+        setStatus: vi.fn(),
+        addEvent: vi.fn(),
+        end: vi.fn(),
+      };
+      vi.spyOn(trace, 'getTracer').mockReturnValue({
+        startActiveSpan: (
+          _name: string,
+          callback: (activeSpan: never) => unknown,
+        ) => callback(span as never),
+      } as any);
+      return span;
+    };
+
     it('executes and returns result with tracing active', async () => {
       const result = await runWithSpan('test.span', async () => 42);
       expect(result).toBe(42);
@@ -90,6 +107,44 @@ describe('tracing', () => {
         'lsp.method': 'textDocument/hover',
       });
       expect(result).toBe('ok');
+    });
+
+    it('derives span attributes from a successful result', async () => {
+      const span = mockActiveSpan();
+      const resultAttributes = vi.fn((value: { ready: boolean }) => ({
+        'test.ready': value.ready,
+      }));
+      const result = await runWithSpan(
+        'test.span',
+        async () => ({ ready: true }),
+        undefined,
+        resultAttributes,
+      );
+
+      expect(result).toEqual({ ready: true });
+      expect(resultAttributes).toHaveBeenCalledExactlyOnceWith({ ready: true });
+      expect(span.setAttribute).toHaveBeenCalledWith('test.ready', true);
+    });
+
+    it('does not fail a successful operation when result attribution throws', async () => {
+      const span = mockActiveSpan();
+      const resultAttributes = vi.fn(() => {
+        throw new Error('attribution failed');
+      });
+      const result = await runWithSpan(
+        'test.span',
+        async () => 'ok',
+        undefined,
+        resultAttributes,
+      );
+
+      expect(result).toBe('ok');
+      expect(resultAttributes).toHaveBeenCalledExactlyOnceWith('ok');
+      expect(span.addEvent).toHaveBeenCalledWith(
+        'tracing.result_attributes_error',
+        { error: 'attribution failed' },
+      );
+      expect(span.setStatus).toHaveBeenCalledWith({ code: 1 });
     });
   });
 
