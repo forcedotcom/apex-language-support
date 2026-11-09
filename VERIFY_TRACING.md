@@ -181,9 +181,16 @@ missing parents inside the captured server/worker subtree.
 
 ### Worker spans forwarded but not linked to coordinator spans
 
-- Verify W3C trace context propagation is working
-- Check that coordinator spans have proper trace ID and parent span ID
-- Ensure workers are receiving and propagating trace context headers
+- First identify the worker boundary. Worker-local spans should retain their
+  local parentage even when they have a different trace ID from coordinator or
+  another worker's spans.
+- The request-pool to data-owner assistance route currently does not preserve a
+  single trace ID. In particular, `references.*` spans and
+  `dataOwner.references.discovery` must be correlated by request timing and
+  aggregate attributes, not a parent/child relationship.
+- For routes expected to preserve W3C context, verify the coordinator trace ID
+  and parent span ID, then verify that workers receive and propagate trace
+  context headers.
 
 ## Files Modified
 

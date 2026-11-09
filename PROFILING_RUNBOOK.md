@@ -88,45 +88,62 @@ cat ~/.sf/vscode-spans/*.jsonl | jq -r '.name' | sort | uniq -c | sort -rn | hea
 #### Workspace Load Total
 
 ```bash
-cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.load.total") | {duration_ms: (.duration / 1000000), start: .startTimeUnixNano}'
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.load.total") | {duration_ms: (((.endTimeUnixNano | tonumber) - (.startTimeUnixNano | tonumber)) / 1000000), start: .startTimeUnixNano}'
 ```
 
 #### Per-Phase Breakdown
 
 ```bash
 # Decode phase
-cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.batch.decode") | .duration / 1000000' | jq -s 'add'
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.batch.decode") | ((.endTimeUnixNano | tonumber) - (.startTimeUnixNano | tonumber)) / 1000000' | jq -s 'add'
 
 # Ingest phase (data-owner)
-cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.batch.ingestChunk") | .duration / 1000000' | jq -s 'add'
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.batch.ingestChunk") | ((.endTimeUnixNano | tonumber) - (.startTimeUnixNano | tonumber)) / 1000000' | jq -s 'add'
 
 # Compile phase
-cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.batch.compileChunk") | .duration / 1000000' | jq -s 'add'
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.batch.compileChunk") | ((.endTimeUnixNano | tonumber) - (.startTimeUnixNano | tonumber)) / 1000000' | jq -s 'add'
 
 # Enrichment phase
-cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.crossFileEnrichment") | .duration / 1000000' | jq -s 'add'
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "workspace.crossFileEnrichment") | ((.endTimeUnixNano | tonumber) - (.startTimeUnixNano | tonumber)) / 1000000' | jq -s 'add'
 ```
 
 #### Per-File Compile Costs (Top 10 Slowest)
 
 ```bash
-cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "worker.compilation.batchCompile.file") | {file: .attributes.file, duration_ms: (.duration / 1000000)}' | jq -s 'sort_by(.duration_ms) | reverse | .[:10]'
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "worker.compilation.batchCompile.file") | {file: .attributes.file, duration_ms: (((.endTimeUnixNano | tonumber) - (.startTimeUnixNano | tonumber)) / 1000000)}' | jq -s 'sort_by(.duration_ms) | reverse | .[:10]'
 ```
 
 #### Contention Evidence
 
 ```bash
-# coldReadGate.wait spans (blocking on data-owner)
-cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "coldReadGate.wait") | {duration_ms: (.duration / 1000000), traceId, spanId}'
+# Cold-read gate: distinguish dispatch, handler, and response delivery time
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "coldReadGate.wait") | {outcome: .attributes["cold_read_gate.outcome"], ready: .attributes["cold_read_gate.ready"], wait_ms: .attributes["cold_read_gate.wait_ms"], data_owner_round_trip_ms: .attributes["cold_read_gate.data_owner_round_trip_ms"], data_owner_dispatch_ms: .attributes["cold_read_gate.data_owner_dispatch_ms"], data_owner_handler_ms: .attributes["cold_read_gate.data_owner_handler_ms"], data_owner_response_delivery_ms: .attributes["cold_read_gate.data_owner_response_delivery_ms"], traceId, spanId}'
 
-# Total wait time
-cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "coldReadGate.wait") | .duration / 1000000' | jq -s 'add'
+# Cold-read gate waits grouped by outcome
+cat ~/.sf/vscode-spans/*.jsonl | jq -s '[.[] | select(.name == "coldReadGate.wait") | {outcome: (.attributes["cold_read_gate.outcome"] // "unknown"), wait_ms: .attributes["cold_read_gate.wait_ms"]}] | group_by(.outcome) | map({outcome: .[0].outcome, count: length, total_wait_ms: (map(.wait_ms) | add)})'
+
+# Data-owner queue contention grouped by lane and operation
+cat ~/.sf/vscode-spans/*.jsonl | jq -s '[.[] | select(.attributes["data_owner.queue_lane"] != null) | {lane: .attributes["data_owner.queue_lane"], operation: .attributes["data_owner.queue_operation"], wait_ms: .attributes["data_owner.queue_wait_ms"], depth: .attributes["data_owner.queue_depth"]}] | group_by([.lane, .operation]) | map({lane: .[0].lane, operation: .[0].operation, count: length, total_wait_ms: (map(.wait_ms) | add), max_queue_depth: (map(.depth) | max)})'
 ```
 
 #### Find-All-References Latency (if triggered during load)
 
 ```bash
-cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name | test("references")) | {name, duration_ms: (.duration / 1000000)}' | jq -s .
+# Stage latency and aggregate scan metrics. Candidate scans are intentionally
+# aggregate-only: do not expect per-file spans or source, URI, or symbol values.
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "references.cursor.compile" or .name == "references.cursor.prerequisites" or .name == "references.discovery.roundTrip" or .name == "references.candidates.scan" or .name == "references.response.assemble" or .name == "dataOwner.references.discovery") | {name, duration_ms: (((.endTimeUnixNano | tonumber) - (.startTimeUnixNano | tonumber)) / 1000000), attributes}' | jq -s .
+
+# Candidate scan pressure and reliability: compare parser time with occurrence
+# scan time, then investigate any nonzero unreliable-candidate count.
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "references.candidates.scan") | {candidates: .attributes["references.candidate_count"], unique_scans: .attributes["references.unique_scan_count"], parser_ms: .attributes["references.parser_ms"], occurrence_scan_ms: .attributes["references.occurrence_scan_ms"], unreliable_candidates: .attributes["references.candidate_failure_count"], occurrences: .attributes["references.occurrence_count"], outcome: .attributes["references.outcome"]}' | jq -s .
+
+# Response assembly: declaration handling and deduplication are separate from
+# scan completeness. `assembled` only means Location[] construction finished.
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "references.response.assemble") | {locations: .attributes["references.location_count"], occurrences: .attributes["references.occurrence_count"], duplicates: .attributes["references.duplicate_location_count"], declaration: .attributes["references.declaration_outcome"], outcome: .attributes["references.outcome"]}' | jq -s .
+
+# Data-owner discovery remains serial-fiber work; use its queue values to
+# distinguish candidate lookup contention from request-pool parse/scan cost.
+cat ~/.sf/vscode-spans/*.jsonl | jq 'select(.name == "dataOwner.references.discovery") | {documents: .attributes["references.document_count"], candidates: .attributes["references.candidate_count"], chars: .attributes["references.content_chars"], queue_wait_ms: .attributes["data_owner.queue_wait_ms"], queue_depth: .attributes["data_owner.queue_depth"]}' | jq -s .
 ```
 
 ## Troubleshooting
@@ -187,7 +204,9 @@ Check:
 
 ### Contention Evidence
 
-- coldReadGate.wait total: XX ms across XX spans
+- coldReadGate.wait: XX spans; outcomes: ready XX, timeout XX, no-compile-pending XX, stale-version XX
+- coldReadGate.wait totals by outcome: ready XX ms, timeout XX ms, no-compile-pending XX ms, stale-version XX ms
+- Data-owner queue: [read/write] [operation] waited XX ms across XX spans; maximum queue depth XX
 - Find-all-references latency: XX ms (vs. XX ms baseline)
 
 ### Critical Path

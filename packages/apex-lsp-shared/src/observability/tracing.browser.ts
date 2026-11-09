@@ -43,6 +43,7 @@ export const runWithSpan = async <T>(
   _spanName: string,
   fn: () => Promise<T>,
   _attributes?: LspSpanAttributes,
+  _resultAttributes?: (result: T) => LspSpanAttributes,
 ): Promise<T> => fn();
 
 /**

@@ -64,6 +64,7 @@ export const runWithSpan = async <T>(
   spanName: string,
   fn: () => Promise<T>,
   attributes?: LspSpanAttributes,
+  resultAttributes?: (result: T) => LspSpanAttributes,
 ): Promise<T> => {
   if (!tracingEnabled) {
     return fn();
@@ -79,6 +80,19 @@ export const runWithSpan = async <T>(
     }
     try {
       const result = await fn();
+      if (resultAttributes) {
+        try {
+          for (const [key, value] of Object.entries(resultAttributes(result))) {
+            if (value != null) {
+              span.setAttribute(key, value);
+            }
+          }
+        } catch (error) {
+          span.addEvent('tracing.result_attributes_error', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
       span.setStatus({ code: SpanStatusCode.OK });
       return result;
     } catch (e) {
