@@ -588,6 +588,18 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
           }),
         );
       return {
+        typeDefinition: yield* Effect.promise(() =>
+          dispatcher.dispatch('definition', {
+            textDocument: { uri },
+            position: { line: 2, character: 5 },
+          }),
+        ),
+        constructorDefinition: yield* Effect.promise(() =>
+          dispatcher.dispatch('definition', {
+            textDocument: { uri },
+            position: { line: 2, character: 47 },
+          }),
+        ),
         fieldDefinition: yield* Effect.promise(() =>
           dispatcher.dispatch('definition', {
             textDocument: { uri },
@@ -599,6 +611,16 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
     }).pipe(Effect.scoped);
 
     const result = await Effect.runPromise(program);
+    expect(result.typeDefinition).toEqual([
+      expect.objectContaining({
+        uri: 'file:///objects/ContentVersion/ContentVersion.object-meta.xml',
+      }),
+    ]);
+    expect(result.constructorDefinition).toEqual([
+      expect.objectContaining({
+        uri: 'file:///objects/ContentVersion/ContentVersion.object-meta.xml',
+      }),
+    ]);
     expect(result.fieldDefinition).toEqual([
       expect.objectContaining({
         uri: 'file:///objects/ContentVersion/fields/VersionData.field-meta.xml',
