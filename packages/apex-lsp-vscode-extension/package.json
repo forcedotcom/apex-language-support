@@ -753,6 +753,7 @@
       "command": "tsc --build",
       "clean": "if-file-deleted",
       "dependencies": [
+        "../apex-language-server-extension-api:compile",
         "precompile",
         "../apex-lsp-client:compile",
         "../apex-parser-ast:compile"
@@ -910,6 +911,7 @@
     }
   },
   "dependencies": {
+    "@salesforce/apex-language-server-extension-api": "workspace:*",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/sdk-trace-base": "^2.11.0",
     "@salesforce/apex-lsp-client": "workspace:*",

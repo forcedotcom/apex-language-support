@@ -1,6 +1,8 @@
 # NOTE: This workflow is standalone (workflow_dispatch only).
 # It is intentionally decoupled from the nightly schedule — the npm publishing
 # strategy (dependency ordering, dist-tag promotion tiers) is pending design.
+# The extension API is excluded below because it must be released only with its
+# matching VSIX through publish-extension-api.yml.
 # Do NOT add a schedule trigger or workflow_call trigger until that design is complete.
 name: Release NPM Packages
 
@@ -34,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       changed-npm-packages: ${{ steps.changes.outputs.packages }}
-      selected-packages: ${{ steps.selected-packages.outputs.packages }}
+      selected-packages: ${{ steps.exclude-extension-api.outputs.packages }}
       version-bump: ${{ steps.version-bump.outputs.bump }}
     steps:
       - name: Checkout
@@ -71,6 +73,13 @@ jobs:
           CHANGED_PACKAGES: ${{ steps.changes.outputs.packages }}
         run: |
           pnpm exec tsx .github/scripts/index.ts npm-package-selector
+
+      - name: Exclude extension API package
+        id: exclude-extension-api
+        env:
+          SELECTED_PACKAGES: ${{ steps.selected-packages.outputs.packages }}
+        run: |
+          echo "packages=$(jq -c '[.[] | select(. != "apex-language-server-extension-api")]' <<< "$SELECTED_PACKAGES")" >> "$GITHUB_OUTPUT"
 
       - name: Determine version bump type
         id: version-bump
@@ -123,7 +132,7 @@ jobs:
         run: |
           cd packages/${{ matrix.package }}
           pnpm run compile
-          pnpm run bundle
+          pnpm run --if-present bundle
 
       - name: Release to NPM
         if: inputs.dry-run != 'true' && github.event.inputs.dry-run != 'true'

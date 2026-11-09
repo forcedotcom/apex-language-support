@@ -410,6 +410,15 @@ importers:
         specifier: ^5.8.2
         version: 5.9.3
 
+  packages/apex-language-server-extension-api:
+    dependencies:
+      effect:
+        specifier: ^3.22.4
+        version: 3.22.4
+      vscode-languageserver-protocol:
+        specifier: 3.17.5
+        version: 3.17.5
+
   packages/apex-ls:
     dependencies:
       '@effect/platform':
@@ -623,6 +632,9 @@ importers:
       '@opentelemetry/sdk-trace-base':
         specifier: ^2.11.0
         version: 2.12.0(@opentelemetry/api@1.9.1)
+      '@salesforce/apex-language-server-extension-api':
+        specifier: workspace:*
+        version: link:../apex-language-server-extension-api
       '@salesforce/apex-lsp-client':
         specifier: workspace:*
         version: link:../apex-lsp-client

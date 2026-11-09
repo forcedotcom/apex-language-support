@@ -15,6 +15,9 @@ export default defineConfig({
       '@salesforce/apex-lsp-client/browser': fromRoot('packages/apex-lsp-client/src/browser.ts'),
       '@salesforce/apex-lsp-client/codeLens': fromRoot('packages/apex-lsp-client/src/codeLens.ts'),
       '@salesforce/apex-lsp-client': fromRoot('packages/apex-lsp-client/src/index.ts'),
+      '@salesforce/apex-language-server-extension-api': fromRoot(
+        'packages/apex-language-server-extension-api/src/index.ts',
+      ),
       '@salesforce/apex-lsp-compliant-services': fromRoot('packages/lsp-compliant-services/src/index.ts'),
       '@salesforce/apex-ls': fromRoot('packages/apex-ls/src/index.ts'),
       '@effect/opentelemetry/NodeSdk': require.resolve('@effect/opentelemetry/NodeSdk', {
