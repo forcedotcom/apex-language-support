@@ -185,6 +185,12 @@ export class AwaitSymbolReadiness extends Schema.TaggedRequest<AwaitSymbolReadin
       reason: Schema.optional(
         Schema.Literal('no-compile-pending', 'timeout', 'stale-version'),
       ),
+      /** Elapsed handler time on the data-owner worker, excluding wire delivery. */
+      handlerElapsedMs: Schema.optional(Schema.Number),
+      /** Coordinator-clock-compatible timestamp when the worker began handling. */
+      handlerStartedAtMs: Schema.optional(Schema.Number),
+      /** Timestamp when the worker had constructed the response for delivery. */
+      responseReadyAtMs: Schema.optional(Schema.Number),
     }),
     failure: Schema.Struct({
       _tag: Schema.Literal('AwaitSymbolReadinessError'),

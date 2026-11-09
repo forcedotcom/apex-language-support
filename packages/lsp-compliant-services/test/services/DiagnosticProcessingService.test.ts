@@ -150,6 +150,25 @@ describe('DiagnosticProcessingService', () => {
       expect(result[0].message).toBeDefined();
     });
 
+    it('skips document-open cache polling when the caller has already gated readiness', async () => {
+      const document = TextDocument.create(
+        'file:///DiagnosticReady.cls',
+        'apex',
+        1,
+        'public class DiagnosticReady {',
+      );
+      mockStorage.getDocument.mockResolvedValue(document);
+      const cacheLookup = vi.spyOn(getDocumentStateCache(), 'getSymbolResult');
+
+      const result = await service.processDiagnostic(
+        { textDocument: { uri: document.uri } },
+        { waitForDocumentCache: false },
+      );
+
+      expect(result.length).toBeGreaterThan(0);
+      expect(cacheLookup).toHaveBeenCalledTimes(1);
+    });
+
     it('should report syntax errors with ErrorCode (not generic SYNTAX_ERROR)', async () => {
       const fixturesDir = join(__dirname, '../fixtures/classes');
       const syntaxErrorPath = join(fixturesDir, 'SyntaxErrorClass.cls');

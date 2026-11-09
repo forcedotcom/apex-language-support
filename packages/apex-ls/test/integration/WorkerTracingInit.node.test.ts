@@ -21,7 +21,8 @@
  * `WorkerInit`'s handler exercises the exact `initWorkerTracing` +
  * `provideWorkerTracing` path production uses, against a real local HTTP
  * server standing in for the span collector. It asserts both that topology
- * init still succeeds and that the worker's test span is actually exported.
+ * init still succeeds and that a worker response is not coupled to an OTLP
+ * export completing.
  */
 
 import * as path from 'path';
@@ -36,15 +37,62 @@ import { Effect } from 'effect';
 const WORKER_ENTRY = path.resolve(__dirname, '../../dist/worker.platform.js');
 
 describe('Worker topology init with tracing enabled', () => {
-  it.skip('initializes successfully and exports the worker init test span', async () => {
-    const receivedBodies: string[] = [];
+  it('returns PingWorker before its OTLP export response completes', async () => {
+    let releaseTargetExport: (() => void) | undefined;
+    let targetExportFinished = false;
+    let targetExportReceivedResolve: (() => void) | undefined;
+    const targetExportReceived = new Promise<void>((resolve) => {
+      targetExportReceivedResolve = resolve;
+    });
+    let targetExportFinishedResolve: (() => void) | undefined;
+    const targetExportFinishedPromise = new Promise<void>((resolve) => {
+      targetExportFinishedResolve = resolve;
+    });
+    let pingReceivedResolve:
+      ((ping: { readonly echo: string }) => void) | undefined;
+    const pingReceived = new Promise<{ readonly echo: string }>((resolve) => {
+      pingReceivedResolve = resolve;
+    });
+    let topologyFailedReject: ((error: unknown) => void) | undefined;
+    const topologyFailed = new Promise<never>((_, reject) => {
+      topologyFailedReject = reject;
+    });
     const server = http.createServer((req, res) => {
       const chunks: Buffer[] = [];
       req.on('data', (chunk: Buffer) => chunks.push(chunk));
       req.on('end', () => {
-        receivedBodies.push(Buffer.concat(chunks).toString('utf-8'));
-        res.writeHead(200);
-        res.end();
+        const exported = JSON.parse(
+          Buffer.concat(chunks).toString('utf-8'),
+        ) as {
+          resourceSpans?: Array<{
+            scopeSpans?: Array<{ spans?: Array<{ name: string }> }>;
+          }>;
+        };
+        const containsPingSpan = exported.resourceSpans?.some((resource) =>
+          resource.scopeSpans?.some((scope) =>
+            scope.spans?.some(
+              (span) => span.name === 'worker.dataOwner.PingWorker',
+            ),
+          ),
+        );
+        if (!containsPingSpan) {
+          res.writeHead(200);
+          res.end();
+          return;
+        }
+
+        targetExportReceivedResolve?.();
+        releaseTargetExport = () => {
+          if (res.writableEnded || res.headersSent) {
+            return;
+          }
+          res.writeHead(200);
+          res.end();
+        };
+        res.once('finish', () => {
+          targetExportFinished = true;
+          targetExportFinishedResolve?.();
+        });
       });
     });
     await new Promise<void>((resolve) =>
@@ -53,6 +101,11 @@ describe('Worker topology init with tracing enabled', () => {
     const { port } = server.address() as { port: number };
     const spanCollectorUrl = `http://127.0.0.1:${port}`;
 
+    let releaseTopology: (() => void) | undefined;
+    const topologyReleased = new Promise<void>((resolve) => {
+      releaseTopology = resolve;
+    });
+    let pingPromise: Promise<{ readonly echo: string }> | undefined;
     try {
       const logger = getLogger();
 
@@ -64,31 +117,48 @@ describe('Worker topology init with tracing enabled', () => {
           spanCollectorUrl,
         });
 
-        // Confirm the topology is actually usable, not just "didn't throw".
-        return yield* topology.dataOwner.executeEffect(
+        const ping = yield* topology.dataOwner.executeEffect(
           new PingWorker({ echo: 'tracing-sanity' }),
         );
+        yield* Effect.sync(() => pingReceivedResolve?.(ping));
+        yield* Effect.promise(() => topologyReleased);
+        return ping;
       }).pipe(Effect.scoped, Effect.provide(makeNodeWorkerLayer(WORKER_ENTRY)));
 
-      const ping = await Effect.runPromise(program);
+      pingPromise = Effect.runPromise(program);
+      void pingPromise.catch((error) => topologyFailedReject?.(error));
+      await Promise.race([
+        targetExportReceived,
+        topologyFailed,
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error('PingWorker span was not exported')),
+            10_000,
+          ),
+        ),
+      ]);
+      const ping = await Promise.race([
+        pingReceived,
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () =>
+              reject(new Error('PingWorker waited for OTLP export completion')),
+            1_000,
+          ),
+        ),
+      ]);
       expect(ping.echo).toBe('tracing-sanity');
+      expect(targetExportFinished).toBe(false);
 
-      // The worker's test span export is fire-and-forget relative to
-      // WorkerInit's response, so poll briefly for it to arrive rather than
-      // asserting on a fixed delay.
-      const deadline = Date.now() + 10_000;
-      while (receivedBodies.length === 0 && Date.now() < deadline) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-
-      expect(receivedBodies.length).toBeGreaterThan(0);
-      const exported = JSON.parse(receivedBodies[0]);
-      const spanNames = exported.resourceSpans[0].scopeSpans[0].spans.map(
-        (span: { name: string }) => span.name,
-      );
-      expect(spanNames).toContain('worker.init.test.span');
+      releaseTargetExport?.();
+      await targetExportFinishedPromise;
+      releaseTopology?.();
+      await pingPromise;
     } finally {
+      releaseTargetExport?.();
+      releaseTopology?.();
+      await pingPromise?.catch(() => undefined);
       await new Promise<void>((resolve) => server.close(() => resolve()));
     }
-  }, 30_000);
+  }, 45_000);
 });

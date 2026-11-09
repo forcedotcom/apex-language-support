@@ -92,6 +92,7 @@ LCSAdapter.onDiagnostic()
   ↓
 LSPQueueManager.submitRequest('diagnostics', params, {priority: Normal})
   ↓ Queue Scheduling (priority-based)
+  ↓ Coordinator readiness confirms current document state before request-pool diagnostics run, so they skip duplicate document-cache polling.
 ServiceRegistry → DiagnosticProcessingService
    ↓
 Return parser diagnostics from the current snapshot
