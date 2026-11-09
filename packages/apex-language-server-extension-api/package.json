@@ -1,0 +1,138 @@
+{
+  "name": "@salesforce/apex-language-server-extension-api",
+  "version": "1.0.0",
+  "description": "Public Apex Language Server extension activation API contract",
+  "private": false,
+  "main": "./out/index.js",
+  "module": "./out/index.js",
+  "types": "./out/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./out/index.d.ts",
+      "import": "./out/index.js",
+      "require": "./out/index.js"
+    },
+    "./effect": {
+      "types": "./out/effect.d.ts",
+      "import": "./out/effect.js",
+      "require": "./out/effect.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "out/*.d.ts",
+    "out/*.d.ts.map",
+    "out/*.js",
+    "out/*.js.map",
+    "README.md"
+  ],
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/forcedotcom/apex-language-support.git",
+    "directory": "packages/apex-language-server-extension-api"
+  },
+  "scripts": {
+    "compile": "wireit",
+    "test": "wireit",
+    "test:coverage": "wireit",
+    "clean": "rimraf out .wireit coverage tsconfig.tsbuildinfo",
+    "clean:all": "pnpm run clean && rimraf node_modules",
+    "lint": "wireit",
+    "lint:fix": "wireit",
+    "typecheck": "wireit"
+  },
+  "wireit": {
+    "compile": {
+      "command": "tsc --build",
+      "clean": "if-file-deleted",
+      "output": [
+        "out/**"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "tsconfig*.json",
+        "../../tsconfig.base.json"
+      ]
+    },
+    "typecheck": {
+      "command": "tsc -p test/tsconfig.json --noEmit",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "tsconfig.json",
+        "test/tsconfig.json"
+      ]
+    },
+    "test": {
+      "command": "vitest run --reporter=default --reporter=json --outputFile.json=.wireit/test-results.json",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        ".wireit/test-results.json"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "vitest.config.mts"
+      ]
+    },
+    "test:coverage": {
+      "command": "vitest run --coverage --coverage.reportsDirectory=./coverage",
+      "dependencies": [
+        "compile"
+      ],
+      "output": [
+        "coverage/**"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "vitest.config.mts"
+      ]
+    },
+    "lint": {
+      "command": "eslint --color --cache --cache-location .eslintcache --no-error-on-unmatched-pattern src test",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
+      ],
+      "output": []
+    },
+    "lint:fix": {
+      "command": "eslint --fix --color --cache --cache-location .eslintcache --no-error-on-unmatched-pattern src test",
+      "dependencies": [
+        "compile"
+      ],
+      "files": [
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "eslint.config.mjs"
+      ],
+      "output": []
+    }
+  },
+  "peerDependencies": {
+    "effect": "^3.22.4"
+  },
+  "peerDependenciesMeta": {
+    "effect": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "vscode-languageserver-protocol": "3.17.5"
+  }
+}

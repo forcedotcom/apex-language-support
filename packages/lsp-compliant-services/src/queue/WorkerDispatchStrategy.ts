@@ -80,6 +80,10 @@ export interface WorkerDispatchStrategy {
   ): Promise<{
     ready: boolean;
     reason?: 'no-compile-pending' | 'timeout' | 'stale-version';
+    handlerElapsedMs?: number;
+    dispatchToHandlerMs?: number;
+    responseDeliveryMs?: number;
+    roundTripMs: number;
   }>;
   getTopologyStatus?(): WorkerTopologyStatus;
 }

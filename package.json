@@ -113,7 +113,7 @@
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "^4.64.7",
-    "@rollup/rollup-linux-x64-musl": "^4.64.7"
+    "@rollup/rollup-linux-x64-musl": "^4.66.0"
   },
   "dependencies": {
     "vscode-languageserver-protocol": "3.17.5",
@@ -133,6 +133,7 @@
         "./packages/apex-parser-ast:typecheck",
         "./packages/apex-lsp-shared:typecheck",
         "./packages/apex-lsp-client:typecheck",
+        "./packages/apex-language-server-extension-api:typecheck",
         "./packages/apex-ls:typecheck",
         "./packages/lsp-compliant-services:typecheck",
         "./packages/apex-lsp-vscode-extension:typecheck",
@@ -154,6 +155,7 @@
         "./packages/apex-ls:compile",
         "./packages/apex-lsp-shared:compile",
         "./packages/apex-lsp-client:compile",
+        "./packages/apex-language-server-extension-api:compile",
         "./packages/apex-parser-ast:compile:tsc",
         "./packages/apex-parser-ast:generate:stdlib-cache",
         "./packages/lsp-compliant-services:compile",
@@ -196,6 +198,7 @@
         "./packages/apex-ls:test:web",
         "./packages/apex-lsp-shared:test",
         "./packages/apex-lsp-client:test",
+        "./packages/apex-language-server-extension-api:test",
         "./packages/apex-lsp-testbed:test",
         "./packages/apex-lsp-vscode-extension:test",
         "./packages/apex-parser-ast:test",
@@ -294,6 +297,7 @@
         "./packages/apex-ls:lint",
         "./packages/apex-lsp-shared:lint",
         "./packages/apex-lsp-client:lint",
+        "./packages/apex-language-server-extension-api:lint",
         "./packages/apex-parser-ast:lint",
         "./packages/lsp-compliant-services:lint",
         "./packages/apex-lsp-testbed:lint",
@@ -309,6 +313,7 @@
         "./packages/apex-ls:lint:fix",
         "./packages/apex-lsp-shared:lint:fix",
         "./packages/apex-lsp-client:lint:fix",
+        "./packages/apex-language-server-extension-api:lint:fix",
         "./packages/apex-parser-ast:lint:fix",
         "./packages/lsp-compliant-services:lint:fix",
         "./packages/apex-lsp-testbed:lint:fix",

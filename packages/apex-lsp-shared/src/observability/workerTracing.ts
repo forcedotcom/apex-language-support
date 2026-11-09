@@ -9,8 +9,8 @@
 /**
  * Worker-side OTEL tracing with @effect/opentelemetry.
  *
- * Creates an OtlpTracer layer that handlers can provide to their Effects
- * so that Effect.fn spans are created and exported to the collector.
+ * Creates one worker-lifetime OtlpTracer runtime that handlers provide to their
+ * Effects so spans can export without delaying serialized worker responses.
  */
 
 import * as OtlpTracer from '@effect/opentelemetry/OtlpTracer';
@@ -19,26 +19,30 @@ import * as EffectTracer from '@effect/opentelemetry/Tracer';
 import { layer as FetchHttpClientLayer } from '@effect/platform/FetchHttpClient';
 import * as Effect from 'effect/Effect';
 import * as Layer from 'effect/Layer';
+import * as ManagedRuntime from 'effect/ManagedRuntime';
 import { context, propagation, trace, TraceFlags } from '@opentelemetry/api';
 import { AsyncLocalStorageContextManager } from '@opentelemetry/context-async-hooks';
 import { W3CTraceContextPropagator } from '@opentelemetry/core';
 import { getLogger } from '../logger';
 
-let tracerLayer: Layer.Layer<never> | undefined;
+let tracerRuntime: ManagedRuntime.ManagedRuntime<never, never> | undefined;
 let collectorUrl: string | undefined;
 
 /**
  * Initialize worker tracing with @effect/opentelemetry.
  *
- * Creates an OTLP/HTTP tracer layer that handlers can provide to their
- * Effects. Effect.fn calls within those Effects will automatically create
- * spans that export to the collector.
+ * Acquires an OTLP/HTTP tracer runtime for the worker lifetime. Effect.fn calls
+ * within provided Effects automatically create spans that export to the
+ * collector without finalizing the exporter for every request.
  *
  * @param url - The span collector endpoint (e.g., http://127.0.0.1:12345)
  * @param serviceName - The service name for this worker (e.g., "apex-ls-worker-data-owner")
  */
-export function initWorkerTracing(url: string, serviceName: string): void {
-  if (tracerLayer) {
+export async function initWorkerTracing(
+  url: string,
+  serviceName: string,
+): Promise<void> {
+  if (tracerRuntime) {
     // Already initialized
     return;
   }
@@ -66,8 +70,11 @@ export function initWorkerTracing(url: string, serviceName: string): void {
     // CRITICAL: Provide a context callback that runs the function within the active
     // OTEL context. This allows Effect.fn spans to inherit parent trace IDs from
     // the OTEL context set up by withExtractedTraceContext().
-    tracerLayer = OtlpTracer.layer({
+    const tracerLayer = OtlpTracer.layer({
       url: `${url}/v1/traces`,
+      // Export completed spans promptly without making each worker response
+      // wait for an exporter scope finalizer.
+      exportInterval: 250,
       resource: {
         serviceName,
       },
@@ -87,6 +94,9 @@ export function initWorkerTracing(url: string, serviceName: string): void {
         );
       },
     }).pipe(Layer.provide([FetchHttpClientLayer, OtlpSerializationLayer]));
+    const runtime = ManagedRuntime.make(tracerLayer);
+    await runtime.runtime();
+    tracerRuntime = runtime;
 
     getLogger().log(
       'info',
@@ -95,31 +105,36 @@ export function initWorkerTracing(url: string, serviceName: string): void {
   } catch (error) {
     // Tracing is optional - don't fail worker init if it doesn't work
     getLogger().log('error', `Failed to initialize worker tracing: ${error}`);
-    tracerLayer = undefined;
+    tracerRuntime = undefined;
   }
 }
 
 /**
- * Shut down worker tracing. The OTLP layer is scoped to each provided Effect,
- * so its exporter is finalized and flushed when that Effect completes; there
- * is no long-lived exporter left to await here.
+ * Shut down the worker-lifetime OTLP exporter after the worker has stopped
+ * accepting requests. Disposal makes a bounded best-effort flush; an in-flight
+ * export can still be interrupted by worker shutdown.
  */
-export function shutdownWorkerTracing(): void {
-  tracerLayer = undefined;
+export async function shutdownWorkerTracing(): Promise<void> {
+  const runtime = tracerRuntime;
+  tracerRuntime = undefined;
   collectorUrl = undefined;
+  if (runtime) {
+    await runtime.dispose();
+  }
 }
 
 /**
- * Get the tracer layer for worker Effect runtimes.
+ * Get the tracer runtime for worker Effect runtimes.
  *
- * Returns the OtlpTracer layer if tracing was initialized, undefined otherwise.
+ * Returns the worker-lifetime OtlpTracer runtime if tracing was initialized.
  */
-export function getWorkerTracerLayer(): Layer.Layer<never> | undefined {
-  return tracerLayer;
+export function getWorkerTracerRuntime():
+  ManagedRuntime.ManagedRuntime<never, never> | undefined {
+  return tracerRuntime;
 }
 
 /**
- * Provide the worker tracer layer to an Effect if tracing is initialized.
+ * Provide the worker tracer runtime to an Effect if tracing is initialized.
  *
  * This is a helper that handlers can pipe their Effects through to enable
  * Effect.fn span creation. If tracing isn't initialized, returns the Effect
@@ -137,12 +152,11 @@ export function getWorkerTracerLayer(): Layer.Layer<never> | undefined {
  */
 export function provideWorkerTracing<A, E, R>() {
   return (effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> => {
-    const layer = getWorkerTracerLayer();
-    if (!layer) {
+    const runtime = getWorkerTracerRuntime();
+    if (!runtime) {
       return effect;
     }
-    // Effect.provide changes the effect type, so we need to cast it back
-    return Effect.provide(effect, layer) as Effect.Effect<A, E, R>;
+    return Effect.provide(effect, runtime) as Effect.Effect<A, E, R>;
   };
 }
 
@@ -191,8 +205,8 @@ export function withExtractedTraceContext<A, E>(
 ): Effect.Effect<A, E, never> {
   if (!request.traceContext) {
     // No trace context in request - run normally
-    const layer = getWorkerTracerLayer();
-    return layer ? Effect.provide(effect, layer) : effect;
+    const runtime = getWorkerTracerRuntime();
+    return runtime ? Effect.provide(effect, runtime) : effect;
   }
 
   // Parse W3C traceparent format: 00-{traceId}-{spanId}-{flags}
@@ -204,8 +218,8 @@ export function withExtractedTraceContext<A, E>(
         'warning',
         `[traceContext] Invalid traceparent format: ${request.traceContext}`,
       );
-      const layer = getWorkerTracerLayer();
-      return layer ? Effect.provide(effect, layer) : effect;
+      const runtime = getWorkerTracerRuntime();
+      return runtime ? Effect.provide(effect, runtime) : effect;
     }
 
     const [, traceId, spanId, flagsHex] = parts;
@@ -226,14 +240,16 @@ export function withExtractedTraceContext<A, E>(
       traceFlags,
     });
 
-    // Apply tracer layer and set parent span
-    const layer = getWorkerTracerLayer();
-    const effectWithTracing = layer ? Effect.provide(effect, layer) : effect;
+    // Apply the worker-lifetime tracer and set the coordinator parent span.
+    const runtime = getWorkerTracerRuntime();
+    const effectWithTracing = runtime
+      ? Effect.provide(effect, runtime)
+      : effect;
     return Effect.withParentSpan(effectWithTracing, parentSpan);
   } catch (error) {
     // Trace context extraction failed - run effect normally
     getLogger().log('error', `Failed to extract trace context: ${error}`);
-    const layer = getWorkerTracerLayer();
-    return layer ? Effect.provide(effect, layer) : effect;
+    const runtime = getWorkerTracerRuntime();
+    return runtime ? Effect.provide(effect, runtime) : effect;
   }
 }

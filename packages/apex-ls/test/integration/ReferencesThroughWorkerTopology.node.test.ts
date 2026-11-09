@@ -24,6 +24,7 @@
  */
 
 import * as path from 'path';
+import * as http from 'node:http';
 import {
   initializeTopology,
   makeNodeWorkerLayer,
@@ -46,6 +47,17 @@ import {
   type WorkerRole,
 } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
+import { vi } from 'vitest';
+import { CompilerService, SymbolTable } from '@salesforce/apex-lsp-parser-ast';
+import {
+  scanCandidatesForOccurrences,
+  resolveOccurrencesForCursor,
+} from '../../src/worker.platform.shared';
+import type { RequestServices } from '@salesforce/apex-lsp-compliant-services';
+import {
+  initCoordinatorTracing,
+  shutdownCoordinatorTracing,
+} from '../../src/server/coordinatorTracing';
 
 const WORKER_ENTRY = path.resolve(__dirname, '../../dist/worker.platform.js');
 const LOG_LEVEL = 'error';
@@ -148,6 +160,172 @@ const toLocations = (
     targetUri?: string;
   }>;
 
+function makeDelayedParentCollector<T extends { name: string }>(
+  spans: T[],
+  parentNames: string[],
+) {
+  const pendingParents: T[] = [];
+  let parentExport: ReturnType<typeof setTimeout> | undefined;
+  let parentsReleased = false;
+  return {
+    collect(batch: T[]) {
+      for (const span of batch) {
+        if (parentNames.includes(span.name) && !parentsReleased)
+          pendingParents.push(span);
+        else spans.push(span);
+      }
+      // Reproduce independent exporter ordering: parent batches can arrive
+      // after every aggregate child has already reached the collector.
+      if (
+        !parentExport &&
+        spans.filter(
+          (span) =>
+            span.name.startsWith('references.') ||
+            span.name === 'dataOwner.references.discovery',
+        ).length === 6
+      ) {
+        parentExport = setTimeout(() => {
+          parentsReleased = true;
+          spans.push(...pendingParents);
+        }, 300);
+      }
+    },
+    dispose() {
+      if (parentExport) clearTimeout(parentExport);
+    },
+  };
+}
+
+describe('delayed-parent span collector', () => {
+  it('releases a parent arriving after the initial delayed release', () => {
+    vi.useFakeTimers();
+    const spans: Array<{ name: string }> = [];
+    const parentNames = [
+      'worker.lspRequest.DispatchReferences',
+      'worker.dataOwner.FindOccurrenceCandidates',
+    ];
+    const children = [
+      'references.cursor.compile',
+      'references.cursor.prerequisites',
+      'references.discovery.roundTrip',
+      'references.candidates.scan',
+      'references.response.assemble',
+      'dataOwner.references.discovery',
+    ].map((name) => ({ name }));
+    const parents = parentNames.map((name) => ({ name }));
+    const collector = makeDelayedParentCollector(spans, parentNames);
+    const required = [...children, ...parents];
+    const allSpansArrived = () =>
+      required.every(({ name }) => spans.some((span) => span.name === name));
+    try {
+      collector.collect([...children, parents[0]]);
+      vi.advanceTimersByTime(299);
+      expect(spans).toEqual(children);
+      expect(allSpansArrived()).toBe(false);
+      vi.advanceTimersByTime(1);
+      expect(spans).toEqual([...children, parents[0]]);
+      expect(allSpansArrived()).toBe(false);
+
+      collector.collect([parents[1]]);
+      expect(allSpansArrived()).toBe(true);
+      expect(spans).toEqual(required);
+    } finally {
+      collector.dispose();
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('references candidate scan reliability', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    'null-result',
+    'missing-result',
+    'compiler-errors',
+    'incomplete-table',
+    'throw',
+  ])(
+    'counts %s once while retaining best-effort occurrences and scanning other candidates',
+    async (failure) => {
+      const compile = CompilerService.prototype.compile;
+      const brokenUri = 'file:///test/Broken.cls';
+      vi.spyOn(CompilerService.prototype, 'compile').mockImplementation(
+        function (this: CompilerService, ...args: Parameters<typeof compile>) {
+          if (args[1] !== brokenUri) return compile.apply(this, args);
+          if (failure === 'throw') throw new Error('compiler failure');
+          if (failure === 'missing-result') return undefined as never;
+          if (failure === 'null-result')
+            return {
+              fileName: brokenUri,
+              result: null,
+              errors: [],
+              warnings: [],
+            };
+          const result = compile.apply(this, args);
+          if (failure === 'compiler-errors') {
+            result.errors.push({
+              type: 'syntax',
+              severity: 'error',
+              message: 'incomplete parse',
+              line: 1,
+              column: 0,
+              fileUri: brokenUri,
+            } as never);
+          } else {
+            (result.result as SymbolTable).setMetadata({
+              parseCompleteness: 'incomplete',
+            });
+          }
+          return result;
+        },
+      );
+      const metrics = {
+        uniqueScanCount: 0,
+        contentChars: 0,
+        failureCount: 0,
+        parserMs: 0,
+        occurrenceScanMs: 0,
+      };
+      const candidates = [
+        { uri: brokenUri, content: CALLER_A_SRC },
+        { uri: CALLER_B_URI, content: CALLER_B_SRC },
+        { uri: brokenUri, content: CALLER_A_SRC },
+      ];
+      const occurrences = await scanCandidatesForOccurrences(
+        candidates,
+        { name: 'RefUtil', kind: 'class' },
+        metrics,
+      );
+      expect(
+        occurrences.filter((occ) => occ.uri === CALLER_B_URI),
+      ).toHaveLength(2);
+      if (failure === 'compiler-errors' || failure === 'incomplete-table')
+        expect(occurrences.filter((occ) => occ.uri === brokenUri)).toHaveLength(
+          2,
+        );
+      expect(metrics).toMatchObject({
+        uniqueScanCount: 2,
+        contentChars: CALLER_A_SRC.length + CALLER_B_SRC.length,
+        failureCount: 1,
+        parserMs: expect.any(Number),
+        occurrenceScanMs: expect.any(Number),
+      });
+    },
+  );
+
+  it('preserves the exported async cursor flow no-text early return', async () => {
+    const compile = vi.spyOn(CompilerService.prototype, 'compile');
+    expect(
+      await resolveOccurrencesForCursor({} as RequestServices, {
+        textDocument: { uri: CALLER_A_URI },
+        position: { line: 2, character: 8 },
+      }),
+    ).toBeNull();
+    expect(compile).not.toHaveBeenCalled();
+  });
+});
+
 describe('find-references through the worker topology (location count)', () => {
   let logger: LoggerInterface;
 
@@ -162,81 +340,239 @@ describe('find-references through the worker topology (location count)', () => {
   });
 
   it('returns every cross-file usage of a type through the worker boundary', async () => {
-    const program = Effect.gen(function* () {
-      const topology = yield* initializeTopology({
-        poolSize: 1,
-        enableResourceLoader: true,
-        logger,
-        logLevel: LOG_LEVEL,
-        compilationPoolSize: COMPILATION_POOL_SIZE,
-        compilationConcurrency: 1,
-        workerLayerFactory,
+    const spans: Array<{
+      name: string;
+      traceId: string;
+      spanId: string;
+      parentSpanId?: string;
+      attributes: Array<{
+        key: string;
+        value: {
+          intValue?: string;
+          doubleValue?: number;
+          stringValue?: string;
+          boolValue?: boolean;
+        };
+      }>;
+    }> = [];
+    const parentNames = [
+      'worker.lspRequest.DispatchReferences',
+      'worker.dataOwner.FindOccurrenceCandidates',
+    ];
+    const delayedParents = makeDelayedParentCollector(spans, parentNames);
+    const collector = http.createServer((req, res) => {
+      const chunks: Buffer[] = [];
+      req.on('data', (chunk) => chunks.push(chunk));
+      req.on('end', () => {
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        for (const resource of body.resourceSpans ?? []) {
+          for (const scope of resource.scopeSpans ?? []) {
+            delayedParents.collect(scope.spans ?? []);
+          }
+        }
+        res.writeHead(200);
+        res.end();
       });
-      const dispatcher = makeWorkerDispatcher(
-        topology,
-        logger,
-        (uri) => SOURCES[uri],
-      );
-      wireProductionMediator(topology, dispatcher, logger);
-      yield* runRemoteStdlibWarmupPhase(topology, 1);
-
-      // Cold-open the declaring file (the data-owner holds RefUtil's symbols),
-      // then load the workspace so the callers' cross-file method-call edges
-      // enter the data-owner reverse index.
-      yield* Effect.promise(() =>
-        dispatcher.dispatch('documentOpen', {
-          document: {
-            uri: UTIL_URI,
-            languageId: 'apex',
-            version: 1,
-            getText: () => UTIL_SRC,
-          },
-          textDocument: { uri: UTIL_URI },
-          text: UTIL_SRC,
-        }),
-      );
-
-      const ingest = dispatcher.createBatchIngestionDispatcher();
-      const compile = dispatcher.createDataOwnerCompileDispatcher();
-      yield* Effect.promise(() => ingest('wf-refs-count', ALL_ENTRIES));
-      yield* Effect.promise(() =>
-        compile({ sessionId: 'wf-refs-count', entries: ALL_ENTRIES }),
-      );
-
-      // find-references on the `RefUtil` TYPE usage in caller A — the cursor is
-      // on `RefUtil` in `RefUtil u = new RefUtil()` (line 2). find-references
-      // invoked from a usage resolves the cursor to the declared type, then the
-      // data-owner reverse index yields every cross-file usage. The dispatch
-      // threads the caller's document text so the pool worker's storage can map
-      // the position to a symbol.
-      const result = yield* Effect.promise(() =>
-        dispatcher.dispatch('references', {
-          textDocument: { uri: CALLER_A_URI },
-          position: { line: 2, character: 8 }, // on `RefUtil` in `RefUtil u = ...`
-          context: { includeDeclaration: true },
-        }),
-      );
-
-      return { result };
-    }).pipe(Effect.scoped);
-
-    const { result } = await Effect.runPromise(program);
-    logger.debug(`[D2] ${JSON.stringify(result)}`);
-
-    const locations = toLocations(result);
-    const uris = locations.map((l) => l.uri ?? l.targetUri ?? '');
-    logger.debug(
-      `[refs-topology] count=${locations.length} uris=${JSON.stringify(uris)}`,
+    });
+    await new Promise<void>((resolve) =>
+      collector.listen(0, '127.0.0.1', resolve),
     );
+    const address = collector.address();
+    if (!address || typeof address === 'string')
+      throw new Error('No collector port');
+    // LCSAdapter initializes coordinator tracing in production; without its
+    // propagator/context manager the assistance mediator cannot relay trace IDs.
+    initCoordinatorTracing(`http://127.0.0.1:${address.port}`);
+    try {
+      const program = Effect.gen(function* () {
+        const topology = yield* initializeTopology({
+          poolSize: 1,
+          enableResourceLoader: true,
+          logger,
+          logLevel: LOG_LEVEL,
+          compilationPoolSize: COMPILATION_POOL_SIZE,
+          compilationConcurrency: 1,
+          workerLayerFactory,
+          spanCollectorUrl: `http://127.0.0.1:${address.port}`,
+        });
+        const dispatcher = makeWorkerDispatcher(
+          topology,
+          logger,
+          (uri) => SOURCES[uri],
+        );
+        wireProductionMediator(topology, dispatcher, logger);
+        yield* runRemoteStdlibWarmupPhase(topology, 1);
 
-    // The crux: every cross-file usage of the RefUtil type comes back through
-    // the worker boundary, not just a single collapsed result.
-    //   - RefCallerA: two type usages (`RefUtil u`, `new RefUtil()`)
-    //   - RefCallerB: two type usages
-    //   - RefUtil:    the declaration (includeDeclaration: true)
-    expect(locations.length).toBeGreaterThanOrEqual(3);
-    expect(uris.some((u) => u.includes('RefCallerA'))).toBe(true);
-    expect(uris.some((u) => u.includes('RefCallerB'))).toBe(true);
+        // Cold-open the declaring file (the data-owner holds RefUtil's symbols),
+        // then load the workspace so the callers' cross-file method-call edges
+        // enter the data-owner reverse index.
+        yield* Effect.promise(() =>
+          dispatcher.dispatch('documentOpen', {
+            document: {
+              uri: UTIL_URI,
+              languageId: 'apex',
+              version: 1,
+              getText: () => UTIL_SRC,
+            },
+            textDocument: { uri: UTIL_URI },
+            text: UTIL_SRC,
+          }),
+        );
+
+        const ingest = dispatcher.createBatchIngestionDispatcher();
+        const compile = dispatcher.createDataOwnerCompileDispatcher();
+        yield* Effect.promise(() => ingest('wf-refs-count', ALL_ENTRIES));
+        yield* Effect.promise(() =>
+          compile({ sessionId: 'wf-refs-count', entries: ALL_ENTRIES }),
+        );
+
+        // find-references on the `RefUtil` TYPE usage in caller A — the cursor is
+        // on `RefUtil` in `RefUtil u = new RefUtil()` (line 2). find-references
+        // invoked from a usage resolves the cursor to the declared type, then the
+        // data-owner reverse index yields every cross-file usage. The dispatch
+        // threads the caller's document text so the pool worker's storage can map
+        // the position to a symbol.
+        const result = yield* Effect.promise(() =>
+          dispatcher.dispatch('references', {
+            textDocument: { uri: CALLER_A_URI },
+            position: { line: 2, character: 8 }, // on `RefUtil` in `RefUtil u = ...`
+            context: { includeDeclaration: true },
+          }),
+        );
+
+        const expected = [
+          'references.cursor.compile',
+          'references.cursor.prerequisites',
+          'references.discovery.roundTrip',
+          'references.candidates.scan',
+          'references.response.assemble',
+          'dataOwner.references.discovery',
+        ];
+        const deadline = Date.now() + 10_000;
+        const required = [...expected, ...parentNames];
+        while (
+          !required.every((name) => spans.some((span) => span.name === name)) &&
+          Date.now() < deadline
+        ) {
+          yield* Effect.sleep('100 millis');
+        }
+        expect(
+          required.filter((name) => !spans.some((span) => span.name === name)),
+        ).toEqual([]);
+        expect(
+          spans
+            .filter((span) => expected.includes(span.name))
+            .map((span) => span.name)
+            .sort(),
+        ).toEqual([...expected].sort());
+        const attrs = (name: string) =>
+          Object.fromEntries(
+            spans
+              .find((span) => span.name === name)!
+              .attributes.map(({ key, value }) => [
+                key,
+                value.intValue !== undefined
+                  ? Number(value.intValue)
+                  : (value.doubleValue ?? value.stringValue ?? value.boolValue),
+              ]),
+          );
+        expect(attrs('references.candidates.scan')).toMatchObject({
+          'references.candidate_count': 3,
+          'references.unique_scan_count': 3,
+          'references.content_chars':
+            UTIL_SRC.length + CALLER_A_SRC.length + CALLER_B_SRC.length,
+          'references.candidate_failure_count': 0,
+          'references.candidate_success_count': 3,
+          'references.outcome': 'complete',
+          'references.occurrence_count': 4,
+          'references.parser_ms': expect.any(Number),
+          'references.occurrence_scan_ms': expect.any(Number),
+        });
+        expect(attrs('references.response.assemble')).toMatchObject({
+          'references.location_count': 5,
+          'references.duplicate_location_count': 0,
+          'references.declaration_requested': true,
+          'references.declaration_found': true,
+          'references.declaration_outcome': 'added',
+          'references.outcome': 'assembled',
+        });
+        expect(attrs('dataOwner.references.discovery')).toMatchObject({
+          'references.document_count': expect.any(Number),
+          'references.candidate_count': 3,
+          'data_owner.queue_wait_ms': expect.any(Number),
+          'data_owner.queue_depth': expect.any(Number),
+          'data_owner.queue_lane': 'read',
+        });
+        const aggregate = spans.filter((span) => expected.includes(span.name));
+        const requestSpan = spans.find(
+          (span) => span.name === 'worker.lspRequest.DispatchReferences',
+        );
+        expect(requestSpan).toBeDefined();
+        // Cross-worker continuity is not currently provided on this production
+        // assistance path, even with coordinator tracing initialized: the
+        // request-pool/data-owner traces observed during the regression were
+        // 06bb09d7cd23f528aa4321f97fdef76e / af30e60ea681d021554654172dfe3ac6.
+        // Assert actual worker-local ancestry below, not a false shared trace.
+        for (const span of aggregate) {
+          const parent =
+            span.name === 'dataOwner.references.discovery'
+              ? spans.find(
+                  (candidate) =>
+                    candidate.name ===
+                    'worker.dataOwner.FindOccurrenceCandidates',
+                )
+              : requestSpan;
+          expect(parent).toBeDefined();
+          expect(span.traceId).toBe(parent!.traceId);
+          expect(span.parentSpanId).toBe(parent!.spanId);
+          expect(span.parentSpanId).toBeTruthy();
+          for (const { key, value } of span.attributes) {
+            expect(key).not.toMatch(/uri|target|error|source/);
+            expect(
+              Object.keys(value).every((type) =>
+                [
+                  'intValue',
+                  'doubleValue',
+                  'stringValue',
+                  'boolValue',
+                ].includes(type),
+              ),
+            ).toBe(true);
+            if (value.stringValue)
+              expect(value.stringValue).not.toMatch(
+                /RefUtil|RefCaller|file:\/\/|public class/,
+              );
+          }
+        }
+        expect(
+          spans.filter((span) => span.name.startsWith('references.')),
+        ).toHaveLength(5);
+        return { result };
+      }).pipe(Effect.scoped);
+
+      const { result } = await Effect.runPromise(program);
+      logger.debug(`[D2] ${JSON.stringify(result)}`);
+
+      const locations = toLocations(result);
+      const uris = locations.map((l) => l.uri ?? l.targetUri ?? '');
+      logger.debug(
+        `[refs-topology] count=${locations.length} uris=${JSON.stringify(uris)}`,
+      );
+
+      // The crux: every cross-file usage of the RefUtil type comes back through
+      // the worker boundary, not just a single collapsed result.
+      //   - RefCallerA: two type usages (`RefUtil u`, `new RefUtil()`)
+      //   - RefCallerB: two type usages
+      //   - RefUtil:    the declaration (includeDeclaration: true)
+      expect(locations.length).toBeGreaterThanOrEqual(3);
+      expect(uris.some((u) => u.includes('RefCallerA'))).toBe(true);
+      expect(uris.some((u) => u.includes('RefCallerB'))).toBe(true);
+      expect(locations).toHaveLength(5);
+    } finally {
+      await shutdownCoordinatorTracing();
+      delayedParents.dispose();
+      await new Promise<void>((resolve) => collector.close(() => resolve()));
+    }
   }, 120_000);
 
   it('returns the same count on a repeat request after an intervening documentChange (W-23272674)', async () => {

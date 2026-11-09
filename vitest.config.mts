@@ -5,6 +5,7 @@ export default defineConfig({
     projects: [
       'packages/apex-ls/vitest.config.mts',
       'packages/apex-lsp-client/vitest.config.mts',
+      'packages/apex-language-server-extension-api/vitest.config.mts',
       'packages/apex-lsp-shared/vitest.config.mts',
       'packages/apex-lsp-testbed/vitest.config.mts',
       'packages/apex-lsp-vscode-extension/vitest.config.mts',

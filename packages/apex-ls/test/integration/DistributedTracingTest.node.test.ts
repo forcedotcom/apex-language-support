@@ -40,7 +40,16 @@ interface OtlpSpan {
   spanId: string;
   parentSpanId?: string;
   kind: number;
+  attributes?: Array<{
+    key: string;
+    value: { stringValue?: string; intValue?: string };
+  }>;
 }
+
+const attributeValue = (span: OtlpSpan, key: string): string | undefined =>
+  span.attributes?.find((attribute) => attribute.key === key)?.value
+    .stringValue ??
+  span.attributes?.find((attribute) => attribute.key === key)?.value.intValue;
 
 describe('withExtractedTraceContext()', () => {
   let mockCollector: http.Server;
@@ -97,7 +106,7 @@ describe('withExtractedTraceContext()', () => {
     const spanCollectorUrl = `http://127.0.0.1:${collectorPort}`;
 
     // Initialize worker tracing to point at our mock collector
-    initWorkerTracing(spanCollectorUrl, 'test-worker');
+    await initWorkerTracing(spanCollectorUrl, 'test-worker');
 
     // Known trace context from a coordinator span
     const coordinatorTraceId = 'a4da210590970d819e83f75404da6e0c';
@@ -169,7 +178,7 @@ describe('withExtractedTraceContext()', () => {
 
   it('runs without traceContext if not provided', async () => {
     const spanCollectorUrl = `http://127.0.0.1:${collectorPort}`;
-    initWorkerTracing(spanCollectorUrl, 'test-worker-no-parent');
+    await initWorkerTracing(spanCollectorUrl, 'test-worker-no-parent');
 
     // Effect with no parent trace context
     const testEffect = Effect.fn(
@@ -201,7 +210,7 @@ describe('withExtractedTraceContext()', () => {
 
   it('uses the coordinator parent for every worker role', async () => {
     const spanCollectorUrl = `http://127.0.0.1:${collectorPort}`;
-    initWorkerTracing(spanCollectorUrl, 'test-all-worker-roles');
+    await initWorkerTracing(spanCollectorUrl, 'test-all-worker-roles');
 
     const coordinatorTraceId = 'b4da210590970d819e83f75404da6e0d';
     const coordinatorSpanId = '435350cc5528d5b7';
@@ -291,6 +300,10 @@ describe('withExtractedTraceContext()', () => {
     expect(queueSpan).toBeDefined();
     expect(queueSpan?.traceId).toBe(coordinatorTraceId);
     expect(queueSpan?.parentSpanId).toBe(requestSpan?.spanId);
+    expect(attributeValue(queueSpan!, 'data_owner.queue_lane')).toBe('write');
+    expect(attributeValue(queueSpan!, 'data_owner.queue_operation')).toBe(
+      'test.dataOwner.queue.execute',
+    );
   }, 30_000);
 
   it('continues processing data-owner writes after one write defects', async () => {

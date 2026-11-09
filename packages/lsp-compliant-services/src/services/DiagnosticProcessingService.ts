@@ -67,7 +67,10 @@ export interface IDiagnosticProcessor {
    * @param params - The diagnostic parameters containing the document URI
    * @returns Promise resolving to an array of diagnostics for the document
    */
-  processDiagnostic(params: DocumentDiagnosticParams): Promise<Diagnostic[]>;
+  processDiagnostic(
+    params: DocumentDiagnosticParams,
+    options?: { readonly waitForDocumentCache?: boolean },
+  ): Promise<Diagnostic[]>;
 }
 
 /**
@@ -244,6 +247,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
    */
   public async processDiagnostic(
     params: DocumentDiagnosticParams,
+    options: { readonly waitForDocumentCache?: boolean } = {},
   ): Promise<Diagnostic[]> {
     this.logger.debug(
       () => `Processing diagnostic request for: ${params.textDocument.uri}`,
@@ -284,7 +288,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       // expose a waitForResult(uri, version): Promise<SymbolResult> backed by an event
       // emitter so callers can await directly instead of polling, eliminating latency
       // waste (up to pollInterval after condition becomes true) and unnecessary CPU work.
-      if (!cached && document) {
+      if (options.waitForDocumentCache !== false && !cached && document) {
         const maxWaitTime = 500; // Maximum time to wait for documentOpen
         const pollInterval = 50; // Check every 50ms
         const maxAttempts = Math.floor(maxWaitTime / pollInterval);

@@ -37,6 +37,7 @@ import * as vscode from 'vscode';
 import { activate, deactivate } from '../src/extension';
 import { getOrgArtifactFileSystem } from '../src/services/org-artifact-fs';
 import { getClient } from '../src/language-server';
+import { APEX_EXTENSION_API_VERSION } from '@salesforce/apex-language-server-extension-api';
 
 // Import mocked functions
 
@@ -49,6 +50,14 @@ describe('Apex Language Server Extension ()', () => {
     vi.mocked(getClient).mockReturnValue({
       getLineBreakpointInfo: vi.fn().mockResolvedValue([]),
       getExceptionBreakpointInfo: vi.fn().mockResolvedValue([]),
+      getFeatureState: vi
+        .fn()
+        .mockReturnValue({ supported: false, enabled: false }),
+      hover: vi.fn().mockResolvedValue(null),
+      completion: vi.fn().mockResolvedValue(null),
+      definition: vi.fn().mockResolvedValue(null),
+      documentSymbol: vi.fn().mockResolvedValue([]),
+      semanticTokens: vi.fn().mockResolvedValue([]),
     } as any);
 
     mockContext = {
@@ -74,6 +83,7 @@ describe('Apex Language Server Extension ()', () => {
     expect(api.codeLens).toBeDefined();
     expect(api.codeLens.register).toEqual(expect.any(Function));
     expect(api.client).toBeDefined();
+    expect(api.apiVersion).toBe(APEX_EXTENSION_API_VERSION);
   });
 
   it('activates in a development host without Salesforce Services', async () => {
@@ -84,13 +94,61 @@ describe('Apex Language Server Extension ()', () => {
     );
   });
 
-  it('exposes the materialized client through the activation API', async () => {
-    const client = { getLineBreakpointInfo: vi.fn() };
+  it('exposes a stable public client through the activation API', async () => {
+    const client = {
+      getLineBreakpointInfo: vi.fn().mockResolvedValue([]),
+      getExceptionBreakpointInfo: vi.fn().mockResolvedValue([]),
+      getFeatureState: vi
+        .fn()
+        .mockReturnValue({ supported: false, enabled: false }),
+      hover: vi.fn().mockResolvedValue(null),
+      completion: vi.fn().mockResolvedValue(null),
+      definition: vi.fn().mockResolvedValue(null),
+      documentSymbol: vi.fn().mockResolvedValue([]),
+      semanticTokens: vi.fn().mockResolvedValue([]),
+    };
     vi.mocked(getClient).mockReturnValue(client as any);
 
     const api = await activate(mockContext);
 
-    expect(api.client).toBe(client);
+    expect(api.client).not.toBe(client);
+    await api.client.documentSymbol({
+      textDocument: { uri: 'file:///Example.cls' },
+    });
+    await api.client.semanticTokens({
+      textDocument: { uri: 'file:///Example.cls' },
+    });
+    expect(client.documentSymbol).toHaveBeenCalledOnce();
+    expect(client.semanticTokens).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the exported client valid after server replacement', async () => {
+    const firstClient = {
+      getLineBreakpointInfo: vi.fn().mockResolvedValue([]),
+      getExceptionBreakpointInfo: vi.fn().mockResolvedValue([]),
+      getFeatureState: vi
+        .fn()
+        .mockReturnValue({ supported: false, enabled: false }),
+      hover: vi.fn().mockResolvedValue(null),
+      completion: vi.fn().mockResolvedValue(null),
+      definition: vi.fn().mockResolvedValue(null),
+      documentSymbol: vi.fn().mockResolvedValue([]),
+      semanticTokens: vi.fn().mockResolvedValue([]),
+    };
+    const replacementClient = {
+      ...firstClient,
+      documentSymbol: vi.fn().mockResolvedValue([]),
+    };
+    vi.mocked(getClient).mockReturnValue(firstClient as any);
+    const api = await activate(mockContext);
+    vi.mocked(getClient).mockReturnValue(replacementClient as any);
+
+    await api.client.documentSymbol({
+      textDocument: { uri: 'file:///Example.cls' },
+    });
+
+    expect(firstClient.documentSymbol).not.toHaveBeenCalled();
+    expect(replacementClient.documentSymbol).toHaveBeenCalledOnce();
   });
 
   it('deactivates without errors', async () => {

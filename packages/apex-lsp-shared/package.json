@@ -1,5 +1,6 @@
 {
   "name": "@salesforce/apex-lsp-shared",
+  "private": true,
   "version": "1.0.0",
   "description": "Apex LSP shared utilities",
   "main": "out/index.js",
