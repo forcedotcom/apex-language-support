@@ -1191,6 +1191,13 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
         // Let the chain mechanism handle it - don't create manual references
         // The chain will be created with finalAccess set to lhsAccess
         if (isContextType(leftExpression, DotExpressionContext)) {
+          if (this.captureAssignmentChain(leftExpression, lhsAccess)) {
+            this.suppressedLHSRange = {
+              ...lhsLoc,
+              identifierRange: lhsLoc.symbolRange,
+            };
+            return;
+          }
           // Chain mechanism will handle this in enterDotExpression/exitDotExpression
           // finalAccess will be set in createNewChainScope
           return;
@@ -1256,6 +1263,86 @@ export class ApexReferenceCollectorListener extends BaseApexParserListener<Symbo
     } catch (error) {
       this.logger.warn(() => `Error entering assign expression: ${error}`);
     }
+  }
+
+  /** Capture identifier-based assignment chains from their actual parser nodes. */
+  captureAssignmentChain(
+    ctx: DotExpressionContext,
+    access: 'write' | 'readwrite',
+  ): boolean {
+    const collectNodes = (
+      expression: ParserRuleContext,
+    ): SymbolReference[] | null => {
+      if (isContextType(expression, DotExpressionContext)) {
+        const member = expression.anyId();
+        const receiver = expression.expression();
+        if (!member || !receiver) return null;
+        const nodes = collectNodes(receiver);
+        if (!nodes) return null;
+        nodes.push(
+          SymbolReferenceFactory.createFieldAccessReference(
+            member.getText(),
+            this.getLocationForReference(member),
+            nodes[nodes.length - 1].name,
+            this.getCurrentMethodName(),
+            'read',
+          ),
+        );
+        return nodes;
+      }
+      if (isContextType(expression, PrimaryExpressionContext)) {
+        const primary = expression.primary();
+        if (isContextType(primary, IdPrimaryContext)) {
+          const id = primary.id();
+          return [
+            SymbolReferenceFactory.createVariableUsageReference(
+              id.getText(),
+              this.getLocationForReference(id),
+              this.getCurrentMethodName(),
+              'read',
+            ),
+          ];
+        }
+      }
+      return null;
+    };
+
+    const nodes = collectNodes(ctx);
+    if (!nodes || nodes.length < 2) return false;
+    // Intermediate qualified hops may name nested types or instance members.
+    // Match ordinary expression chains: resolve the receiver before the leaf.
+    for (let index = 1; index < nodes.length - 1; index++) {
+      const node = nodes[index];
+      // A member read needs its receiver prefix for resolution and occurrence
+      // ownership. Never publish it as an unqualified standalone field.
+      this.symbolTable.addTypeReference(
+        SymbolReferenceFactory.createChainedExpressionReference(
+          [...nodes.slice(0, index), { ...node }],
+          {
+            ...node,
+            name: nodes
+              .slice(0, index + 1)
+              .map((hop) => hop.name)
+              .join('.'),
+          },
+          this.getCurrentMethodName(),
+        ),
+      );
+      node.context = ReferenceContext.CHAIN_STEP;
+    }
+    const finalNode = nodes[nodes.length - 1];
+    finalNode.access = access;
+    this.symbolTable.addTypeReference(nodes[0]);
+    // Keep the terminal member in its receiver chain only. Cursor lookup exposes
+    // its exact node range; a standalone field would bind through lexical scope.
+    this.symbolTable.addTypeReference(
+      SymbolReferenceFactory.createChainedExpressionReference(
+        nodes,
+        { ...finalNode, name: nodes.map((node) => node.name).join('.') },
+        this.getCurrentMethodName(),
+      ),
+    );
+    return true;
   }
 
   exitAssignExpression(): void {

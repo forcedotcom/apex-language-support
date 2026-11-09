@@ -723,11 +723,7 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
         ? 'readwrite'
         : 'write';
 
-      const expressions = (ctx as any).expression?.();
-      const leftExpression =
-        Array.isArray(expressions) && expressions.length > 0
-          ? expressions[0]
-          : (expressions ?? null);
+      const leftExpression = ctx.expression(0);
 
       if (leftExpression) {
         const lhsLoc = this.getLocation(
@@ -762,6 +758,18 @@ export class BlockContentListener extends BaseApexParserListener<SymbolTable> {
 
         // If it's a dotted field reference: obj.field
         if (isContextType(leftExpression, DotExpressionContext)) {
+          const collector = new ApexReferenceCollectorListener(
+            this.symbolTable,
+          );
+          collector.setCurrentFileUri(this.currentFilePath);
+          collector.setParentContext(parentContext);
+          if (collector.captureAssignmentChain(leftExpression, lhsAccess)) {
+            this.suppressedLHSRange = {
+              ...lhsLoc,
+              identifierRange: lhsLoc.symbolRange,
+            };
+            return;
+          }
           const dotExpr = leftExpression;
           const anyId = dotExpr.anyId();
           if (anyId) {

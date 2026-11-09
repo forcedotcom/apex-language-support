@@ -1439,6 +1439,7 @@ interface CursorTargetDependencyTelemetry {
 
 type DependencyTypeShape = {
   name?: string;
+  typeReferenceId?: string;
   isArray?: boolean;
   isPrimitive?: boolean;
   isBuiltIn?: boolean;
@@ -1452,6 +1453,7 @@ type DependencyTypeShape = {
 type DependencyCursorReference = {
   name: string;
   context: number;
+  isSObject?: boolean;
   resolvedSymbolId?: string;
   resolvedTypeId?: string;
   semanticContext?: {
@@ -1634,6 +1636,10 @@ function loadCursorTargetDependencies(
       string,
       { name: string; exactFqn?: string }
     >();
+    const sObjectCandidateReferences = new Map<
+      string,
+      DependencyCursorReference
+    >();
     const addCandidate = (
       name: string | undefined,
       exactFqn?: string,
@@ -1645,6 +1651,26 @@ function loadCursorTargetDependencies(
         name,
         ...(exactFqn ? { exactFqn } : {}),
       });
+    };
+    const addSObjectCandidate = (
+      reference: DependencyCursorReference,
+    ): void => {
+      if (requestType !== 'hover' && requestType !== 'definition') return;
+      const lower = reference.name.toLowerCase();
+      if (['this', 'super', 'unknown', 'void', 'null'].includes(lower)) return;
+      if (
+        reference.isSObject !== true &&
+        !SObjectRegistry.isCustomSObjectName(reference.name) &&
+        (reference.context === ReferenceContext.TYPE_DECLARATION ||
+          reference.context === ReferenceContext.CONSTRUCTOR_CALL ||
+          reference.context === ReferenceContext.RETURN_TYPE ||
+          reference.context === ReferenceContext.PARAMETER_TYPE ||
+          reference.context === ReferenceContext.GENERIC_PARAMETER_TYPE ||
+          reference.context === ReferenceContext.CAST_TYPE_REFERENCE ||
+          reference.context === ReferenceContext.INSTANCEOF_TYPE_REFERENCE)
+      ) {
+        sObjectCandidateReferences.set(lower, reference);
+      }
     };
     const visitedTypes = new Set<object>();
     const pendingResolvedSymbolIds = new Set<string>();
@@ -1663,6 +1689,20 @@ function loadCursorTargetDependencies(
       const exactFqn = resolvedFqn ?? structuredFqn;
       if (!type.isArray && !type.isPrimitive && !type.isBuiltIn) {
         addCandidate(exactFqn ?? type.name, exactFqn);
+        // A member cursor selects the receiver value, not its declaration's
+        // type token. Preserve that parser-owned type reference for the same
+        // sObject probe used when the cursor is directly on a type.
+        if (requestType === 'definition' && type.typeReferenceId) {
+          for (const reference of symbolTable.getAllReferences()) {
+            const range = reference.location.identifierRange;
+            const identity =
+              `${uri}:${range.startLine}:${range.startColumn}:` +
+              `${reference.name}:${ReferenceContext[reference.context]}`;
+            if (identity === type.typeReferenceId) {
+              addSObjectCandidate(reference);
+            }
+          }
+        }
       }
       addTypeInfoCandidate(type.keyType);
       for (const parameter of type.typeParameters ?? []) {
@@ -1700,6 +1740,7 @@ function loadCursorTargetDependencies(
     };
 
     for (const reference of references) {
+      addSObjectCandidate(reference);
       if (
         reference.context === ReferenceContext.CLASS_REFERENCE ||
         reference.context === ReferenceContext.CONSTRUCTOR_CALL ||
@@ -1713,6 +1754,7 @@ function loadCursorTargetDependencies(
       yield* addResolvedSymbolType(reference.resolvedSymbolId);
       yield* addResolvedSymbolType(reference.resolvedTypeId, true);
       for (const node of reference.chainNodes ?? []) {
+        addSObjectCandidate(node);
         if (
           node.context === ReferenceContext.CLASS_REFERENCE ||
           node.context === ReferenceContext.CONSTRUCTOR_CALL ||
@@ -1800,6 +1842,7 @@ function loadCursorTargetDependencies(
         .map((reference) => reference.name.toLowerCase()),
     );
     const missingNames: string[] = [];
+    const locallyAvailableNames = new Set<string>();
     let localHitCount = 0;
     for (const candidateName of candidateNames.values()) {
       const exact = yield* Effect.promise(() =>
@@ -1807,11 +1850,19 @@ function loadCursorTargetDependencies(
           candidateName.exactFqn ?? candidateName.name,
         ),
       );
-      const candidates = exact
+      const matches = exact
         ? [exact]
         : yield* Effect.promise(() =>
             svc.symbolManager.findSymbolByName(candidateName.name),
           );
+      // Same-named values prove neither type availability nor type ambiguity.
+      const candidates = matches.filter(
+        (candidate) =>
+          candidate.kind === SymbolKind.Class ||
+          candidate.kind === SymbolKind.Interface ||
+          candidate.kind === SymbolKind.Enum ||
+          candidate.kind === SymbolKind.SObject,
+      );
       let locallyAvailable = false;
       for (const candidate of candidates) {
         if (
@@ -1829,8 +1880,10 @@ function loadCursorTargetDependencies(
           break;
         }
       }
-      if (locallyAvailable) localHitCount++;
-      else if (
+      if (locallyAvailable) {
+        localHitCount++;
+        locallyAvailableNames.add(candidateName.name.toLowerCase());
+      } else if (
         triggerTargetNames.has(candidateName.name.toLowerCase()) ||
         candidates.length <= 1
       ) {
@@ -1839,30 +1892,32 @@ function loadCursorTargetDependencies(
     }
 
     let ingestedCount = 0;
-    if (missingNames.length > 0) {
-      const response = (yield* Effect.tryPromise({
-        try: () =>
-          requestCoordinatorAssistancePromiseShared(
-            'dataOwner:ResolveDepUris',
-            { classNames: missingNames },
-            true,
-          ),
-        catch: (cause) => cause,
-      }).pipe(Effect.catchAll(() => Effect.succeed(undefined)))) as
-        { entries?: Record<string, unknown> } | undefined;
-      for (const [fileUri, data] of Object.entries(response?.entries ?? {})) {
-        if (!data) continue;
-        const table = SymbolTable.fromSerializedData(
-          data as SerializedSymbolTableData,
-        );
-        yield* svc.symbolManager.addSymbolTable(table, fileUri);
-        ingestedCount++;
+    if (missingNames.length > 0 || sObjectCandidateReferences.size > 0) {
+      if (missingNames.length > 0) {
+        const response = (yield* Effect.tryPromise({
+          try: () =>
+            requestCoordinatorAssistancePromiseShared(
+              'dataOwner:ResolveDepUris',
+              { classNames: missingNames },
+              true,
+            ),
+          catch: (cause) => cause,
+        }).pipe(Effect.catchAll(() => Effect.succeed(undefined)))) as
+          { entries?: Record<string, unknown> } | undefined;
+        for (const [fileUri, data] of Object.entries(response?.entries ?? {})) {
+          if (!data) continue;
+          const table = SymbolTable.fromSerializedData(
+            data as SerializedSymbolTableData,
+          );
+          yield* svc.symbolManager.addSymbolTable(table, fileUri);
+          ingestedCount++;
+        }
+        const fallbackIngested = yield* Effect.tryPromise({
+          try: () => resolveMissingNamesViaDataOwner(svc, missingNames),
+          catch: () => 0,
+        }).pipe(Effect.catchAll(() => Effect.succeed(0)));
+        ingestedCount += fallbackIngested;
       }
-      const fallbackIngested = yield* Effect.tryPromise({
-        try: () => resolveMissingNamesViaDataOwner(svc, missingNames),
-        catch: () => 0,
-      }).pipe(Effect.catchAll(() => Effect.succeed(0)));
-      ingestedCount += fallbackIngested;
 
       // A cursor-target miss can be the first semantic observation of an org
       // SObject. The data owner cannot return a table it has never seen, so
@@ -1924,7 +1979,7 @@ function loadCursorTargetDependencies(
             .map((result) => result.name),
         ),
       );
-      const sObjectIdentifiers = hasSObjectTargetAtCursor
+      const confirmedSObjectIdentifiers = hasSObjectTargetAtCursor
         ? [
             ...new Set([...stillMissingNames, ...missingSObjectTargetNames]),
           ].flatMap((name) => {
@@ -1965,6 +2020,61 @@ function loadCursorTargetDependencies(
             ];
           })
         : [];
+      const ambiguousSObjectIdentifiers = yield* Effect.promise(() =>
+        Promise.all(
+          [...sObjectCandidateReferences.values()].map(async (reference) => {
+            const name = reference.name;
+            const referenceRange = reference.location?.identifierRange;
+            if (!referenceRange) return undefined;
+            if (!locallyAvailableNames.has(name.toLowerCase())) {
+              return undefined;
+            }
+            const completeSObject = await hasCompleteLocalSObjectTable(
+              svc,
+              name,
+            );
+            if (completeSObject) return undefined;
+            return {
+              name,
+              identifierType: 'sobject' as const,
+              // Ambiguous type references must not install a placeholder that
+              // masks a same-named Apex class while describe is in flight.
+              allowSObjectPlaceholder: false,
+              provenance: {
+                sourceUri: uri,
+                ...(metadata.documentVersion !== undefined && {
+                  documentVersion: metadata.documentVersion,
+                }),
+                referenceRange,
+                referenceIdentity: [
+                  reference.context,
+                  reference.name,
+                  referenceRange.startLine,
+                  referenceRange.startColumn,
+                  referenceRange.endLine,
+                  referenceRange.endColumn,
+                ].join('|'),
+                ...(reference.resolvedSymbolId && {
+                  resolvedSymbolId: reference.resolvedSymbolId,
+                }),
+                ...(reference.resolvedTypeId && {
+                  resolvedTypeId: reference.resolvedTypeId,
+                }),
+                parseCompleteness: metadata.parseCompleteness ?? 'unknown',
+              },
+            };
+          }),
+        ).then((identifiers) =>
+          identifiers.filter(
+            (identifier): identifier is NonNullable<typeof identifier> =>
+              identifier !== undefined,
+          ),
+        ),
+      );
+      const sObjectIdentifiers = [
+        ...confirmedSObjectIdentifiers,
+        ...ambiguousSObjectIdentifiers,
+      ];
 
       if (sObjectIdentifiers.length > 0) {
         const artifactParams = {
@@ -2040,6 +2150,38 @@ function loadCursorTargetDependencies(
           catch: () => 0,
         }).pipe(Effect.catchAll(() => Effect.succeed(0)));
         ingestedCount += artifactIngested;
+      }
+
+      // Name-based dependency lookup prefers the warmed standard-library class
+      // when it shares a name with an sObject. Fetch the parser-selected
+      // sObject owner table explicitly so the local declaration and receiver
+      // bind to the describe-backed type before hover resolution.
+      if (sObjectIdentifiers.length > 0) {
+        const ownerUris = [
+          ...new Set(
+            sObjectIdentifiers.map((identifier) =>
+              ownerUriForSObject(identifier.name),
+            ),
+          ),
+        ];
+        const response = (yield* Effect.tryPromise({
+          try: () =>
+            requestCoordinatorAssistancePromiseShared(
+              'dataOwner:QuerySymbolSubset',
+              { uris: ownerUris, includeEntries: true },
+              true,
+            ),
+          catch: () => undefined,
+        }).pipe(Effect.catchAll(() => Effect.succeed(undefined)))) as
+          { entries?: Record<string, unknown> } | undefined;
+        for (const [fileUri, data] of Object.entries(response?.entries ?? {})) {
+          if (!data) continue;
+          const table = SymbolTable.fromSerializedData(
+            data as SerializedSymbolTableData,
+          );
+          yield* svc.symbolManager.addSymbolTable(table, fileUri);
+          ingestedCount++;
+        }
       }
     }
 
@@ -2221,6 +2363,23 @@ async function hasCompleteLocalSymbolTable(
     }
   }
   return false;
+}
+
+/**
+ * A standard Apex class can share a name with an org sObject (for example,
+ * ContentVersion). Check the sObject owner directly so that class lookup does
+ * not suppress a required describe-backed table.
+ */
+async function hasCompleteLocalSObjectTable(
+  svc: RequestServices,
+  name: string,
+): Promise<boolean> {
+  const table = await svc.symbolManager.getSymbolTableForFile(
+    ownerUriForSObject(name),
+  );
+  return Boolean(
+    table && table.getMetadata().parseCompleteness !== 'incomplete',
+  );
 }
 
 /**

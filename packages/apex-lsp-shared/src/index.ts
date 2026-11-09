@@ -243,6 +243,8 @@ export interface IdentifierSpec {
   readonly name: string;
   readonly provenance: SemanticArtifactProvenance;
   readonly identifierType?: MissingArtifactIdentifierType;
+  /** Whether an sObject lookup may install a temporary symbol-table placeholder. */
+  readonly allowSObjectPlaceholder?: boolean;
   readonly typeReference?: TypeReference;
   readonly searchHints?: SearchHint[];
   readonly resolvedQualifier?: {

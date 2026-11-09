@@ -3296,7 +3296,28 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       const references = symbolTable.getReferencesAtPosition(position);
-      return references;
+      if (references.length > 0) return references;
+
+      // Assignment member chains can retain the receiver's resolved symbol ID
+      // while their identifier range is refined to the terminal member. For a
+      // cursor before that member, recover the already-resolved receiver from
+      // its parser-owned expression range without affecting member selection.
+      return symbolTable.getAllReferences().filter((reference) => {
+        const range = reference.location.symbolRange;
+        const identifierRange = reference.location.identifierRange;
+        return (
+          reference.resolvedSymbolId !== undefined &&
+          (position.line < identifierRange.startLine ||
+            (position.line === identifierRange.startLine &&
+              position.character < identifierRange.startColumn)) &&
+          (position.line > range.startLine ||
+            (position.line === range.startLine &&
+              position.character >= range.startColumn)) &&
+          (position.line < range.endLine ||
+            (position.line === range.endLine &&
+              position.character <= range.endColumn))
+        );
+      });
     } catch (_error) {
       return [];
     }
@@ -6479,6 +6500,39 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         position,
       );
 
+      // SymbolTable's position index is keyed by the terminal member of a
+      // chain, so it may not return `receiver` for `receiver.member`. Locate a
+      // parser-owned chain root from the full reference graph and bind it using
+      // lexical scope before attempting to resolve the terminal member.
+      const symbolTable = this.symbolRefManager.getSymbolTableForFile(fileUri);
+      if (symbolTable) {
+        const sameFileIndex = this.buildSameFileSymbolIndex(symbolTable);
+        for (const reference of symbolTable.getAllReferences()) {
+          if (!isChainedSymbolReference(reference)) continue;
+          const root = reference.chainNodes?.[0];
+          if (
+            !root ||
+            !this.isPositionInIdentifierRange(
+              position,
+              root.location.identifierRange,
+            )
+          ) {
+            continue;
+          }
+          const localValue = this.findSameFileSymbolInScope(
+            root.name,
+            root.location.identifierRange.startLine,
+            root.location.identifierRange.startColumn,
+            symbolTable,
+            sameFileIndex,
+            true,
+          );
+          if (isVariableSymbol(localValue)) {
+            return localValue;
+          }
+        }
+      }
+
       if (typeReferences.length > 0) {
         // Generic symbol consumers (references, rename, etc.) must not turn a
         // language keyword into a class target. Hover and definition opt in
@@ -6556,8 +6610,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           !positionOnNonRootChainMember &&
           !hasExplicitInstanceReceiver
         ) {
-          const symbolTable =
-            this.symbolRefManager.getSymbolTableForFile(fileUri);
           if (symbolTable) {
             const sameFileIndex = this.buildSameFileSymbolIndex(symbolTable);
             for (const reference of typeReferences) {

@@ -710,6 +710,11 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       );
       expect(contentVersionConstructor).toBeDefined();
       expect(contentVersionConstructor?.parentContext).toBe('myMethod');
+      // `new Type()` syntax alone is compatible with a class or an sObject.
+      // It must not manufacture either semantic classification before
+      // cross-file resolution has authoritative evidence.
+      expect(contentVersionConstructor?.isSObject).toBeUndefined();
+      expect(contentVersionConstructor?.resolvedSymbolId).toBeUndefined();
     });
 
     it('should capture constructor and generic parameter types (maps/lists, nested generics)', () => {

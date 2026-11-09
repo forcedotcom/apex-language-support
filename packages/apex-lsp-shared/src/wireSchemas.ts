@@ -207,6 +207,7 @@ export const WireIdentifierSpecSchema = Schema.Struct({
   identifierType: Schema.optional(
     Schema.Literal('sobject', 'apex-class', 'trigger'),
   ),
+  allowSObjectPlaceholder: Schema.optional(Schema.Boolean),
   typeReference: Schema.optional(WireTypeReferenceSchema),
   searchHints: Schema.optional(Schema.Array(WireSearchHintSchema)),
   resolvedQualifier: Schema.optional(WireResolvedQualifierSchema),

@@ -688,50 +688,13 @@ export class HoverProcessingService implements IHoverProcessor {
                   return null;
                 }
 
-                const variableRef = selectedChainMember
-                  ? undefined
-                  : references.find(
-                      (ref) =>
-                        ref.context === ReferenceContext.VARIABLE_DECLARATION &&
-                        this.isPositionInRange(
-                          parserPosition,
-                          ref.location.identifierRange,
-                        ),
-                    ) ||
-                    references.find(
-                      (ref) =>
-                        ref.context === ReferenceContext.VARIABLE_USAGE &&
-                        this.isPositionInRange(
-                          parserPosition,
-                          ref.location.identifierRange,
-                        ),
-                    );
-
-                if (variableRef) {
-                  if (variableRef.resolvedSymbolId) {
-                    const resolvedSymbol = await this.symbolManager.getSymbol(
-                      variableRef.resolvedSymbolId,
-                    );
-                    if (
-                      resolvedSymbol &&
-                      (resolvedSymbol.kind === SymbolKind.Variable ||
-                        resolvedSymbol.kind === SymbolKind.Field ||
-                        resolvedSymbol.kind === SymbolKind.Property)
-                    ) {
-                      return resolvedSymbol;
-                    }
-                  }
-
-                  if (
-                    preciseSymbol &&
-                    (preciseSymbol.kind === SymbolKind.Variable ||
-                      preciseSymbol.kind === SymbolKind.Field ||
-                      preciseSymbol.kind === SymbolKind.Property)
-                  ) {
-                    return preciseSymbol;
-                  }
-
-                  return null;
+                if (
+                  preciseSymbol &&
+                  (preciseSymbol.kind === SymbolKind.Variable ||
+                    preciseSymbol.kind === SymbolKind.Field ||
+                    preciseSymbol.kind === SymbolKind.Property)
+                ) {
+                  return preciseSymbol;
                 }
 
                 return null;

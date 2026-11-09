@@ -12,8 +12,17 @@ import {
   CompilationOptions,
 } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { ReferenceContext } from '../../src/types/symbolReference';
+import { FullSymbolCollectorListener } from '../../src/parser/listeners/FullSymbolCollectorListener';
+import { BlockContentListener } from '../../src/parser/listeners/BlockContentListener';
+import { SymbolTable } from '../../src/types/symbol';
+import {
+  ReferenceContext,
+  SymbolReferenceFactory,
+} from '../../src/types/symbolReference';
+import { ApexReferenceResolver } from '../../src/parser/references/ApexReferenceResolver';
 import { isChainedSymbolReference } from '../../src/utils/symbolNarrowing';
+import { findOccurrencesInFile } from '../../src/symbols/ops/findOccurrencesInFile';
+import { findFieldOccurrences } from '../../src/symbols/ops/findFieldOccurrences';
 
 describe('FullSymbolCollectorListener - Assignment Reference Capture', () => {
   let compilerService: CompilerService;
@@ -102,6 +111,428 @@ describe('FullSymbolCollectorListener - Assignment Reference Capture', () => {
   });
 
   describe('field assignments', () => {
+    it.each([
+      ['full', () => new ApexSymbolCollectorListener(undefined, 'full')],
+      ['layered', () => new FullSymbolCollectorListener()],
+      ['block', () => new BlockContentListener(new SymbolTable())],
+    ] as const)(
+      'keeps the terminal assignment range and occurrences receiver-owned (%s)',
+      (
+        _mode: string,
+        createListener: () =>
+          | ApexSymbolCollectorListener
+          | FullSymbolCollectorListener
+          | BlockContentListener,
+      ) => {
+        const uri = 'Caller.cls';
+        const listener = createListener();
+        const result = compilerService.compile(
+          [
+            'public class Caller {',
+            '  public class Child { public Integer total; }',
+            '  public class Wrapper { public Child child; }',
+            '  public Integer total;',
+            '  void run(Caller.Wrapper receiver) {',
+            '    receiver.child.total += 1;',
+            '    total = 2;',
+            '  }',
+            '}',
+          ].join('\n'),
+          uri,
+          listener,
+        );
+        expect(result.errors).toHaveLength(0);
+        const table = listener.getResult();
+        const range = {
+          startLine: 6,
+          startColumn: 19,
+          endLine: 6,
+          endColumn: 24,
+        };
+        const terminal = table
+          .getReferencesAtPosition({ line: 6, character: 20 })
+          .find((reference) => reference.name === 'total');
+        expect(terminal?.location.identifierRange).toEqual(range);
+        expect(terminal?.location.symbolRange).toEqual(range);
+        expect(terminal?.access).toBe('readwrite');
+        expect(terminal?.resolvedSymbolId).toBeUndefined();
+        expect(
+          table
+            .getAllReferences()
+            .some(
+              (reference) =>
+                reference.name === 'total' &&
+                reference.location.identifierRange.startLine === 6,
+            ),
+        ).toBe(false);
+        expect(
+          findOccurrencesInFile(table, uri, {
+            name: 'total',
+            kind: 'field',
+          }).some((match) => match.identifierRange.startLine === 6),
+        ).toBe(true);
+        if (_mode !== 'block') {
+          const occurrences = findFieldOccurrences(
+            table,
+            uri,
+            { name: 'total', kind: 'field' },
+            'Caller.Child',
+          );
+          // Rename retains its conservative multi-hop safety contract rather
+          // than attributing the terminal member to the chain's root owner.
+          expect(occurrences.unsafe).toEqual([
+            expect.objectContaining({ identifierRange: range }),
+          ]);
+          expect(occurrences.occurrences).toHaveLength(0);
+          const callerOccurrences = findFieldOccurrences(
+            table,
+            uri,
+            { name: 'total', kind: 'field' },
+            'Caller',
+          );
+          expect(
+            callerOccurrences.occurrences.map(
+              (match) => match.identifierRange.startLine,
+            ),
+          ).toEqual([7]);
+        }
+      },
+    );
+
+    it('isolates intermediate assignment occurrences by receiver owner', () => {
+      const uri = 'Caller.cls';
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
+      const result = compilerService.compile(
+        [
+          'public class Caller {',
+          '  public class Child { public Integer total; }',
+          '  public class Wrapper { public Child child; }',
+          '  public Child child;',
+          '  void run(Caller.Wrapper receiver) {',
+          '    receiver.child.total = 1;',
+          '    child = null;',
+          '  }',
+          '}',
+        ].join('\n'),
+        uri,
+        listener,
+      );
+      expect(result.errors).toHaveLength(0);
+      const table = listener.getResult();
+      const receiverOccurrences = findFieldOccurrences(
+        table,
+        uri,
+        { name: 'child', kind: 'field' },
+        'Caller.Wrapper',
+      );
+      expect(receiverOccurrences.unsafe).toHaveLength(0);
+      expect(
+        receiverOccurrences.occurrences.map(
+          (match) => match.identifierRange.startLine,
+        ),
+      ).toEqual([6]);
+      expect(
+        findOccurrencesInFile(table, uri, { name: 'child', kind: 'field' }),
+      ).toHaveLength(2);
+      const childReferences = table
+        .getAllReferences()
+        .flatMap((reference) => reference.chainNodes ?? [reference])
+        .filter(
+          (reference) =>
+            reference.name === 'child' &&
+            reference.location.identifierRange.startLine === 6,
+        );
+      expect(
+        childReferences.every(
+          (reference) => reference.resolvedSymbolId === undefined,
+        ),
+      ).toBe(true);
+      const callerOccurrences = findFieldOccurrences(
+        table,
+        uri,
+        { name: 'child', kind: 'field' },
+        'Caller',
+      );
+      expect(callerOccurrences.unsafe).toHaveLength(0);
+      expect(
+        callerOccurrences.occurrences.map(
+          (match) => match.identifierRange.startLine,
+        ),
+      ).toEqual([7]);
+    });
+
+    it.each([
+      ['full', () => new ApexSymbolCollectorListener(undefined, 'full')],
+      ['layered', () => new FullSymbolCollectorListener()],
+      ['block', () => new BlockContentListener(new SymbolTable())],
+    ] as const)(
+      'finds the intermediate field occurrence in a nested assignment (%s)',
+      (
+        _mode: string,
+        createListener: () =>
+          | ApexSymbolCollectorListener
+          | FullSymbolCollectorListener
+          | BlockContentListener,
+      ) => {
+        const listener = createListener();
+        const uri = 'AssignTest.cls';
+        const result = compilerService.compile(
+          [
+            'public class AssignTest {',
+            '  void run(Wrapper receiver) {',
+            '    receiver.child.total = 1;',
+            '  }',
+            '}',
+          ].join('\n'),
+          uri,
+          listener,
+          { enableReferenceCorrection: false },
+        );
+        expect(result.errors).toHaveLength(0);
+        expect(
+          findOccurrencesInFile(listener.getResult(), uri, {
+            name: 'child',
+            kind: 'field',
+          }),
+        ).toEqual([
+          expect.objectContaining({
+            context: ReferenceContext.FIELD_ACCESS,
+            identifierRange: {
+              startLine: 3,
+              startColumn: 13,
+              endLine: 3,
+              endColumn: 18,
+            },
+          }),
+        ]);
+        const chain = listener
+          .getResult()
+          .getAllReferences()
+          .find((reference) => reference.name === 'receiver.child.total');
+        expect(chain?.chainNodes?.[1].context).toBe(
+          ReferenceContext.CHAIN_STEP,
+        );
+      },
+    );
+
+    it.each([
+      ['full', () => new ApexSymbolCollectorListener(undefined, 'full')],
+      ['layered', () => new FullSymbolCollectorListener()],
+      ['block', () => new BlockContentListener(new SymbolTable())],
+    ] as const)(
+      'preserves qualified static assignment chain context and ranges (%s)',
+      (
+        _mode: string,
+        createListener: () =>
+          | ApexSymbolCollectorListener
+          | FullSymbolCollectorListener
+          | BlockContentListener,
+      ) => {
+        const listener = createListener();
+        const result = compilerService.compile(
+          [
+            'public class AssignTest {',
+            '  public class Nested { public static Integer total; }',
+            '  void run(Integer value) {',
+            '    AssignTest.Nested.total = value;',
+            '  }',
+            '}',
+          ].join('\n'),
+          'AssignTest.cls',
+          listener,
+          { enableReferenceCorrection: false },
+        );
+        expect(result.errors).toHaveLength(0);
+        const references = listener.getResult().getAllReferences();
+        const chain = references.find(
+          (reference) => reference.name === 'AssignTest.Nested.total',
+        );
+        expect(isChainedSymbolReference(chain!)).toBe(true);
+        if (!chain || !isChainedSymbolReference(chain)) return;
+        expect(chain.chainNodes.map((node) => node.context)).toEqual([
+          ReferenceContext.VARIABLE_USAGE,
+          ReferenceContext.CHAIN_STEP,
+          ReferenceContext.FIELD_ACCESS,
+        ]);
+        expect(chain.chainNodes.map((node) => node.access)).toEqual([
+          'read',
+          'read',
+          'write',
+        ]);
+        const selected = listener.getResult().getReferencesAtPosition({
+          line: 4,
+          character: 23,
+        });
+        expect(
+          [...new Set(selected.map((reference) => reference.name))].sort(),
+        ).toEqual(['AssignTest.Nested.total', 'total']);
+      },
+    );
+
+    it('preserves nested assignment hops and compound access', () => {
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
+      compilerService.compile(
+        'public class AssignTest { void run(Wrapper receiver, Integer value) { receiver.child.total += value; } }',
+        'AssignTest.cls',
+        listener,
+      );
+      const chain = listener
+        .getResult()
+        .getAllReferences()
+        .find(
+          (reference) =>
+            isChainedSymbolReference(reference) &&
+            reference.name === 'receiver.child.total',
+        );
+      expect(isChainedSymbolReference(chain!)).toBe(true);
+      if (!chain || !isChainedSymbolReference(chain)) return;
+      expect(chain.chainNodes.map((node) => node.name)).toEqual([
+        'receiver',
+        'child',
+        'total',
+      ]);
+      expect(chain.chainNodes.map((node) => node.access)).toEqual([
+        'read',
+        'read',
+        'readwrite',
+      ]);
+      expect(chain.chainNodes[0].context).toBe(ReferenceContext.VARIABLE_USAGE);
+      expect(
+        chain.chainNodes[1].location.identifierRange.endColumn,
+      ).toBeLessThan(chain.chainNodes[2].location.identifierRange.startColumn);
+    });
+
+    it('does not reclassify a lexically bound chain receiver as a class', () => {
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
+      compilerService.compile(
+        [
+          'public class AssignTest {',
+          '  void run(ContentVersion contentVersion) {',
+          '    Blob data = contentVersion.VersionData;',
+          '  }',
+          '}',
+        ].join('\n'),
+        'AssignTest.cls',
+        listener,
+        { enableReferenceCorrection: false },
+      );
+      const table = listener.getResult();
+      const receiver = table
+        .getAllReferences()
+        .find((reference) => reference.name === 'contentVersion');
+      expect(receiver).toBeDefined();
+      const member = SymbolReferenceFactory.createFieldAccessReference(
+        'VersionData',
+        {
+          identifierRange: {
+            startLine: 3,
+            startColumn: 31,
+            endLine: 3,
+            endColumn: 42,
+          },
+          symbolRange: {
+            startLine: 3,
+            startColumn: 31,
+            endLine: 3,
+            endColumn: 42,
+          },
+        },
+        'contentVersion',
+      );
+      table.addTypeReference(
+        SymbolReferenceFactory.createChainedExpressionReference(
+          [receiver!, member],
+          { ...member, name: 'contentVersion.VersionData' },
+        ),
+      );
+      new ApexReferenceResolver().resolveSameFileReferences(table);
+      expect(receiver?.context).toBe(ReferenceContext.VARIABLE_USAGE);
+      expect(receiver?.resolvedSymbolId).toBe(
+        table.getAllSymbols().find((symbol) => symbol.name === 'contentVersion')
+          ?.id,
+      );
+    });
+
+    it.each([
+      ['full', () => new ApexSymbolCollectorListener(undefined, 'full')],
+      ['layered', () => new FullSymbolCollectorListener()],
+      ['block', () => new BlockContentListener(new SymbolTable())],
+    ] as const)(
+      'preserves ContentVersion assignment receiver identity (%s)',
+      (
+        _mode: string,
+        createListener: () =>
+          | ApexSymbolCollectorListener
+          | FullSymbolCollectorListener
+          | BlockContentListener,
+      ) => {
+        const sourceCode = [
+          'public class AssignTest {',
+          '  void run(Blob value) {',
+          '    ContentVersion contentVersion = new ContentVersion();',
+          '    contentVersion.VersionData = value;',
+          '  }',
+          '}',
+        ].join('\n');
+        const listener = createListener();
+        const result = compilerService.compile(
+          sourceCode,
+          'AssignTest.cls',
+          listener,
+        );
+        expect(result.errors).toHaveLength(0);
+        const table = listener.getResult();
+        const receiver = table
+          .getAllReferences()
+          .find(
+            (reference) =>
+              reference.name === 'contentVersion' &&
+              reference.context === ReferenceContext.VARIABLE_USAGE,
+          );
+        const receiverRange = {
+          startLine: 4,
+          startColumn: 4,
+          endLine: 4,
+          endColumn: 18,
+        };
+        const fieldRange = {
+          startLine: 4,
+          startColumn: 19,
+          endLine: 4,
+          endColumn: 30,
+        };
+        expect(receiver?.location.identifierRange).toEqual(receiverRange);
+        expect(receiver?.location.symbolRange).toEqual(receiverRange);
+        const selected = table.getReferencesAtPosition({
+          line: 4,
+          character: 20,
+        });
+        expect(
+          selected.some(
+            (reference) =>
+              reference.context === ReferenceContext.VARIABLE_USAGE,
+          ),
+        ).toBe(false);
+        const field = selected.find(
+          (reference) => reference.name === 'VersionData',
+        );
+        expect(field?.context).toBe(ReferenceContext.FIELD_ACCESS);
+        expect(field?.location.identifierRange).toEqual(fieldRange);
+        expect(field?.access).toBe('write');
+        const chain = selected.find(isChainedSymbolReference);
+        expect(chain?.chainNodes?.map((node) => node.name)).toEqual([
+          'contentVersion',
+          'VersionData',
+        ]);
+        expect(chain?.chainNodes?.[0].location.identifierRange).toEqual(
+          receiverRange,
+        );
+        expect(chain?.chainNodes?.[1].location.identifierRange).toEqual(
+          fieldRange,
+        );
+      },
+    );
+
     it('should capture object read and field write for "obj.x = y"', () => {
       const sourceCode = `
         public class AssignTest {
@@ -122,9 +553,9 @@ describe('FullSymbolCollectorListener - Assignment Reference Capture', () => {
       const vars = references.filter(
         (r) => r.context === ReferenceContext.VARIABLE_USAGE,
       );
-      const fields = references.filter(
-        (r) => r.context === ReferenceContext.FIELD_ACCESS,
-      );
+      const fields = references
+        .flatMap((reference) => reference.chainNodes ?? [reference])
+        .filter((r) => r.context === ReferenceContext.FIELD_ACCESS);
 
       const objRefs = vars.filter((r) => r.name === 'obj');
       const yRefs = vars.filter((r) => r.name === 'y');

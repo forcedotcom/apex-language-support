@@ -95,7 +95,10 @@ import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Stack } from 'data-structure-typed';
 
 import { BaseApexParserListener } from './BaseApexParserListener';
-import { isAssignInsideSObjectConstructor } from './ApexReferenceCollectorListener';
+import {
+  ApexReferenceCollectorListener,
+  isAssignInsideSObjectConstructor,
+} from './ApexReferenceCollectorListener';
 import { Namespaces, Namespace } from '../../namespace/NamespaceUtils';
 import { TypeInfo, createPrimitiveType } from '../../types/typeInfo';
 import {
@@ -4219,6 +4222,16 @@ export class ApexSymbolCollectorListener
 
       // If it's a dotted field reference: obj.field
       if (isContextType(leftExpression, DotExpressionContext)) {
+        const collector = new ApexReferenceCollectorListener(this.symbolTable);
+        collector.setCurrentFileUri(this.currentFilePath);
+        collector.setParentContext(parentContext);
+        if (collector.captureAssignmentChain(leftExpression, lhsAccess)) {
+          this.suppressedLHSRange = {
+            ...lhsLoc,
+            identifierRange: lhsLoc.symbolRange,
+          };
+          return;
+        }
         const dotExpr = leftExpression;
         const anyId = dotExpr.anyId();
         if (anyId) {

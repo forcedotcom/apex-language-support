@@ -160,13 +160,11 @@ export function findFieldOccurrences(
   //     lists every hop (root … leaf); a multi-hop chain has length ≥ 3 (root +
   //     ≥1 intermediate + the field leaf), while a simple qualified access
   //     (`a.total`) has length 2 and a bare access has none. This is the
-  //     form-INDEPENDENT chain signal (W-23631084 re-review P1, second finding):
-  //     the co-located-receiver COUNT only reveals a chain for an assignment-LHS
-  //     write (which stamps two receiver VARIABLE_USAGEs at the field token); for
-  //     a READ / argument / return / condition / `this.`-rooted chain the parser
-  //     stamps only the ROOT as a co-located VARIABLE_USAGE (count 1, or 0 for
-  //     `this.`), so counting alone would mis-classify the leaf by its root
-  //     receiver and silently drop or corrupt a real reference. Keying off the
+  //     form-INDEPENDENT chain signal (W-23631084 re-review P1, second finding).
+  //     Assignment chains now preserve each hop at its own token range; legacy
+  //     flat writes may instead carry multiple co-located receiver references.
+  //     Reads may co-locate only the root (or nothing for `this.`), so counting
+  //     alone would mis-classify the leaf by its root receiver. Keying off the
   //     leaf of a length-≥3 chainNodes array catches every access form.
   const targetLeaf = target.name.includes('.')
     ? target.name.slice(target.name.lastIndexOf('.') + 1)
@@ -203,6 +201,21 @@ export function findFieldOccurrences(
   //     type IS the declaring type). The receiver's declared type cannot be
   //     established from a standalone parse, so we decline (W-23631084 review).
   const chainLeafPos = new Set<string>();
+  // Assignment chains keep receivers at their own token ranges, not co-located
+  // with the field. Index the structural receiver by its single-hop field leaf.
+  // Include intermediate read prefixes of assignment chains only. Legacy read
+  // chains can represent method/cast results as ambiguous identifiers.
+  const chainReceiverByLeafPos = new Map<string, SymbolReference>();
+  const assignmentMemberPos = new Set<string>();
+  for (const ref of table.getAllReferences()) {
+    const chain = ref.chainNodes;
+    const leaf = chain?.[chain.length - 1];
+    if (leaf?.access !== 'write' && leaf?.access !== 'readwrite') continue;
+    for (const member of chain!.slice(1)) {
+      const range = member.location.identifierRange;
+      assignmentMemberPos.add(`${range.startLine}:${range.startColumn}`);
+    }
+  }
   for (const ref of table.getAllReferences()) {
     // (d)/(e) record chain leaves regardless of this ref's own context — the
     // chain lives on the whole-expression ref, whose leaf chainNode carries the
@@ -219,6 +232,13 @@ export function findFieldOccurrences(
         const leafKey = `${lir.startLine}:${lir.startColumn}`;
         chainLeafPos.add(leafKey);
         if (chain.length >= 3) multiHopChainLeafPos.add(leafKey);
+        else if (
+          leaf.access === 'write' ||
+          leaf.access === 'readwrite' ||
+          assignmentMemberPos.has(leafKey)
+        ) {
+          chainReceiverByLeafPos.set(leafKey, chain[0]);
+        }
       }
     }
     const ir = ref.location?.identifierRange;
@@ -298,8 +318,8 @@ export function findFieldOccurrences(
       //    READ / argument / return / condition / `this.`-rooted chains, where
       //    the parser stamps only the root (or nothing) as a co-located receiver.
       //  - `receiverRefs.length >= 2`: an assignment-LHS write stamps one
-      //    co-located receiver VARIABLE_USAGE per hop at the field token and does
-      //    NOT emit a whole-expression chainNodes ref, so the raw co-located count
+      //    co-located receiver VARIABLE_USAGE per hop at the field token in the
+      //    legacy flat representation, so the raw co-located count
       //    (no name-dedup, no field-name exclusion — see findColocatedReceiverRefs)
       //    is what catches `a.a.total` / `a.total.total` write forms.
       const chainDesc =
@@ -314,7 +334,27 @@ export function findFieldOccurrences(
       continue;
     }
 
-    const receiverRef = receiverRefs[0] ?? null;
+    const chainReceiver = chainReceiverByLeafPos.get(startKey);
+    const chainReceiverIsIdentifier =
+      chainReceiver &&
+      (chainReceiver.context === ReferenceContext.VARIABLE_USAGE ||
+        chainReceiver.context === ReferenceContext.CLASS_REFERENCE);
+    // Only concrete local type qualifiers use the static branch. Unknown types
+    // retain the receiver path's conservative cross-file subtype classification.
+    const chainStaticQualifier =
+      chainReceiver?.context === ReferenceContext.CLASS_REFERENCE &&
+      chainReceiver.name.toLowerCase() !== 'this' &&
+      chainReceiver.name.toLowerCase() !== 'super' &&
+      resolveStaticQualifierType(chainReceiver, table, typeSymbols) !== null
+        ? chainReceiver
+        : undefined;
+    const qualifierRef =
+      chainStaticQualifier ?? staticQualifierByStartPos.get(startKey);
+    const receiverRef = chainReceiver
+      ? chainReceiverIsIdentifier && !chainStaticQualifier
+        ? chainReceiver
+        : null
+      : (receiverRefs[0] ?? null);
 
     if (receiverRef) {
       // Case 1: Qualified field access (`receiver.field`).
@@ -376,11 +416,12 @@ export function findFieldOccurrences(
           });
         }
       }
-    } else if (staticQualifierByStartPos.has(startKey)) {
+    } else if (qualifierRef) {
       // Case 1c: STATIC field access through an IN-FILE-RESOLVABLE type qualifier
       // (`Account.total`), where the qualifier `Account` resolves to a type
       // declared in THIS standalone file. The parser emits that qualifier as a
-      // CLASS_REFERENCE co-located at the field-access start position (index (f)),
+      // CLASS_REFERENCE in the assignment chain or co-located at the field-access
+      // start position (index (f)),
       // NOT a VARIABLE_USAGE, so there is no co-located receiver here and it would
       // otherwise fall through to the bare implicit-`this` Case 2 and be
       // mis-classified by the enclosing type. Chain detection (Case 0) and the
@@ -388,7 +429,6 @@ export function findFieldOccurrences(
       // single-hop static qualifier with no variable receiver — resolve the
       // qualifier to its type FQN and compare to the declaring type, using the SAME
       // computeTypeFqn/normalizeFqn machinery the receiver path uses.
-      const qualifierRef = staticQualifierByStartPos.get(startKey)!;
       const qualifierType = resolveStaticQualifierType(
         qualifierRef,
         table,
@@ -426,14 +466,15 @@ export function findFieldOccurrences(
       }
       continue;
     } else if (
-      !fieldAccessStartPos.has(startKey) &&
-      chainLeafPos.has(startKey)
+      chainLeafPos.has(startKey) &&
+      (chainReceiver || !fieldAccessStartPos.has(startKey))
     ) {
       // Case 1b: QUALIFIED access whose immediate receiver is a NON-VARIABLE
       // expression — a method/constructor result or cast (`getAccount().total`,
       // `new Account().total`, `((Account)o).total`). The parser represents these
-      // ONLY as a whole-expression chain ref (this candidate is its leaf), with
-      // NO top-level FIELD_ACCESS and NO co-located VARIABLE_USAGE receiver — so
+      // as a whole-expression chain ref (this candidate is its leaf), with
+      // no identifier receiver; legacy reads also lack a top-level FIELD_ACCESS
+      // and co-located VARIABLE_USAGE receiver — so
       // it is NOT a bare implicit-`this` access and must not fall through to Case
       // 2. Its receiver's declared type cannot be established from this standalone
       // parse (the result type of a method/constructor, or a cast target that may

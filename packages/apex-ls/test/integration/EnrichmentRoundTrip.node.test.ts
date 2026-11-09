@@ -515,6 +515,103 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
     );
   }, 120_000);
 
+  it('resolves ContentVersion assignment definition before hover with only its sObject table installed', async () => {
+    const uri = 'file:///test/ContentVersionReceiver.cls';
+    const source = [
+      'public class ContentVersionReceiver {',
+      '  public void run(String base64data) {',
+      '    ContentVersion contentVersion = new ContentVersion();',
+      '    contentVersion.VersionData = EncodingUtil.base64Decode(base64data);',
+      '  }',
+      '}',
+    ].join('\n');
+
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger, () => source);
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      yield* Effect.promise(() =>
+        dispatcher.queryDataOwner('InstallSObjectArtifacts', {
+          artifacts: [
+            {
+              identifierType: 'sobject' as const,
+              name: 'ContentVersion',
+              describe: {
+                name: 'ContentVersion',
+                custom: false,
+                fields: [
+                  {
+                    name: 'VersionData',
+                    type: 'base64',
+                    definitionTarget: {
+                      uri: 'file:///objects/ContentVersion/fields/VersionData.field-meta.xml',
+                    },
+                  },
+                ],
+                definitionTarget: {
+                  uri: 'file:///objects/ContentVersion/ContentVersion.object-meta.xml',
+                },
+              },
+            },
+          ],
+          originUri: uri,
+        }),
+      );
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri,
+            languageId: 'apex',
+            version: 1,
+            getText: () => source,
+          },
+          textDocument: { uri },
+          text: source,
+        }),
+      );
+
+      const hover = (character: number) =>
+        Effect.promise(() =>
+          dispatcher.dispatch('hover', {
+            textDocument: { uri },
+            position: { line: 3, character },
+          }),
+        );
+      return {
+        fieldDefinition: yield* Effect.promise(() =>
+          dispatcher.dispatch('definition', {
+            textDocument: { uri },
+            position: { line: 3, character: 20 },
+          }),
+        ),
+        receiverHover: yield* hover(7),
+      };
+    }).pipe(Effect.scoped);
+
+    const result = await Effect.runPromise(program);
+    expect(result.fieldDefinition).toEqual([
+      expect.objectContaining({
+        uri: 'file:///objects/ContentVersion/fields/VersionData.field-meta.xml',
+      }),
+    ]);
+    expect(JSON.stringify(result.receiverHover)).toContain(
+      'ContentVersion contentVersion',
+    );
+    expect(JSON.stringify(result.receiverHover)).not.toContain(
+      'Searching for symbol',
+    );
+  }, 120_000);
+
   it('preserves sObject completion, hover, and definition across successive document changes', async () => {
     const uri = 'file:///test/PropertyLifecycle.cls';
     const openSource = [

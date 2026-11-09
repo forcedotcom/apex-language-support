@@ -726,8 +726,6 @@ export class DefinitionProcessingService implements IDefinitionProcessor {
         }
         return await this.findUniqueOwnedMember(owner, requestedNode.name);
       }
-
-      return null;
     }
     return null;
   }
