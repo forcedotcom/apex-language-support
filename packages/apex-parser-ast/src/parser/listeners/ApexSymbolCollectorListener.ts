@@ -25,6 +25,7 @@ import {
   EnumConstantsContext,
   ClassBodyDeclarationContext,
   TriggerUnitContext,
+  TriggerCaseContext,
   PropertyDeclarationContext,
   // Add specific contexts for type reference capture
   MethodCallExpressionContext,
@@ -123,6 +124,7 @@ import {
   SymbolTable,
   SymbolVisibility,
   TypeSymbol,
+  TriggerSymbol,
   VariableSymbol,
   Annotation,
   AnnotationParameter,
@@ -3216,7 +3218,58 @@ export class ApexSymbolCollectorListener
         name,
         SymbolKind.Trigger,
         modifiers,
-      );
+      ) as TriggerSymbol;
+      const targetSObject = ctx.id(1);
+      if (targetSObject) {
+        const location = this.getIdentifierLocation(targetSObject);
+        triggerSymbol.targetSObject = {
+          name: targetSObject.getText(),
+          location,
+        };
+        const alreadyCollected = this.symbolTable
+          .getAllReferences()
+          .some(
+            (reference) =>
+              reference.context === ReferenceContext.TRIGGER_TARGET_SOBJECT &&
+              reference.name === targetSObject.getText() &&
+              reference.location.identifierRange.startLine ===
+                location.identifierRange.startLine &&
+              reference.location.identifierRange.startColumn ===
+                location.identifierRange.startColumn,
+          );
+        if (!alreadyCollected) {
+          this.symbolTable.addTypeReference(
+            new EnhancedSymbolReference(
+              targetSObject.getText(),
+              location,
+              ReferenceContext.TRIGGER_TARGET_SOBJECT,
+              { isSObject: true },
+            ),
+          );
+        }
+      }
+      triggerSymbol.events = (ctx.children ?? [])
+        .filter(
+          (child): child is TriggerCaseContext =>
+            child instanceof TriggerCaseContext,
+        )
+        .flatMap((triggerCase) => {
+          const timing = triggerCase.BEFORE()
+            ? 'before'
+            : triggerCase.AFTER()
+              ? 'after'
+              : undefined;
+          const operation = triggerCase.INSERT()
+            ? 'insert'
+            : triggerCase.UPDATE()
+              ? 'update'
+              : triggerCase.DELETE()
+                ? 'delete'
+                : triggerCase.UNDELETE()
+                  ? 'undelete'
+                  : undefined;
+          return timing && operation ? [{ timing, operation }] : [];
+        });
 
       // Set detail level on symbol before adding
       triggerSymbol._detailLevel = this.detailLevel;

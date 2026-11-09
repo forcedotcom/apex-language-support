@@ -8,9 +8,17 @@
 
 import { CompilerService } from '../../../src/parser/compilerService';
 import { VisibilitySymbolListener } from '../../../src/parser/listeners/VisibilitySymbolListener';
-import { SymbolTable, SymbolKind } from '../../../src/types/symbol';
+import {
+  SymbolTable,
+  SymbolKind,
+  type TriggerSymbol,
+} from '../../../src/types/symbol';
+import { ReferenceContext } from '../../../src/types/symbolReference';
 import { parseSymbolId } from '../../../src/types/UriBasedIdGenerator';
-import { isBlockSymbol } from '../../../src/utils/symbolNarrowing';
+import {
+  isBlockSymbol,
+  isTriggerSymbol,
+} from '../../../src/utils/symbolNarrowing';
 import { TestLogger } from '../../utils/testLogger';
 
 describe('CompilerService.compileLayered', () => {
@@ -54,6 +62,98 @@ describe('CompilerService.compileLayered', () => {
       (s) => s.kind === SymbolKind.Field && s.name === 'publicField',
     );
     expect(fieldSymbol).toBeDefined();
+  });
+
+  it('collects parser-derived target and events for a trigger', () => {
+    const symbolTable = new SymbolTable();
+    const listener = new VisibilitySymbolListener('public-api', symbolTable);
+    const result = compilerService.compile(
+      'trigger AccountAudit on Account (before update, after delete, after undelete) {}',
+      'AccountAudit.trigger',
+      listener,
+    );
+
+    expect(result.errors).toEqual([]);
+    const trigger = result.result?.getAllSymbols().find(isTriggerSymbol) as
+      TriggerSymbol | undefined;
+
+    expect(trigger).toMatchObject({
+      name: 'AccountAudit',
+      kind: SymbolKind.Trigger,
+      targetSObject: { name: 'Account' },
+      events: [
+        { timing: 'before', operation: 'update' },
+        { timing: 'after', operation: 'delete' },
+        { timing: 'after', operation: 'undelete' },
+      ],
+    });
+  });
+
+  it.each(['public-api', 'private'] as const)(
+    'collects the trigger target as an SObject dependency at %s detail',
+    (detailLevel) => {
+      const symbolTable = new SymbolTable();
+      const result = compilerService.compile(
+        'trigger AccountAudit on Account (before update) {}',
+        'AccountAudit.trigger',
+        new VisibilitySymbolListener(detailLevel, symbolTable),
+      );
+
+      expect(result.errors).toEqual([]);
+      expect(result.result?.getAllReferences()).toContainEqual(
+        expect.objectContaining({
+          name: 'Account',
+          context: ReferenceContext.TRIGGER_TARGET_SOBJECT,
+          isSObject: true,
+          location: expect.objectContaining({
+            identifierRange: {
+              startLine: 1,
+              startColumn: 24,
+              endLine: 1,
+              endColumn: 31,
+            },
+          }),
+        }),
+      );
+    },
+  );
+
+  it('preserves one trigger target dependency across visibility enrichment', () => {
+    const symbolTable = new SymbolTable();
+    const source = 'trigger AccountAudit on Account (before update) {}';
+
+    compilerService.compile(
+      source,
+      'AccountAudit.trigger',
+      new VisibilitySymbolListener('public-api', symbolTable),
+    );
+    compilerService.compile(
+      source,
+      'AccountAudit.trigger',
+      new VisibilitySymbolListener('private', symbolTable),
+    );
+
+    expect(
+      symbolTable
+        .getAllReferences()
+        .filter(
+          (reference) =>
+            reference.context === ReferenceContext.TRIGGER_TARGET_SOBJECT,
+        ),
+    ).toHaveLength(1);
+  });
+
+  it('does not invent an event for a recovered trigger case', () => {
+    const symbolTable = new SymbolTable();
+    const result = compilerService.compile(
+      'trigger AccountAudit on Account (before) {}',
+      'AccountAudit.trigger',
+      new VisibilitySymbolListener('public-api', symbolTable),
+    );
+
+    const trigger = result.result?.getAllSymbols().find(isTriggerSymbol) as
+      TriggerSymbol | undefined;
+    expect(trigger?.events).toEqual([]);
   });
 
   it('should compile with multiple listeners sequentially', () => {

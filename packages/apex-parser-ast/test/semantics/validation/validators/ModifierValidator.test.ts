@@ -17,6 +17,7 @@ import {
   compileFixtureWithOptions,
 } from './helpers/validation-test-helpers';
 import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
+import { composeSObjectSymbolTable } from '../../../../src/sobjects/SObjectSymbolTableComposer';
 
 describe('ModifierValidator', () => {
   let symbolManager: ApexSymbolManager;
@@ -418,6 +419,53 @@ describe('ModifierValidator', () => {
       (e: any) => e.code === ErrorCodes.TOPLEVEL_MUST_BE_PUBLIC_OR_GLOBAL,
     );
     expect(hasError).toBe(true);
+  });
+
+  it('does not require visibility for a top-level trigger', async () => {
+    const symbolTable = await compileFixtureForValidator(
+      'TriggerWithoutVisibility.trigger',
+      'file:///test/TriggerWithoutVisibility.trigger',
+    );
+
+    const result = await runValidator(
+      ModifierValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager, {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+        }),
+      ),
+      symbolManager,
+    );
+
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it('does not apply Apex declaration visibility to an sObject', async () => {
+    const symbolTable = composeSObjectSymbolTable(
+      {
+        name: 'Property__c',
+        custom: true,
+        definitionTarget: { uri: 'org://Property__c' },
+        fields: [],
+      },
+      1,
+    );
+
+    const result = await runValidator(
+      ModifierValidator.validate(
+        symbolTable,
+        createValidationOptions(symbolManager, {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+        }),
+      ),
+      symbolManager,
+    );
+
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toHaveLength(0);
   });
 
   it('does not reconstruct omitted interface visibility from source text', async () => {

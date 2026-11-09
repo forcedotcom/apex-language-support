@@ -47,7 +47,7 @@ import {
   isConstructorSymbol,
   isEnumSymbol,
   isInterfaceSymbol,
-  inTypeSymbolGroup,
+  isReferenceableApexType,
 } from '../../../utils/symbolNarrowing';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
@@ -238,7 +238,7 @@ async function findTypeByName(
     normalizedName.split('<')[0].split('.').pop() || normalizedName;
 
   const sameFile = allSymbols.find(
-    (s) => inTypeSymbolGroup(s) && s.name.toLowerCase() === baseName,
+    (s) => isReferenceableApexType(s) && s.name.toLowerCase() === baseName,
   ) as TypeSymbol | undefined;
 
   if (sameFile) return sameFile;
@@ -247,7 +247,7 @@ async function findTypeByName(
     const symbols = await symbolManager.findSymbolByName(typeName);
     const found = symbols?.find(
       (s: ApexSymbol) =>
-        inTypeSymbolGroup(s) && s.name.toLowerCase() === baseName,
+        isReferenceableApexType(s) && s.name.toLowerCase() === baseName,
     );
     if (found) return found as TypeSymbol;
   }

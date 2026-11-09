@@ -554,6 +554,26 @@ export interface TypeSymbol extends ApexSymbol {
   annotations?: Annotation[];
 }
 
+export type TriggerEventTiming = 'before' | 'after';
+
+export type TriggerEventOperation = 'insert' | 'update' | 'delete' | 'undelete';
+
+/** Parser-owned sObject reference in a trigger's `on <sObject>` declaration. */
+export interface TriggerTargetSObjectReference {
+  name: string;
+  location: SymbolLocation;
+}
+
+/** Parser-derived declaration data for a trigger unit. */
+export interface TriggerSymbol extends TypeSymbol {
+  kind: SymbolKind.Trigger;
+  targetSObject?: TriggerTargetSObjectReference;
+  events: readonly {
+    timing: TriggerEventTiming;
+    operation: TriggerEventOperation;
+  }[];
+}
+
 /**
  * Type predicate: symbol is a class, interface, enum, trigger, or sObject
  */

@@ -1705,7 +1705,8 @@ function loadCursorTargetDependencies(
         reference.context === ReferenceContext.CONSTRUCTOR_CALL ||
         reference.context === ReferenceContext.TYPE_DECLARATION ||
         reference.context === ReferenceContext.INHERITANCE ||
-        reference.context === ReferenceContext.INTERFACE_IMPLEMENTATION
+        reference.context === ReferenceContext.INTERFACE_IMPLEMENTATION ||
+        reference.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
       ) {
         addCandidate(reference.name);
       }
@@ -1790,6 +1791,14 @@ function loadCursorTargetDependencies(
       }
     }
 
+    const triggerTargetNames = new Set(
+      references
+        .filter(
+          (reference) =>
+            reference.context === ReferenceContext.TRIGGER_TARGET_SOBJECT,
+        )
+        .map((reference) => reference.name.toLowerCase()),
+    );
     const missingNames: string[] = [];
     let localHitCount = 0;
     for (const candidateName of candidateNames.values()) {
@@ -1805,6 +1814,12 @@ function loadCursorTargetDependencies(
           );
       let locallyAvailable = false;
       for (const candidate of candidates) {
+        if (
+          triggerTargetNames.has(candidateName.name.toLowerCase()) &&
+          candidate.kind !== SymbolKind.SObject
+        ) {
+          continue;
+        }
         if (!candidate.fileUri) continue;
         const table = yield* Effect.promise(() =>
           svc.symbolManager.getSymbolTableForFile(candidate.fileUri!),
@@ -1815,7 +1830,12 @@ function loadCursorTargetDependencies(
         }
       }
       if (locallyAvailable) localHitCount++;
-      else if (candidates.length <= 1) missingNames.push(candidateName.name);
+      else if (
+        triggerTargetNames.has(candidateName.name.toLowerCase()) ||
+        candidates.length <= 1
+      ) {
+        missingNames.push(candidateName.name);
+      }
     }
 
     let ingestedCount = 0;
@@ -1868,11 +1888,12 @@ function loadCursorTargetDependencies(
         : 'references';
       const metadata = symbolTable.getMetadata();
       const allReferences = symbolTable.getAllReferences();
-      const hasMemberAccessAtCursor = references.some(
+      const hasSObjectTargetAtCursor = references.some(
         (reference) =>
           reference.context === ReferenceContext.FIELD_ACCESS ||
           (reference.chainNodes?.length ?? 0) >= 2 ||
-          reference.semanticContext?.memberAccess !== undefined,
+          reference.semanticContext?.memberAccess !== undefined ||
+          reference.context === ReferenceContext.TRIGGER_TARGET_SOBJECT,
       );
       const stillMissingNames = yield* Effect.promise(() =>
         Promise.all(
@@ -1886,8 +1907,27 @@ function loadCursorTargetDependencies(
             .map((result) => result.name),
         ),
       );
-      const sObjectIdentifiers = hasMemberAccessAtCursor
-        ? stillMissingNames.flatMap((name) => {
+      const sObjectTargetNames = [...triggerTargetNames];
+      const missingSObjectTargetNames = yield* Effect.promise(() =>
+        Promise.all(
+          sObjectTargetNames.map(async (name) => ({
+            name,
+            available: await hasCompleteLocalSymbolTable(
+              svc,
+              name,
+              SymbolKind.SObject,
+            ),
+          })),
+        ).then((results) =>
+          results
+            .filter((result) => !result.available)
+            .map((result) => result.name),
+        ),
+      );
+      const sObjectIdentifiers = hasSObjectTargetAtCursor
+        ? [
+            ...new Set([...stillMissingNames, ...missingSObjectTargetNames]),
+          ].flatMap((name) => {
             const normalizedName = name.toLowerCase();
             const reference = allReferences.find((candidate) => {
               const candidateName = candidate.name
@@ -2159,9 +2199,13 @@ export async function resolveMissingNamesViaDataOwner(
 async function hasCompleteLocalSymbolTable(
   svc: RequestServices,
   name: string,
+  requiredKind?: SymbolKind,
 ): Promise<boolean> {
   const symbols = await svc.symbolManager.findSymbolByName(name);
   for (const symbol of symbols) {
+    if (requiredKind !== undefined && symbol.kind !== requiredKind) {
+      continue;
+    }
     if (!symbol.fileUri) {
       return true;
     }

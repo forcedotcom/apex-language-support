@@ -48,7 +48,7 @@ export const find = (
           c.kind === SymbolKind.Class ||
           c.kind === SymbolKind.Interface ||
           c.kind === SymbolKind.Enum ||
-          c.kind === SymbolKind.Trigger,
+          c.kind === SymbolKind.SObject,
       );
       if (typeMatch) return typeMatch;
       if (namespaceCandidates.length > 0) return namespaceCandidates[0];

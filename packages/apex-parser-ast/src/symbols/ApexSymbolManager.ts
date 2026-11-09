@@ -2978,6 +2978,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     if (typeRef.resolvedSymbolId && canTrustPreResolvedTarget) {
       const resolved = index.byId.get(typeRef.resolvedSymbolId);
       if (resolved) {
+        if (
+          typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT &&
+          resolved.kind !== SymbolKind.SObject
+        ) {
+          return null;
+        }
         const isDeclarationIdentity =
           typeRef.context === ReferenceContext.VARIABLE_DECLARATION ||
           typeRef.context === ReferenceContext.PROPERTY_REFERENCE;
@@ -3018,7 +3024,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       if (stats) {
         stats.resolverScopeSearchMs += Date.now() - started;
       }
-      return target ? { target, complete: true } : null;
+      return target &&
+        (typeRef.context !== ReferenceContext.TRIGGER_TARGET_SOBJECT ||
+          target.kind === SymbolKind.SObject)
+        ? { target, complete: true }
+        : null;
     }
 
     if (stats) {
@@ -4357,7 +4367,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           // For unqualified references, check if the symbol exists in the current file
           // Use getAllSymbols().find() for more reliable same-file lookup
           const allSymbols = symbolTable.getAllSymbols();
-          const symbolInFile = allSymbols.find((s) => s.name === typeRef.name);
+          const symbolInFile = allSymbols.find(
+            (symbol) =>
+              symbol.name === typeRef.name &&
+              (typeRef.context !== ReferenceContext.TRIGGER_TARGET_SOBJECT ||
+                symbol.kind === SymbolKind.SObject),
+          );
           if (!symbolInFile) {
             // Symbol not in current file - this is a cross-file reference
             isCrossFileReference = true;
@@ -4555,7 +4570,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   self.findSymbolByFQN(typeRef.name),
                 );
                 if (byFqn) {
-                  targetSymbol = byFqn;
+                  targetSymbol =
+                    typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
+                      ? byFqn.kind === SymbolKind.SObject
+                        ? byFqn
+                        : null
+                      : byFqn;
                 }
               }
             }
@@ -4564,8 +4584,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               const symbols = yield* Effect.promise(() =>
                 self.findSymbolByName(typeRef.name),
               );
-              if (symbols.length > 0) {
-                targetSymbol = symbols[0];
+              const targetCandidates =
+                typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
+                  ? symbols.filter(
+                      (symbol) => symbol.kind === SymbolKind.SObject,
+                    )
+                  : symbols;
+              if (targetCandidates.length > 0) {
+                targetSymbol = targetCandidates[0];
               }
             }
           }
