@@ -60,10 +60,8 @@ jobs:
       dry-run: ${{ inputs.dry-run || 'false' }}
     secrets: inherit
 
-  # Step 4: Dispatch publishOpenVSXTrusted.yml for this exact nightly. vscode-promote-prerelease.yml
-  # no longer publishes Open VSX at all (PAT-based ovsx leg removed there), so this is the only
-  # place Open VSX publishing happens for prerelease. See publishOpenVSXTrusted.yml's header for
-  # the full workflow_ref explanation.
+  # Step 4: Dispatch publishOpenVSXTrusted.yml for this exact nightly -- see its header for why
+  # Open VSX publishing lives there instead of in vscode-promote-prerelease.yml.
   trigger-openvsx-publish:
     needs: [find-nightly, promote]
     if: always() && needs.promote.result == 'success' && inputs.dry-run != 'true'

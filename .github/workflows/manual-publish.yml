@@ -6,11 +6,8 @@ name: Manual Publish
 #
 # Exactly one of version-tag or source-run-id must be provided.
 #
-# Open VSX is NOT published by the vscode-manual-publish.yml job below, even when registries
-# includes ovsx/all -- trigger-openvsx-publish dispatches publishOpenVSXTrusted.yml afterward
-# instead, and only for the version-tag path (see that job's comment for why). This keeps every
-# Open VSX publish for this extension on one workflow_ref, which Open VSX's trusted-publisher
-# match requires -- see publishOpenVSXTrusted.yml's header for the full explanation.
+# Open VSX is published separately by trigger-openvsx-publish below, not by vscode-manual-publish.yml
+# -- see publishOpenVSXTrusted.yml's header for why.
 
 on:
   workflow_dispatch:
@@ -127,12 +124,9 @@ jobs:
       dry-run: ${{ inputs.dry-run }}
     secrets: inherit
 
-  # Dispatch publishOpenVSXTrusted.yml for the version-tag being published, when Open VSX was
-  # requested. vscode-manual-publish.yml no longer publishes Open VSX itself (see its header),
-  # so this is the only place Open VSX publishing happens for this workflow. Only applies to the
-  # version-tag path: source-run-id has no GitHub Release for a tag-based publish to target, and
-  # vscode-manual-publish.yml's own input validation now hard-errors that combination rather than
-  # silently skipping it -- see this workflow's header comment.
+  # Only applies to the version-tag path: source-run-id has no GitHub Release for a tag-based
+  # publish to target, and vscode-manual-publish.yml's input validation hard-errors that
+  # combination rather than silently skipping it.
   trigger-openvsx-publish:
     needs: manual-publish
     if: always() && needs.manual-publish.result == 'success' && inputs.version-tag != '' && (inputs.registries == 'ovsx' || inputs.registries == 'all') && inputs.dry-run != 'true'

@@ -41,10 +41,8 @@ jobs:
       dry-run: ${{ inputs.dry-run || 'false' }}
     secrets: inherit
 
-  # Dispatch publishOpenVSXTrusted.yml for the exact stable tag vscode-promote-stable.yml just
-  # created (its release-tag output). vscode-promote-stable.yml no longer publishes Open VSX at
-  # all (PAT-based ovsx leg removed there), so this is the only place Open VSX publishing happens
-  # for stable. See publishOpenVSXTrusted.yml's header for the full workflow_ref explanation.
+  # Dispatch publishOpenVSXTrusted.yml for the stable tag vscode-promote-stable.yml just created
+  # -- see its header for why Open VSX publishing lives there instead of in vscode-promote-stable.yml.
   trigger-openvsx-publish:
     needs: promote
     if: always() && needs.promote.result == 'success' && inputs.dry-run != 'true'
