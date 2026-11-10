@@ -26,10 +26,7 @@ jobs:
   # vsce only -- Open VSX is published separately below (trigger-openvsx-publish), see that
   # job's comment for why.
   promote:
-    # TEMPORARY: pinned to the github-workflows PR branch that removes this workflow's ovsx leg
-    # (salesforcecli/github-workflows#199), to validate end-to-end before that PR merges. Switch
-    # back to @main before merging this PR.
-    uses: salesforcecli/github-workflows/.github/workflows/vscode-promote-stable.yml@ms/W-24666922-ovsx-trusted-publishing
+    uses: salesforcecli/github-workflows/.github/workflows/vscode-promote-stable.yml@main
     with:
       extension-name: 'apex-lsp-vscode-extension'
       vsix-name-pattern: 'apex-language-server-extension-*.vsix'

@@ -103,10 +103,7 @@ permissions:
 
 jobs:
   manual-publish:
-    # TEMPORARY: pinned to the github-workflows PR branch that redirects this workflow's ovsx leg
-    # (salesforcecli/github-workflows#199), to validate end-to-end before that PR merges. Switch
-    # back to @main before merging this PR.
-    uses: salesforcecli/github-workflows/.github/workflows/vscode-manual-publish.yml@ms/W-24666922-ovsx-trusted-publishing
+    uses: salesforcecli/github-workflows/.github/workflows/vscode-manual-publish.yml@main
     with:
       extension-name: ${{ inputs.extension }}
       vsix-name-pattern: 'apex-language-server-extension-*.vsix'
