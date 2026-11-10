@@ -7,13 +7,16 @@ run-name: "VS Code Marketplace OIDC test: ${{ inputs.release-tag }}"
 # until it exists on the repo's default branch, even when the intent is to run a different
 # branch's content via `--ref`.
 #
-# Unlike Open VSX's trusted-publisher match (confirmed to key off the OIDC token's workflow_ref
-# claim, not job_workflow_ref), it isn't yet known whether the Marketplace's trust check behaves
-# the same way when the actual `vsce publish --oidc` step runs nested inside a cross-repo reusable
-# workflow (salesforcecli/github-workflows). This file -- together with salesforcedx-vscode's
-# identical test workflow -- is the empirical test for that: register a Trusted Publishing policy
-# naming this repo + this exact workflow filename on the Marketplace publisher management page,
-# then dispatch against an already-published, --skip-duplicate-safe tag. See W-24756661.
+# Confirmed: the Marketplace's OIDC trust check keys off job_workflow_ref, which for a nested
+# reusable workflow always points at the other repo (salesforcecli/github-workflows) rather than
+# this one -- unlike Open VSX's trusted-publisher match, which keys off workflow_ref and stays the
+# same whether nested or not. A --oidc publish step inside a nested reusable *workflow* (the
+# original shape of this file, dispatching vscode-publish-release-vsix.yml) 401'd on every attempt
+# despite a Trusted Publishing policy registered for this repo + this workflow filename. Validated
+# in salesforcedx-vscode (see its identical test workflow) that inlining the publish step directly
+# in the caller's own job -- now extracted to salesforcecli/github-workflows's
+# vscode/publish-release-vsix composite action (salesforcecli/github-workflows#207), which runs as
+# a step rather than a separate job -- fixes it. See W-24756661.
 #
 # Not wired into any real release channel yet -- that depends on what this test finds.
 
@@ -31,16 +34,16 @@ on:
 
 jobs:
   publish:
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
-    # TEMPORARY: pinned to the github-workflows PR branch adding --oidc support
-    # (salesforcecli/github-workflows#203), to validate end-to-end before that PR merges.
-    uses: salesforcecli/github-workflows/.github/workflows/vscode-publish-release-vsix.yml@ms/W-24756661-vsce-trusted-publishing
-    with:
-      release-tag: ${{ inputs.release-tag }}
-      vsix-name-pattern: 'apex-language-server-extension-*.vsix'
-      exclude-web-vsix: 'true'
-      dry-run: ${{ inputs.dry-run || false }}
-      oidc: true
-    secrets: inherit
+    steps:
+      # TEMPORARY: pinned to the github-workflows PR branch adding this action
+      # (salesforcecli/github-workflows#207), to validate end-to-end before that PR merges.
+      - uses: salesforcecli/github-workflows/.github/actions/vscode/publish-release-vsix@ms/W-24756661-vsce-oidc-composite-action
+        with:
+          release-tag: ${{ inputs.release-tag }}
+          vsix-name-pattern: 'apex-language-server-extension-*.vsix'
+          exclude-web-vsix: 'true'
+          dry-run: ${{ inputs.dry-run || false }}
