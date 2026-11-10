@@ -173,6 +173,9 @@ import {
   resolveSymbolReferenceToSymbol as resolveSymRefToSymOp,
 } from './ops/chainResolution';
 
+const isConstructorTypeContext = (context: ReferenceContext): boolean =>
+  context === ReferenceContext.CONSTRUCTOR_CALL;
+
 /**
  * File metadata for tracking symbol relationships
  */
@@ -2979,6 +2982,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const resolved = index.byId.get(typeRef.resolvedSymbolId);
       if (resolved) {
         if (
+          isConstructorTypeContext(typeRef.context) &&
+          isVariableSymbol(resolved)
+        ) {
+          return null;
+        }
+        if (
           typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT &&
           resolved.kind !== SymbolKind.SObject
         ) {
@@ -3014,6 +3023,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     if (!qualifier?.isQualified) {
+      if (isConstructorTypeContext(typeRef.context)) {
+        return null;
+      }
       const target = this.findSameFileSymbolInScope(
         typeRef.name,
         typeRef.location.identifierRange.startLine,
@@ -6512,6 +6524,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           const root = reference.chainNodes?.[0];
           if (
             !root ||
+            isConstructorTypeContext(root.context) ||
             !this.isPositionInIdentifierRange(
               position,
               root.location.identifierRange,

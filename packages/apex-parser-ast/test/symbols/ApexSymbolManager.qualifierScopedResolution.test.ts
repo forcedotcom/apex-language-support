@@ -33,6 +33,7 @@ import { vi } from 'vitest';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
+import { FullSymbolCollectorListener } from '../../src/parser/listeners/FullSymbolCollectorListener';
 import {
   SymbolKind,
   type ApexSymbol,
@@ -310,6 +311,72 @@ describe('qualifier-scoped member resolution (F11-3 regression guard)', () => {
 
     expect(resolved?.kind).toBe(SymbolKind.Class);
     expect(resolved?.name).toBe('Http');
+  });
+
+  it('resolves a constructor type token before a case-insensitively matching local', async () => {
+    const typeUri = 'file:///test/Svc.cls';
+    const uri = 'file:///test/ConstructorTypeHover.cls';
+    const source = `public class ConstructorTypeHover {
+  void run() {
+    Svc svc = new Svc();
+  }
+}`;
+    await compileAndAdd('public class Svc {}', typeUri);
+    await compileAndAdd(source, uri);
+
+    const declarationLine = source.split('\n')[2];
+    const constructorStart = declarationLine.lastIndexOf('Svc');
+    const resolved = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 3, character: constructorStart + 1 },
+      'precise',
+    );
+
+    expect(resolved?.kind).toBe(SymbolKind.Class);
+    expect(resolved?.name).toBe('Svc');
+  });
+
+  it('resolves a constructor chain root before a case-insensitively matching local', async () => {
+    const typeUri = 'file:///test/Svc.cls';
+    const uri = 'file:///test/ConstructorChainHover.cls';
+    const source = `public class ConstructorChainHover {
+  void run() {
+    Svc svc = new Svc().build();
+  }
+}`;
+    await compileAndAdd(
+      'public class Svc { public Svc build() { return this; } }',
+      typeUri,
+    );
+    const listener = new FullSymbolCollectorListener();
+    const result = compilerService.compile(source, uri, listener, {
+      collectReferences: true,
+      resolveReferences: true,
+    });
+    if (result.result) {
+      await Effect.runPromise(symbolManager.addSymbolTable(result.result, uri));
+    }
+
+    const declarationLine = source.split('\n')[2];
+    const constructorStart = declarationLine.lastIndexOf('Svc');
+    const constructorChain = result.result
+      ?.getAllReferences()
+      .find(
+        (reference) =>
+          reference.chainNodes?.[0]?.context ===
+            ReferenceContext.CONSTRUCTOR_CALL &&
+          reference.chainNodes[0].location.identifierRange.startColumn ===
+            constructorStart,
+      );
+    expect(constructorChain).toBeDefined();
+    const resolved = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 3, character: constructorStart + 1 },
+      'precise',
+    );
+
+    expect(resolved?.kind).toBe(SymbolKind.Class);
+    expect(resolved?.name).toBe('Svc');
   });
 
   it('does not resolve an unknown declaration type token as its variable', async () => {

@@ -874,6 +874,96 @@ describe('worker.platform.shared', () => {
     });
   });
 
+  it('requests a cold sObject describe for a field hover', async () => {
+    const uri = 'file:///ContentVersionReceiver.cls';
+    const fieldUri =
+      'file:///objects/ContentVersion/fields/VersionData.field-meta.xml';
+    const assistance = vi.fn(async (method: string) => {
+      if (method === 'apex/findMissingArtifact') {
+        return {
+          artifacts: [
+            {
+              identifierType: 'sobject',
+              name: 'ContentVersion',
+              describe: {
+                name: 'ContentVersion',
+                custom: false,
+                definitionTarget: {
+                  uri: 'file:///objects/ContentVersion/ContentVersion.object-meta.xml',
+                },
+                fields: [
+                  {
+                    name: 'VersionData',
+                    type: 'base64',
+                    definitionTarget: { uri: fieldUri },
+                  },
+                ],
+              },
+            },
+          ],
+        };
+      }
+      return { entries: {}, versions: {}, detailLevels: {} };
+    });
+    setAssistanceTransport(assistance);
+    const symbolManager = new ApexSymbolManager();
+    const svc = {
+      storageManager: { getStorage: () => ({ setDocument: vi.fn() }) },
+      symbolManager,
+    } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
+    const source = [
+      'public class ContentVersionReceiver {',
+      '  public void run(String base64data) {',
+      '    ContentVersion contentVersion = new ContentVersion();',
+      '    contentVersion.VersionData = EncodingUtil.base64Decode(base64data);',
+      '  }',
+      '}',
+    ].join('\n');
+    const position = { line: 3, character: 20 };
+
+    try {
+      await Effect.runPromise(
+        prepareLspRequestCursor(svc, 'hover', uri, source, position),
+      );
+
+      expect(assistance).toHaveBeenCalledWith(
+        'apex/findMissingArtifact',
+        expect.objectContaining({
+          identifiers: [
+            expect.objectContaining({
+              name: 'ContentVersion',
+              identifierType: 'sobject',
+              allowSObjectPlaceholder: false,
+            }),
+          ],
+          origin: { uri, position, requestKind: 'hover' },
+        }),
+        true,
+      );
+      await expect(
+        symbolManager.getSymbolAtPosition(
+          uri,
+          { line: 4, character: 20 },
+          'precise',
+        ),
+      ).resolves.toMatchObject({
+        name: 'VersionData',
+        kind: 'field',
+      });
+      await expect(
+        new DefinitionProcessingService(
+          getLogger(),
+          symbolManager,
+        ).processDefinition(
+          { textDocument: { uri }, position },
+          { prerequisitesPrepared: true },
+        ),
+      ).resolves.toEqual([expect.objectContaining({ uri: fieldUri })]);
+    } finally {
+      symbolManager.clear();
+    }
+  });
+
   it.each([
     ['apexlib://resources/ContentVersion.cls', true],
     ['file:///ContentVersion.cls', false],

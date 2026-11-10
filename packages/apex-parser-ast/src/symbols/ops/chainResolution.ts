@@ -3578,6 +3578,7 @@ export async function resolveSymbolReferenceToSymbol(
       typeReference.context === ReferenceContext.TYPE_DECLARATION ||
       typeReference.context === ReferenceContext.PARAMETER_TYPE ||
       typeReference.context === ReferenceContext.RETURN_TYPE ||
+      typeReference.context === ReferenceContext.CONSTRUCTOR_CALL ||
       typeReference.context === ReferenceContext.TRIGGER_TARGET_SOBJECT;
     if (typeReference.resolvedSymbolId && !isDeclaredTypeReference) {
       let shouldSkipFastPath = false;

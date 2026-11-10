@@ -1640,6 +1640,13 @@ function loadCursorTargetDependencies(
       string,
       DependencyCursorReference
     >();
+    const hasUnresolvedMemberTarget = references.some((reference) => {
+      const member = reference.chainNodes?.at(-1) ?? reference;
+      return (
+        member.context === ReferenceContext.FIELD_ACCESS &&
+        !member.resolvedSymbolId
+      );
+    });
     const addCandidate = (
       name: string | undefined,
       exactFqn?: string,
@@ -1692,7 +1699,7 @@ function loadCursorTargetDependencies(
         // A member cursor selects the receiver value, not its declaration's
         // type token. Preserve that parser-owned type reference for the same
         // sObject probe used when the cursor is directly on a type.
-        if (requestType === 'definition' && type.typeReferenceId) {
+        if (type.typeReferenceId) {
           for (const reference of symbolTable.getAllReferences()) {
             const range = reference.location.identifierRange;
             const identity =
@@ -2026,7 +2033,10 @@ function loadCursorTargetDependencies(
             const name = reference.name;
             const referenceRange = reference.location?.identifierRange;
             if (!referenceRange) return undefined;
-            if (!locallyAvailableNames.has(name.toLowerCase())) {
+            if (
+              !hasUnresolvedMemberTarget &&
+              !locallyAvailableNames.has(name.toLowerCase())
+            ) {
               return undefined;
             }
             const completeSObject = await hasCompleteLocalSObjectTable(
