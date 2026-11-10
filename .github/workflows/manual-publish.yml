@@ -5,6 +5,9 @@ name: Manual Publish
 #   - A branch CI build artifact (source-run-id path — out-of-band, bypass mandatory)
 #
 # Exactly one of version-tag or source-run-id must be provided.
+#
+# Open VSX is published separately by trigger-openvsx-publish below, not by vscode-manual-publish.yml
+# -- see publishOpenVSXTrusted.yml's header for why.
 
 on:
   workflow_dispatch:
@@ -129,6 +132,23 @@ jobs:
       install-command: 'pnpm install --frozen-lockfile'
       dry-run: ${{ inputs.dry-run }}
     secrets: inherit
+
+  # Only applies to the version-tag path: source-run-id has no GitHub Release for a tag-based
+  # publish to target, and vscode-manual-publish.yml's input validation hard-errors that
+  # combination rather than silently skipping it.
+  trigger-openvsx-publish:
+    needs: manual-publish
+    if: always() && needs.manual-publish.result == 'success' && inputs.version-tag != '' && (inputs.registries == 'ovsx' || inputs.registries == 'all') && inputs.dry-run != 'true'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
+      VERSION_TAG: ${{ inputs.version-tag }}
+    steps:
+      - name: Dispatch Open VSX publish for this version tag
+        run: |
+          gh workflow run publishOpenVSXTrusted.yml \
+            --repo "${{ github.repository }}" \
+            -f release-tag="$VERSION_TAG"
 
   coordinate-extension-api:
     needs: manual-publish
