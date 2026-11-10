@@ -40,6 +40,7 @@ The language server implements a sophisticated request processing system:
   - Verifies document exists in storage
   - Ensures symbol table exists and has required enrichment level
   - Automatically triggers layered enrichment when needed
+  - Diagnostics return parser results from the current snapshot immediately; semantic enrichment runs in the background and requests a diagnostic refresh
 
 - **Two-Tier Semantic Validation**: Split validation for performance
   - TIER 1 (IMMEDIATE): <500ms, same-file only, runs on every keystroke (42 validators)
@@ -91,20 +92,25 @@ LCSAdapter.onDiagnostic()
   ↓
 LSPQueueManager.submitRequest('diagnostics', params, {priority: Normal})
   ↓ Queue Scheduling (priority-based)
+  ↓ Coordinator readiness confirms current document state before request-pool diagnostics run, so they skip duplicate document-cache polling.
 ServiceRegistry → DiagnosticProcessingService
-  ↓
-PrerequisiteOrchestrationService
-  ├─ Verify document in storage
-  ├─ Get/compile symbol table
-  └─ Enrich to required detail level (if needed)
-  ↓
+   ↓
+Return parser diagnostics from the current snapshot
+   ↓
+Enqueue prerequisite enrichment
+   ├─ Verify document in storage
+   ├─ Get/compile symbol table
+   └─ Enrich to required detail level (if needed)
+   ↓
+Request workspace/diagnostic/refresh
+   ↓
+Client sends next textDocument/diagnostic pull
+   ↓
 DiagnosticProcessingService.processDiagnostic()
-  ├─ TIER 1 Validation (42 validators, <500ms)
-  └─ TIER 2 Validation (4 validators, 2-5s)
-  ↓
-Map to LSP Diagnostic[]
-  ↓
-Return to Client
+   ├─ TIER 1 Validation (42 validators, <500ms)
+   └─ TIER 2 Validation (4 validators, 2-5s)
+   ↓
+Map semantic results to LSP Diagnostic[] and return to Client
 ```
 
 ## Features

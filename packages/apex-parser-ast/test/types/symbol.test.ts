@@ -30,6 +30,7 @@ import {
   isClassSymbol,
   isInterfaceSymbol,
   isTriggerSymbol,
+  isReferenceableApexType,
   isVariableSymbol,
 } from '../../src/utils/symbolNarrowing';
 
@@ -78,10 +79,11 @@ describe('sObject symbol substrate', () => {
     expect(inTypeSymbolGroup(sobject)).toBe(true);
   });
 
-  it('appends SOQL_FROM_TYPE and serializes sObject evidence', () => {
+  it('appends SObject reference contexts and serializes sObject evidence', () => {
     expect(ReferenceContext.INTERFACE_IMPLEMENTATION).toBe(17);
     expect(ReferenceContext.KEYWORD_USAGE).toBe(18);
     expect(ReferenceContext.SOQL_FROM_TYPE).toBe(19);
+    expect(ReferenceContext.TRIGGER_TARGET_SOBJECT).toBe(20);
 
     const reference = new EnhancedSymbolReference(
       'Account',
@@ -723,6 +725,44 @@ describe('inTypeSymbolGroup', () => {
     } else {
       fail('inTypeSymbolGroup should have returned true for a class symbol');
     }
+  });
+});
+
+describe('isReferenceableApexType', () => {
+  it('includes class symbols', () => {
+    const classSymbol: ApexSymbol = {
+      kind: SymbolKind.Class,
+      name: 'MyClass',
+      location: {} as any,
+      modifiers: {} as any,
+      key: {} as any,
+      parentKey: null,
+      id: 'class-id',
+      fileUri: 'test://MyClass.cls',
+      parentId: null,
+      _modifierFlags: 0,
+      _isLoaded: true,
+    } as ApexSymbol;
+
+    expect(isReferenceableApexType(classSymbol)).toBe(true);
+  });
+
+  it('excludes trigger declarations from Apex type references', () => {
+    const trigger: ApexSymbol = {
+      kind: SymbolKind.Trigger,
+      name: 'MyTrigger',
+      location: {} as any,
+      modifiers: {} as any,
+      key: {} as any,
+      parentKey: null,
+      id: 'trigger-id',
+      fileUri: 'test://MyTrigger.trigger',
+      parentId: null,
+      _modifierFlags: 0,
+      _isLoaded: true,
+    } as ApexSymbol;
+
+    expect(isReferenceableApexType(trigger)).toBe(false);
   });
 });
 

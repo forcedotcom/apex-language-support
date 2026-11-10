@@ -26,7 +26,7 @@ import type {
 } from '../parser/listeners/ApexCommentCollectorListener';
 import type { GraphData, FileGraphData, TypeGraphData } from '../types/graph';
 import { Effect } from 'effect';
-import type { DetailLevel } from './DetailLevel';
+import type { SymbolCollectionLevel } from './SymbolCollectionLevel';
 import type { SymbolProvider } from '../namespace/NamespaceUtils';
 
 /**
@@ -255,11 +255,11 @@ export interface ISymbolManager extends SymbolProvider {
 
   getGraphDataByType(symbolType: string): Promise<TypeGraphData>;
 
-  getDetailLevelForFile(fileUri: string): Promise<DetailLevel | null>;
+  getDetailLevelForFile(fileUri: string): Promise<SymbolCollectionLevel | null>;
 
   enrichToLevel(
     fileUri: string,
-    targetLevel: DetailLevel,
+    targetSymbolCollectionLevel: SymbolCollectionLevel,
     documentText: string,
   ): Effect.Effect<void, never, never>;
 

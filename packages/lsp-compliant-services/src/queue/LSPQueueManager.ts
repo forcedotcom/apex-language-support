@@ -25,7 +25,12 @@ import {
 } from '@salesforce/apex-lsp-parser-ast';
 import { Effect, Deferred, Fiber, Cause, Data } from 'effect';
 import { LSPRequestType, LSPQueueStats } from './LSPRequestQueue';
+import type {
+  WorkerDispatchArgs,
+  WorkerDispatchResult,
+} from './LSPDispatchContract';
 import { ServiceRegistry, GenericRequestHandler } from '../registry';
+import { getLspRequestPolicy } from '../config/lspRequestPolicy';
 
 /**
  * Thrown when a queued LSP request is cancelled — either before it is
@@ -100,9 +105,15 @@ export interface WorkerDispatcher {
   ): Promise<{
     ready: boolean;
     reason?: 'no-compile-pending' | 'timeout' | 'stale-version';
+    handlerElapsedMs?: number;
+    dispatchToHandlerMs?: number;
+    responseDeliveryMs?: number;
+    roundTripMs: number;
   }>;
   /** Offload the request to a worker, resolving with its result. */
-  dispatch(type: LSPRequestType, params: unknown): Promise<unknown>;
+  dispatch<T extends WorkerDispatchArgs>(
+    ...args: T
+  ): Promise<WorkerDispatchResult<T>>;
 }
 
 /**
@@ -142,8 +153,9 @@ const CODE_ACTION_COALESCE_MS = 150;
 /**
  * Pool request types whose worker handler recompiles the cursor file from the
  * live in-flight text carried on the request (DispatchCompletion / Hover /
- * Definition / SignatureHelp / CodeAction / DocumentSymbol all thread
- * req.content into loadSymbolDataForEnrichment / recompileCursorFileAtFullDetail).
+ * Definition / SignatureHelp / CodeAction / DocumentSymbol thread req.content
+ * into loadSymbolDataForEnrichment / recompileCursorFileAtFullDetail;
+ * SemanticTokens stores req.content and parses it without loading symbol data.
  * These do NOT depend on the dataOwner graph being current for the cursor file,
  * so the cold-read readiness gate is both unnecessary and harmful for them:
  * they fire while typing, so the gate would report 'stale-version'/'timeout'
@@ -161,6 +173,7 @@ const SELF_LOADING_REQUEST_TYPES = new Set<LSPRequestType>([
   'signatureHelp',
   'codeAction',
   'documentSymbol',
+  'semanticTokens',
   // renameLocal (W-23631077) recompiles the cursor file STANDALONE from
   // req.content in the pool worker (resolveLocalRename), so like the others it
   // does not depend on the dataOwner graph being current. Without this entry
@@ -391,6 +404,21 @@ export class LSPQueueManager {
                     budget_ms: gateBudgetMs,
                     request_type: type,
                   },
+                  (result) => ({
+                    'cold_read_gate.ready': result.ready,
+                    'cold_read_gate.outcome': result.ready
+                      ? 'ready'
+                      : (result.reason ?? 'unknown'),
+                    'cold_read_gate.wait_ms': Date.now() - gateStartTime,
+                    'cold_read_gate.data_owner_round_trip_ms':
+                      result.roundTripMs,
+                    'cold_read_gate.data_owner_handler_ms':
+                      result.handlerElapsedMs,
+                    'cold_read_gate.data_owner_dispatch_ms':
+                      result.dispatchToHandlerMs,
+                    'cold_read_gate.data_owner_response_delivery_ms':
+                      result.responseDeliveryMs,
+                  }),
                 );
                 const actualWaitMs = Date.now() - gateStartTime;
                 if (!readiness.ready) {
@@ -409,7 +437,11 @@ export class LSPQueueManager {
                   // Wrap dispatch in a span so trace context injection can access it
                   return (await runWithSpan(
                     `lsp.coordinator.${type}`,
-                    () => workerDispatcher.dispatch(type, params),
+                    // Queue tasks are dynamically registered; the dispatcher
+                    // contract protects direct callers while this legacy queue
+                    // boundary is migrated separately.
+                    () =>
+                      workerDispatcher.dispatch(type as never, params as never),
                     { request_type: type, uri: requestTargetUri(params) },
                   )) as T;
                 } catch (dispatchError) {
@@ -528,7 +560,7 @@ export class LSPQueueManager {
     token?: CancellationLike,
   ): Promise<any> {
     return this.submitRequest('hover', params, {
-      priority: Priority.Immediate,
+      priority: getLspRequestPolicy('hover').priority,
       token,
     });
   }
@@ -538,7 +570,7 @@ export class LSPQueueManager {
    */
   async submitCompletionRequest(params: any): Promise<any> {
     return this.submitRequest('completion', params, {
-      priority: Priority.Immediate,
+      priority: getLspRequestPolicy('completion').priority,
     });
   }
 
@@ -547,7 +579,7 @@ export class LSPQueueManager {
    */
   async submitDefinitionRequest(params: any): Promise<any> {
     return this.submitRequest('definition', params, {
-      priority: Priority.High,
+      priority: getLspRequestPolicy('definition').priority,
     });
   }
 
@@ -559,7 +591,7 @@ export class LSPQueueManager {
     token?: CancellationLike,
   ): Promise<any> {
     return this.submitRequest('references', params, {
-      priority: Priority.Normal,
+      priority: getLspRequestPolicy('references').priority,
       token,
     });
   }
@@ -572,7 +604,7 @@ export class LSPQueueManager {
     token?: CancellationLike,
   ): Promise<any> {
     return this.submitRequest('implementation', params, {
-      priority: Priority.High,
+      priority: getLspRequestPolicy('implementation').priority,
       token,
     });
   }
@@ -582,7 +614,7 @@ export class LSPQueueManager {
    */
   async submitFoldingRangeRequest(params: any): Promise<any> {
     return this.submitRequest('foldingRange', params, {
-      priority: Priority.Low,
+      priority: getLspRequestPolicy('foldingRange').priority,
     });
   }
 
@@ -591,7 +623,7 @@ export class LSPQueueManager {
    */
   async submitCodeLensRequest(params: any): Promise<any> {
     return this.submitRequest('codeLens', params, {
-      priority: Priority.Low,
+      priority: getLspRequestPolicy('codeLens').priority,
     });
   }
 
@@ -600,7 +632,7 @@ export class LSPQueueManager {
    */
   async submitFindMissingArtifactRequest(params: any): Promise<any> {
     return this.submitRequest('findMissingArtifact', params, {
-      priority: Priority.Normal,
+      priority: getLspRequestPolicy('findMissingArtifact').priority,
     });
   }
 
@@ -609,7 +641,14 @@ export class LSPQueueManager {
    */
   async submitDocumentSymbolRequest(params: any): Promise<any> {
     return this.submitRequest('documentSymbol', params, {
-      priority: Priority.High,
+      priority: getLspRequestPolicy('documentSymbol').priority,
+    });
+  }
+
+  /** Submit semantic tokens for the current editor buffer. */
+  async submitSemanticTokensRequest(params: any): Promise<any> {
+    return this.submitRequest('semanticTokens', params, {
+      priority: getLspRequestPolicy('semanticTokens').priority,
     });
   }
 
@@ -618,7 +657,7 @@ export class LSPQueueManager {
    */
   async submitWorkspaceSymbolRequest(params: any): Promise<any> {
     return this.submitRequest('workspaceSymbol', params, {
-      priority: Priority.Normal,
+      priority: getLspRequestPolicy('workspaceSymbol').priority,
     });
   }
 
@@ -627,7 +666,7 @@ export class LSPQueueManager {
    */
   async submitDiagnosticsRequest(params: any): Promise<any> {
     return this.submitRequest('diagnostics', params, {
-      priority: Priority.Normal,
+      priority: getLspRequestPolicy('diagnostics').priority,
     });
   }
 
@@ -651,7 +690,7 @@ export class LSPQueueManager {
     // Without a URI to key on we cannot coalesce; fall back to a plain submit.
     if (!uri) {
       return this.submitRequest('codeAction', params, {
-        priority: Priority.Low,
+        priority: getLspRequestPolicy('codeAction').priority,
         token,
       });
     }
@@ -698,7 +737,7 @@ export class LSPQueueManager {
 
     // Survived the debounce window as the latest request for this URI.
     return this.submitRequest('codeAction', params, {
-      priority: Priority.Low,
+      priority: getLspRequestPolicy('codeAction').priority,
       token,
     });
   }
@@ -711,7 +750,7 @@ export class LSPQueueManager {
     token?: CancellationLike,
   ): Promise<any> {
     return this.submitRequest('rename', params, {
-      priority: Priority.Low,
+      priority: getLspRequestPolicy('rename').priority,
       token,
     });
   }
@@ -724,7 +763,7 @@ export class LSPQueueManager {
     token?: CancellationLike,
   ): Promise<any> {
     return this.submitRequest('prepareRename', params, {
-      priority: Priority.Low,
+      priority: getLspRequestPolicy('prepareRename').priority,
       token,
     });
   }
@@ -809,7 +848,7 @@ export class LSPQueueManager {
    */
   submitDocumentOpenNotification(params: any): Promise<void> {
     return this.submitNotification('documentOpen', params, {
-      priority: Priority.High,
+      priority: getLspRequestPolicy('documentOpen').priority,
     });
   }
 
@@ -818,7 +857,7 @@ export class LSPQueueManager {
    */
   submitDocumentSaveNotification(params: any): Promise<void> {
     return this.submitNotification('documentSave', params, {
-      priority: Priority.Normal,
+      priority: getLspRequestPolicy('documentSave').priority,
     });
   }
 
@@ -827,7 +866,7 @@ export class LSPQueueManager {
    */
   submitDocumentChangeNotification(params: any): Promise<void> {
     return this.submitNotification('documentChange', params, {
-      priority: Priority.Normal,
+      priority: getLspRequestPolicy('documentChange').priority,
     });
   }
 
@@ -836,7 +875,7 @@ export class LSPQueueManager {
    */
   submitDocumentCloseNotification(params: any): Promise<void> {
     return this.submitNotification('documentClose', params, {
-      priority: Priority.Immediate,
+      priority: getLspRequestPolicy('documentClose').priority,
     });
   }
 

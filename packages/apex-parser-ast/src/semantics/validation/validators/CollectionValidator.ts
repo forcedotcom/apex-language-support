@@ -555,7 +555,6 @@ export const CollectionValidator: Validator = {
                   ErrorCodes.INVALID_LIST_INITIALIZER,
                   argumentType.originalTypeString,
                   elementType.originalTypeString,
-                  elementType.originalTypeString,
                 ),
                 location,
                 code: ErrorCodes.INVALID_LIST_INITIALIZER,

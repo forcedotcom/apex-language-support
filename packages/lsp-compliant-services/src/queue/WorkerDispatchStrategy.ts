@@ -7,6 +7,10 @@
  */
 
 import type { LSPRequestType } from './LSPRequestQueue';
+import type {
+  WorkerDispatchArgs,
+  WorkerDispatchResult,
+} from './LSPDispatchContract';
 
 /** Shape returned by getTopologyStatus() for dashboard display. */
 export interface WorkerTopologyStatus {
@@ -37,7 +41,9 @@ export interface WorkerTopologyStatus {
  * because they depend on @effect/platform worker types.
  */
 export interface WorkerDispatchStrategy {
-  dispatch(type: LSPRequestType, params: unknown): Promise<unknown>;
+  dispatch<T extends WorkerDispatchArgs>(
+    ...args: T
+  ): Promise<WorkerDispatchResult<T>>;
   isAvailable(): boolean;
   canDispatch(type: LSPRequestType): boolean;
   /**
@@ -74,6 +80,10 @@ export interface WorkerDispatchStrategy {
   ): Promise<{
     ready: boolean;
     reason?: 'no-compile-pending' | 'timeout' | 'stale-version';
+    handlerElapsedMs?: number;
+    dispatchToHandlerMs?: number;
+    responseDeliveryMs?: number;
+    roundTripMs: number;
   }>;
   getTopologyStatus?(): WorkerTopologyStatus;
 }

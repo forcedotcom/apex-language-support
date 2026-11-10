@@ -10,8 +10,52 @@ import {
   ServerCapabilities,
   ClientCapabilities,
   CodeActionKind,
+  type SemanticTokensClientCapabilities,
+  type SemanticTokensOptions,
 } from 'vscode-languageserver-protocol';
 import { APEX_DEBUGGER_COMMANDS } from '../commands/ApexDebuggerCommands';
+import { SEMANTIC_TOKEN_LEGEND } from '../semanticTokenLegend';
+
+const SEMANTIC_TOKENS_PROVIDER: SemanticTokensOptions = {
+  legend: {
+    tokenTypes: [...SEMANTIC_TOKEN_LEGEND.tokenTypes],
+    tokenModifiers: [...SEMANTIC_TOKEN_LEGEND.tokenModifiers],
+  },
+  full: true,
+};
+
+/**
+ * Restrict the server legend to token names a semantic-token-capable client
+ * advertises. The server owns the response ordering and uses this exact legend
+ * when encoding each token response for that client session.
+ */
+export function negotiateSemanticTokensProvider(
+  serverProvider: SemanticTokensOptions,
+  clientCapabilities: SemanticTokensClientCapabilities | undefined,
+): SemanticTokensOptions | undefined {
+  if (clientCapabilities === undefined) return serverProvider;
+  if (
+    (clientCapabilities.requests.full !== true &&
+      typeof clientCapabilities.requests.full !== 'object') ||
+    !clientCapabilities.formats.includes('relative')
+  ) {
+    return undefined;
+  }
+
+  const tokenTypes = new Set(clientCapabilities.tokenTypes);
+  const tokenModifiers = new Set(clientCapabilities.tokenModifiers);
+  return {
+    legend: {
+      tokenTypes: serverProvider.legend.tokenTypes.filter((type) =>
+        tokenTypes.has(type),
+      ),
+      tokenModifiers: serverProvider.legend.tokenModifiers.filter((modifier) =>
+        tokenModifiers.has(modifier),
+      ),
+    },
+    full: serverProvider.full,
+  };
+}
 
 export type ExtendedServerCapabilities = ServerCapabilities &
   ImplicitCapabilties & { experimental?: ExperimentalCapabilities };
@@ -188,7 +232,7 @@ export const PRODUCTION_WEB_CAPABILITIES: ExtendedServerCapabilities = {
   },
   callHierarchyProvider: undefined,
   linkedEditingRangeProvider: undefined,
-  semanticTokensProvider: undefined,
+  semanticTokensProvider: SEMANTIC_TOKENS_PROVIDER,
   monikerProvider: undefined,
   typeHierarchyProvider: undefined,
   inlineValueProvider: undefined,
@@ -219,7 +263,7 @@ export const PRODUCTION_WEB_CAPABILITIES: ExtendedServerCapabilities = {
 
 /**
  * Production capabilities for desktop environments.
- * Intentionally minimal — only document symbols are released for desktop production.
+ * Includes document symbols, semantic tokens, CodeLens, and debugger command metadata.
  * Other features (hover, definition, etc.) require further validation before desktop release.
  */
 export const PRODUCTION_DESKTOP_CAPABILITIES: ExtendedServerCapabilities = {
@@ -232,6 +276,13 @@ export const PRODUCTION_DESKTOP_CAPABILITIES: ExtendedServerCapabilities = {
     willSaveWaitUntil: false,
   },
   documentSymbolProvider: true,
+  codeLensProvider: {
+    resolveProvider: false,
+  },
+  executeCommandProvider: {
+    commands: Object.values(APEX_DEBUGGER_COMMANDS),
+  },
+  semanticTokensProvider: SEMANTIC_TOKENS_PROVIDER,
   workspace: {
     workspaceFolders: {
       supported: true,

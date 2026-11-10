@@ -112,7 +112,9 @@ export class AnnotationUtils {
    * @returns True if the symbol is a test class, false otherwise
    */
   public static isTestClass(symbol: ApexSymbol): boolean {
-    return this.hasAnnotation(symbol, 'isTest');
+    return (
+      symbol.kind === SymbolKind.Class && this.hasAnnotation(symbol, 'isTest')
+    );
   }
 
   /**

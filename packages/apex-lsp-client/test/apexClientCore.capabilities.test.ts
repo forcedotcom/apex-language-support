@@ -94,6 +94,10 @@ describe('ApexClientCore capability advertisement', () => {
     expect(experimental.requestWorkspaceLoadProvider).toEqual({
       enabled: true,
     });
+    expect(captured!.capabilities.textDocument?.semanticTokens).toMatchObject({
+      requests: { full: true },
+      formats: ['relative'],
+    });
 
     await core.dispose();
   });
@@ -263,6 +267,37 @@ describe('ApexClientCore capability advertisement', () => {
     expect(core.getFeatureState('codeLens')).toEqual({
       supported: true,
       enabled: true,
+    });
+
+    await core.dispose();
+  });
+
+  it('preserves a caller semantic-token capability object', async () => {
+    let captured: InitializeParams | undefined;
+    const core = await ApexClientCore.create(
+      makeMockConnection((params) => {
+        captured = params;
+      }),
+    );
+
+    await core.initialize(DEFAULT_APEX_SETTINGS, {
+      capabilities: {
+        textDocument: {
+          semanticTokens: {
+            requests: { full: { delta: true } },
+            tokenTypes: ['custom'],
+            tokenModifiers: ['generated'],
+            formats: ['relative'],
+          },
+        },
+      },
+    });
+
+    expect(captured!.capabilities.textDocument?.semanticTokens).toEqual({
+      requests: { full: { delta: true } },
+      tokenTypes: ['custom'],
+      tokenModifiers: ['generated'],
+      formats: ['relative'],
     });
 
     await core.dispose();

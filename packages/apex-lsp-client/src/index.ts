@@ -46,7 +46,7 @@ export type {
   ApexClientCoreOptions,
   ApexClientInitializeParams,
 } from './apexClientCore';
-export type { ApexClient } from './apexClient';
+export type { ApexClient, ApexStandardLspClient } from './apexClient';
 export type {
   ApexServerFeatureState,
   ApexServerFeatureStates,
@@ -107,8 +107,17 @@ export type {
   HoverParams,
   Location,
   LocationLink,
+  SemanticTokens,
+  SemanticTokensLegend,
+  SemanticTokensOptions,
+  SemanticTokensParams,
   SymbolInformation,
 } from './lspPassThroughs';
+export {
+  decodeSemanticTokens,
+  SemanticTokenDecodeError,
+} from './semanticTokens';
+export type { DecodedSemanticToken } from './semanticTokens';
 
 // Transport adapters — thin wrappers satisfying the RpcConnection port.
 export { JsonRpcConnection } from './transports/jsonRpcConnection';

@@ -92,6 +92,11 @@ export {
 export * from './services/DiagnosticGraphCorrelationService';
 export * from './services/DiagnosticAnalysisService';
 export * from './services/LspRequestPrerequisiteMapping';
+export {
+  getLspRequestPolicy,
+  type LspRequestPolicy,
+  type EnrichmentRequirement,
+} from './config/lspRequestPolicy';
 export * from './services/LspRequestPreparationPolicy';
 export * from './services/PrerequisiteRequirements';
 
@@ -138,6 +143,14 @@ export type {
   WorkerDispatchStrategy,
   WorkerTopologyStatus,
 } from './queue/WorkerDispatchStrategy';
+export type {
+  LSPDispatchRequest,
+  LSPDispatchParams,
+  LSPDispatchResult,
+  WorkerDispatchArgs,
+  WorkerDispatchResult,
+  WorkerDispatchType,
+} from './queue/LSPDispatchContract';
 
 /**
  * Initialize LSPQueueManager with required dependencies

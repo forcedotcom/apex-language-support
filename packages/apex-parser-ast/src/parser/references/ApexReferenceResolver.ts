@@ -321,6 +321,14 @@ export class ApexReferenceResolver {
       case ReferenceContext.RETURN_TYPE:
         return this.resolveTypeReference(ref, allSymbols);
 
+      case ReferenceContext.TRIGGER_TARGET_SOBJECT:
+        return (
+          allSymbols.find(
+            (symbol) =>
+              symbol.name === ref.name && symbol.kind === SymbolKind.SObject,
+          ) || null
+        );
+
       case ReferenceContext.VARIABLE_DECLARATION:
       case ReferenceContext.PROPERTY_REFERENCE:
         return this.resolveDeclarationReference(

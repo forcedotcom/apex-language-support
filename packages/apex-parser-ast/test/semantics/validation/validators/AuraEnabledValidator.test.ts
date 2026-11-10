@@ -94,9 +94,12 @@ describe('AuraEnabledValidator', () => {
 
     expect(result.isValid).toBe(false);
     expect(result.errors.length).toBeGreaterThan(0);
-    const error = result.errors[0] as any;
-    expect(error.code).toBe(
-      ErrorCodes.NON_STATIC_AURA_METHOD_MUST_BEGIN_WITH_GET,
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({
+        code: ErrorCodes.NON_STATIC_AURA_METHOD_MUST_BEGIN_WITH_GET,
+        message:
+          "Non static AuraEnabled methods must be named with a prefix 'get'",
+      }),
     );
   });
 

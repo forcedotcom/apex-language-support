@@ -27,6 +27,7 @@ import {
   DispatchReferences,
   DispatchRename,
   DispatchDocumentSymbol,
+  DispatchSemanticTokens,
   DispatchCodeLens,
   DispatchGenericLspRequest,
   DispatchCrossFileEnrichment,
@@ -360,6 +361,27 @@ describe('workerWireSchemas', () => {
     });
   });
 
+  describe('DispatchSemanticTokens', () => {
+    it('should round-trip the current document buffer', () => {
+      const req = new DispatchSemanticTokens({
+        textDocument: { uri: 'file:///MyClass.cls' },
+        content: 'public class MyClass {}',
+        semanticTokenLegend: {
+          tokenTypes: ['class'],
+          tokenModifiers: ['declaration'],
+        },
+      });
+      const encoded = Schema.encodeSync(DispatchSemanticTokens)(req);
+      const decoded = Schema.decodeSync(DispatchSemanticTokens)(encoded);
+      expect(decoded.textDocument.uri).toBe('file:///MyClass.cls');
+      expect(decoded.content).toBe('public class MyClass {}');
+      expect(decoded.semanticTokenLegend).toEqual({
+        tokenTypes: ['class'],
+        tokenModifiers: ['declaration'],
+      });
+    });
+  });
+
   describe('DispatchCodeLens', () => {
     it('should encode and decode round-trip', () => {
       const req = new DispatchCodeLens({
@@ -527,6 +549,7 @@ describe('workerWireSchemas', () => {
         'DispatchReferences',
         'DispatchRename',
         'DispatchDocumentSymbol',
+        'DispatchSemanticTokens',
         'DispatchCodeLens',
         'DispatchDiagnostic',
         'DispatchCrossFileEnrichment',

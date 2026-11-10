@@ -35,6 +35,7 @@ import {
   initWorkerTracing,
   getActiveWorkerTraceContext,
   provideWorkerTracing,
+  shutdownWorkerTracing,
   withExtractedTraceContext,
 } from '@salesforce/apex-lsp-shared/observability/workerTracing';
 
@@ -531,7 +532,12 @@ const workerProgram = WorkerRunner.launch(
 // Explicitly terminate the worker at that boundary: worker_threads can retain
 // internal MessagePort handles after parentPort.close(), causing the parent
 // manager to wait for its five-second forced-termination fallback per level.
-void Effect.runPromiseExit(workerProgram).then((exit) => {
+void Effect.runPromiseExit(workerProgram).then(async (exit) => {
+  try {
+    await shutdownWorkerTracing();
+  } catch (error) {
+    console.error(`Failed to shut down worker tracing: ${error}`);
+  }
   if (exit._tag === 'Failure' && !Cause.isInterruptedOnly(exit.cause)) {
     console.error(`Apex worker runner failed: ${Cause.pretty(exit.cause)}`);
     if (process.env.APEX_LS_DISABLE_WORKER_TOPOLOGY_EXIT !== '1') {

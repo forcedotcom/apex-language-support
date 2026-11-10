@@ -68,6 +68,7 @@ import {
   DispatchPrepareRename,
   DispatchImplementation,
   DispatchDocumentSymbol,
+  DispatchSemanticTokens,
   DispatchCodeLens,
   DispatchDiagnostic,
   DispatchCrossFileEnrichment,
@@ -98,7 +99,7 @@ import {
 } from '@salesforce/apex-lsp-compliant-services';
 import type {
   ApexSymbol,
-  DetailLevel,
+  SymbolCollectionLevel,
   SerializedSymbolTableData,
   SymbolReference,
   TypeSymbol,
@@ -178,6 +179,7 @@ export const AllWorkerRequests = Schema.Union(
   DispatchPrepareRename,
   DispatchImplementation,
   DispatchDocumentSymbol,
+  DispatchSemanticTokens,
   DispatchCodeLens,
   DispatchDiagnostic,
   DispatchCrossFileEnrichment,
@@ -367,7 +369,7 @@ export function requestCoordinatorAssistancePromiseShared(
 }
 
 type WorkerTracingHooks = {
-  readonly initialize: (url: string, serviceName: string) => void;
+  readonly initialize: (url: string, serviceName: string) => Promise<void>;
   readonly provide: <A, E, R>(
     effect: Effect.Effect<A, E, R>,
   ) => Effect.Effect<A, E, R>;
@@ -378,7 +380,7 @@ type WorkerTracingHooks = {
 };
 
 let workerTracingHooks: WorkerTracingHooks = {
-  initialize: () => {},
+  initialize: async () => {},
   provide: (effect) => effect,
   withParent: (_request, effect) => effect,
 };
@@ -674,6 +676,7 @@ export interface DOQueueItem {
   readonly deferred: Deferred.Deferred<unknown, unknown>;
   readonly enqueuedAt: number;
   readonly queueDepth: number;
+  readonly lane: 'read' | 'write';
   readonly parentSpan: Option.Option<Tracer.AnySpan>;
   readonly trace?: {
     readonly spanName: string;
@@ -690,16 +693,19 @@ const processItem = (item: DOQueueItem) =>
   Effect.gen(function* () {
     let execution = item.eff;
     if (item.trace) {
+      const trace = item.trace;
       const queueWaitMs = Date.now() - item.enqueuedAt;
       execution = Effect.gen(function* () {
         yield* Effect.annotateCurrentSpan({
           'data_owner.queue_wait_ms': queueWaitMs,
           'data_owner.queue_depth': item.queueDepth,
+          'data_owner.queue_lane': item.lane,
+          'data_owner.queue_operation': trace.spanName,
         });
         return yield* item.eff;
       }).pipe(
-        Effect.withSpan(item.trace.spanName, {
-          attributes: { ...item.trace.attributes },
+        Effect.withSpan(trace.spanName, {
+          attributes: { ...trace.attributes },
         }),
       );
     }
@@ -767,6 +773,7 @@ export const dataOwnerRead = <A, E>(
       deferred: deferred as Deferred.Deferred<unknown, unknown>,
       enqueuedAt: Date.now(),
       queueDepth,
+      lane: 'read',
       parentSpan,
       trace,
     });
@@ -787,6 +794,7 @@ export const dataOwnerWrite = <A, E>(
       deferred: deferred as Deferred.Deferred<unknown, unknown>,
       enqueuedAt: Date.now(),
       queueDepth,
+      lane: 'write',
       parentSpan,
       trace,
     });
@@ -1010,6 +1018,34 @@ export type DocWithContentReq = {
   textDocument: { uri: string };
   content?: string;
 };
+export type SemanticTokensReq = {
+  textDocument: { uri: string };
+  content: string;
+  semanticTokenLegend: {
+    tokenTypes: readonly string[];
+    tokenModifiers: readonly string[];
+  };
+};
+
+export function processSemanticTokensRequest(
+  svc: Pick<RequestServices, 'storageManager' | 'semanticTokensService'>,
+  req: SemanticTokensReq,
+): Effect.Effect<unknown, never, never> {
+  return Effect.gen(function* () {
+    // Semantic tokens are Tier 1 parser output for the live editor buffer.
+    // Do not load the data-owner graph or run enrichment for this request.
+    const document = makeWorkerDocument(req.textDocument.uri, req.content);
+    svc.storageManager
+      .getStorage()
+      .setDocument(req.textDocument.uri, document as never);
+    return yield* Effect.promise(() =>
+      svc.semanticTokensService.processSemanticTokens(
+        req.textDocument.uri,
+        req.semanticTokenLegend,
+      ),
+    );
+  });
+}
 export type RefsReq = PositionReq & {
   context: { includeDeclaration: boolean };
 };
@@ -1382,12 +1418,13 @@ export function loadSymbolDataForEnrichment(
 export function loadCodeLensSymbolData(
   svc: RequestServices,
   uri: string,
+  content?: string,
 ): Effect.Effect<
   { version: number; detailLevel: string; localDetailLevel?: string },
   never,
   never
 > {
-  return loadSymbolDataForEnrichment(svc, uri, undefined, {
+  return loadSymbolDataForEnrichment(svc, uri, content, {
     materializeCrossFileReferences: false,
     deferDependencyPrefetch: true,
   });
@@ -1463,7 +1500,7 @@ const positionInParserRange = (
   (position.line < range.endLine ||
     (position.line === range.endLine && position.character <= range.endColumn));
 
-/** Select only parser references whose token or member-access range owns the cursor. */
+/** Select parser references whose token or member-access range owns the cursor. */
 export const dependencyReferencesAtCursor = (
   references: DependencyCursorReference[],
   position: { line: number; character: number },
@@ -1472,6 +1509,17 @@ export const dependencyReferencesAtCursor = (
     positionInParserRange(position, reference.location?.identifierRange),
   );
   if (exact.length > 0) {
+    // Preserve the enclosing chain when its leaf owns the cursor. The leaf is
+    // the right target for hover, while the chain head identifies the producer
+    // table needed to resolve that target in a request-pool worker.
+    const enclosingChains = references.filter(
+      (reference) =>
+        reference.chainNodes &&
+        reference.chainNodes.length >= 2 &&
+        reference.chainNodes.some((node) =>
+          positionInParserRange(position, node.location?.identifierRange),
+        ),
+    );
     const rangeSize = (reference: DependencyCursorReference): number => {
       const range = reference.location?.identifierRange;
       if (!range) return Number.POSITIVE_INFINITY;
@@ -1481,7 +1529,10 @@ export const dependencyReferencesAtCursor = (
       );
     };
     const narrowest = Math.min(...exact.map(rangeSize));
-    return exact.filter((reference) => rangeSize(reference) === narrowest);
+    return [
+      ...exact.filter((reference) => rangeSize(reference) === narrowest),
+      ...enclosingChains,
+    ];
   }
 
   return references.filter((reference) => {
@@ -1654,7 +1705,8 @@ function loadCursorTargetDependencies(
         reference.context === ReferenceContext.CONSTRUCTOR_CALL ||
         reference.context === ReferenceContext.TYPE_DECLARATION ||
         reference.context === ReferenceContext.INHERITANCE ||
-        reference.context === ReferenceContext.INTERFACE_IMPLEMENTATION
+        reference.context === ReferenceContext.INTERFACE_IMPLEMENTATION ||
+        reference.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
       ) {
         addCandidate(reference.name);
       }
@@ -1670,6 +1722,16 @@ function loadCursorTargetDependencies(
         }
         yield* addResolvedSymbolType(node.resolvedSymbolId);
         yield* addResolvedSymbolType(node.resolvedTypeId, true);
+      }
+
+      // The parser may conservatively classify a static type receiver as a
+      // value reference in a member chain. When the receiver is unresolved,
+      // fetch its owning table from the data owner so the member can be bound
+      // locally instead of falling through to missing-artifact search.
+      const chainNodes = reference.chainNodes;
+      const chainHead = chainNodes?.[0];
+      if (chainHead && chainNodes.length >= 2) {
+        addCandidate(chainHead.name);
       }
     }
 
@@ -1729,6 +1791,14 @@ function loadCursorTargetDependencies(
       }
     }
 
+    const triggerTargetNames = new Set(
+      references
+        .filter(
+          (reference) =>
+            reference.context === ReferenceContext.TRIGGER_TARGET_SOBJECT,
+        )
+        .map((reference) => reference.name.toLowerCase()),
+    );
     const missingNames: string[] = [];
     let localHitCount = 0;
     for (const candidateName of candidateNames.values()) {
@@ -1744,6 +1814,12 @@ function loadCursorTargetDependencies(
           );
       let locallyAvailable = false;
       for (const candidate of candidates) {
+        if (
+          triggerTargetNames.has(candidateName.name.toLowerCase()) &&
+          candidate.kind !== SymbolKind.SObject
+        ) {
+          continue;
+        }
         if (!candidate.fileUri) continue;
         const table = yield* Effect.promise(() =>
           svc.symbolManager.getSymbolTableForFile(candidate.fileUri!),
@@ -1754,7 +1830,12 @@ function loadCursorTargetDependencies(
         }
       }
       if (locallyAvailable) localHitCount++;
-      else if (candidates.length <= 1) missingNames.push(candidateName.name);
+      else if (
+        triggerTargetNames.has(candidateName.name.toLowerCase()) ||
+        candidates.length <= 1
+      ) {
+        missingNames.push(candidateName.name);
+      }
     }
 
     let ingestedCount = 0;
@@ -1807,11 +1888,12 @@ function loadCursorTargetDependencies(
         : 'references';
       const metadata = symbolTable.getMetadata();
       const allReferences = symbolTable.getAllReferences();
-      const hasMemberAccessAtCursor = references.some(
+      const hasSObjectTargetAtCursor = references.some(
         (reference) =>
           reference.context === ReferenceContext.FIELD_ACCESS ||
           (reference.chainNodes?.length ?? 0) >= 2 ||
-          reference.semanticContext?.memberAccess !== undefined,
+          reference.semanticContext?.memberAccess !== undefined ||
+          reference.context === ReferenceContext.TRIGGER_TARGET_SOBJECT,
       );
       const stillMissingNames = yield* Effect.promise(() =>
         Promise.all(
@@ -1825,8 +1907,27 @@ function loadCursorTargetDependencies(
             .map((result) => result.name),
         ),
       );
-      const sObjectIdentifiers = hasMemberAccessAtCursor
-        ? stillMissingNames.flatMap((name) => {
+      const sObjectTargetNames = [...triggerTargetNames];
+      const missingSObjectTargetNames = yield* Effect.promise(() =>
+        Promise.all(
+          sObjectTargetNames.map(async (name) => ({
+            name,
+            available: await hasCompleteLocalSymbolTable(
+              svc,
+              name,
+              SymbolKind.SObject,
+            ),
+          })),
+        ).then((results) =>
+          results
+            .filter((result) => !result.available)
+            .map((result) => result.name),
+        ),
+      );
+      const sObjectIdentifiers = hasSObjectTargetAtCursor
+        ? [
+            ...new Set([...stillMissingNames, ...missingSObjectTargetNames]),
+          ].flatMap((name) => {
             const normalizedName = name.toLowerCase();
             const reference = allReferences.find((candidate) => {
               const candidateName = candidate.name
@@ -2098,9 +2199,13 @@ export async function resolveMissingNamesViaDataOwner(
 async function hasCompleteLocalSymbolTable(
   svc: RequestServices,
   name: string,
+  requiredKind?: SymbolKind,
 ): Promise<boolean> {
   const symbols = await svc.symbolManager.findSymbolByName(name);
   for (const symbol of symbols) {
+    if (requiredKind !== undefined && symbol.kind !== requiredKind) {
+      continue;
+    }
     if (!symbol.fileUri) {
       return true;
     }
@@ -2380,8 +2485,8 @@ export interface PreparedLspRequestContext {
   readonly requestType: LSPRequestType;
   readonly uri: string;
   readonly documentVersion: number;
-  readonly initialDetailLevel: DetailLevel;
-  readonly achievedDetailLevel: DetailLevel;
+  readonly initialSymbolCollectionLevel: SymbolCollectionLevel;
+  readonly achievedSymbolCollectionLevel: SymbolCollectionLevel;
   readonly cacheHit: boolean;
   readonly localTableChanged: boolean;
   readonly ready: boolean;
@@ -2396,7 +2501,7 @@ const shouldMaterializeWholeFile = (
   policy: LspRequestPreparationPolicy,
 ): boolean => policy.dependencyScope === 'outbound-file';
 
-const asDetailLevel = (value: string): DetailLevel => {
+const asSymbolCollectionLevel = (value: string): SymbolCollectionLevel => {
   switch (value) {
     case 'public-api':
     case 'protected':
@@ -2449,16 +2554,18 @@ export function prepareLspRequestCursor(
     // supplied `content`, falling back to the owner version only for callers
     // that do not carry a document version.
     const cursorDocumentVersion = documentVersion ?? loadResult.version;
-    const initialDetailLevel = asDetailLevel(loadResult.detailLevel);
-    let achievedDetailLevel = asDetailLevel(
+    const initialSymbolCollectionLevel = asSymbolCollectionLevel(
+      loadResult.detailLevel,
+    );
+    let achievedSymbolCollectionLevel = asSymbolCollectionLevel(
       loadResult.localDetailLevel ?? loadResult.detailLevel,
     );
     let cacheHit = false;
     let localTableChanged = false;
 
     const requiresDetailedCursor =
-      policy.requiredDetailLevel === 'private' ||
-      policy.requiredDetailLevel === 'full';
+      policy.enrichmentRequirement === 'private' ||
+      policy.enrichmentRequirement === 'full';
     if (
       requiresDetailedCursor &&
       isLiveContentPolicy(policy) &&
@@ -2495,7 +2602,7 @@ export function prepareLspRequestCursor(
           svc.symbolManager.getSymbolTableForFile(uri),
         );
         if (canonicalTable?.getDetailLevel() === 'full') {
-          achievedDetailLevel = 'full';
+          achievedSymbolCollectionLevel = 'full';
         }
       }
 
@@ -2520,15 +2627,18 @@ export function prepareLspRequestCursor(
         };
 
     const detailReady =
-      policy.requiredDetailLevel === null ||
-      !shouldEnrich(achievedDetailLevel, policy.requiredDetailLevel);
+      policy.enrichmentRequirement === 'none' ||
+      !shouldEnrich(
+        achievedSymbolCollectionLevel,
+        policy.enrichmentRequirement,
+      );
     const contentReady =
       policy.content !== 'live-required' || content !== undefined;
     const ready = detailReady && contentReady;
     const writeBackRequired =
       policy.writeBack &&
       ready &&
-      shouldEnrich(initialDetailLevel, achievedDetailLevel);
+      shouldEnrich(initialSymbolCollectionLevel, achievedSymbolCollectionLevel);
 
     const stateSnapshot = symbolStateTracingEnabled()
       ? yield* Effect.tryPromise({
@@ -2550,8 +2660,8 @@ export function prepareLspRequestCursor(
 
     yield* Effect.annotateCurrentSpan({
       'request.content_available': content !== undefined,
-      'request.initial_detail_level': initialDetailLevel,
-      'request.achieved_detail_level': achievedDetailLevel,
+      'request.initial_symbol_collection_level': initialSymbolCollectionLevel,
+      'request.achieved_symbol_collection_level': achievedSymbolCollectionLevel,
       'request.dependency_scope': policy.dependencyScope,
       'request.failure_mode': policy.failureMode,
       'request.local_tables_reused': loadTelemetry.reusedLocalTables ?? 0,
@@ -2578,7 +2688,8 @@ export function prepareLspRequestCursor(
         tableVersion: stateSnapshot?.tableVersion,
         parseCompleteness: stateSnapshot?.parseCompleteness,
         content,
-        detailLevel: stateSnapshot?.detailLevel ?? achievedDetailLevel,
+        detailLevel:
+          stateSnapshot?.detailLevel ?? achievedSymbolCollectionLevel,
         symbols: stateSnapshot?.symbols,
         references: stateSnapshot?.references,
         cursorReferences: stateSnapshot?.cursorReferences,
@@ -2599,8 +2710,8 @@ export function prepareLspRequestCursor(
       requestType,
       uri,
       documentVersion: cursorDocumentVersion,
-      initialDetailLevel,
-      achievedDetailLevel,
+      initialSymbolCollectionLevel,
+      achievedSymbolCollectionLevel,
       cacheHit,
       localTableChanged,
       ready,
@@ -2619,7 +2730,7 @@ export function writeBackPreparedLspRequest(
     svc,
     prepared.uri,
     prepared.documentVersion,
-    prepared.achievedDetailLevel,
+    prepared.achievedSymbolCollectionLevel,
   );
 }
 
@@ -3296,6 +3407,13 @@ export type CursorOccurrence = {
 export async function scanCandidatesForOccurrences(
   candidates: Array<{ uri: string; content: string }>,
   target: { name: string; kind?: string },
+  metrics?: {
+    uniqueScanCount: number;
+    contentChars: number;
+    failureCount: number;
+    parserMs: number;
+    occurrenceScanMs: number;
+  },
 ): Promise<CursorOccurrence[]> {
   const {
     CompilerService,
@@ -3311,6 +3429,13 @@ export async function scanCandidatesForOccurrences(
   for (const candidate of candidates) {
     if (seen.has(candidate.uri)) continue;
     seen.add(candidate.uri);
+    if (metrics) {
+      metrics.uniqueScanCount++;
+      metrics.contentChars += candidate.content.length;
+    }
+    let phaseStart = performance.now();
+    let parsing = true;
+    let failed = false;
     try {
       const table = new SymbolTable();
       const listener = new FullSymbolCollectorListener(table);
@@ -3320,21 +3445,72 @@ export async function scanCandidatesForOccurrences(
         listener,
         { collectReferences: true, resolveReferences: true },
       );
-      const st = result?.result instanceof SymbolTable ? result.result : table;
+      const compiledTable =
+        result?.result instanceof SymbolTable ? result.result : undefined;
+      // Compilation catches internal failures and may also return a recovered
+      // table. Count unreliable results, but retain the existing best-effort
+      // parser-owned occurrences (including a partially populated listener).
+      failed =
+        !compiledTable ||
+        (result?.errors.length ?? 0) > 0 ||
+        compiledTable.getMetadata().hasErrors === true ||
+        compiledTable.getMetadata().parseCompleteness === 'incomplete';
+      const st = compiledTable ?? table;
+      if (metrics) metrics.parserMs += performance.now() - phaseStart;
+      parsing = false;
+      phaseStart = performance.now();
       const matches = findOccurrencesInFile(st, candidate.uri, target);
       for (const m of matches) {
         out.push({ uri: m.uri, identifierRange: m.identifierRange });
       }
     } catch (err) {
+      failed = true;
       // A candidate that fails to parse contributes no matches rather than
       // failing the whole request; the others still resolve.
       getLogger().warn(
         () => `[REFERENCES] phase2 scan failed for ${candidate.uri}: ${err}`,
       );
+    } finally {
+      if (metrics) {
+        if (failed) metrics.failureCount++;
+        if (parsing) metrics.parserMs += performance.now() - phaseStart;
+        else metrics.occurrenceScanMs += performance.now() - phaseStart;
+      }
     }
   }
   return out;
 }
+
+const scanReferenceCandidates = Effect.fn('references.candidates.scan')(
+  function* (
+    candidates: Array<{ uri: string; content: string }>,
+    target: { name: string; kind?: string },
+  ) {
+    const metrics = {
+      uniqueScanCount: 0,
+      contentChars: 0,
+      failureCount: 0,
+      parserMs: 0,
+      occurrenceScanMs: 0,
+    };
+    const occurrences = yield* Effect.promise(() =>
+      scanCandidatesForOccurrences(candidates, target, metrics),
+    );
+    yield* Effect.annotateCurrentSpan({
+      'references.candidate_count': candidates.length,
+      'references.unique_scan_count': metrics.uniqueScanCount,
+      'references.content_chars': metrics.contentChars,
+      'references.candidate_failure_count': metrics.failureCount,
+      'references.candidate_success_count':
+        metrics.uniqueScanCount - metrics.failureCount,
+      'references.parser_ms': metrics.parserMs,
+      'references.occurrence_scan_ms': metrics.occurrenceScanMs,
+      'references.occurrence_count': occurrences.length,
+      'references.outcome': metrics.failureCount > 0 ? 'partial' : 'complete',
+    });
+    return occurrences;
+  },
+);
 
 /**
  * Resolve the target symbol under the cursor to its NAME and kind, for the
@@ -3668,84 +3844,110 @@ export async function resolveOccurrencesForCursor(
   req: PositionReq,
   logPrefix = 'OCCURRENCES',
 ): Promise<CursorOccurrenceResolution | null> {
-  // --- Stage 1: recompile the cursor file at full detail.
-  const cursorTextAvailable = typeof req.content === 'string';
-  const cursorRecompiled = await recompileCursorFileAtFullDetail(
-    svc,
-    req.textDocument.uri,
-    req.content,
-    // The request worker does not yet own the cursor file's referenced type
-    // tables. Resolve those dependencies explicitly below before binding the
-    // cursor reference.
-    { resolveCrossFileReferences: false },
+  return Effect.runPromise(
+    resolveOccurrencesForCursorEffect(svc, req, logPrefix),
   );
+}
 
-  // With no document text the cursor file stays at public-api detail and the
-  // position→symbol lookup cannot succeed; abort rather than mislead.
-  if (!cursorRecompiled && !cursorTextAvailable) {
-    getLogger().warn(
-      () =>
-        `[${logPrefix}] No document text for ${req.textDocument.uri}; ` +
-        'cursor file cannot be recompiled at full detail, so position ' +
-        'resolution cannot succeed. Aborting with no result.',
+// One parser-owned pipeline for traced requests and existing async callers.
+function resolveOccurrencesForCursorEffect(
+  svc: RequestServices,
+  req: PositionReq,
+  logPrefix = 'OCCURRENCES',
+): Effect.Effect<CursorOccurrenceResolution | null> {
+  return Effect.gen(function* () {
+    const cursorRecompiled = yield* Effect.gen(function* () {
+      const recompiled = yield* Effect.promise(() =>
+        recompileCursorFileAtFullDetail(
+          svc,
+          req.textDocument.uri,
+          req.content,
+          { resolveCrossFileReferences: false },
+        ),
+      );
+      yield* Effect.annotateCurrentSpan({
+        'references.content_chars': req.content?.length ?? 0,
+        'references.cursor_recompiled': recompiled,
+        'references.outcome': recompiled
+          ? 'compiled'
+          : typeof req.content === 'string'
+            ? 'not-compiled'
+            : 'no-text',
+      });
+      return recompiled;
+    }).pipe(Effect.withSpan('references.cursor.compile'));
+    if (!cursorRecompiled && typeof req.content !== 'string') {
+      getLogger().warn(
+        () =>
+          `[${logPrefix}] No document text for ${req.textDocument.uri}; ` +
+          'cursor file cannot be recompiled at full detail, so position ' +
+          'resolution cannot succeed. Aborting with no result.',
+      );
+      yield* Effect.annotateCurrentSpan('references.outcome', 'no-text');
+      return null;
+    }
+    const target = yield* Effect.gen(function* () {
+      // Load parser-declared dependencies before binding the cursor identity.
+      yield* Effect.promise(() =>
+        loadReferencedTypesForFile(svc, req.textDocument.uri),
+      );
+      const target = yield* Effect.promise(() =>
+        targetSymbolForCursor(svc, req.textDocument.uri, req.position),
+      );
+      yield* Effect.annotateCurrentSpan(
+        'references.outcome',
+        target?.name ? 'resolved' : 'no-target',
+      );
+      return target;
+    }).pipe(Effect.withSpan('references.cursor.prerequisites'));
+    emitWorkerLog(
+      'info',
+      `[${logPrefix}] target: name=${target?.name ?? '<none>'} ` +
+        `kind=${target?.kind ?? '<none>'}`,
     );
-    return null;
-  }
-
-  // Precise target selection must follow resolved parser identity. The
-  // full-detail cursor table identifies its parser-declared type dependencies;
-  // ingest those type tables and materialize the cursor file's cross-file
-  // edges before resolving the symbol at the cursor. If loading fails, target
-  // selection preserves uncertainty and returns no result rather than guessing
-  // by name.
-  await loadReferencedTypesForFile(svc, req.textDocument.uri);
-
-  // --- Stage 2: resolve the target symbol under the cursor.
-  const target = await targetSymbolForCursor(
-    svc,
-    req.textDocument.uri,
-    req.position,
-  );
-  emitWorkerLog(
-    'info',
-    `[${logPrefix}] target: name=${target?.name ?? '<none>'} ` +
-      `kind=${target?.kind ?? '<none>'}`,
-  );
-  if (!target?.name) return null;
-
-  // --- Stage 3: phase-1 lexical prefilter of the workspace.
-  const scan = (await requestCoordinatorAssistancePromiseShared(
-    'dataOwner:FindOccurrenceCandidates',
-    { symbolName: target.name },
-    true,
-  )) as { candidates: Array<{ uri: string; content: string }> };
-  const rawCandidates = scan?.candidates ?? [];
-
-  // Live-buffer fidelity for the file under the cursor: phase-1 and phase-2
-  // both scan the data-owner's STORED content, which can lag the unsaved editor
-  // buffer. `req.content` is the live text for the cursor file, so override
-  // that one candidate's content with it (matched by URI). Other files keep
-  // their stored content. Safe for phase-2, which parses each candidate's
-  // `content` standalone (see scanCandidatesForOccurrences).
-  const candidates =
-    typeof req.content === 'string'
-      ? rawCandidates.map((c) =>
-          c.uri === req.textDocument.uri
-            ? { ...c, content: req.content as string }
-            : c,
-        )
-      : rawCandidates;
-  emitWorkerLog('info', `[${logPrefix}] candidates: ${candidates.length}`);
-
-  // --- Stage 4: phase-2 standalone parse + reference scan.
-  const occurrences = await scanCandidatesForOccurrences(candidates, target);
-  emitWorkerLog(
-    'info',
-    `[${logPrefix}] phase2: ${occurrences.length} occurrence(s) across ` +
-      `${candidates.length} candidate(s)`,
-  );
-
-  return { target: { name: target.name, kind: target.kind }, occurrences };
+    if (!target?.name) {
+      yield* Effect.annotateCurrentSpan('references.outcome', 'no-target');
+      return null;
+    }
+    const rawCandidates = yield* Effect.gen(function* () {
+      const scan = yield* Effect.promise(() =>
+        requestCoordinatorAssistancePromiseShared(
+          'dataOwner:FindOccurrenceCandidates',
+          { symbolName: target.name },
+          true,
+        ),
+      );
+      const candidates =
+        (scan as { candidates?: Array<{ uri: string; content: string }> })
+          ?.candidates ?? [];
+      yield* Effect.annotateCurrentSpan({
+        'references.candidate_count': candidates.length,
+        'references.content_chars': candidates.reduce(
+          (sum, candidate) => sum + candidate.content.length,
+          0,
+        ),
+        'references.outcome': candidates.length > 0 ? 'found' : 'empty',
+      });
+      return candidates;
+    }).pipe(Effect.withSpan('references.discovery.roundTrip'));
+    // Preserve the live cursor buffer; all other candidates use stored text.
+    const candidates =
+      typeof req.content === 'string'
+        ? rawCandidates.map((candidate) =>
+            candidate.uri === req.textDocument.uri
+              ? { ...candidate, content: req.content as string }
+              : candidate,
+          )
+        : rawCandidates;
+    emitWorkerLog('info', `[${logPrefix}] candidates: ${candidates.length}`);
+    const occurrences = yield* scanReferenceCandidates(candidates, target);
+    emitWorkerLog(
+      'info',
+      `[${logPrefix}] phase2: ${occurrences.length} occurrence(s) across ` +
+        `${candidates.length} candidate(s)`,
+    );
+    return { target: { name: target.name, kind: target.kind }, occurrences };
+  });
 }
 
 async function captureResolutionStateAttributes(
@@ -5877,91 +6079,123 @@ const requestHandlers = {
         return result;
       }),
   ),
-  DispatchReferences: requestHandler<RefsReq>(
+  DispatchReferences: effectRequestHandler<RefsReq>(
     'DispatchReferences',
-    async (svc, req) => {
-      // Find-references (W-23272674) runs a workspace-wide, two-phase scan:
-      //   phase-1 (data-owner): cheap lexical prefilter of all stored workspace
-      //     documents for the target name → candidate {uri, content};
-      //   phase-2: parse each candidate STANDALONE and scan its own references
-      //     for genuine usages of the target — no shared-graph ingest (see
-      //     scanCandidatesForOccurrences / memory
-      //     project-findreferences-standalone-pivot).
-      // The cursor file still needs a full-detail recompile so the TARGET under
-      // the cursor resolves to a name + kind (the data-owner serves public-api
-      // detail, bodies stripped). That single recompile is bounded and stable;
-      // the former per-candidate ingest was the unbounded cost that timed out.
-      //
-      // Stages 1-4 (recompile → resolve target → prefilter → scan) are the
-      // kind-agnostic core shared with rename (W-23631073); this handler owns
-      // only the references-specific Location[] assembly below.
-      const resolved = await resolveOccurrencesForCursor(
-        svc,
-        req,
-        'REFERENCES',
-      );
-      if (!resolved) return [];
-      const { occurrences } = resolved;
-
-      // Build the LSP result. Parser coordinates are 1-based line / 0-based
-      // column; LSP is 0-based line, so subtract 1 from each line. De-dupe by
-      // (uri, range) so a symbol referenced twice at the same token — or the
-      // declaration coinciding with a reference — is one entry.
-      const locations: Array<{
-        uri: string;
-        range: {
-          start: { line: number; character: number };
-          end: { line: number; character: number };
-        };
-      }> = [];
-      const seenRanges = new Set<string>();
-      const pushLocation = (
-        uri: string,
-        r: {
-          startLine: number;
-          startColumn: number;
-          endLine: number;
-          endColumn: number;
-        },
-      ): void => {
-        // NUL separator between uri and range so a URI ending in digits can't
-        // abut the line number and collapse two distinct (uri,range) pairs onto
-        // one key. Pure safety; behavior unchanged for real URIs.
-        const key = `${uri}\x1f${r.startLine}:${r.startColumn}:${r.endLine}:${r.endColumn}`;
-        if (seenRanges.has(key)) return;
-        seenRanges.add(key);
-        locations.push({
-          uri,
-          range: {
-            start: { line: r.startLine - 1, character: r.startColumn },
-            end: { line: r.endLine - 1, character: r.endColumn },
-          },
-        });
-      };
-
-      // Include the declaration when requested. The cursor file was recompiled
-      // into the shared graph above, so the precise symbol at the cursor (or
-      // the symbol its usage resolves to) carries the declaration's identifier
-      // range.
-      if (req.context.includeDeclaration) {
-        const decl = await declarationLocationForCursor(
+    (svc, req) =>
+      Effect.gen(function* () {
+        // Find-references (W-23272674) runs a workspace-wide, two-phase scan:
+        //   phase-1 (data-owner): cheap lexical prefilter of all stored workspace
+        //     documents for the target name → candidate {uri, content};
+        //   phase-2: parse each candidate STANDALONE and scan its own references
+        //     for genuine usages of the target — no shared-graph ingest (see
+        //     scanCandidatesForOccurrences / memory
+        //     project-findreferences-standalone-pivot).
+        // The cursor file still needs a full-detail recompile so the TARGET under
+        // the cursor resolves to a name + kind (the data-owner serves public-api
+        // detail, bodies stripped). That single recompile is bounded and stable;
+        // the former per-candidate ingest was the unbounded cost that timed out.
+        //
+        // Stages 1-4 (recompile → resolve target → prefilter → scan) are the
+        // kind-agnostic core shared with rename (W-23631073); this handler owns
+        // only the references-specific Location[] assembly below.
+        const resolved = yield* resolveOccurrencesForCursorEffect(
           svc,
-          req.textDocument.uri,
-          req.position,
+          req,
+          'REFERENCES',
         );
-        if (decl) pushLocation(decl.uri, decl.identifierRange);
-      }
+        return yield* Effect.gen(function* () {
+          const occurrences = resolved?.occurrences ?? [];
+          let duplicates = 0;
+          let declarationFound = false;
+          let declarationKey: string | undefined;
+          let declarationOutcome = req.context.includeDeclaration
+            ? 'not-found'
+            : 'not-requested';
 
-      for (const occ of occurrences) {
-        pushLocation(occ.uri, occ.identifierRange);
-      }
+          // Build the LSP result. Parser coordinates are 1-based line / 0-based
+          // column; LSP is 0-based line, so subtract 1 from each line. De-dupe by
+          // (uri, range) so a symbol referenced twice at the same token — or the
+          // declaration coinciding with a reference — is one entry.
+          const locations: Array<{
+            uri: string;
+            range: {
+              start: { line: number; character: number };
+              end: { line: number; character: number };
+            };
+          }> = [];
+          const seenRanges = new Set<string>();
+          const pushLocation = (
+            uri: string,
+            r: {
+              startLine: number;
+              startColumn: number;
+              endLine: number;
+              endColumn: number;
+            },
+          ): void => {
+            // NUL separator between uri and range so a URI ending in digits can't
+            // abut the line number and collapse two distinct (uri,range) pairs onto
+            // one key. Pure safety; behavior unchanged for real URIs.
+            const key = `${uri}\x1f${r.startLine}:${r.startColumn}:${r.endLine}:${r.endColumn}`;
+            if (seenRanges.has(key)) {
+              duplicates++;
+              if (key === declarationKey) declarationOutcome = 'deduped';
+              return;
+            }
+            if (declarationFound && seenRanges.size === 0) declarationKey = key;
+            seenRanges.add(key);
+            locations.push({
+              uri,
+              range: {
+                start: { line: r.startLine - 1, character: r.startColumn },
+                end: { line: r.endLine - 1, character: r.endColumn },
+              },
+            });
+          };
 
-      emitWorkerLog(
-        'info',
-        `[REFERENCES] done (${locations.length} location(s))`,
-      );
-      return locations;
-    },
+          // Include the declaration when requested. The cursor file was recompiled
+          // into the shared graph above, so the precise symbol at the cursor (or
+          // the symbol its usage resolves to) carries the declaration's identifier
+          // range.
+          if (resolved && req.context.includeDeclaration) {
+            const decl = yield* Effect.promise(() =>
+              declarationLocationForCursor(
+                svc,
+                req.textDocument.uri,
+                req.position,
+              ),
+            );
+            if (decl) {
+              declarationFound = true;
+              pushLocation(decl.uri, decl.identifierRange);
+              declarationOutcome = 'added';
+            }
+          }
+
+          for (const occ of occurrences) {
+            pushLocation(occ.uri, occ.identifierRange);
+          }
+
+          emitWorkerLog(
+            'info',
+            `[REFERENCES] done (${locations.length} location(s))`,
+          );
+          yield* Effect.annotateCurrentSpan({
+            'references.occurrence_count': occurrences.length,
+            'references.location_count': locations.length,
+            'references.duplicate_location_count': duplicates,
+            'references.declaration_requested': req.context.includeDeclaration,
+            'references.declaration_found': declarationFound,
+            'references.declaration_outcome': declarationOutcome,
+            // Candidate scanning owns completeness: it can return parser-owned
+            // best-effort occurrences after a partial candidate parse. This
+            // stage only assembles the LSP response, so do not overstate the
+            // request result as complete here.
+            'references.outcome': resolved ? 'assembled' : 'early',
+          });
+          return locations;
+        }).pipe(Effect.withSpan('references.response.assemble'));
+      }),
   ),
   // renameLocal (W-23631077): resolve the local variable/parameter under the
   // cursor and return a single-file WorkspaceEdit renaming its declaration and
@@ -6069,11 +6303,28 @@ const requestHandlers = {
         );
       }),
   ),
+  DispatchSemanticTokens: effectRequestHandler<SemanticTokensReq>(
+    'DispatchSemanticTokens',
+    processSemanticTokensRequest,
+  ),
   DispatchCodeLens: effectRequestHandler<DocOnlyReq>(
     'DispatchCodeLens',
     (svc, req) =>
       Effect.gen(function* () {
-        yield* loadCodeLensSymbolData(svc, req.textDocument.uri);
+        // The owner-side documentOpen compile is asynchronous and can time out.
+        // Compile the live buffer locally so CodeLens descriptors remain available
+        // rather than returning an empty response while that write is pending.
+        if (req.content !== undefined) {
+          yield* Effect.promise(() =>
+            recompileCursorFileAtFullDetail(
+              svc,
+              req.textDocument.uri,
+              req.content,
+              { resolveCrossFileReferences: false },
+            ),
+          );
+        }
+        yield* loadCodeLensSymbolData(svc, req.textDocument.uri, req.content);
         return yield* Effect.fn('worker.lspRequest.processCodeLens', {
           attributes: { uri: req.textDocument.uri },
         })(function* () {
@@ -6099,24 +6350,27 @@ const requestHandlers = {
         );
 
         const result = yield* Effect.promise(() =>
-          svc.diagnosticService.processDiagnostic({
-            textDocument: { uri: req.textDocument.uri },
-          }),
+          svc.diagnosticService.processDiagnostic(
+            {
+              textDocument: { uri: req.textDocument.uri },
+            },
+            { waitForDocumentCache: false },
+          ),
         );
 
         const table = yield* Effect.promise(() =>
           svc.symbolManager.getSymbolTableForFile(req.textDocument.uri),
         );
-        const achievedDetailLevel = table?.getDetailLevel() ?? null;
+        const achievedSymbolCollectionLevel = table?.getDetailLevel() ?? null;
         if (
-          achievedDetailLevel !== null &&
-          shouldEnrich(detailLevel, achievedDetailLevel)
+          achievedSymbolCollectionLevel !== null &&
+          shouldEnrich(detailLevel, achievedSymbolCollectionLevel)
         ) {
           yield* writeBackEnrichedSymbols(
             svc,
             req.textDocument.uri,
             version,
-            achievedDetailLevel,
+            achievedSymbolCollectionLevel,
           );
         }
 
@@ -6346,13 +6600,22 @@ const untracedHandlers: SerializedWorkerHandlers = {
     (globalThis as Record<string, unknown>).__apexWorkerInitServerMode =
       resolvedServerMode;
 
-    // Initialize worker tracing if span collector URL provided (desktop only)
-    if (req.spanCollectorUrl) {
-      const serviceName = `apex-ls-worker-${req.role}`;
-      workerTracingHooks.initialize(req.spanCollectorUrl, serviceName);
-    }
-
     return Effect.gen(function* () {
+      // Acquire the worker-lifetime exporter before tracing requests.
+      if (req.spanCollectorUrl) {
+        const serviceName = `apex-ls-worker-${req.role}`;
+        yield* Effect.tryPromise({
+          try: () =>
+            workerTracingHooks.initialize(req.spanCollectorUrl!, serviceName),
+          catch: (error) => {
+            getLogger().log(
+              'error',
+              `Failed to initialize worker tracing: ${error}`,
+            );
+            return undefined;
+          },
+        }).pipe(Effect.ignore);
+      }
       yield* Effect.logInfo(
         `[worker] role=${req.role} protocol=v${req.protocolVersion}/${WIRE_PROTOCOL_VERSION}` +
           ` logLevel=${currentWorkerLogLevel}` +
@@ -6479,7 +6742,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
 
               // Get detail level from cache
               const state = cache.getCurrentState(uri);
-              const level = state?.detailLevel ?? 'public-api';
+              const level = state?.symbolCollectionLevel ?? 'public-api';
               // Ensure type safety
               detailLevels[uri] =
                 level === 'public-api' ||
@@ -6540,15 +6803,28 @@ const untracedHandlers: SerializedWorkerHandlers = {
         );
 
         return Effect.gen(function* () {
+          const startedAt = Date.now();
+          const withElapsed = <T extends { ready: boolean }>(result: T) => ({
+            ...result,
+            handlerElapsedMs: Date.now() - startedAt,
+            handlerStartedAtMs: startedAt,
+            responseReadyAtMs: Date.now(),
+          });
           const snapshot = yield* peekReadiness;
           if (snapshot.kind === 'ready') {
-            return { ready: true };
+            return withElapsed({ ready: true });
           }
           if (snapshot.kind === 'no-latch') {
-            return { ready: false, reason: 'no-compile-pending' as const };
+            return withElapsed({
+              ready: false,
+              reason: 'no-compile-pending' as const,
+            });
           }
           if (snapshot.kind === 'stale-version') {
-            return { ready: false, reason: 'stale-version' as const };
+            return withElapsed({
+              ready: false,
+              reason: 'stale-version' as const,
+            });
           }
 
           // Await the latch off the serial fiber, bounded by the caller's
@@ -6562,7 +6838,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
             }),
           );
           if (!fired) {
-            return { ready: false, reason: 'timeout' as const };
+            return withElapsed({ ready: false, reason: 'timeout' as const });
           }
 
           // The latch resolves on a successful merge, on supersession by a newer
@@ -6583,9 +6859,11 @@ const untracedHandlers: SerializedWorkerHandlers = {
               return symbolsAreCurrent(req.uri, req.version, st != null);
             }),
           );
-          return after
-            ? { ready: true }
-            : { ready: false, reason: 'stale-version' as const };
+          return withElapsed(
+            after
+              ? { ready: true }
+              : { ready: false, reason: 'stale-version' as const },
+          );
         });
       }),
     ),
@@ -6672,7 +6950,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
             // When no cache entry exists (file not yet compiled on data-owner),
             // currentOrder is 0 so any write-back level is accepted.
             const currentState = cache.getCurrentState(req.uri);
-            const rawLevel = currentState?.detailLevel;
+            const rawLevel = currentState?.symbolCollectionLevel;
             const currentOrder =
               rawLevel === 'public-api' ||
               rawLevel === 'protected' ||
@@ -6775,10 +7053,10 @@ const untracedHandlers: SerializedWorkerHandlers = {
               })(svc.symbolManager.resolveCrossFileReferencesForFile(req.uri));
             }
 
-            // Update cache with new detail level
+            // Update cache with the enriched symbol collection level.
             cache.merge(req.uri, {
               documentVersion: req.documentVersion,
-              detailLevel: req.enrichedDetailLevel,
+              symbolCollectionLevel: req.enrichedDetailLevel,
               timestamp: Date.now(),
             });
 
@@ -6861,6 +7139,10 @@ const untracedHandlers: SerializedWorkerHandlers = {
               req.skipTextFilter &&
               svc.symbolManager.isWorkspaceLoadSessionActive()
             ) {
+              yield* Effect.annotateCurrentSpan(
+                'references.outcome',
+                'incomplete-workspace',
+              );
               return yield* Effect.fail({
                 _tag: 'FindOccurrenceCandidatesError' as const,
                 message:
@@ -6896,8 +7178,18 @@ const untracedHandlers: SerializedWorkerHandlers = {
                 `scanned ${all.length} docs, ${candidates.length} candidates` +
                 (req.skipTextFilter ? ' (text prefilter skipped)' : ''),
             );
+            yield* Effect.annotateCurrentSpan({
+              'references.document_count': all.length,
+              'references.candidate_count': candidates.length,
+              'references.content_chars': candidates.reduce(
+                (sum, candidate) => sum + candidate.content.length,
+                0,
+              ),
+              'references.outcome': candidates.length > 0 ? 'found' : 'empty',
+            });
             return { candidates };
           }),
+          { spanName: 'dataOwner.references.discovery' },
         ),
       ),
     ),
@@ -7753,7 +8045,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
                   const mergeMs = Date.now() - mergeStart;
                   getDocumentStateCache().merge(entry.uri, {
                     documentVersion: entry.version,
-                    detailLevel: 'public-api',
+                    symbolCollectionLevel: 'public-api',
                     timestamp: Date.now(),
                   });
                   resolveReadiness(entry.uri, entry.version);
@@ -8147,7 +8439,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
               content: req.content,
               languageId: req.languageId,
               version: req.version,
-              detailLevel: 'public-api',
+              detailLevel: 'private',
               collectReferences: true,
               traceContext: req.traceContext,
             }),
@@ -8220,7 +8512,7 @@ const untracedHandlers: SerializedWorkerHandlers = {
                 Effect.sync(() => {
                   getDocumentStateCache().merge(req.uri, {
                     documentVersion: req.version,
-                    detailLevel: 'public-api',
+                    symbolCollectionLevel: 'private',
                     timestamp: Date.now(),
                   });
                   resolveReadiness(req.uri, req.version);

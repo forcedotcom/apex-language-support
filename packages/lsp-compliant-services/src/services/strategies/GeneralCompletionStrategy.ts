@@ -45,7 +45,9 @@ export class GeneralCompletionStrategy implements CompletionStrategy {
       );
       if (
         completionQuery.kind === 'non-code' ||
-        completionQuery.kind === 'member-access'
+        completionQuery.kind === 'member-access' ||
+        (completionQuery.kind === 'identifier' &&
+          completionQuery.qualifier !== undefined)
       ) {
         return candidates;
       }

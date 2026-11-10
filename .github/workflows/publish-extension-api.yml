@@ -1,0 +1,111 @@
+name: Publish Extension API
+
+# The API is consumed by extensions that depend on the Apex Language Server
+# extension. Publish it only from the immutable tag that released that
+# extension, never from the standalone npm-package release workflow. Nightly
+# releases publish with npm's `nightly` dist-tag. Pre-release promotion adds
+# npm's `pre-release` dist-tag to that exact nightly version.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing Apex extension release tag for a publish or retry, for example v0.11.70-nightly.20261105'
+        required: false
+        type: string
+      source_ref:
+        description: 'Git ref to validate in dry-run mode; defaults to the selected workflow ref'
+        required: false
+        type: string
+      version:
+        description: 'Prospective API version for dry-run mode, for example 0.11.70-nightly.20261105'
+        required: false
+        type: string
+      dry_run:
+        description: 'Build, test, lint, and pack without publishing to npm'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      PACKAGE_NAME: '@salesforce/apex-language-server-extension-api'
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
+      SOURCE_REF: ${{ github.event.release.tag_name || inputs.release_tag || inputs.source_ref || github.ref }}
+      VERSION_INPUT: ${{ inputs.version }}
+      DRY_RUN: ${{ inputs.dry_run || 'false' }}
+    steps:
+      - name: Checkout extension release
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_REF }}
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Set API version from extension release
+        id: release
+        run: |
+          VERSION="${RELEASE_TAG#apex-language-server-extension-v}"
+          VERSION="${VERSION#v}"
+          if [ -n "$VERSION_INPUT" ]; then
+            VERSION="$VERSION_INPUT"
+          fi
+          if [ -z "$VERSION" ]; then
+            echo "Provide release_tag for a publish/retry, or version for a dry run."
+            exit 1
+          fi
+          node -e "if (!require('semver').valid(process.argv[1])) process.exit(1)" "$VERSION"
+          npm pkg set "version=$VERSION" --prefix packages/apex-language-server-extension-api
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "$VERSION" == *-nightly.* ]]; then
+            echo "dist-tag=nightly" >> "$GITHUB_OUTPUT"
+          else
+            echo "dist-tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and verify extension API
+        run: |
+          pnpm --filter "$PACKAGE_NAME" run typecheck
+          pnpm --filter "$PACKAGE_NAME" run test
+          pnpm --filter "$PACKAGE_NAME" run lint
+
+      - name: Check whether this API version is already published
+        id: published
+        if: env.DRY_RUN != 'true'
+        run: |
+          VERSION=$(node -p "require('./packages/apex-language-server-extension-api/package.json').version")
+          if npm view "$PACKAGE_NAME@$VERSION" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish extension API
+        if: env.DRY_RUN != 'true' && steps.published.outputs.published != 'true'
+        run: pnpm --filter "$PACKAGE_NAME" publish --access public --no-git-checks --tag "${{ steps.release.outputs.dist-tag }}"
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Pack extension API dry run
+        if: env.DRY_RUN == 'true'
+        run: pnpm --filter "$PACKAGE_NAME" pack --pack-destination /tmp

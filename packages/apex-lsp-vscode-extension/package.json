@@ -3,7 +3,7 @@
   "displayName": "Salesforce Apex Language Server (Typescript)",
   "description": "VSCode extension for Apex Language Server",
   "icon": "resources/ApexTsIcon.png",
-  "version": "0.11.62",
+  "version": "0.11.75",
   "publisher": "salesforce",
   "sideEffects": false,
   "license": "BSD-3-Clause",
@@ -753,6 +753,7 @@
       "command": "tsc --build",
       "clean": "if-file-deleted",
       "dependencies": [
+        "../apex-language-server-extension-api:compile",
         "precompile",
         "../apex-lsp-client:compile",
         "../apex-parser-ast:compile"
@@ -910,12 +911,13 @@
     }
   },
   "dependencies": {
+    "@salesforce/apex-language-server-extension-api": "workspace:*",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/sdk-trace-base": "^2.11.0",
     "@salesforce/apex-lsp-client": "workspace:*",
     "@salesforce/apex-lsp-compliant-services": "workspace:*",
     "@salesforce/apex-lsp-shared": "workspace:*",
-    "effect": "^3.22.1",
+    "effect": "^3.22.4",
     "vscode-languageclient": "^9.0.1",
     "vscode-jsonrpc": "^8.2.1",
     "web-worker": "^1.5.0"
@@ -925,7 +927,7 @@
     "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
     "@salesforce/apex-tmlanguage": "^2.0.3",
     "@salesforce/esbuild-presets": "workspace:*",
-    "@salesforce/vscode-services": "^67.20.0",
+    "@salesforce/vscode-services": "^67.27.5",
     "@types/vscode": "^1.120.0",
     "@vscode/vsce": "^3.9.2",
     "buffer": "^6.0.3",

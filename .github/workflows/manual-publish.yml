@@ -71,6 +71,15 @@ on:
         required: false
         default: ''
         type: string
+      publish-extension-api:
+        description: 'Coordinate the matching extension API npm package: auto promotes tag-based pre-releases and follows stable release creation; required rejects source-run-id; skip publishes only the VSIX'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - required
+          - skip
       skip-quality-checks:
         description: 'Skip CI quality gate. REQUIRED when using source-run-id.'
         required: false
@@ -140,3 +149,50 @@ jobs:
           gh workflow run publishOpenVSXTrusted.yml \
             --repo "${{ github.repository }}" \
             -f release-tag="$VERSION_TAG"
+
+  coordinate-extension-api:
+    needs: manual-publish
+    if: always() && needs.manual-publish.result == 'success' && inputs.publish-extension-api != 'skip' && inputs.dry-run != 'true'
+    runs-on: ubuntu-latest
+    env:
+      PACKAGE_NAME: '@salesforce/apex-language-server-extension-api'
+      VERSION_TAG: ${{ inputs.version-tag }}
+      SOURCE_RUN_ID: ${{ inputs.source-run-id }}
+      SLOT: ${{ inputs.slot }}
+      PUBLISH_MODE: ${{ inputs.publish-extension-api }}
+    steps:
+      - name: Reject unverifiable required API publish
+        if: env.SOURCE_RUN_ID != '' && env.PUBLISH_MODE == 'required'
+        run: |
+          echo "A source-run-id identifies a VSIX artifact, not an immutable extension release tag."
+          echo "Use a version-tag source to coordinate the extension API package."
+          exit 1
+
+      - name: Skip API coordination for a source-run artifact
+        if: env.SOURCE_RUN_ID != '' && env.PUBLISH_MODE == 'auto'
+        run: |
+          echo "Skipping API coordination: source-run-id has no immutable extension release tag."
+
+      - name: Setup Node.js
+        if: env.VERSION_TAG != '' && env.SLOT == 'pre-release'
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Promote matching nightly API to npm pre-release
+        if: env.VERSION_TAG != '' && env.SLOT == 'pre-release'
+        run: |
+          VERSION="${VERSION_TAG#apex-language-server-extension-v}"
+          VERSION="${VERSION#v}"
+          node -e "if (!/^(0|[1-9]\\d*)\.(0|[1-9]\\d*)\.(0|[1-9]\\d*)(-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.test(process.argv[1])) process.exit(1)" "$VERSION"
+          npm view "$PACKAGE_NAME@$VERSION" version --registry=https://registry.npmjs.org >/dev/null
+          npm dist-tag add "$PACKAGE_NAME@$VERSION" pre-release --registry=https://registry.npmjs.org
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Confirm stable API publication trigger
+        if: env.VERSION_TAG != '' && env.SLOT == 'stable'
+        run: |
+          echo "Manual Publish created a stable extension GitHub Release."
+          echo "That release triggers Publish Extension API to publish the matching stable API package under npm latest."

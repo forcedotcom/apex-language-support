@@ -119,6 +119,10 @@ export class StructureListener extends BaseApexParserListener<SymbolTable> {
     const parentId = parentScope?.id ?? null;
 
     const id = this.generateBlockId(scopeType, location);
+    const existingBlock = this.symbolTable.getSymbolById(id);
+    if (existingBlock && isBlockSymbol(existingBlock)) {
+      return existingBlock;
+    }
     const scopePath = parentScope
       ? [normalizedUri, 'block', parentScope.name, name]
       : [normalizedUri, name];

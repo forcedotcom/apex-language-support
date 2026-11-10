@@ -67,7 +67,10 @@ export interface IDiagnosticProcessor {
    * @param params - The diagnostic parameters containing the document URI
    * @returns Promise resolving to an array of diagnostics for the document
    */
-  processDiagnostic(params: DocumentDiagnosticParams): Promise<Diagnostic[]>;
+  processDiagnostic(
+    params: DocumentDiagnosticParams,
+    options?: { readonly waitForDocumentCache?: boolean },
+  ): Promise<Diagnostic[]>;
 }
 
 /**
@@ -244,6 +247,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
    */
   public async processDiagnostic(
     params: DocumentDiagnosticParams,
+    options: { readonly waitForDocumentCache?: boolean } = {},
   ): Promise<Diagnostic[]> {
     this.logger.debug(
       () => `Processing diagnostic request for: ${params.textDocument.uri}`,
@@ -284,7 +288,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       // expose a waitForResult(uri, version): Promise<SymbolResult> backed by an event
       // emitter so callers can await directly instead of polling, eliminating latency
       // waste (up to pollInterval after condition becomes true) and unnecessary CPU work.
-      if (!cached && document) {
+      if (options.waitForDocumentCache !== false && !cached && document) {
         const maxWaitTime = 500; // Maximum time to wait for documentOpen
         const pollInterval = 50; // Check every 50ms
         const maxAttempts = Math.floor(maxWaitTime / pollInterval);
@@ -318,10 +322,10 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           () =>
             `Using cached parse result for diagnostics ${document.uri} (version ${document.version})`,
         );
-        // Run prerequisites for diagnostics request
+        // Return parser diagnostics from the existing snapshot immediately.
+        // Semantic diagnostics are calculated after background enrichment and
+        // delivered by the subsequent workspace/diagnostic/refresh pull.
         if (this.prerequisiteOrchestrationService) {
-          // Diagnostics should not block on prerequisite orchestration.
-          // We enqueue prerequisites in background and continue with current state.
           LSPQueueManager.getInstance().submitNotification(
             'prerequisiteEnrichment',
             {
@@ -374,7 +378,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         );
 
         // Let the per-validator prerequisite system (ValidatorRegistry.checkValidatorPrerequisites)
-        // decide what runs. It already gates on detailLevel, references, and cross-file resolution.
+        // decide what runs. It already gates on symbol collection, references, and cross-file resolution.
         // Only skip when workspace is loading (no tables available) or no table at all.
         const skipSemanticValidation = isWorkspaceLoading() || !cachedTable;
 
@@ -383,7 +387,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
             () =>
               `Skipping semantic validation for ${params.textDocument.uri}: ` +
               `workspaceLoading=${isWorkspaceLoading()}, hasTable=${!!cachedTable}, ` +
-              `detailLevel=${cachedTable?.getDetailLevel() ?? 'none'}`,
+              `symbolCollectionLevel=${cachedTable?.getDetailLevel() ?? 'none'}`,
           );
           return enhancedCachedDiagnostics;
         }
@@ -394,13 +398,14 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
             settings.apex.findMissingArtifact.enabled ?? false;
 
           // Check enrichment level before validation
-          const detailLevel = await this.symbolManager.getDetailLevelForFile(
-            params.textDocument.uri,
-          );
+          const symbolCollectionLevel =
+            await this.symbolManager.getDetailLevelForFile(
+              params.textDocument.uri,
+            );
           this.logger.debug(
             () =>
               `[VALIDATION-DEBUG] Running semantic validation for cached result ${params.textDocument.uri}: ` +
-              `syntaxErrors=${hasCachedSyntaxErrors}, detailLevel=${detailLevel ?? 'unknown'}, ` +
+              `syntaxErrors=${hasCachedSyntaxErrors}, symbolCollectionLevel=${symbolCollectionLevel ?? 'unknown'}, ` +
               `symbolTableSize=${cachedTable.getAllSymbols().length}`,
           );
 
@@ -544,7 +549,8 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         parseTree: result.parseTree,
       });
 
-      // Run prerequisites for diagnostics request
+      // Preserve immediate parser diagnostics. Full semantic diagnostics are
+      // produced after the background prerequisite triggers a refresh pull.
       if (this.prerequisiteOrchestrationService) {
         LSPQueueManager.getInstance().submitNotification(
           'prerequisiteEnrichment',
@@ -578,7 +584,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         (await this.symbolManager.getSymbolTableForFile(document.uri)) || table;
 
       // Let the per-validator prerequisite system (ValidatorRegistry.checkValidatorPrerequisites)
-      // decide what runs. It already gates on detailLevel, references, and cross-file resolution.
+      // decide what runs. It already gates on symbol collection, references, and cross-file resolution.
       // Only skip when workspace is loading (no tables available) or no table at all.
       const skipSemanticValidationFullPath =
         isWorkspaceLoading() || !enrichedTable;
@@ -588,7 +594,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
           () =>
             `Skipping semantic validation for ${params.textDocument.uri} (full path): ` +
             `workspaceLoading=${isWorkspaceLoading()}, hasTable=${!!enrichedTable}, ` +
-            `detailLevel=${enrichedTable?.getDetailLevel() ?? 'none'}`,
+            `symbolCollectionLevel=${enrichedTable?.getDetailLevel() ?? 'none'}`,
         );
         return enhancedDiagnostics;
       }
@@ -601,13 +607,12 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
             fullPathSettings.apex.findMissingArtifact.enabled ?? false;
 
           // Check enrichment level before validation
-          const detailLevel = await this.symbolManager.getDetailLevelForFile(
-            document.uri,
-          );
+          const symbolCollectionLevel =
+            await this.symbolManager.getDetailLevelForFile(document.uri);
           this.logger.debug(
             () =>
               `[VALIDATION-DEBUG] Running semantic validation for ${params.textDocument.uri}: ` +
-              `syntaxErrors=${hasSyntaxErrors}, detailLevel=${detailLevel ?? 'unknown'}, ` +
+              `syntaxErrors=${hasSyntaxErrors}, symbolCollectionLevel=${symbolCollectionLevel ?? 'unknown'}, ` +
               `symbolTableSize=${enrichedTable.getAllSymbols().length}`,
           );
           this.logger.debug(

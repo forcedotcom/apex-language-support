@@ -6,7 +6,8 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { LSPRequestType } from '../queue/LSPRequestQueue';
+import type { LSPRequestType } from '@salesforce/apex-lsp-shared';
+import { getLspRequestPolicy } from '../config/lspRequestPolicy';
 import { PrerequisiteRequirements } from './PrerequisiteRequirements';
 
 /**
@@ -24,10 +25,14 @@ export function getPrerequisitesForLspRequestType(
     workspaceLoaded?: boolean;
   },
 ): PrerequisiteRequirements {
+  const enrichmentRequirement =
+    requestType === 'workspace-load' || requestType === 'file-open-single'
+      ? 'none'
+      : getLspRequestPolicy(requestType).enrichmentRequirement;
   switch (requestType) {
     case 'workspace-load':
       return {
-        requiredDetailLevel: 'public-api',
+        enrichmentRequirement: 'public-api',
         requiresReferences: true,
         requiresReferenceResolution: true,
         requiresCrossFileResolution: false, // Deferred for performance
@@ -37,7 +42,7 @@ export function getPrerequisitesForLspRequestType(
 
     case 'file-open-single':
       return {
-        requiredDetailLevel: 'private', // Keep file-open at same-file enrichment level
+        enrichmentRequirement: 'private', // Keep file-open at same-file enrichment level
         requiresReferences: true,
         requiresReferenceResolution: true,
         requiresCrossFileResolution: false, // Can be async
@@ -47,7 +52,7 @@ export function getPrerequisitesForLspRequestType(
 
     case 'diagnostics':
       return {
-        requiredDetailLevel: 'full', // THOROUGH validators need full
+        enrichmentRequirement,
         requiresReferences: true,
         requiresReferenceResolution: true,
         requiresCrossFileResolution: true, // THOROUGH needs cross-file
@@ -57,7 +62,7 @@ export function getPrerequisitesForLspRequestType(
 
     case 'completion':
       return {
-        requiredDetailLevel: 'private', // Need private symbols for completion
+        enrichmentRequirement,
         requiresReferences: true,
         requiresReferenceResolution: false, // Not needed for completion
         requiresCrossFileResolution: false,
@@ -68,7 +73,7 @@ export function getPrerequisitesForLspRequestType(
 
     case 'hover':
       return {
-        requiredDetailLevel: 'full', // Need full type info for hover
+        enrichmentRequirement,
         requiresReferences: true,
         requiresReferenceResolution: true,
         // Hover resolves only the expression at the cursor. Materializing all
@@ -91,7 +96,7 @@ export function getPrerequisitesForLspRequestType(
 
     case 'definition':
       return {
-        requiredDetailLevel: 'full',
+        enrichmentRequirement,
         requiresReferences: true,
         requiresReferenceResolution: true,
         requiresCrossFileResolution: true, // Definitions may be cross-file
@@ -111,7 +116,7 @@ export function getPrerequisitesForLspRequestType(
 
     case 'documentSymbol':
       return {
-        requiredDetailLevel: 'private', // Outline should include all same-file members
+        enrichmentRequirement,
         requiresReferences: false, // Not needed for symbol list
         requiresReferenceResolution: false,
         requiresCrossFileResolution: false,
@@ -121,7 +126,7 @@ export function getPrerequisitesForLspRequestType(
 
     case 'references':
       return {
-        requiredDetailLevel: 'full', // Need full symbol info
+        enrichmentRequirement,
         requiresReferences: true,
         requiresReferenceResolution: true,
         requiresCrossFileResolution: true, // References traverse workspace
@@ -132,7 +137,7 @@ export function getPrerequisitesForLspRequestType(
 
     case 'workspaceSymbol':
       return {
-        requiredDetailLevel: 'public-api', // Workspace symbol search uses public API
+        enrichmentRequirement,
         requiresReferences: false,
         requiresReferenceResolution: false,
         requiresCrossFileResolution: false,
@@ -143,7 +148,7 @@ export function getPrerequisitesForLspRequestType(
 
     case 'implementation':
       return {
-        requiredDetailLevel: 'full',
+        enrichmentRequirement,
         requiresReferences: true,
         requiresReferenceResolution: true,
         requiresCrossFileResolution: true, // Must scan all workspace classes for implementors
@@ -154,7 +159,7 @@ export function getPrerequisitesForLspRequestType(
 
     case 'signatureHelp':
       return {
-        requiredDetailLevel: 'full', // Need full method signatures
+        enrichmentRequirement,
         requiresReferences: true,
         requiresReferenceResolution: true,
         requiresCrossFileResolution: true, // May need cross-file for method signatures
@@ -165,7 +170,7 @@ export function getPrerequisitesForLspRequestType(
 
     case 'codeAction':
       return {
-        requiredDetailLevel: 'full', // Code actions need full context
+        enrichmentRequirement,
         requiresReferences: true,
         requiresReferenceResolution: true,
         requiresCrossFileResolution: false,
@@ -175,7 +180,7 @@ export function getPrerequisitesForLspRequestType(
 
     case 'rename':
       return {
-        requiredDetailLevel: 'full', // Rename needs full symbol info
+        enrichmentRequirement,
         requiresReferences: true,
         requiresReferenceResolution: true,
         requiresCrossFileResolution: true, // Rename affects cross-file references
@@ -186,7 +191,7 @@ export function getPrerequisitesForLspRequestType(
 
     case 'documentOpen':
       return {
-        requiredDetailLevel: 'full', // Document open needs full semantics
+        enrichmentRequirement,
         requiresReferences: true,
         requiresReferenceResolution: true,
         requiresCrossFileResolution: false, // Can be async
@@ -196,7 +201,7 @@ export function getPrerequisitesForLspRequestType(
 
     case 'documentSave':
       return {
-        requiredDetailLevel: 'full', // Save triggers validation
+        enrichmentRequirement,
         requiresReferences: true,
         requiresReferenceResolution: true,
         requiresCrossFileResolution: false,
@@ -206,7 +211,7 @@ export function getPrerequisitesForLspRequestType(
 
     case 'documentChange':
       return {
-        requiredDetailLevel: null, // Change events don't need enrichment
+        enrichmentRequirement,
         requiresReferences: false,
         requiresReferenceResolution: false,
         requiresCrossFileResolution: false,
@@ -216,7 +221,7 @@ export function getPrerequisitesForLspRequestType(
 
     case 'documentClose':
       return {
-        requiredDetailLevel: null, // Close doesn't need enrichment
+        enrichmentRequirement,
         requiresReferences: false,
         requiresReferenceResolution: false,
         requiresCrossFileResolution: false,
@@ -226,7 +231,7 @@ export function getPrerequisitesForLspRequestType(
 
     case 'findMissingArtifact':
       return {
-        requiredDetailLevel: null, // Artifact loading doesn't need prerequisites
+        enrichmentRequirement,
         requiresReferences: false,
         requiresReferenceResolution: false,
         requiresCrossFileResolution: false,
@@ -236,7 +241,7 @@ export function getPrerequisitesForLspRequestType(
 
     default:
       return {
-        requiredDetailLevel: null,
+        enrichmentRequirement,
         requiresReferences: false,
         requiresReferenceResolution: false,
         requiresCrossFileResolution: false,

@@ -75,3 +75,27 @@ jobs:
           gh workflow run publishOpenVSXTrusted.yml \
             --repo "${{ github.repository }}" \
             -f release-tag="$NIGHTLY_TAG"
+
+  promote-extension-api:
+    needs: [find-nightly, promote]
+    if: needs.promote.result == 'success' && (inputs.dry-run || 'false') != 'true'
+    runs-on: ubuntu-latest
+    env:
+      PACKAGE_NAME: '@salesforce/apex-language-server-extension-api'
+      RELEASE_TAG: ${{ needs.find-nightly.outputs.nightly-tag }}
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Promote matching nightly API to npm pre-release
+        run: |
+          VERSION="${RELEASE_TAG#apex-language-server-extension-v}"
+          VERSION="${VERSION#v}"
+          node -e "if (!/^(0|[1-9]\\d*)\.(0|[1-9]\\d*)\.(0|[1-9]\\d*)(-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/.test(process.argv[1])) process.exit(1)" "$VERSION"
+          npm view "$PACKAGE_NAME@$VERSION" version --registry=https://registry.npmjs.org >/dev/null
+          npm dist-tag add "$PACKAGE_NAME@$VERSION" pre-release --registry=https://registry.npmjs.org
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

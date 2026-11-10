@@ -56,7 +56,7 @@ import {
 import { Effect } from 'effect';
 
 const WORKER_ENTRY = path.resolve(__dirname, '../../dist/worker.platform.js');
-const LOG_LEVEL = 'error';
+const LOG_LEVEL = 'debug';
 const COMPILATION_POOL_SIZE = 2;
 const workerLayerFactory = (role: WorkerRole) =>
   makeNodeWorkerLayer(WORKER_ENTRY, {
@@ -74,6 +74,14 @@ const SAMPLE = `public interface MyInterface {
     String getName();
     void setValue(Integer value);
     Boolean isActive();
+}`;
+
+const TEST_CLASS = `@isTest
+private class ColdOpenTest {
+    @isTest
+    static void example() {
+        System.assertEquals(1, 1);
+    }
 }`;
 
 const URI = 'file:///test/MyInterface.cls';
@@ -178,5 +186,45 @@ describe('documentSymbol on a cold-opened file (live assistance bus)', () => {
     // document text to re-compile.
     expect(Array.isArray(symbols)).toBe(true);
     expect((symbols as unknown[]).length).toBeGreaterThan(0);
+  }, 120_000);
+
+  it('returns test CodeLens descriptors when the owner document is unavailable', async () => {
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(
+        topology,
+        logger,
+        () => TEST_CLASS,
+      );
+      wireProductionMediator(topology, dispatcher, logger);
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+
+      // Deliberately skip documentOpen. CodeLens must compile the authoritative
+      // editor buffer rather than depending on an owner-side asynchronous open.
+      return yield* Effect.promise(() =>
+        dispatcher.dispatch('codeLens', { textDocument: { uri: URI } }),
+      );
+    }).pipe(Effect.scoped);
+
+    const lenses = (await Effect.runPromise(program)) as Array<{
+      command?: { command?: string };
+    }>;
+
+    expect(lenses.map((lens) => lens.command?.command)).toEqual(
+      expect.arrayContaining([
+        'sf.apex.test.class.run.delegate',
+        'sf.apex.debug.class.run.delegate',
+        'sf.apex.test.method.run.delegate',
+        'sf.apex.debug.method.run.delegate',
+      ]),
+    );
   }, 120_000);
 });

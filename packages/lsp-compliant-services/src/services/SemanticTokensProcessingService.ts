@@ -18,6 +18,7 @@ import {
   collectReferenceSemanticTokenSpans,
 } from '../utils/semanticTokenMapper';
 import { encodeSemanticTokenSpans } from '../utils/semanticTokenEncoder';
+import { SEMANTIC_TOKEN_LEGEND } from '../utils/semanticTokenLegend';
 
 /** Produces parser-only Tier 1 semantic tokens from request-pool document text. */
 export class SemanticTokensProcessingService {
@@ -31,7 +32,13 @@ export class SemanticTokensProcessingService {
     this.compiler = compiler ?? new CompilerService();
   }
 
-  async processSemanticTokens(uri: string): Promise<SemanticTokens> {
+  async processSemanticTokens(
+    uri: string,
+    legend: {
+      readonly tokenTypes: readonly string[];
+      readonly tokenModifiers: readonly string[];
+    } = SEMANTIC_TOKEN_LEGEND,
+  ): Promise<SemanticTokens> {
     try {
       const document = await this.storage.getDocument(uri);
       if (!document) return { data: [] };
@@ -49,10 +56,13 @@ export class SemanticTokensProcessingService {
       );
       if (!result.result) return { data: [] };
 
-      return encodeSemanticTokenSpans([
-        ...collectDeclarationSemanticTokenSpans(result.result, document),
-        ...collectReferenceSemanticTokenSpans(result.result, document),
-      ]);
+      return encodeSemanticTokenSpans(
+        [
+          ...collectDeclarationSemanticTokenSpans(result.result, document),
+          ...collectReferenceSemanticTokenSpans(result.result, document),
+        ],
+        legend,
+      );
     } catch (error) {
       this.logger.error(
         () => `Error processing semantic tokens for ${uri}: ${error}`,

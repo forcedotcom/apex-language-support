@@ -15,7 +15,7 @@ import type {
 } from '../../../types/symbol';
 import { SymbolKind } from '../../../types/symbol';
 import {
-  inTypeSymbolGroup,
+  isReferenceableApexType,
   isMethodSymbol,
   isConstructorSymbol,
   isVariableSymbol,
@@ -514,7 +514,7 @@ function resolveTypeIfNeeded(
                   symbolManager.findSymbolByName(firstNode.name),
                 );
                 qualifierSymbol =
-                  qualifierSymbols.find((s) => inTypeSymbolGroup(s)) || null;
+                  qualifierSymbols.find(isReferenceableApexType) || null;
                 if (!qualifierSymbol) {
                   // Try as variable (for cases like "property.Id")
                   qualifierSymbol =
@@ -524,7 +524,7 @@ function resolveTypeIfNeeded(
 
               if (qualifierSymbol) {
                 // Find the member (targetNode) in the qualifier's class
-                if (inTypeSymbolGroup(qualifierSymbol)) {
+                if (isReferenceableApexType(qualifierSymbol)) {
                   // Qualifier is a class - find method/field in that class
                   // Use findSymbolByName to search for the member
                   if (targetNode.context === ReferenceContext.METHOD_CALL) {
@@ -680,7 +680,7 @@ function resolveTypeIfNeeded(
           }
         }
         // Handle TYPE references - use existing TypeSymbol logic
-        else if (inTypeSymbolGroup(resolvedSymbol)) {
+        else if (isReferenceableApexType(resolvedSymbol)) {
           // Convert TypeSymbol to TypeInfo
           return convertTypeSymbolToTypeInfo(
             resolvedSymbol as TypeSymbol,
@@ -694,7 +694,7 @@ function resolveTypeIfNeeded(
     const symbols = yield* Effect.promise(() =>
       symbolManager.findSymbolByName(typeInfo.name),
     );
-    const typeSymbol = symbols.find(inTypeSymbolGroup);
+    const typeSymbol = symbols.find(isReferenceableApexType);
     if (typeSymbol) {
       return convertTypeSymbolToTypeInfo(typeSymbol, typeInfo);
     }

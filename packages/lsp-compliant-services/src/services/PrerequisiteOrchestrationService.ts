@@ -23,13 +23,14 @@ import {
   type SymbolReference,
 } from '@salesforce/apex-lsp-parser-ast';
 import { LSPRequestType } from '../queue/LSPRequestQueue';
+import { requiresEnrichment } from '../config/lspRequestPolicy';
 import { getPrerequisitesForLspRequestType } from './LspRequestPrerequisiteMapping';
 import {
   isWorkspaceLoading,
   isWorkspaceLoaded,
 } from './WorkspaceLoadCoordinator';
 import { getDocumentStateCache } from './DocumentStateCache';
-import type { DetailLevel } from './DocumentStateCache';
+import type { SymbolCollectionLevel } from './DocumentStateCache';
 import { getDiagnosticRefreshService } from './DiagnosticRefreshService';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 import {
@@ -77,9 +78,9 @@ const toArtifactRequestKind = (
 };
 
 const pickHighestDetailLevel = (
-  a: DetailLevel | null,
-  b: DetailLevel | null,
-): DetailLevel | null => {
+  a: SymbolCollectionLevel | undefined,
+  b: SymbolCollectionLevel | undefined,
+): SymbolCollectionLevel | undefined => {
   if (!a) return b;
   if (!b) return a;
   return getLayerOrderIndex(a) >= getLayerOrderIndex(b) ? a : b;
@@ -259,7 +260,6 @@ export class PrerequisiteOrchestrationService {
       workspaceLoading: isWorkspaceLoading(),
       workspaceLoaded: isWorkspaceLoaded(),
     });
-
     // Check if should skip during workspace load
     if (requirements.skipDuringWorkspaceLoad && isWorkspaceLoading()) {
       this.logger.debug(
@@ -279,11 +279,11 @@ export class PrerequisiteOrchestrationService {
     }
 
     // Get current state
-    const cacheDetailLevel =
-      getDocumentStateCache().getCurrentState(fileUri)?.detailLevel ?? null;
-    const currentDetailLevel = pickHighestDetailLevel(
-      await this.symbolManager.getDetailLevelForFile(fileUri),
-      cacheDetailLevel,
+    const cachedSymbolCollectionLevel =
+      getDocumentStateCache().getCurrentState(fileUri)?.symbolCollectionLevel;
+    const currentSymbolCollectionLevel = pickHighestDetailLevel(
+      (await this.symbolManager.getDetailLevelForFile(fileUri)) ?? undefined,
+      cachedSymbolCollectionLevel,
     );
     const symbolTable = await this.symbolManager.getSymbolTableForFile(fileUri);
 
@@ -296,15 +296,15 @@ export class PrerequisiteOrchestrationService {
       this.logger.debug(
         () =>
           `Skipping enrichment for ${fileUri}: previous attempt failed ` +
-          `(table stuck at ${currentDetailLevel ?? 'none'})`,
+          `(table stuck at ${currentSymbolCollectionLevel ?? 'none'})`,
       );
     }
     const needsEnrichment =
       !enrichmentPreviouslyFailed &&
-      requirements.requiredDetailLevel &&
-      (!currentDetailLevel ||
-        getLayerOrderIndex(currentDetailLevel) <
-          getLayerOrderIndex(requirements.requiredDetailLevel));
+      requiresEnrichment(requirements.enrichmentRequirement) &&
+      (!currentSymbolCollectionLevel ||
+        getLayerOrderIndex(currentSymbolCollectionLevel) <
+          getLayerOrderIndex(requirements.enrichmentRequirement));
 
     const needsCrossFileResolution =
       requirements.requiresCrossFileResolution &&
@@ -335,8 +335,7 @@ export class PrerequisiteOrchestrationService {
       const requestSpec = {
         fileUri,
         documentVersion: cachedVersion,
-        targetDetailLevel: (requirements.requiredDetailLevel ??
-          null) as DetailLevel | null,
+        enrichmentRequirement: requirements.enrichmentRequirement,
         needsCrossFileResolution,
       };
       const alreadySatisfied = this.inFlightRegistry.isSatisfied(requestSpec);
@@ -400,10 +399,13 @@ export class PrerequisiteOrchestrationService {
     // Execute prerequisites
     if (requirements.executionMode === 'blocking') {
       // Blocking execution - wait for prerequisites
-      if (needsEnrichment) {
+      if (
+        needsEnrichment &&
+        requiresEnrichment(requirements.enrichmentRequirement)
+      ) {
         await this.layerEnrichmentService.enrichFiles(
           [fileUri],
-          requirements.requiredDetailLevel!,
+          requirements.enrichmentRequirement,
           'same-file',
           options?.workDoneToken,
         );
@@ -432,7 +434,10 @@ export class PrerequisiteOrchestrationService {
       }
     } else {
       // Async execution (fire-and-forget)
-      if (needsEnrichment) {
+      if (
+        needsEnrichment &&
+        requiresEnrichment(requirements.enrichmentRequirement)
+      ) {
         // Only signal a diagnostic refresh for request types where the client
         // opened a document and may have pulled diagnostics prematurely.
         // Blocking paths (diagnostics, hover, etc.) already produce accurate
@@ -442,7 +447,7 @@ export class PrerequisiteOrchestrationService {
         this.layerEnrichmentService
           .enrichFiles(
             [fileUri],
-            requirements.requiredDetailLevel!,
+            requirements.enrichmentRequirement,
             'same-file',
           )
           .then(() => {
@@ -508,26 +513,26 @@ export class PrerequisiteOrchestrationService {
       }
 
       const revision = entry.revision;
-      const cacheDetailLevel =
-        getDocumentStateCache().getCurrentState(fileUri)?.detailLevel ?? null;
-      const currentDetailLevel = pickHighestDetailLevel(
-        (await this.symbolManager.getDetailLevelForFile(fileUri)) ?? null,
-        cacheDetailLevel,
+      const cachedSymbolCollectionLevel =
+        getDocumentStateCache().getCurrentState(fileUri)?.symbolCollectionLevel;
+      const currentSymbolCollectionLevel = pickHighestDetailLevel(
+        (await this.symbolManager.getDetailLevelForFile(fileUri)) ?? undefined,
+        cachedSymbolCollectionLevel,
       );
       const symbolTable =
         await this.symbolManager.getSymbolTableForFile(fileUri);
       const needsEnrichment =
-        !!entry.targetDetailLevel &&
-        (!currentDetailLevel ||
-          getLayerOrderIndex(currentDetailLevel) <
-            getLayerOrderIndex(entry.targetDetailLevel));
+        requiresEnrichment(entry.enrichmentRequirement) &&
+        (!currentSymbolCollectionLevel ||
+          getLayerOrderIndex(currentSymbolCollectionLevel) <
+            getLayerOrderIndex(entry.enrichmentRequirement));
       const needsCrossFileResolution =
         entry.needsCrossFileResolution && !hasCrossFileResolution(symbolTable);
 
-      if (needsEnrichment && entry.targetDetailLevel) {
+      if (needsEnrichment && requiresEnrichment(entry.enrichmentRequirement)) {
         await this.layerEnrichmentService.enrichFiles(
           [fileUri],
-          entry.targetDetailLevel,
+          entry.enrichmentRequirement,
           'same-file',
           options?.workDoneToken,
         );
@@ -602,7 +607,8 @@ export class PrerequisiteOrchestrationService {
           r.context === ReferenceContext.CONSTRUCTOR_CALL ||
           r.context === ReferenceContext.RETURN_TYPE ||
           r.context === ReferenceContext.PARAMETER_TYPE ||
-          r.context === ReferenceContext.SOQL_FROM_TYPE),
+          r.context === ReferenceContext.SOQL_FROM_TYPE ||
+          r.context === ReferenceContext.TRIGGER_TARGET_SOBJECT),
     );
 
     // Exclude stdlib types from artifact loading: findMissingArtifact is for org/user

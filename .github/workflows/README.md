@@ -195,7 +195,7 @@ graph TB
     A[get-extensions] --> B[release-extensions]
 ```
 
-**Purpose:** Extension-only nightly orchestrator. NPM publishing is decoupled into `release-npm.yml` pending dependency-ordering design.
+**Purpose:** Extension-only nightly orchestrator. The public extension API publishes from the resulting extension GitHub Release through `publish-extension-api.yml`, using the identical nightly version under npm's `nightly` dist-tag; other npm packages remain decoupled in `release-npm.yml`.
 
 **Key Features:**
 
@@ -232,6 +232,10 @@ graph TB
 - Uses `ext-github-releases` to create GH releases with VSIX assets
 - Uses `ext-publish-matrix` (returns empty for nightly — no marketplace publish)
 
+**API coordination:** `publish-extension-api.yml` publishes the contract package from every extension GitHub Release. Nightly tags publish the identical version under npm's `nightly` dist-tag. `promote-prerelease.yml` then adds npm's `pre-release` dist-tag to that same version after Marketplace promotion. Stable promotion creates a new stable GitHub Release, which publishes the matching stable API version under `latest`.
+
+If automatic API publishing fails, manually dispatch **Publish Extension API** with the existing extension release tag. It retries only npm publishing; it does not recreate or republish the VSIX. To validate a feature branch, dispatch it from that branch with `dry_run: true` and a prospective API `version`; it builds, tests, lints, and packs without publishing to npm.
+
 **Version Scheme:**
 
 - Odd minor (0.5.x, 0.7.x) → nightly/pre-release slot
@@ -244,7 +248,7 @@ graph TB
 
 - Manual dispatch only (decoupled from nightly schedule)
 
-**Purpose:** Standalone npm package publishing — strategy pending dependency-ordering design.
+**Purpose:** Standalone npm package publishing for packages that are not extension API contracts. The workflow removes `apex-language-server-extension-api` from its selected release matrix, including the `all` option and change-detection results. The extension API is published only from `publish-extension-api.yml` after an Apex extension release is created.
 
 **Script Integration:**
 

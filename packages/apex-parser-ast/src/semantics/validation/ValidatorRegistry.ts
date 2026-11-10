@@ -12,7 +12,7 @@ import type { ValidationResult } from './ValidationResult';
 import { deduplicateValidationResult } from './ValidationResult';
 import type { ValidationOptions, ValidationTier } from './ValidationTier';
 import type { ValidatorPrerequisites } from '../../prerequisites/OperationPrerequisites';
-import { DetailLevel } from '../../types/DetailLevel';
+import { SymbolCollectionLevel } from '../../types/SymbolCollectionLevel';
 import { isStandardApexUri } from '../../types/ProtocolHandler';
 import {
   SymbolTableEnrichmentService,
@@ -159,7 +159,7 @@ function checkValidatorPrerequisites(
       return false; // Higher detail levels require explicit detail level
     }
 
-    const levelOrder: Record<DetailLevel, number> = {
+    const levelOrder: Record<SymbolCollectionLevel, number> = {
       'public-api': 1,
       protected: 2,
       private: 3,
@@ -273,9 +273,9 @@ class ValidatorRegistryImpl implements ValidatorRegistryService {
 
       // Determine maximum prerequisites needed across all validators
       // This helps optimize prerequisite fulfillment
-      let maxRequiredDetailLevel: DetailLevel | null = null;
+      let maxRequiredDetailLevel: SymbolCollectionLevel | null = null;
       let maxDetailOrder = 0;
-      const levelOrder: Record<DetailLevel, number> = {
+      const levelOrder: Record<SymbolCollectionLevel, number> = {
         'public-api': 1,
         protected: 2,
         private: 3,

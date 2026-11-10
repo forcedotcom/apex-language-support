@@ -33,6 +33,7 @@ export enum ReferenceContext {
   INTERFACE_IMPLEMENTATION = 17, // For `implements` / interface `extends` (implementor → interface edge)
   KEYWORD_USAGE = 18,
   SOQL_FROM_TYPE = 19, // For sObject names in SOQL FROM clauses
+  TRIGGER_TARGET_SOBJECT = 20, // For sObject names in trigger headers
 }
 
 export type MemberAccessSemanticContext = {

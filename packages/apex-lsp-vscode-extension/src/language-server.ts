@@ -215,6 +215,8 @@ export async function createClientState(
     const featureStateListener = rawClient.onDidChangeState((event) => {
       if (event.newState === LanguageClientState.Running) {
         core.setFeatureStatesFromInitializeResult(rawClient.initializeResult);
+      } else {
+        core.setFeatureStatesFromInitializeResult(undefined);
       }
     });
     return { rawClient, core, workspaceLoadScope, featureStateListener };

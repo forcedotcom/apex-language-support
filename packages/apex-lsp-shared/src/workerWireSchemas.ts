@@ -185,6 +185,12 @@ export class AwaitSymbolReadiness extends Schema.TaggedRequest<AwaitSymbolReadin
       reason: Schema.optional(
         Schema.Literal('no-compile-pending', 'timeout', 'stale-version'),
       ),
+      /** Elapsed handler time on the data-owner worker, excluding wire delivery. */
+      handlerElapsedMs: Schema.optional(Schema.Number),
+      /** Coordinator-clock-compatible timestamp when the worker began handling. */
+      handlerStartedAtMs: Schema.optional(Schema.Number),
+      /** Timestamp when the worker had constructed the response for delivery. */
+      responseReadyAtMs: Schema.optional(Schema.Number),
     }),
     failure: Schema.Struct({
       _tag: Schema.Literal('AwaitSymbolReadinessError'),
@@ -517,6 +523,7 @@ export const LSP_REQUEST_TYPES = [
   'implementation',
   'references',
   'documentSymbol',
+  'semanticTokens',
   'workspaceSymbol',
   'diagnostics',
   'codeAction',
@@ -841,6 +848,25 @@ export class DispatchDocumentSymbol extends Schema.TaggedRequest<DispatchDocumen
   },
 ) {}
 
+/** Parser-only semantic tokens for the current, possibly unsaved document buffer. */
+export class DispatchSemanticTokens extends Schema.TaggedRequest<DispatchSemanticTokens>()(
+  'DispatchSemanticTokens',
+  {
+    success: Schema.Struct({ result: Schema.Unknown }),
+    failure: DispatchError,
+    payload: {
+      textDocument: WireTextDocumentId,
+      content: Schema.String,
+      semanticTokenLegend: Schema.Struct({
+        tokenTypes: Schema.Array(Schema.String),
+        tokenModifiers: Schema.Array(Schema.String),
+      }),
+      /** W3C traceparent for distributed tracing (optional) */
+      traceContext: Schema.optional(Schema.String),
+    },
+  },
+) {}
+
 export class DispatchCodeLens extends Schema.TaggedRequest<DispatchCodeLens>()(
   'DispatchCodeLens',
   {
@@ -848,6 +874,9 @@ export class DispatchCodeLens extends Schema.TaggedRequest<DispatchCodeLens>()(
     failure: DispatchError,
     payload: {
       textDocument: WireTextDocumentId,
+      // CodeLens must read the current editor buffer even when documentOpen has
+      // not yet reached the data owner.
+      content: Schema.optional(Schema.String),
       /** W3C traceparent for distributed tracing (optional) */
       traceContext: Schema.optional(Schema.String),
     },
@@ -1372,6 +1401,7 @@ export const LspRequestTags = [
   'DispatchPrepareRename',
   'DispatchImplementation',
   'DispatchDocumentSymbol',
+  'DispatchSemanticTokens',
   'DispatchCodeLens',
   'DispatchDiagnostic',
   'DispatchCrossFileEnrichment',
@@ -1457,6 +1487,7 @@ export type LspRequestMessage =
   | DispatchPrepareRename
   | DispatchImplementation
   | DispatchDocumentSymbol
+  | DispatchSemanticTokens
   | DispatchCodeLens
   | DispatchDiagnostic
   | DispatchCrossFileEnrichment

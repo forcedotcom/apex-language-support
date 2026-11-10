@@ -74,7 +74,7 @@ describe('PrerequisiteOrchestrationService', () => {
       timestamp: Date.now(),
       documentLength: 10,
       symbolsIndexed: true,
-      detailLevel: 'full',
+      symbolCollectionLevel: 'full',
       enrichmentFailed: false,
     });
   });
@@ -439,7 +439,7 @@ describe('PrerequisiteOrchestrationService', () => {
       timestamp: Date.now(),
       documentLength: 10,
       symbolsIndexed: true,
-      detailLevel: 'private',
+      symbolCollectionLevel: 'private',
       enrichmentFailed: false,
     });
 
@@ -479,7 +479,7 @@ describe('PrerequisiteOrchestrationService', () => {
       timestamp: Date.now(),
       documentLength: 10,
       symbolsIndexed: true,
-      detailLevel: 'private',
+      symbolCollectionLevel: 'private',
       enrichmentFailed: false,
     });
 

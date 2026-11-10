@@ -244,7 +244,7 @@ describe('Layered Symbol Collection', () => {
   });
 
   describe('PrivateSymbolListener', () => {
-    it('should capture only private symbols (no local variables)', () => {
+    it('should capture all declaration visibilities without local variables', () => {
       const fileContent = `
         public class TestClass {
           public String publicField;
@@ -300,7 +300,7 @@ describe('Layered Symbol Collection', () => {
       expect(localVar).toBeUndefined();
       expect(localInt).toBeUndefined();
 
-      // Should NOT have public/protected symbols
+      // Private detail is cumulative for tier-one declaration collection.
       const publicField = semanticSymbols.find(
         (s) => s.kind === SymbolKind.Field && s.name === 'publicField',
       );
@@ -310,9 +310,9 @@ describe('Layered Symbol Collection', () => {
       const publicMethod = semanticSymbols.find(
         (s) => s.kind === SymbolKind.Method && s.name === 'publicMethod',
       );
-      expect(publicField).toBeUndefined();
-      expect(protectedField).toBeUndefined();
-      expect(publicMethod).toBeUndefined();
+      expect(publicField).toBeDefined();
+      expect(protectedField).toBeDefined();
+      expect(publicMethod).toBeDefined();
     });
   });
 
@@ -570,8 +570,8 @@ describe('Layered Symbol Collection', () => {
         (s) => s.kind === SymbolKind.Field && s.name === 'privateField',
       );
 
-      expect(publicField?._detailLevel).toBe('public-api');
-      expect(protectedField?._detailLevel).toBe('protected');
+      expect(publicField?._detailLevel).toBe('private');
+      expect(protectedField?._detailLevel).toBe('private');
       expect(privateField?._detailLevel).toBe('private');
     });
   });

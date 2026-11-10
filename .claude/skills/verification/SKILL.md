@@ -22,6 +22,15 @@ Do each step in order; do not skip a step unless all previous are passing **exce
 
 8. check for dupes `npm run check:dupes` and then look in `jscpd-report` (and parser-ast report if using `check:dupes:parser-ast`) to make sure none of your changes are flagged.
 
+For parser-ast diagnostic catalog or generator changes, run after precompile:
+
+- formatter and diagnostic parity fixtures
+- for curated legacy Java cases: code, formatted message, severity, and parser-owned
+  range through `DiagnosticProcessingService`
+- `npm run check:error-codes -w @salesforce/apex-lsp-parser-ast`
+- review generated `messages_en_US.ts` and `ErrorCodes.ts`; they must change only
+  through `generate-messages.mjs`
+
 ## Debug mode
 
 Use when **actively debugging** a bug (repro, instrumentation, iterative fixes) — including Cursor **Debug mode** with runtime logging.

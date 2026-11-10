@@ -9,8 +9,11 @@
 import { ApexCapabilitiesManager } from '../../src/capabilities/ApexCapabilitiesManager';
 import {
   PRODUCTION_WEB_CAPABILITIES,
+  PRODUCTION_DESKTOP_CAPABILITIES,
   DEVELOPMENT_CAPABILITIES,
+  negotiateSemanticTokensProvider,
 } from '../../src/capabilities/ApexLanguageServerCapabilities';
+import { SEMANTIC_TOKEN_LEGEND } from '../../src/semanticTokenLegend';
 
 describe('ApexCapabilitiesManager', () => {
   let manager: ApexCapabilitiesManager;
@@ -121,7 +124,7 @@ describe('ApexCapabilitiesManager', () => {
       expect(capabilities.diagnosticProvider).toBeDefined();
     });
 
-    it('should enable CodeLens only for production web', () => {
+    it('should enable CodeLens and debugger commands for production clients', () => {
       expect(
         manager.getCapabilitiesForModeAndPlatform('production', 'web')
           .codeLensProvider,
@@ -129,12 +132,42 @@ describe('ApexCapabilitiesManager', () => {
       expect(
         manager.getCapabilitiesForModeAndPlatform('production', 'desktop')
           .codeLensProvider,
-      ).toBeUndefined();
+      ).toEqual({ resolveProvider: false });
+      expect(
+        manager.getCapabilitiesForModeAndPlatform('production', 'desktop')
+          .executeCommandProvider,
+      ).toEqual(PRODUCTION_WEB_CAPABILITIES.executeCommandProvider);
     });
+
+    it.each([
+      ['production', 'web', PRODUCTION_WEB_CAPABILITIES],
+      ['production', 'desktop', PRODUCTION_DESKTOP_CAPABILITIES],
+      ['development', 'web', DEVELOPMENT_CAPABILITIES],
+      ['development', 'desktop', DEVELOPMENT_CAPABILITIES],
+    ] as const)(
+      'advertises the approved semantic-token legend in %s/%s',
+      (mode, platform, configuredCapabilities) => {
+        const capabilities = manager.getCapabilitiesForModeAndPlatform(
+          mode,
+          platform,
+        );
+
+        expect(capabilities.semanticTokensProvider).toEqual({
+          legend: {
+            tokenTypes: [...SEMANTIC_TOKEN_LEGEND.tokenTypes],
+            tokenModifiers: [...SEMANTIC_TOKEN_LEGEND.tokenModifiers],
+          },
+          full: true,
+        });
+        expect(configuredCapabilities.semanticTokensProvider).toEqual(
+          capabilities.semanticTokensProvider,
+        );
+      },
+    );
   });
 
   describe('Feature States', () => {
-    it('distinguishes supported features from desktop production enabled features', () => {
+    it('reports desktop production enabled features', () => {
       manager.setPlatform('desktop');
       manager.setMode('production');
 
@@ -145,10 +178,8 @@ describe('ApexCapabilitiesManager', () => {
         supported: true,
         enabled: true,
       });
-      expect(states.semanticTokens).toEqual({
-        supported: false,
-        enabled: false,
-      });
+      expect(states.semanticTokens).toEqual({ supported: true, enabled: true });
+      expect(states.codeLens).toEqual({ supported: true, enabled: true });
     });
 
     it('reports web production enabled features', () => {
@@ -159,6 +190,89 @@ describe('ApexCapabilitiesManager', () => {
         supported: true,
         enabled: true,
       });
+      expect(manager.getFeatureStates().semanticTokens).toEqual({
+        supported: true,
+        enabled: true,
+      });
+    });
+  });
+
+  describe('semantic-token negotiation', () => {
+    it('advertises only semantic token types and modifiers supported by the client', () => {
+      const provider = negotiateSemanticTokensProvider(
+        {
+          legend: {
+            tokenTypes: ['class', 'method', 'keyword'],
+            tokenModifiers: ['declaration', 'static'],
+          },
+          full: true,
+        },
+        {
+          tokenTypes: ['method', 'keyword'],
+          tokenModifiers: ['static'],
+          formats: ['relative'],
+          requests: { full: true },
+        },
+      );
+
+      expect(provider).toEqual({
+        legend: {
+          tokenTypes: ['method', 'keyword'],
+          tokenModifiers: ['static'],
+        },
+        full: true,
+      });
+    });
+
+    it('preserves the complete server provider when the client does not advertise semantic tokens', () => {
+      const provider = {
+        legend: { tokenTypes: ['class'], tokenModifiers: ['declaration'] },
+        full: true,
+      };
+
+      expect(negotiateSemanticTokensProvider(provider, undefined)).toBe(
+        provider,
+      );
+    });
+
+    it('does not advertise a full provider to clients without full relative support', () => {
+      const provider = {
+        legend: { tokenTypes: ['class'], tokenModifiers: ['declaration'] },
+        full: true,
+      };
+
+      expect(
+        negotiateSemanticTokensProvider(provider, {
+          tokenTypes: ['class'],
+          tokenModifiers: ['declaration'],
+          formats: ['relative'],
+          requests: { range: true },
+        }),
+      ).toBeUndefined();
+      expect(
+        negotiateSemanticTokensProvider(provider, {
+          tokenTypes: ['class'],
+          tokenModifiers: ['declaration'],
+          formats: [],
+          requests: { full: true },
+        }),
+      ).toBeUndefined();
+    });
+
+    it('accepts the object form of full request support without advertising delta', () => {
+      const provider = {
+        legend: { tokenTypes: ['class'], tokenModifiers: ['declaration'] },
+        full: true,
+      };
+
+      expect(
+        negotiateSemanticTokensProvider(provider, {
+          tokenTypes: ['class'],
+          tokenModifiers: ['declaration'],
+          formats: ['relative'],
+          requests: { full: { delta: true } },
+        }),
+      ).toEqual(provider);
     });
   });
 
@@ -203,19 +317,20 @@ describe('ApexCapabilitiesManager', () => {
   describe('Capability Validation', () => {
     it('should correctly identify enabled capabilities in production mode (desktop)', () => {
       manager.setMode('production');
-      // Default platform is desktop — only documentSymbolProvider is released for desktop production
+      // Default platform is desktop — only approved production capabilities are enabled.
       expect(manager.isCapabilityEnabled('textDocumentSync')).toBe(true);
       expect(manager.isCapabilityEnabled('documentSymbolProvider')).toBe(true);
       expect(manager.isCapabilityEnabled('workspace')).toBe(true);
 
-      // All other language features are disabled on desktop/production
+      // Other language features remain disabled on desktop/production.
       expect(manager.isCapabilityEnabled('foldingRangeProvider')).toBe(false);
       expect(manager.isCapabilityEnabled('hoverProvider')).toBe(false);
       expect(manager.isCapabilityEnabled('definitionProvider')).toBe(false);
       expect(manager.isCapabilityEnabled('diagnosticProvider')).toBe(false);
       expect(manager.isCapabilityEnabled('completionProvider')).toBe(false);
       expect(manager.isCapabilityEnabled('implementationProvider')).toBe(false);
-      expect(manager.isCapabilityEnabled('executeCommandProvider')).toBe(false);
+      expect(manager.isCapabilityEnabled('codeLensProvider')).toBe(true);
+      expect(manager.isCapabilityEnabled('executeCommandProvider')).toBe(true);
     });
 
     it('should correctly identify enabled capabilities in production mode (web)', () => {

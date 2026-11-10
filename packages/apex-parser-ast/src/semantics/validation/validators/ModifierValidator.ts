@@ -352,10 +352,12 @@ export const ModifierValidator: Validator = {
         // normalized symbol intentionally does not retain the rejected modifier, so
         // this validation pass must not reconstruct it from document text.
 
-        // Check 4b: TOPLEVEL_MUST_BE_PUBLIC_OR_GLOBAL - top-level types need public, global, or @isTest
+        // Check 4b: TOPLEVEL_MUST_BE_PUBLIC_OR_GLOBAL - top-level Apex declarations need public, global, or @isTest
         if (
           symbol.parentId === null &&
-          inTypeSymbolGroup(symbol) &&
+          (isClassSymbol(symbol) ||
+            isInterfaceSymbol(symbol) ||
+            isEnumSymbol(symbol)) &&
           symbol.location
         ) {
           const hasPublicOrGlobal =

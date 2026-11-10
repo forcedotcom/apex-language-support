@@ -86,7 +86,7 @@ describe('MissingArtifactUtils', () => {
       );
 
       // Assert
-      expect(result).toEqual(mockReference);
+      expect(result?.reference).toEqual(mockReference);
       expect(mockSymbolManager.getReferencesAtPosition).toHaveBeenCalled();
     });
 
@@ -157,7 +157,7 @@ describe('MissingArtifactUtils', () => {
         });
 
         // Assert
-        expect(result).toEqual(mockReference2);
+        expect(result?.reference).toEqual(mockReference2);
         expect(mockSymbolManager.getReferencesAtPosition).toHaveBeenCalled();
       },
     );
@@ -240,9 +240,9 @@ describe('MissingArtifactUtils', () => {
 
       // Assert
       // Should prioritize the chained reference, not the individual one
-      expect(result).toEqual(chainedReference);
-      expect(result.name).toBe('FileUtilities.createFile');
-      expect(isChainedSymbolReference(result)).toBe(true);
+      expect(result?.reference).toEqual(chainedReference);
+      expect(result?.reference.name).toBe('FileUtilities.createFile');
+      expect(isChainedSymbolReference(result?.reference as any)).toBe(true);
       expect(mockSymbolManager.getReferencesAtPosition).toHaveBeenCalled();
     });
 
@@ -290,8 +290,8 @@ describe('MissingArtifactUtils', () => {
           { line: 4, character: 15 },
         );
 
-        expect(result).toBe(memberReference);
-        expect(result.name).not.toBe('unknown');
+        expect(result?.reference).toBe(memberReference);
+        expect(result?.reference.name).not.toBe('unknown');
       },
     );
 
@@ -381,9 +381,9 @@ describe('MissingArtifactUtils', () => {
       );
 
       // Assert
-      expect(result).toEqual(chainedRef);
-      expect(result.name).toBe('FileUtilities.createFile');
-      expect(isChainedSymbolReference(result)).toBe(true);
+      expect(result?.reference).toEqual(chainedRef);
+      expect(result?.reference.name).toBe('FileUtilities.createFile');
+      expect(isChainedSymbolReference(result?.reference as any)).toBe(true);
     });
 
     it.each([
@@ -446,7 +446,7 @@ describe('MissingArtifactUtils', () => {
           { line: 19, character: 20 },
         );
 
-        expect(result).toBe(chain);
+        expect(result?.reference).toBe(chain);
         expect(
           (utils as any).inferQualifierType(
             { ...chain, qualifier: 'property' },
@@ -458,7 +458,7 @@ describe('MissingArtifactUtils', () => {
   });
 
   describe('semantic provenance', () => {
-    it('captures snapshot version, completeness, exact range, and resolved identity', async () => {
+    it('captures snapshot version, completeness, exact range, and stable identity', async () => {
       mockSymbolManager.getSymbolTableForFile.mockResolvedValue({
         getMetadata: () => ({
           documentVersion: 12,
@@ -489,11 +489,80 @@ describe('MissingArtifactUtils', () => {
         sourceUri: 'file:///PropertyConsumer.cls',
         documentVersion: 12,
         referenceRange: reference.location.identifierRange,
-        referenceIdentity:
-          'symbol:Property__c|type:Property__c|1|Property__c|5|8|5|19',
+        referenceIdentity: '1|Property__c|5|8|5|19',
         resolvedSymbolId: 'symbol:Property__c',
         resolvedTypeId: 'type:Property__c',
         parseCompleteness: 'complete',
+      });
+    });
+
+    it('uses the selected chain token for provenance while preserving the enclosing chain', async () => {
+      mockSymbolManager.getSymbolTableForFile.mockResolvedValue({
+        getMetadata: () => ({
+          documentVersion: 12,
+          parseCompleteness: 'complete',
+        }),
+      } as any);
+      const qualifier = {
+        name: 'FileUtilities',
+        context: ReferenceContext.CLASS_REFERENCE,
+        location: {
+          identifierRange: {
+            startLine: 5,
+            startColumn: 8,
+            endLine: 5,
+            endColumn: 21,
+          },
+        },
+      };
+      const method = {
+        name: 'createFile',
+        context: ReferenceContext.METHOD_CALL,
+        resolvedSymbolId: 'method:FileUtilities.createFile',
+        resolvedTypeId: 'type:FileUtilities',
+        location: {
+          identifierRange: {
+            startLine: 5,
+            startColumn: 23,
+            endLine: 5,
+            endColumn: 33,
+          },
+        },
+      };
+      const chain = {
+        name: 'FileUtilities.createFile',
+        context: ReferenceContext.CHAIN_STEP,
+        location: {
+          identifierRange: {
+            startLine: 5,
+            startColumn: 8,
+            endLine: 5,
+            endColumn: 33,
+          },
+        },
+        chainNodes: [qualifier, method],
+      };
+      mockSymbolManager.getReferencesAtPosition.mockResolvedValue([
+        chain,
+      ] as any);
+
+      const selected = await (utils as any).extractReferenceAtPosition(
+        'file:///Consumer.cls',
+        { line: 4, character: 25 },
+      );
+
+      expect(selected?.reference).toBe(chain);
+      await expect(
+        (utils as any).createSemanticProvenance(
+          'file:///Consumer.cls',
+          selected.reference,
+          selected.cursorReference,
+        ),
+      ).resolves.toMatchObject({
+        referenceRange: method.location.identifierRange,
+        referenceIdentity: `${ReferenceContext.METHOD_CALL}|createFile|5|23|5|33`,
+        resolvedSymbolId: 'method:FileUtilities.createFile',
+        resolvedTypeId: 'type:FileUtilities',
       });
     });
   });

@@ -15,6 +15,7 @@ import {
   DataOwnerQuerySymbolByName,
   DrainDeferredReferences,
   DispatchDiagnostic,
+  DispatchSemanticTokens,
   DispatchHover,
   DispatchImplementation,
   WorkspaceBatchCompileOnDataOwner,
@@ -110,6 +111,34 @@ describe('WorkerCoordinator.queryDataOwner — switch coverage', () => {
     expect((pooled[0] as { content?: string }).content).toBe(
       'public class LiveBuffer {}',
     );
+  });
+
+  it('carries live content and the negotiated legend for semantic-token dispatch', async () => {
+    const logger = createSpyLogger();
+    const { topology, pooled } = makeFakeTopology();
+    const dispatcher = makeWorkerDispatcher(
+      topology,
+      logger,
+      () => 'public class LiveBuffer {}',
+    );
+    const semanticTokenLegend = {
+      tokenTypes: ['class'],
+      tokenModifiers: ['declaration'],
+    };
+
+    await dispatcher.dispatch('semanticTokens', {
+      textDocument: { uri: 'file:///workspace/LiveBuffer.cls' },
+      semanticTokenLegend,
+    });
+
+    expect(pooled).toHaveLength(1);
+    expect(pooled[0]).toBeInstanceOf(DispatchSemanticTokens);
+    expect((pooled[0] as { content?: string }).content).toBe(
+      'public class LiveBuffer {}',
+    );
+    expect(
+      (pooled[0] as { semanticTokenLegend?: unknown }).semanticTokenLegend,
+    ).toEqual(semanticTokenLegend);
   });
 
   it('forwards ResolveDependentUris with uri + symbolName as a typed schema instance', async () => {

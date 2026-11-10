@@ -16,13 +16,15 @@
  */
 
 import type * as Effect from 'effect/Effect';
-import type * as Layer from 'effect/Layer';
 
-export function initWorkerTracing(_url: string, _serviceName: string): void {}
+export async function initWorkerTracing(
+  _url: string,
+  _serviceName: string,
+): Promise<void> {}
 
-export function shutdownWorkerTracing(): void {}
+export async function shutdownWorkerTracing(): Promise<void> {}
 
-export function getWorkerTracerLayer(): Layer.Layer<never> | undefined {
+export function getWorkerTracerRuntime(): undefined {
   return undefined;
 }
 

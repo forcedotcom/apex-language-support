@@ -27,6 +27,13 @@
       "@salesforce/apex-lsp-client": ["packages/apex-lsp-client/out"],
       "@salesforce/apex-lsp-client/*": ["packages/apex-lsp-client/out/*"],
 
+      "@salesforce/apex-language-server-extension-api": [
+        "packages/apex-language-server-extension-api/out"
+      ],
+      "@salesforce/apex-language-server-extension-api/*": [
+        "packages/apex-language-server-extension-api/out/*"
+      ],
+
       "@salesforce/apex-lsp-parser-ast": ["packages/apex-parser-ast/out"],
       "@salesforce/apex-lsp-parser-ast/*": ["packages/apex-parser-ast/out/*"],
 
@@ -59,6 +66,7 @@
   "references": [
     { "path": "./packages/apex-lsp-shared" },
     { "path": "./packages/apex-lsp-client" },
+    { "path": "./packages/apex-language-server-extension-api" },
     { "path": "./packages/apex-parser-ast" },
     { "path": "./packages/lsp-compliant-services" },
     { "path": "./packages/apex-ls" },

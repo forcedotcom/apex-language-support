@@ -72,6 +72,8 @@ interface MockConnection {
   onShutdown: Mock;
   onExit: Mock;
   onCompletion: Mock;
+  onCodeLens: Mock;
+  onExecuteCommand: Mock;
   onDefinition: Mock;
   onImplementation: Mock;
   onReferences: Mock;
@@ -94,6 +96,7 @@ const mockConnection: MockConnection & {
     diagnostics?: { on: Mock };
     hover?: { on: Mock };
     completion?: { on: Mock };
+    semanticTokens?: { on: Mock };
   };
   workspace?: {
     onDidChangeWorkspaceFolders?: Mock;
@@ -114,6 +117,8 @@ const mockConnection: MockConnection & {
   onShutdown: vi.fn(),
   onExit: vi.fn(),
   onCompletion: vi.fn(),
+  onCodeLens: vi.fn(),
+  onExecuteCommand: vi.fn(),
   onDefinition: vi.fn(),
   onImplementation: vi.fn(),
   onReferences: vi.fn(),
@@ -135,6 +140,7 @@ const mockConnection: MockConnection & {
     diagnostics: { on: vi.fn() },
     hover: { on: vi.fn() },
     completion: { on: vi.fn() },
+    semanticTokens: { on: vi.fn() },
   },
   workspace: {
     onDidChangeWorkspaceFolders: vi.fn(),
@@ -454,6 +460,11 @@ vi.mock('@salesforce/apex-lsp-shared', () => ({
   LSPConfigurationManager: {
     getInstance: vi.fn(),
   },
+  SEMANTIC_TOKEN_LEGEND: {
+    tokenTypes: [],
+    tokenModifiers: [],
+  },
+  negotiateSemanticTokensProvider: vi.fn((provider) => provider),
   runWithSpan: vi.fn((_name: string, fn: () => any) => fn()),
   LSP_SPAN_NAMES: {},
   CommandPerformanceAggregator: class {
@@ -516,6 +527,10 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
     mockConfigManager = {
       getCapabilities: vi.fn().mockReturnValue({
         documentSymbolProvider: { resolveProvider: false },
+        semanticTokensProvider: {
+          legend: { tokenTypes: [], tokenModifiers: [] },
+          full: true,
+        },
         hoverProvider: true,
         definitionProvider: true,
         implementationProvider: true,
@@ -529,6 +544,13 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
         completionProvider: {
           triggerCharacters: ['.'],
           resolveProvider: false,
+        },
+        codeLensProvider: { resolveProvider: false },
+        executeCommandProvider: {
+          commands: [
+            'apex.debugger.lineBreakpoints',
+            'apex.debugger.exceptionBreakpoints',
+          ],
         },
         publishDiagnostics: true,
         textDocumentSync: {
@@ -587,7 +609,7 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
           codeLens: { supported: true, enabled: true },
           references: { supported: true, enabled: true },
           rename: { supported: true, enabled: true },
-          semanticTokens: { supported: false, enabled: false },
+          semanticTokens: { supported: true, enabled: true },
           inlayHint: { supported: false, enabled: false },
         }),
       }),
@@ -685,6 +707,19 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
     expect(result.capabilities).toHaveProperty('diagnosticProvider');
     expect(result.capabilities).toHaveProperty('definitionProvider');
     expect(result.capabilities).toHaveProperty('implementationProvider');
+    expect(result.capabilities.codeLensProvider).toEqual({
+      resolveProvider: false,
+    });
+    expect(result.capabilities.executeCommandProvider).toEqual({
+      commands: [
+        'apex.debugger.lineBreakpoints',
+        'apex.debugger.exceptionBreakpoints',
+      ],
+    });
+    expect(result.capabilities.semanticTokensProvider).toEqual({
+      legend: { tokenTypes: [], tokenModifiers: [] },
+      full: true,
+    });
   });
 
   it('omits dynamic navigation providers from static initialize capabilities', async () => {
@@ -703,6 +738,26 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
 
     expect(result.capabilities).not.toHaveProperty('definitionProvider');
     expect(result.capabilities).not.toHaveProperty('implementationProvider');
+  });
+
+  it('omits dynamically registered providers from static initialize capabilities', async () => {
+    const initHandler = mockHandlers.initialize as InitializeHandler;
+    const result = await initHandler({
+      capabilities: {
+        workspace: {
+          executeCommand: { dynamicRegistration: true },
+        },
+        textDocument: {
+          codeLens: { dynamicRegistration: true },
+        },
+      },
+      processId: 1,
+      rootUri: null,
+      workspaceFolders: null,
+    } as InitializeParams);
+
+    expect(result.capabilities).not.toHaveProperty('codeLensProvider');
+    expect(result.capabilities).not.toHaveProperty('executeCommandProvider');
   });
 
   it('should handle initialized notification', async () => {
@@ -1076,6 +1131,48 @@ describe('Apex Language Server Browser - LCSAdapter Integration', () => {
       expect(mockConnection.onDocumentSymbol).toHaveBeenCalledWith(
         expect.any(Function),
       );
+    });
+
+    it('should register semantic tokens handler', () => {
+      expect(mockConnection.languages?.semanticTokens?.on).toHaveBeenCalledWith(
+        expect.any(Function),
+      );
+    });
+
+    it('submits semantic-token requests through the queue and returns an empty response on failure', async () => {
+      const { LSPQueueManager } =
+        (await import('@salesforce/apex-lsp-compliant-services')) as {
+          LSPQueueManager: {
+            getInstance: () => {
+              submitSemanticTokensRequest: (
+                params: unknown,
+              ) => Promise<unknown>;
+            };
+          };
+        };
+      const submitSemanticTokensRequest = vi
+        .fn()
+        .mockResolvedValueOnce({ data: [0, 0, 6, 1, 0] })
+        .mockRejectedValueOnce(new Error('semantic token timeout'));
+      const getInstance = vi
+        .spyOn(LSPQueueManager, 'getInstance')
+        .mockReturnValue({ submitSemanticTokensRequest });
+      const handler =
+        mockConnection.languages?.semanticTokens?.on.mock.calls.at(-1)?.[0] as (
+          params: unknown,
+        ) => Promise<unknown>;
+      const params = { textDocument: { uri: 'file:///Tokens.cls' } };
+
+      await expect(handler(params)).resolves.toEqual({
+        data: [0, 0, 6, 1, 0],
+      });
+      expect(submitSemanticTokensRequest).toHaveBeenCalledWith({
+        ...params,
+        semanticTokenLegend: { tokenTypes: [], tokenModifiers: [] },
+      });
+      await expect(handler(params)).resolves.toEqual({ data: [] });
+
+      getInstance.mockRestore();
     });
 
     it('should register folding range handler', () => {

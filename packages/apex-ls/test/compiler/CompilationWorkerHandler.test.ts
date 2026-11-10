@@ -66,6 +66,73 @@ describe('CompilationWorkerHandler', () => {
     ).toBe(true);
   });
 
+  it('compiles private declarations for interactive documents', async () => {
+    const handlers = createCompilationWorkerHandlers();
+    const result = await Effect.runPromise(
+      handlers.CompileApexFile(
+        new CompileApexFile({
+          uri: URI,
+          content: SOURCE,
+          languageId: 'apex',
+          version: 4,
+          detailLevel: 'private',
+          collectReferences: true,
+        }),
+      ),
+    );
+
+    expect(
+      (result.symbolTable.symbols as Array<{ name: string }>).map(
+        (symbol) => symbol.name,
+      ),
+    ).toContain('privateMethod');
+  });
+
+  it('retains trigger declarations at private detail', async () => {
+    const handlers = createCompilationWorkerHandlers();
+    const result = await Effect.runPromise(
+      handlers.CompileApexFile(
+        new CompileApexFile({
+          uri: 'file:///workspace/WorkerFixture.trigger',
+          content: 'trigger WorkerFixture on Account (before insert) {}',
+          languageId: 'apex',
+          version: 4,
+          detailLevel: 'private',
+          collectReferences: true,
+        }),
+      ),
+    );
+
+    expect(
+      (result.symbolTable.symbols as Array<{ name: string }>).map(
+        (symbol) => symbol.name,
+      ),
+    ).toContain('WorkerFixture');
+  });
+
+  it('preserves public-api detail for workspace compilation', async () => {
+    const handlers = createCompilationWorkerHandlers();
+    const result = await Effect.runPromise(
+      handlers.CompileApexFile(
+        new CompileApexFile({
+          uri: URI,
+          content: SOURCE,
+          languageId: 'apex',
+          version: 4,
+          detailLevel: 'public-api',
+          collectReferences: true,
+        }),
+      ),
+    );
+
+    const names = reconstructCompiledSymbolTable(result)
+      .getAllSymbols()
+      .filter((symbol) => symbol.kind !== 'block')
+      .map((symbol) => symbol.name);
+    expect(names).toContain('visibleMethod');
+    expect(names).not.toContain('privateMethod');
+  });
+
   it('reconstructs an indexed SymbolTable from the wire result', async () => {
     const handlers = createCompilationWorkerHandlers();
     const result = await Effect.runPromise(

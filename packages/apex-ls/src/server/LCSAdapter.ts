@@ -39,6 +39,8 @@ import {
   ExecuteCommandParams,
   CancellationToken,
   CompletionParams,
+  SemanticTokensParams,
+  SemanticTokens,
   type CompletionItem,
   type CompletionList,
   ResponseError,
@@ -71,6 +73,7 @@ import {
   type GraphDataParams,
   APEX_DEBUGGER_COMMANDS,
   getDebuggerCommandUri,
+  negotiateSemanticTokensProvider,
 } from '@salesforce/apex-lsp-shared';
 
 import {
@@ -95,6 +98,7 @@ import {
   isWorkspaceLoading,
   getDiagnosticRefreshService,
   decodeFindMissingArtifactResult,
+  SEMANTIC_TOKEN_LEGEND,
 } from '@salesforce/apex-lsp-compliant-services';
 
 import {
@@ -671,7 +675,12 @@ export class LCSAdapter {
   /**
    * LSP protocol handlers (hover, diagnostics, etc.)
    */
-  private setupProtocolHandlers(): void {
+  private setupProtocolHandlers(
+    semanticTokenLegend: {
+      readonly tokenTypes: readonly string[];
+      readonly tokenModifiers: readonly string[];
+    } = SEMANTIC_TOKEN_LEGEND,
+  ): void {
     const capabilities =
       LSPConfigurationManager.getInstance().getCapabilities();
 
@@ -717,6 +726,32 @@ export class LCSAdapter {
     } else {
       this.logger.debug(
         '⚠️ Document symbol handler not registered (capability disabled)',
+      );
+    }
+
+    if (capabilities.semanticTokensProvider) {
+      this.connection.languages.semanticTokens.on(
+        async (params: SemanticTokensParams): Promise<SemanticTokens> =>
+          this.handleLspRequest(
+            LSP_SPAN_NAMES.TEXT_DOCUMENT_SEMANTIC_TOKENS_FULL,
+            'textDocument/semanticTokens/full',
+            params,
+            (p) =>
+              LSPQueueManager.getInstance().submitSemanticTokensRequest({
+                ...p,
+                semanticTokenLegend,
+              }),
+            { data: [] },
+            {
+              'semanticTokens.types':
+                SEMANTIC_TOKEN_LEGEND.tokenTypes.join(','),
+            },
+          ),
+      );
+      this.logger.debug('✅ Semantic tokens handler registered');
+    } else {
+      this.logger.debug(
+        '⚠️ Semantic tokens handler not registered (capability disabled)',
       );
     }
 
@@ -1736,6 +1771,19 @@ export class LCSAdapter {
       },
     };
 
+    // Semantic tokens have no dynamic-registration path in this adapter. VS Code
+    // only schedules textDocument/semanticTokens/full after seeing this provider
+    // in the initialize response.
+    const semanticTokensProvider = allCapabilities.semanticTokensProvider
+      ? negotiateSemanticTokensProvider(
+          allCapabilities.semanticTokensProvider,
+          params.capabilities.textDocument?.semanticTokens,
+        )
+      : undefined;
+    if (semanticTokensProvider) {
+      staticCapabilities.semanticTokensProvider = semanticTokensProvider;
+    }
+
     // Log textDocumentSync capabilities being negotiated
     this.logger.debug(
       () =>
@@ -1845,6 +1893,14 @@ export class LCSAdapter {
       });
     }
 
+    if (
+      allCapabilities.executeCommandProvider &&
+      !params.capabilities.workspace?.executeCommand?.dynamicRegistration
+    ) {
+      staticCapabilities.executeCommandProvider =
+        allCapabilities.executeCommandProvider;
+    }
+
     this.logger.debug(
       () =>
         `Returning static capabilities: ${JSON.stringify(staticCapabilities, null, 2)}`,
@@ -1881,7 +1937,7 @@ export class LCSAdapter {
     // Register all protocol handlers synchronously BEFORE returning capabilities.
     // This ensures handlers like apex/sendWorkspaceBatch are ready when the client
     // starts sending requests after receiving the initialize response.
-    this.setupProtocolHandlers();
+    this.setupProtocolHandlers(semanticTokensProvider?.legend);
     this.logger.debug('✅ Protocol handlers registered during initialize');
 
     return {
@@ -1924,6 +1980,9 @@ export class LCSAdapter {
           ?.dynamicRegistration;
       case 'codeLens':
         return !!this.clientCapabilities.textDocument?.codeLens
+          ?.dynamicRegistration;
+      case 'executeCommand':
+        return !!this.clientCapabilities.workspace?.executeCommand
           ?.dynamicRegistration;
       default:
         return false;
@@ -2461,6 +2520,19 @@ export class LCSAdapter {
             settings,
           ),
           resolveProvider: capabilities.codeLensProvider.resolveProvider,
+        },
+      });
+    }
+
+    if (
+      capabilities.executeCommandProvider &&
+      this.supportsDynamicRegistration('executeCommand')
+    ) {
+      registrations.push({
+        id: 'apex-execute-command',
+        method: 'workspace/executeCommand',
+        registerOptions: {
+          commands: capabilities.executeCommandProvider.commands,
         },
       });
     }

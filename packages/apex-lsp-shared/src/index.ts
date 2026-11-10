@@ -32,6 +32,7 @@ export * from './logger';
 
 // Export smaller numeric types for memory optimization
 export * from './smallNumericTypes';
+export * from './semanticTokenLegend';
 
 // Export capabilities management
 export * from './capabilities/ApexCapabilitiesManager';
@@ -106,6 +107,7 @@ export enum ReferenceContext {
   VARIABLE_USAGE = 5,
   PARAMETER_TYPE = 6,
   VARIABLE_DECLARATION = 7,
+  TRIGGER_TARGET_SOBJECT = 20,
 }
 
 // Enhanced search hints for client-side artifact resolution
@@ -540,6 +542,7 @@ export {
   DispatchPrepareRename,
   DispatchImplementation,
   DispatchDocumentSymbol,
+  DispatchSemanticTokens,
   DispatchCodeLens,
   DispatchDiagnostic,
   DispatchCrossFileEnrichment,

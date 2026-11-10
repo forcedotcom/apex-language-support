@@ -253,6 +253,33 @@ const symbols = await core.documentSymbol({
 });
 ```
 
+`ApexClient` contains debugger metadata and feature-state methods.
+`ApexStandardLspClient` extends it with the typed standard LSP methods above.
+`ApexClientCore` implements `ApexStandardLspClient`; both contracts are exported
+from `@salesforce/apex-lsp-client` and `@salesforce/apex-lsp-client/browser`.
+
+`semanticTokens` requests full-document tokens through the standard
+`textDocument/semanticTokens/full` method and decodes the relative LSP payload
+using the server legend negotiated during initialization:
+
+```typescript
+const tokens = await core.semanticTokens({
+  textDocument: { uri: 'file:///Foo.cls' },
+});
+// [{ line: 10, character: 5, length: 3, tokenType: 'class',
+//    tokenModifiers: ['declaration'] }]
+```
+
+It returns `undefined` when the server did not negotiate a full semantic-token
+provider or returns an LSP `null` result; a valid empty response returns `[]`.
+This convenience method supports only final full-document responses: it does not
+consume LSP partial-result progress payloads. The package also exports
+`DecodedSemanticToken`, `decodeSemanticTokens`, and `SemanticTokenDecodeError`
+from both public entry points for hosts that need to decode a standard LSP
+response themselves. Pass `decodeSemanticTokens` the legend from the same
+server session that produced the packed response. It is pure: it does not
+mutate the packed response data or server legend.
+
 For methods not covered by a typed wrapper, use the generic escape hatches:
 
 ```typescript

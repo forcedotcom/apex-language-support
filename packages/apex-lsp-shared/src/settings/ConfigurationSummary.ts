@@ -349,6 +349,9 @@ export function generateCapabilitiesSummary(
     `    - Document Symbols:  ${status(on(capabilities.documentSymbolProvider))}`,
   );
   lines.push(
+    `    - Semantic Tokens:   ${status(on(capabilities.semanticTokensProvider))}`,
+  );
+  lines.push(
     `    - Folding Ranges:    ${status(on(capabilities.foldingRangeProvider))}`,
   );
   lines.push(

@@ -144,7 +144,7 @@ const methods = symbolTable
     - `ValidationResult.ts`: Structured validation results with location-aware errors
     - `ValidatorInitialization.ts`: Validator registration and initialization
     - `ArtifactLoadingHelper.ts`: Cross-file type resolution and artifact loading
-    - `validators/`: 46 validator implementations (42 TIER 1, 4 TIER 2)
+    - `validators/`: 55 validator implementations (43 TIER 1, 12 TIER 2)
   - `i18n/`: Internationalization support for error messages:
     - `messageInstance.ts`: Message formatting using @salesforce/vscode-i18n
   - `generated/`: Auto-generated TypeScript modules (ignored by git, do not edit):
@@ -246,6 +246,14 @@ The package provides **comprehensive reference capture** with 95%+ coverage of a
 
 References are captured for all expression types: primary expressions, assignments, array access, casts, arithmetic/comparison/logical/bitwise operations, unary increment/decrement, ternary conditionals, `instanceof` checks, and chained expressions (e.g., `obj.method().field`).
 
+Trigger headers also contribute parser-owned declaration data: a `TriggerSymbol`
+records its target sObject and declared timing/operation pairs, while the target
+sObject is captured as a `TRIGGER_TARGET_SOBJECT` reference. That reference
+resolves only to an sObject symbol and participates in missing-artifact loading
+and semantic-token classification. A trigger declaration itself is not an Apex
+type and cannot satisfy variable, parameter, return, cast, generic, or
+constructor type references.
+
 ### LSP Features Powered
 
 - **Go to Definition**: Works for all variable usage, not just declarations
@@ -278,6 +286,10 @@ Core queries:
 
 Type names in variables/parameters are resolved post-parse using `NamespaceResolutionService` and a `SymbolProvider` implementation. The resolver handles project namespace, global scope, and standard library namespaces, updating symbols with `resolvedSymbol` and `resolutionConfidence`.
 
+Classes, interfaces, enums, and sObjects are valid Apex type-reference targets.
+Triggers are declarations with a separate `triggerUnit` grammar rule and are
+never resolved as ordinary type references.
+
 ## Semantic Validation
 
 The package provides a comprehensive **2-tier semantic validation system** that performs deep semantic analysis on Apex code beyond syntax checking.
@@ -295,13 +307,13 @@ The package provides a comprehensive **2-tier semantic validation system** that 
 - **`ErrorCodes`**: Generated error code constants enabling linting detection of unused codes
 - **`localizeTyped`**: Type-safe message formatting using @salesforce/vscode-i18n
 - **`ArtifactLoadingHelper`**: Service for loading missing type definitions across files
-- **46 Validators**: 42 TIER 1 + 4 TIER 2
+- **55 Validators**: 43 TIER 1 + 12 TIER 2
 
 See [SEMANTIC_VALIDATION_STATUS.md](./SEMANTIC_VALIDATION_STATUS.md) for the complete validator list and error code coverage.
 
 ### TIER 1 (IMMEDIATE) Validators
 
-Fast, same-file validations. Examples include `SourceSizeValidator`, `ParameterLimitValidator` (max 32), `EnumLimitValidator` (max 100), `DuplicateMethodValidator`, `ConstructorNamingValidator`, `AbstractMethodBodyValidator`, `InnerTypeValidator`, plus 35 more.
+Fast, same-file validations. Examples include `SourceSizeValidator`, `TopLevelTypeFilenameValidator` (top-level class, interface, or enum name must match its `.cls` filename), `ParameterLimitValidator` (max 32), `EnumLimitValidator` (max 100), `DuplicateMethodValidator`, `ConstructorNamingValidator`, `AbstractMethodBodyValidator`, `InnerTypeValidator`, plus 35 more.
 
 ### TIER 2 (THOROUGH) Validators
 
@@ -359,8 +371,8 @@ sequenceDiagram
     participant PrerequisiteOrchestrationService
     participant LayerEnrichmentService
     participant ValidatorRegistry
-    participant TIER1Validators as TIER 1 Validators<br/>(42 validators)
-    participant TIER2Validators as TIER 2 Validators<br/>(4 validators)
+    participant TIER1Validators as TIER 1 Validators<br/>(43 validators)
+    participant TIER2Validators as TIER 2 Validators<br/>(12 validators)
     participant ArtifactLoadingHelper
     participant MissingArtifactResolutionService
     participant MissingArtifactProcessingService
@@ -383,9 +395,11 @@ sequenceDiagram
 
     Note over DiagnosticProcessingService: Initialize validators<br/>(static, one-time)
     DiagnosticProcessingService->>ValidatorRegistry: initializeValidators()
-    ValidatorRegistry->>ValidatorRegistry: Register 46 validators<br/>(42 TIER 1, 4 TIER 2)
+    ValidatorRegistry->>ValidatorRegistry: Register 55 validators<br/>(43 TIER 1, 12 TIER 2)
 
-    DiagnosticProcessingService->>PrerequisiteOrchestrationService: runPrerequisitesForLspRequestType('diagnostics')
+    DiagnosticProcessingService->>LSPQueueManager: submitNotification('prerequisiteEnrichment')
+    DiagnosticProcessingService-->>Client: Parser diagnostics from cached snapshot
+    LSPQueueManager->>PrerequisiteOrchestrationService: runPrerequisitesForLspRequestType('diagnostics')
 
     PrerequisiteOrchestrationService->>PrerequisiteOrchestrationService: Verify document in storage
     PrerequisiteOrchestrationService->>PrerequisiteOrchestrationService: Get cached SymbolTable
@@ -393,7 +407,7 @@ sequenceDiagram
 
     alt detailLevel < 'full'
         Note over PrerequisiteOrchestrationService: Need enrichment for validation
-        PrerequisiteOrchestrationService->>LayerEnrichmentService: enrichToDetailLevel(table, 'full')
+        PrerequisiteOrchestrationService->>LayerEnrichmentService: enrichFiles([uri], 'full', 'same-file')
         LayerEnrichmentService->>LayerEnrichmentService: Reuse cached parse tree (no re-parsing!)
         LayerEnrichmentService->>CompilerService: Apply ProtectedSymbolListener
         LayerEnrichmentService->>CompilerService: Apply PrivateSymbolListener
@@ -401,13 +415,16 @@ sequenceDiagram
         LayerEnrichmentService-->>PrerequisiteOrchestrationService: Enriched SymbolTable
     end
 
-    PrerequisiteOrchestrationService-->>DiagnosticProcessingService: Prerequisites complete
+    PrerequisiteOrchestrationService-->>Client: workspace/diagnostic/refresh
+    Client->>LCSAdapter: textDocument/diagnostic (refresh pull)
+    LCSAdapter->>LSPQueueManager: submitRequest('diagnostics', params, {priority: Normal})
+    LSPQueueManager->>DiagnosticProcessingService: processDiagnostic()
     DiagnosticProcessingService->>DiagnosticProcessingService: Fetch enriched SymbolTable
 
     rect rgb(200, 230, 255)
         Note over DiagnosticProcessingService,TIER1Validators: TIER 1: IMMEDIATE Validation<br/>(<500ms, same-file only)
         DiagnosticProcessingService->>ValidatorRegistry: runValidatorsForTier(IMMEDIATE, table, options)
-        ValidatorRegistry->>TIER1Validators: Execute 42 validators
+        ValidatorRegistry->>TIER1Validators: Execute 43 validators
 
         loop For each TIER 1 validator
             TIER1Validators->>TIER1Validators: Validate symbols<br/>(SourceSize, ParameterLimit, EnumLimit, etc.)
@@ -420,7 +437,7 @@ sequenceDiagram
     rect rgb(255, 230, 200)
         Note over DiagnosticProcessingService,TIER2Validators: TIER 2: THOROUGH Validation<br/>(2-5s, may load artifacts)
         DiagnosticProcessingService->>ValidatorRegistry: runValidatorsForTier(THOROUGH, table, options)
-        ValidatorRegistry->>TIER2Validators: Execute 4 validators
+        ValidatorRegistry->>TIER2Validators: Execute 12 validators
 
         loop For each TIER 2 validator
             TIER2Validators->>TIER2Validators: Check if types need resolution

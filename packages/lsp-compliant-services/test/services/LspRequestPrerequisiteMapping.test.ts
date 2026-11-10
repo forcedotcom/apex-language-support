@@ -13,7 +13,7 @@ describe('LspRequestPrerequisiteMapping hardening contracts', () => {
   it('keeps hover cursor-scoped instead of materializing the whole file graph', () => {
     const hover = getPrerequisitesForLspRequestType('hover');
 
-    expect(hover.requiredDetailLevel).toBe('full');
+    expect(hover.enrichmentRequirement).toBe('full');
     expect(hover.requiresReferenceResolution).toBe(true);
     expect(hover.requiresCrossFileResolution).toBe(false);
   });
@@ -69,7 +69,7 @@ describe('LSP request preparation policies', () => {
       const policy = getLspRequestPreparationPolicy(requestType);
 
       expect(policy).toMatchObject({
-        requiredDetailLevel: detail,
+        enrichmentRequirement: detail,
         content,
         dependencyScope,
         failureMode,
@@ -80,8 +80,8 @@ describe('LSP request preparation policies', () => {
   it('derives detail level from the prerequisite mapping', () => {
     const completion = getLspRequestPreparationPolicy('completion');
 
-    expect(completion.requiredDetailLevel).toBe(
-      getPrerequisitesForLspRequestType('completion').requiredDetailLevel,
+    expect(completion.enrichmentRequirement).toBe(
+      getPrerequisitesForLspRequestType('completion').enrichmentRequirement,
     );
     expect(completion.reuseUnchangedCursor).toBe(true);
     expect(completion.writeBack).toBe(true);

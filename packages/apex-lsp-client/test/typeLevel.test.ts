@@ -34,6 +34,8 @@ describe('Type-level assertions', () => {
     const hoverParams: BrowserPublicAPI.HoverParams | undefined = undefined;
     const definitionParams: BrowserPublicAPI.DefinitionParams | undefined =
       undefined;
+    const semanticTokenParams:
+      BrowserPublicAPI.SemanticTokensParams | undefined = undefined;
     const createWorkspaceBatches: typeof BrowserPublicAPI.createWorkspaceFileBatches =
       BrowserPublicAPI.createWorkspaceFileBatches;
     const compressWorkspaceBatch: typeof BrowserPublicAPI.compressWorkspaceFileBatch =
@@ -47,6 +49,7 @@ describe('Type-level assertions', () => {
     expect(methodHandlers).toBeUndefined();
     expect(hoverParams).toBeUndefined();
     expect(definitionParams).toBeUndefined();
+    expect(semanticTokenParams).toBeUndefined();
     expect(createWorkspaceBatches).toBeTypeOf('function');
     expect(compressWorkspaceBatch).toBeTypeOf('function');
     expect(encodeWorkspaceBatch).toBeTypeOf('function');
@@ -203,12 +206,18 @@ describe('Type-level assertions', () => {
       ? true
       : never = true as const;
 
+    type SemanticTokensReturn = ReturnType<Core['semanticTokens']>;
+    const _assertSemanticTokensPromise: SemanticTokensReturn extends Promise<any>
+      ? true
+      : never = true as const;
+
     // If any assertion fails, compilation fails
     expect(_assertInitPromise).toBe(true);
     expect(_assertShutdownPromise).toBe(true);
     expect(_assertDisposePromise).toBe(true);
     expect(_assertHoverPromise).toBe(true);
     expect(_assertRequestPromise).toBe(true);
+    expect(_assertSemanticTokensPromise).toBe(true);
   });
 
   it('transport adapters return Promise, not Effect', () => {

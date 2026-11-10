@@ -46,7 +46,7 @@ its exported `ApexExtensionApi`, and call its materialized `client`:
 
 ```typescript
 import * as vscode from 'vscode';
-import type { ApexExtensionApi } from 'apex-language-server-extension';
+import type { ApexExtensionApi } from '@salesforce/apex-language-server-extension-api';
 
 const apexExtension = vscode.extensions.getExtension<ApexExtensionApi>(
   'salesforce.apex-language-server-extension',
@@ -61,6 +61,13 @@ const uri = 'file:///workspace/force-app/main/default/classes/Example.cls';
 const lineBreakpoints = await apex.client.getLineBreakpointInfo(uri);
 const exceptionBreakpoints = await apex.client.getExceptionBreakpointInfo(uri);
 ```
+
+The activated API is defined by the versioned
+`@salesforce/apex-language-server-extension-api` contract package. Its stable `client`
+facade supports breakpoint metadata, feature-state checks, and standard LSP
+hover, completion, definition, document-symbol, and semantic-token requests.
+The facade remains valid after the language server restarts; callers do not
+receive or manage the concrete runtime client.
 
 The URI must identify a document loaded by the language server. Line results use
 1-based source lines and opaque debugger `typeref` values; exception results add
@@ -87,9 +94,11 @@ Language Server output channel and suppress that lens.
 
 ```typescript
 import * as vscode from 'vscode';
-import type { ApexExtensionApi } from 'apex-language-server-extension';
+import type { ApexExtensionApi } from '@salesforce/apex-language-server-extension-api';
 
-const apexExtension = vscode.extensions.getExtension<ApexExtensionApi>(
+const apexExtension = vscode.extensions.getExtension<
+  ApexExtensionApi<vscode.CodeLens>
+>(
   'salesforce.apex-language-server-extension',
 );
 if (!apexExtension) {
@@ -97,6 +106,10 @@ if (!apexExtension) {
 }
 
 const apex = await apexExtension.activate();
+if (!apex.codeLens) {
+  throw new Error('Apex Language Server CodeLens API is unavailable');
+}
+
 context.subscriptions.push(
   apex.codeLens.register('sf.apex.test.method.run.delegate', (anchor) => ({
     ...anchor,
@@ -144,7 +157,8 @@ Control the language server's operational mode and feature set.
 
 Sets the server's operational mode:
 
-- **`production`**: Optimized for performance with minimal features
+- **`production`**: Optimized for performance with released features
+  - Enabled: document symbols, semantic tokens, CodeLens, and debugger command metadata
   - Disabled: hover, completion resolve, will-save notifications
   - Full document sync for reliability
 - **`development`**: Full feature set with enhanced diagnostics

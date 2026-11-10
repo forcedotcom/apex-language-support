@@ -103,7 +103,7 @@ import {
   buildReferencesToCacheKey,
   buildReferencesFromCacheKey,
 } from './referenceCacheKey';
-import { DetailLevel } from '../types/DetailLevel';
+import { SymbolCollectionLevel } from '../types/SymbolCollectionLevel';
 import { CompilerService } from '../parser/compilerService';
 import { ApexSymbolCollectorListener } from '../parser/listeners/ApexSymbolCollectorListener';
 import { ErrorType } from '../parser/listeners/ApexErrorListener';
@@ -298,7 +298,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   // Batch size for initial reference processing
   private readonly initialReferenceBatchSize: number;
   // Track detail level per file for enrichment
-  private readonly fileDetailLevels: HashMap<string, DetailLevel> =
+  private readonly fileDetailLevels: HashMap<string, SymbolCollectionLevel> =
     new HashMap();
   // Track last processed SymbolTable state per file to avoid duplicate work
   private readonly lastProcessedTableStateByFile: HashMap<string, string> =
@@ -2978,6 +2978,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     if (typeRef.resolvedSymbolId && canTrustPreResolvedTarget) {
       const resolved = index.byId.get(typeRef.resolvedSymbolId);
       if (resolved) {
+        if (
+          typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT &&
+          resolved.kind !== SymbolKind.SObject
+        ) {
+          return null;
+        }
         const isDeclarationIdentity =
           typeRef.context === ReferenceContext.VARIABLE_DECLARATION ||
           typeRef.context === ReferenceContext.PROPERTY_REFERENCE;
@@ -3018,7 +3024,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       if (stats) {
         stats.resolverScopeSearchMs += Date.now() - started;
       }
-      return target ? { target, complete: true } : null;
+      return target &&
+        (typeRef.context !== ReferenceContext.TRIGGER_TARGET_SOBJECT ||
+          target.kind === SymbolKind.SObject)
+        ? { target, complete: true }
+        : null;
     }
 
     if (stats) {
@@ -4357,7 +4367,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           // For unqualified references, check if the symbol exists in the current file
           // Use getAllSymbols().find() for more reliable same-file lookup
           const allSymbols = symbolTable.getAllSymbols();
-          const symbolInFile = allSymbols.find((s) => s.name === typeRef.name);
+          const symbolInFile = allSymbols.find(
+            (symbol) =>
+              symbol.name === typeRef.name &&
+              (typeRef.context !== ReferenceContext.TRIGGER_TARGET_SOBJECT ||
+                symbol.kind === SymbolKind.SObject),
+          );
           if (!symbolInFile) {
             // Symbol not in current file - this is a cross-file reference
             isCrossFileReference = true;
@@ -4555,7 +4570,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   self.findSymbolByFQN(typeRef.name),
                 );
                 if (byFqn) {
-                  targetSymbol = byFqn;
+                  targetSymbol =
+                    typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
+                      ? byFqn.kind === SymbolKind.SObject
+                        ? byFqn
+                        : null
+                      : byFqn;
                 }
               }
             }
@@ -4564,8 +4584,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               const symbols = yield* Effect.promise(() =>
                 self.findSymbolByName(typeRef.name),
               );
-              if (symbols.length > 0) {
-                targetSymbol = symbols[0];
+              const targetCandidates =
+                typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
+                  ? symbols.filter(
+                      (symbol) => symbol.kind === SymbolKind.SObject,
+                    )
+                  : symbols;
+              if (targetCandidates.length > 0) {
+                targetSymbol = targetCandidates[0];
               }
             }
           }
@@ -6234,6 +6260,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           : null);
 
     const memberReferences = references.filter((reference) => {
+      const normalizedName = reference.name.trim().toLowerCase();
+      if (normalizedName === 'this' || normalizedName === 'super') {
+        return false;
+      }
       // Chained containers carry the whole expression as their name. Resolve
       // the standalone leaf reference at the cursor instead.
       if (isChainedSymbolReference(reference)) return false;
@@ -7552,7 +7582,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * @param fileUri The file URI to check
    * @returns The current detail level, or null if file not indexed
    */
-  async getDetailLevelForFile(fileUri: string): Promise<DetailLevel | null> {
+  async getDetailLevelForFile(
+    fileUri: string,
+  ): Promise<SymbolCollectionLevel | null> {
     const normalizedUri = extractFilePathFromUri(fileUri);
     return this.fileDetailLevels.get(normalizedUri) ?? null;
   }
@@ -7560,7 +7592,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   /**
    * Set the detail level for a file (internal use)
    */
-  private setDetailLevelForFile(fileUri: string, level: DetailLevel): void {
+  private setDetailLevelForFile(
+    fileUri: string,
+    level: SymbolCollectionLevel,
+  ): void {
     const normalizedUri = extractFilePathFromUri(fileUri);
     this.fileDetailLevels.set(normalizedUri, level);
   }
@@ -7568,15 +7603,15 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   /**
    * Get the layer order for enrichment
    */
-  private getLayerOrder(): DetailLevel[] {
+  private getLayerOrder(): SymbolCollectionLevel[] {
     return ['public-api', 'protected', 'private', 'full'];
   }
 
   /**
    * Get the numeric order of a detail level (for comparison)
    */
-  private getLayerOrderIndex(level: DetailLevel): number {
-    const order: Record<DetailLevel, number> = {
+  private getLayerOrderIndex(level: SymbolCollectionLevel): number {
+    const order: Record<SymbolCollectionLevel, number> = {
       'public-api': 0,
       protected: 1,
       private: 2,
@@ -7589,14 +7624,14 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Get layers that need to be applied to reach target level from current level
    */
   private getLayersToApply(
-    currentLevel: DetailLevel | null,
-    targetLevel: DetailLevel,
-  ): DetailLevel[] {
+    currentLevel: SymbolCollectionLevel | null,
+    targetSymbolCollectionLevel: SymbolCollectionLevel,
+  ): SymbolCollectionLevel[] {
     const layers = this.getLayerOrder();
     const currentIndex = currentLevel
       ? this.getLayerOrderIndex(currentLevel)
       : -1;
-    const targetIndex = this.getLayerOrderIndex(targetLevel);
+    const targetIndex = this.getLayerOrderIndex(targetSymbolCollectionLevel);
 
     if (targetIndex <= currentIndex) {
       return [];
@@ -7612,7 +7647,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    */
   enrichToLevel(
     fileUri: string,
-    targetLevel: DetailLevel,
+    targetSymbolCollectionLevel: SymbolCollectionLevel,
     documentText: string,
   ): Effect.Effect<void, never, never> {
     const self = this;
@@ -7643,26 +7678,26 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       if (
         canonicalLevel &&
         self.getLayerOrderIndex(canonicalLevel) >=
-          self.getLayerOrderIndex(targetLevel) &&
+          self.getLayerOrderIndex(targetSymbolCollectionLevel) &&
         canonicalCompleteness !== 'unknown'
       ) {
         self.logger.debug(
           () =>
             `File ${fileUri} canonical table already at level ${canonicalLevel} ` +
-            `(completeness ${canonicalCompleteness}), skipping enrichment to ${targetLevel}`,
+            `(completeness ${canonicalCompleteness}), skipping enrichment to ${targetSymbolCollectionLevel}`,
         );
         return;
       }
 
       self.logger.debug(
         () =>
-          `Enriching ${fileUri} from ${canonicalLevel ?? 'none'} to ${targetLevel}`,
+          `Enriching ${fileUri} from ${canonicalLevel ?? 'none'} to ${targetSymbolCollectionLevel}`,
       );
 
       // Use ApexSymbolCollectorListener with appropriate detail level
       const listener = new ApexSymbolCollectorListener(
         existingSymbolTable || undefined,
-        targetLevel,
+        targetSymbolCollectionLevel,
       );
 
       const result = self.compilerService.compile(
@@ -7713,10 +7748,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             parseCompleteness: 'incomplete',
           });
         }
-        self.setDetailLevelForFile(fileUri, targetLevel);
+        self.setDetailLevelForFile(fileUri, targetSymbolCollectionLevel);
         self.logger.debug(
           () =>
-            `Enriched ${fileUri} to ${targetLevel} level using ` +
+            `Enriched ${fileUri} to ${targetSymbolCollectionLevel} level using ` +
             `ApexSymbolCollectorListener (syntaxErrors=${syntaxErrorCount})`,
         );
       }

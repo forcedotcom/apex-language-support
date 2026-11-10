@@ -174,7 +174,9 @@ describe('TypeResolutionValidator', () => {
 
     expect(result.isValid).toBe(false);
     const unresolvedErrors = result.errors.filter(
-      (e: { code: string }) => e.code === ErrorCodes.INVALID_UNRESOLVED_TYPE,
+      (error) =>
+        typeof error !== 'string' &&
+        error.code === ErrorCodes.INVALID_UNRESOLVED_TYPE,
     );
     expect(unresolvedErrors.length).toBeGreaterThan(0);
   });
@@ -213,8 +215,60 @@ describe('TypeResolutionValidator', () => {
 
     expect(result.isValid).toBe(false);
     const invalidClassErrors = result.errors.filter(
-      (e: any) => e.code === ErrorCodes.INVALID_CLASS,
+      (error) =>
+        typeof error !== 'string' && error.code === ErrorCodes.INVALID_CLASS,
     );
     expect(invalidClassErrors.length).toBeGreaterThan(0);
+  });
+
+  it('rejects a trigger in parser-classified type-reference contexts', async () => {
+    await compileFixture(
+      'modifier',
+      'TriggerWithoutVisibility.trigger',
+      'file:///test/TriggerWithoutVisibility.trigger',
+      symbolManager,
+      compilerService,
+    );
+    const { symbolTable, options } = await compileSourceLayeredWithOptions(
+      `
+        public class TriggerTypeConsumer {
+          TriggerWithoutVisibility field;
+          public TriggerWithoutVisibility method(TriggerWithoutVisibility parameter) {
+            return (TriggerWithoutVisibility) parameter;
+          }
+          public Boolean matches(Object value) {
+            return value instanceof TriggerWithoutVisibility;
+          }
+          public void create() {
+            new TriggerWithoutVisibility();
+          }
+        }
+      `,
+      'file:///test/TriggerTypeConsumer.cls',
+      symbolManager,
+      compilerService,
+      {
+        tier: ValidationTier.THOROUGH,
+        allowArtifactLoading: false,
+      },
+    );
+
+    const result = await runValidator(
+      TypeResolutionValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    const distinctLocations = new Set(
+      result.errors.flatMap((error) =>
+        typeof error === 'string' ||
+        error.code !== ErrorCodes.INVALID_CLASS ||
+        !error.location
+          ? []
+          : [
+              `${error.location.symbolRange.startLine}:${error.location.symbolRange.startColumn}`,
+            ],
+      ),
+    );
+    expect(distinctLocations).toHaveLength(6);
   });
 });

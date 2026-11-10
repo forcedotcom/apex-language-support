@@ -79,7 +79,9 @@ Alternatively, use VS Code launch config "Run Extension":
 - Trigger _find all references_ mid-load
 - Measure:
   - References latency during load vs. idle
-  - `coldReadGate.wait` time (evidence of contention)
+  - `coldReadGate.wait` time and `cold_read_gate.outcome` (whether readiness succeeded, timed out, or had no pending compile)
+  - `cold_read_gate.data_owner_dispatch_ms`, `cold_read_gate.data_owner_handler_ms`, and `cold_read_gate.data_owner_response_delivery_ms` to isolate dispatch, readiness processing, and response delivery
+  - Data-owner queue wait/depth grouped by `data_owner.queue_lane` and `data_owner.queue_operation`
   - Request pool saturation
 
 ## Key Span Names to Observe
@@ -91,7 +93,8 @@ From [tracing.ts](packages/apex-lsp-shared/src/observability/tracing.ts):
 - `workspace.batch.ingestChunk` - Chunk ingestion (data-owner)
 - `workspace.batch.compileChunk` - Chunk compilation
 - `workspace.crossFileEnrichment` - Cross-file enrichment
-- `coldReadGate.wait` - Contention indicator
+- `coldReadGate.wait` - Contention indicator; attributes: `cold_read_gate.ready`, `cold_read_gate.outcome`, `cold_read_gate.wait_ms`, `cold_read_gate.data_owner_round_trip_ms`, `cold_read_gate.data_owner_dispatch_ms`, `cold_read_gate.data_owner_handler_ms`, `cold_read_gate.data_owner_response_delivery_ms`
+- Data-owner queue spans - Queue attribution; attributes: `data_owner.queue_lane`, `data_owner.queue_operation`, `data_owner.queue_wait_ms`, `data_owner.queue_depth`
 - `worker.compilation.batchCompile.file` - Per-file compile cost
 
 ## Architecture Context
