@@ -1,0 +1,543 @@
+name: Paired Hotfix Release
+run-name: 'Paired hotfix: ${{ inputs.channel }} API ${{ inputs.api_version }}'
+
+# Source-run publication supports VS Code Marketplace only, not Open VSX.
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: 'Full commit SHA; dispatch from a ref pointing at this same commit'
+        required: true
+        type: string
+      api_version:
+        description: 'Independent API SemVer (nightly.* or pre-release.* for those channels)'
+        required: true
+        type: string
+      channel:
+        description: 'Paired publication channel'
+        required: true
+        type: choice
+        options: [nightly, pre-release]
+      dry_run:
+        description: 'Verify and package both artifacts without publication or approval'
+        type: boolean
+        default: true
+
+concurrency:
+  group: extension-api-registry
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  verify-source:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+      dist-tag: ${{ steps.validate.outputs.dist-tag }}
+      tarball-sha256: ${{ steps.pack.outputs.sha256 }}
+      source-host-version: ${{ steps.validate.outputs.source-host-version }}
+    env:
+      SOURCE_SHA: ${{ inputs.source_sha }}
+      API_VERSION: ${{ inputs.api_version }}
+      CHANNEL: ${{ inputs.channel }}
+      PACKAGE_NAME: '@salesforce/apex-language-server-extension-api'
+      WIREIT_CACHE: none
+    steps:
+      - name: Validate immutable source input
+        env:
+          RUN_SHA: ${{ github.sha }}
+        run: |
+          [[ "$SOURCE_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo 'A full commit SHA is required.'; exit 1; }
+          # The shared publisher uses the source run head_sha for tracking tags.
+          [ "${SOURCE_SHA,,}" = "$RUN_SHA" ] || { echo 'Dispatch from a ref at source_sha.'; exit 1; }
+          case "$CHANNEL" in
+            nightly|pre-release) ;;
+            *) echo 'Unsupported channel.'; exit 1 ;;
+          esac
+
+      - name: Checkout paired release source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Assert checkout identity
+        id: source
+        run: |
+          SHA=$(git rev-parse HEAD)
+          [ "$SHA" = "${SOURCE_SHA,,}" ] || { echo 'Checkout SHA mismatch.'; exit 1; }
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Calculate API SemVer from release tag
+        id: api-semver
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          node .github/scripts/validate-extension-api-release.mjs > /tmp/api-release
+          cat /tmp/api-release
+          echo "version=$(awk -F= '/^version=/{print $2}' /tmp/api-release)" >> "$GITHUB_OUTPUT"
+          echo "baseline-tag=$(awk -F= '/^baseline-tag=/{print $2}' /tmp/api-release)" >> "$GITHUB_OUTPUT"
+
+      - name: Validate independent API and host versions
+        id: validate
+        env:
+          EXPECTED_VERSION: ${{ steps.api-semver.outputs.version }}
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const semver = require('semver');
+          const { API_VERSION: version, CHANNEL: channel, EXPECTED_VERSION: expectedVersion } = process.env;
+          assert(['nightly', 'pre-release'].includes(channel), 'Unsupported channel');
+          const parsed = semver.parse(version);
+          assert(parsed && parsed.raw === parsed.version && parsed.build.length === 0, 'Use canonical API SemVer without build metadata');
+          assert.equal(parsed.prerelease[0], channel, 'API prerelease identifier must match channel');
+          assert(parsed.prerelease.length > 1, 'Include a prerelease sequence after the channel');
+          assert.equal(`${parsed.major}.${parsed.minor}.${parsed.patch}`, expectedVersion, 'API_VERSION must match the API tag-derived version');
+          const sourceHost = require('./packages/apex-lsp-vscode-extension/package.json').version;
+          const host = semver.parse(sourceHost);
+          assert(host && host.raw === host.version && host.build.length === 0, 'Host must use canonical SemVer without build metadata');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `dist-tag=${channel}\nsource-host-version=${sourceHost}\n`);
+          NODE
+
+      - name: Build and verify host extension
+        run: |
+          pnpm --filter apex-language-server-extension run typecheck
+          pnpm --filter apex-language-server-extension run test
+          pnpm --filter apex-language-server-extension run lint
+
+      - name: Build and verify extension API
+        run: |
+          npm pkg set "version=$API_VERSION" --prefix packages/apex-language-server-extension-api
+          pnpm --filter "$PACKAGE_NAME" run typecheck
+          pnpm --filter "$PACKAGE_NAME" run test
+          pnpm --filter "$PACKAGE_NAME" run lint
+
+      - name: Pack and verify API tarball
+        id: pack
+        run: |
+          mkdir -p api-release
+          pnpm --filter "$PACKAGE_NAME" pack --pack-destination "$PWD/api-release"
+          TARBALLS=(api-release/*.tgz)
+          [ "${#TARBALLS[@]}" -eq 1 ] && [ -f "${TARBALLS[0]}" ]
+          mv "${TARBALLS[0]}" api-release/extension-api.tgz
+          tar -xOf api-release/extension-api.tgz package/package.json > api-release/packed-package.json
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const pkg = require('./api-release/packed-package.json');
+          assert.equal(pkg.name, process.env.PACKAGE_NAME);
+          assert.equal(pkg.version, process.env.API_VERSION);
+          const entries = require('node:child_process').execFileSync('tar', ['-tzf', 'api-release/extension-api.tgz'], { encoding: 'utf8' }).split('\n');
+          for (const entry of ['package/out/index.js', 'package/out/index.d.ts', 'package/out/effect.js', 'package/out/effect.d.ts']) assert(entries.includes(entry), `Missing ${entry}`);
+          NODE
+          SHA256=$(sha256sum api-release/extension-api.tgz | cut -d' ' -f1)
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+
+      - name: Record paired candidate metadata
+        env:
+          ACTOR: ${{ github.actor }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DIST_TAG: ${{ steps.validate.outputs.dist-tag }}
+          TARBALL_SHA256: ${{ steps.pack.outputs.sha256 }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          SOURCE_HOST_VERSION: ${{ steps.validate.outputs.source-host-version }}
+          API_BASELINE_TAG: ${{ steps.api-semver.outputs.baseline-tag }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const e = process.env;
+          fs.writeFileSync('api-release/extension-api-release.json', JSON.stringify({
+            schemaVersion: 1, sourceSha: e.SOURCE_SHA.toLowerCase(), channel: e.CHANNEL,
+            apiVersion: e.API_VERSION, sourceHostPackageVersion: e.SOURCE_HOST_VERSION,
+            apiBaselineTag: e.API_BASELINE_TAG,
+            distTag: e.DIST_TAG, hostRegistry: 'vsce', hostSourceRunId: e.RUN_ID,
+            hostSourceRun: e.RUN_URL, actor: e.ACTOR, workflowRun: e.RUN_URL,
+            runAttempt: e.RUN_ATTEMPT, tarballSha256: e.TARBALL_SHA256,
+            dryRun: e.DRY_RUN === 'true', npmVerification: null
+          }, null, 2) + '\n');
+          NODE
+
+      - name: Upload verified API candidate
+        uses: actions/upload-artifact@v7
+        with:
+          name: paired-api-candidate-${{ github.run_id }}
+          overwrite: true
+          path: api-release/
+          if-no-files-found: error
+          retention-days: 90
+
+  package-extension:
+    needs: verify-source
+    uses: ./.github/workflows/package.yml
+    with:
+      branch: ${{ inputs.source_sha }}
+      pre-release: 'true'
+      flatten-vsix-artifacts: true
+      dry-run: ${{ inputs.dry_run && 'true' || 'false' }}
+
+  verify-pair:
+    needs: [verify-source, package-extension]
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_HOST_VERSION: ${{ needs.verify-source.outputs.source-host-version }}
+    steps:
+      - name: Download verified API candidate
+        uses: actions/download-artifact@v8
+        with:
+          name: paired-api-candidate-${{ github.run_id }}
+          path: api-release
+
+      - name: Download packaged host
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.package-extension.outputs.artifact-name }}
+          path: vsix-artifacts
+
+      - name: Inspect host VSIX and record paired identity
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const { execFileSync } = require('node:child_process');
+          const files = fs.readdirSync('vsix-artifacts').filter(name => name.startsWith('apex-language-server-extension-') && name.endsWith('.vsix') && !name.includes('-web-'));
+          assert.equal(files.length, 1, 'Expected exactly one universal host VSIX at artifact root');
+          const filename = files[0];
+          const hostVersion = process.env.SOURCE_HOST_VERSION.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          assert(new RegExp(`^apex-language-server-extension-${hostVersion}\\.vsix$`).test(filename), 'Host VSIX filename must exactly match verified source version');
+          const path = `vsix-artifacts/${filename}`;
+          const pkg = JSON.parse(execFileSync('unzip', ['-p', path, 'extension/package.json'], { encoding: 'utf8' }));
+          assert.equal(pkg.name, 'apex-language-server-extension');
+          assert.equal(pkg.publisher, 'salesforce');
+          assert.equal(pkg.version, process.env.SOURCE_HOST_VERSION, 'Host package version must match verified source');
+          const manifest = execFileSync('unzip', ['-p', path, 'extension.vsixmanifest'], { encoding: 'utf8' });
+          assert(manifest.includes('Microsoft.VisualStudio.Code.PreRelease" Value="true"'), 'Host VSIX must be packaged as prerelease');
+          const metadataPath = 'api-release/extension-api-release.json';
+          const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+          metadata.hostVersion = pkg.version;
+          metadata.hostVsixFilename = filename;
+          metadata.hostVsixSha256 = crypto.createHash('sha256').update(fs.readFileSync(path)).digest('hex');
+          metadata.hostPublication = { status: 'not-published', immutableIdentityVerified: false };
+          fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2) + '\n');
+          for (const name of fs.readdirSync('vsix-artifacts')) {
+            if (name !== filename) fs.rmSync(`vsix-artifacts/${name}`, { recursive: true });
+          }
+          NODE
+
+      - name: Upload only verified universal host VSIX
+        uses: actions/upload-artifact@v7
+        with:
+          name: paired-host-candidate-${{ github.run_id }}
+          overwrite: true
+          path: vsix-artifacts/*.vsix
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload paired identity before publication
+        uses: actions/upload-artifact@v7
+        with:
+          name: paired-host-identity-${{ github.run_id }}
+          overwrite: true
+          path: api-release/extension-api-release.json
+          if-no-files-found: error
+          retention-days: 90
+
+  marketplace-guard:
+    needs: [verify-source, verify-pair]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout verified source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.verify-source.outputs.sha }}
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download paired identity
+        uses: actions/download-artifact@v8
+        with:
+          name: paired-host-identity-${{ github.run_id }}
+          path: api-release
+
+      - name: Reject existing Marketplace host version
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const { execFileSync } = require('node:child_process');
+          const path = 'api-release/extension-api-release.json';
+          const metadata = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const marketplace = JSON.parse(execFileSync('pnpm', ['exec', 'vsce', 'show', 'salesforce.apex-language-server-extension', '--json'],
+            { cwd: 'packages/apex-lsp-vscode-extension', encoding: 'utf8' }));
+          assert(Array.isArray(marketplace.versions), 'Marketplace response must include versions');
+          assert(!marketplace.versions.some(entry => entry.targetPlatform !== 'web' && entry.version === metadata.sourceHostPackageVersion), 'Host version already published on Marketplace');
+          metadata.hostPublication = { status: 'version-available', checkedAt: new Date().toISOString(),
+            version: metadata.sourceHostPackageVersion, immutableIdentityVerified: false };
+          fs.writeFileSync(path, JSON.stringify(metadata, null, 2) + '\n');
+          NODE
+
+      - name: Upload Marketplace guard metadata
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: paired-marketplace-guard-${{ github.run_id }}
+          overwrite: true
+          path: api-release/extension-api-release.json
+          if-no-files-found: error
+          retention-days: 90
+
+  api-version-guard:
+    needs: verify-source
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    env:
+      API_VERSION: ${{ inputs.api_version }}
+    steps:
+      - name: Reject existing API version before host publication
+        run: |
+          # Only an actual HTTP 404 permits publishing; transport and registry errors fail closed.
+          STATUS=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+            "https://registry.npmjs.org/@salesforce%2Fapex-language-server-extension-api/$API_VERSION")
+          case "$STATUS" in
+            404) ;;
+            200) echo 'API version already exists and is immutable.'; exit 1 ;;
+            *) echo "Registry lookup failed: HTTP $STATUS"; exit 1 ;;
+          esac
+
+  publish-extension:
+    needs: [verify-source, package-extension, marketplace-guard, api-version-guard]
+    if: ${{ !inputs.dry_run }}
+    permissions:
+      contents: write
+      packages: write
+      actions: read
+      checks: read
+    uses: salesforcecli/github-workflows/.github/workflows/vscode-manual-publish.yml@main
+    with:
+      extension-name: 'apex-lsp-vscode-extension'
+      vsix-name-pattern: 'apex-language-server-extension-${{ needs.verify-source.outputs.source-host-version }}.vsix'
+      source-run-id: ${{ github.run_id }}
+      vsix-artifact-name: paired-host-candidate-${{ github.run_id }}
+      slot: 'pre-release'
+      registries: 'vsce'
+      publish-web-vsix: 'false'
+      skip-quality-checks: 'true'
+      confirm-bypass: 'BYPASS'
+      exclude-web-vsix: 'true'
+      extensions-root: 'packages'
+      package-manager: 'pnpm'
+      package-manager-version: '12.11.2'
+      cache-dependency-path: 'pnpm-lock.yaml'
+      lockfile-path: 'pnpm-lock.yaml'
+      install-command: 'pnpm install --frozen-lockfile'
+      dry-run: 'false'
+      require-approval: 'false'
+    secrets: inherit
+
+  verify-host-publication:
+    needs: [verify-source, publish-extension]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout verified source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.verify-source.outputs.sha }}
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download paired host identity
+        uses: actions/download-artifact@v8
+        with:
+          name: paired-host-identity-${{ github.run_id }}
+          path: api-release
+
+      - name: Verify Marketplace host checksum
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+          const { execFileSync } = require('node:child_process');
+          const path = 'api-release/extension-api-release.json';
+          const metadata = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const marketplace = JSON.parse(execFileSync('pnpm', ['exec', 'vsce', 'show', 'salesforce.apex-language-server-extension', '--json'],
+            { cwd: 'packages/apex-lsp-vscode-extension', encoding: 'utf8' }));
+          assert(Array.isArray(marketplace.versions), 'Marketplace response must include versions');
+          const versions = marketplace.versions.filter(entry => entry.targetPlatform !== 'web' && entry.version === metadata.sourceHostPackageVersion);
+          assert.equal(versions.length, 1, 'Expected exactly one matching non-web Marketplace host version');
+          const version = versions[0];
+          const checksums = (version.properties || []).filter(property => property.key === 'Microsoft.VisualStudio.Services.VsixSha256');
+          assert.equal(checksums.length, 1, 'Expected Marketplace VSIX SHA256 property');
+          const sha256 = checksums[0].value;
+          assert.match(sha256, /^[0-9a-f]{64}$/i, 'Expected valid Marketplace VSIX SHA256');
+          assert.equal(sha256.toLowerCase(), metadata.hostVsixSha256, 'Marketplace host checksum must match paired VSIX');
+          metadata.hostPublication = { status: 'verified', checkedAt: new Date().toISOString(),
+            version: version.version, sha256: sha256.toLowerCase(), immutableIdentityVerified: true };
+          fs.writeFileSync(path, JSON.stringify(metadata, null, 2) + '\n');
+          NODE
+
+      - name: Upload verified host publication metadata
+        uses: actions/upload-artifact@v7
+        with:
+          name: paired-host-verification-${{ github.run_id }}
+          overwrite: true
+          path: api-release/extension-api-release.json
+          if-no-files-found: error
+          retention-days: 90
+
+  publish-api:
+    needs: [verify-source, verify-host-publication]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    env:
+      PACKAGE_NAME: '@salesforce/apex-language-server-extension-api'
+      API_VERSION: ${{ inputs.api_version }}
+      DIST_TAG: ${{ needs.verify-source.outputs.dist-tag }}
+      EXPECTED_SHA256: ${{ needs.verify-source.outputs.tarball-sha256 }}
+    steps:
+      - name: Download verified API candidate
+        uses: actions/download-artifact@v8
+        with:
+          name: paired-api-candidate-${{ github.run_id }}
+          path: api-release
+
+      - name: Download verified host publication metadata
+        uses: actions/download-artifact@v8
+        with:
+          name: paired-host-verification-${{ github.run_id }}
+          path: api-release
+
+      - name: Setup Node.js for npm publication
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Verify tarball and reject existing API version
+        run: |
+          echo "$EXPECTED_SHA256  api-release/extension-api.tgz" | sha256sum --check --strict
+          # Only an actual HTTP 404 permits publishing; transport and registry errors fail closed.
+          STATUS=$(curl --silent --show-error --output api-release/registry-response.json --write-out '%{http_code}' \
+            "https://registry.npmjs.org/@salesforce%2Fapex-language-server-extension-api/$API_VERSION")
+          case "$STATUS" in
+            404) ;;
+            200) echo 'API version already exists and is immutable.'; exit 1 ;;
+            *) echo "Registry lookup failed: HTTP $STATUS"; exit 1 ;;
+          esac
+
+      - name: Publish verified API tarball
+        id: npm-publish
+        run: npm publish ./api-release/extension-api.tgz --access public --tag "$DIST_TAG" --ignore-scripts --registry=https://registry.npmjs.org
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Verify actual npm version, integrity, and dist-tag
+        if: ${{ always() && steps.npm-publish.outcome == 'success' }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const crypto = require('node:crypto');
+          const { execFileSync } = require('node:child_process');
+          const metadataPath = 'api-release/extension-api-release.json';
+          const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+          const integrity = 'sha512-' + crypto.createHash('sha512').update(fs.readFileSync('api-release/extension-api.tgz')).digest('base64');
+          let verified = false;
+          for (let attempt = 0; attempt < 6; attempt++) {
+            try {
+              const view = spec => JSON.parse(execFileSync('npm', ['view', spec, '--json', '--registry=https://registry.npmjs.org', '--prefer-online'], { encoding: 'utf8' }));
+              const version = view(`${process.env.PACKAGE_NAME}@${process.env.API_VERSION}`);
+              const tags = view(process.env.PACKAGE_NAME)['dist-tags'];
+              metadata.npmVerification = { checkedAt: new Date().toISOString(), version: version.version,
+                distTag: process.env.DIST_TAG, distTagVersion: tags[process.env.DIST_TAG], integrity: version.dist.integrity };
+              verified = version.version === process.env.API_VERSION && tags[process.env.DIST_TAG] === process.env.API_VERSION && version.dist.integrity === integrity;
+              metadata.npmVerification.verified = verified;
+            } catch (error) {
+              metadata.npmVerification = { checkedAt: new Date().toISOString(), verified: false, error: error.message };
+            }
+            fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2) + '\n');
+            if (verified) break;
+            if (attempt < 5) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10000);
+          }
+          if (!verified) throw new Error('Post-publish npm verification failed; inspect release metadata');
+          NODE
+
+      - name: Upload actual publication metadata
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: paired-hotfix-release-${{ github.run_id }}
+          overwrite: true
+          path: api-release/extension-api-release.json
+          if-no-files-found: error
+          retention-days: 90
+
+  record-api-release-tag:
+    needs: [verify-source, publish-api]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      SOURCE_SHA: ${{ needs.verify-source.outputs.sha }}
+      API_VERSION: ${{ inputs.api_version }}
+    steps:
+      - name: Checkout verified source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.verify-source.outputs.sha }}
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Record immutable API release boundary
+        run: |
+          TAG="apex-language-server-extension-api-v$API_VERSION"
+          EXISTING=$(git ls-remote origin "refs/tags/$TAG^{}" | awk '{print $1}')
+          if [ -n "$EXISTING" ]; then
+            [ "$EXISTING" = "$SOURCE_SHA" ] || { echo "API release tag points to a different source: $TAG"; exit 1; }
+            echo "API release tag already records this source: $TAG"
+            exit 0
+          fi
+          git tag --annotate "$TAG" "$SOURCE_SHA" --message "API release $API_VERSION"
+          git push origin "refs/tags/$TAG"
