@@ -33,6 +33,7 @@ import { vi } from 'vitest';
 import { ApexSymbolManager } from '../../src/symbols/ApexSymbolManager';
 import { CompilerService } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
+import { FullSymbolCollectorListener } from '../../src/parser/listeners/FullSymbolCollectorListener';
 import {
   SymbolKind,
   type ApexSymbol,
@@ -312,6 +313,72 @@ describe('qualifier-scoped member resolution (F11-3 regression guard)', () => {
     expect(resolved?.name).toBe('Http');
   });
 
+  it('resolves a constructor type token before a case-insensitively matching local', async () => {
+    const typeUri = 'file:///test/Svc.cls';
+    const uri = 'file:///test/ConstructorTypeHover.cls';
+    const source = `public class ConstructorTypeHover {
+  void run() {
+    Svc svc = new Svc();
+  }
+}`;
+    await compileAndAdd('public class Svc {}', typeUri);
+    await compileAndAdd(source, uri);
+
+    const declarationLine = source.split('\n')[2];
+    const constructorStart = declarationLine.lastIndexOf('Svc');
+    const resolved = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 3, character: constructorStart + 1 },
+      'precise',
+    );
+
+    expect(resolved?.kind).toBe(SymbolKind.Class);
+    expect(resolved?.name).toBe('Svc');
+  });
+
+  it('resolves a constructor chain root before a case-insensitively matching local', async () => {
+    const typeUri = 'file:///test/Svc.cls';
+    const uri = 'file:///test/ConstructorChainHover.cls';
+    const source = `public class ConstructorChainHover {
+  void run() {
+    Svc svc = new Svc().build();
+  }
+}`;
+    await compileAndAdd(
+      'public class Svc { public Svc build() { return this; } }',
+      typeUri,
+    );
+    const listener = new FullSymbolCollectorListener();
+    const result = compilerService.compile(source, uri, listener, {
+      collectReferences: true,
+      resolveReferences: true,
+    });
+    if (result.result) {
+      await Effect.runPromise(symbolManager.addSymbolTable(result.result, uri));
+    }
+
+    const declarationLine = source.split('\n')[2];
+    const constructorStart = declarationLine.lastIndexOf('Svc');
+    const constructorChain = result.result
+      ?.getAllReferences()
+      .find(
+        (reference) =>
+          reference.chainNodes?.[0]?.context ===
+            ReferenceContext.CONSTRUCTOR_CALL &&
+          reference.chainNodes[0].location.identifierRange.startColumn ===
+            constructorStart,
+      );
+    expect(constructorChain).toBeDefined();
+    const resolved = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 3, character: constructorStart + 1 },
+      'precise',
+    );
+
+    expect(resolved?.kind).toBe(SymbolKind.Class);
+    expect(resolved?.name).toBe('Svc');
+  });
+
   it('does not resolve an unknown declaration type token as its variable', async () => {
     const uri = 'file:///test/UnknownDeclarationTypeHover.cls';
     const source = `public class UnknownDeclarationTypeHover {
@@ -543,6 +610,181 @@ describe('qualifier-scoped member resolution (F11-3 regression guard)', () => {
       'file:///objects/Property__c/fields/Beds__c.field-meta.xml',
     );
   });
+
+  it.each([true, false])(
+    'selects intermediate assignment members only when present on the receiver owner (%s)',
+    async (hasChild: boolean) => {
+      const sources = [
+        [
+          'Wrapper',
+          hasChild
+            ? 'public class Wrapper { public Child child; }'
+            : 'public class Wrapper {}',
+        ],
+        [
+          'Child',
+          'public class Child { public Grandchild nested; public Integer total; }',
+        ],
+        ['Grandchild', 'public class Grandchild { public Integer total; }'],
+        [
+          'Caller',
+          [
+            'public class Caller {',
+            '  public Child child;',
+            '  public Grandchild nested;',
+            '  void run(Wrapper receiver) {',
+            '    receiver.child.nested.total = 1;',
+            '  }',
+            '}',
+          ].join('\n'),
+        ],
+      ];
+      for (const [name, source] of sources) {
+        const uri = `file:///test/${name}.cls`;
+        const listener = new ApexSymbolCollectorListener(undefined, 'full');
+        const result = compilerService.compile(source, uri, listener);
+        expect(result.errors).toHaveLength(0);
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(listener.getResult(), uri),
+        );
+      }
+      const uri = 'file:///test/Caller.cls';
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(uri),
+      );
+      for (const [name, column, owner] of [
+        ['child', 14, 'Wrapper'],
+        ['nested', 20, 'Child'],
+        ['total', 27, 'Grandchild'],
+      ] as const) {
+        const selected = await symbolManager.getSymbolAtPosition(
+          uri,
+          { line: 5, character: column },
+          'precise',
+        );
+        if (!hasChild) {
+          expect(selected).toBeNull();
+          continue;
+        }
+        const ownerSymbols = await symbolManager.findSymbolsInFile(
+          `file:///test/${owner}.cls`,
+        );
+        expect(selected?.id).toBe(
+          ownerSymbols.find((symbol) => symbol.name === name)?.id,
+        );
+        expect(selected?.fileUri).not.toBe(uri);
+      }
+    },
+  );
+
+  it.each([
+    [true, '='],
+    [false, '='],
+    [true, '+='],
+    [false, '+='],
+  ] as const)(
+    'selects the terminal assignment field only on the instance receiver owner (%s, %s)',
+    async (hasTotal: boolean, operator: string) => {
+      await compileAndAdd(
+        hasTotal
+          ? 'public class Child { public Integer total; }'
+          : 'public class Child {}',
+        'file:///test/Child.cls',
+      );
+      await compileAndAdd(
+        'public class Wrapper { public Child child; }',
+        'file:///test/Wrapper.cls',
+      );
+      const uri = 'file:///test/Caller.cls';
+      await compileAndAdd(
+        [
+          'public class Caller {',
+          '  public Integer total;',
+          '  void run(Wrapper receiver) {',
+          `    receiver.child.total ${operator} 1;`,
+          '  }',
+          '}',
+        ].join('\n'),
+        uri,
+      );
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(uri),
+      );
+      const selected = await symbolManager.getSymbolAtPosition(
+        uri,
+        { line: 4, character: 20 },
+        'precise',
+      );
+      if (!hasTotal) {
+        expect(selected).toBeNull();
+      } else {
+        const symbols = await symbolManager.findSymbolsInFile(
+          'file:///test/Child.cls',
+        );
+        expect(selected?.id).toBe(
+          symbols.find((symbol) => symbol.name === 'total')?.id,
+        );
+        expect(selected?.fileUri).toBe('file:///test/Child.cls');
+      }
+    },
+  );
+
+  it.each([true, false])(
+    'selects the terminal field only on the nested static owner (%s)',
+    async (hasTotal: boolean) => {
+      const uri = 'file:///test/AssignTest.cls';
+      const source = [
+        'public class AssignTest {',
+        hasTotal
+          ? '  public class Nested { public static Integer total; }'
+          : '  public class Nested {}',
+        '  public static Integer total;',
+        '  void run(Integer value) {',
+        '    AssignTest.Nested.total = value;',
+        '  }',
+        '}',
+      ].join('\n');
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
+      const result = compilerService.compile(source, uri, listener);
+      expect(result.errors).toHaveLength(0);
+      const table = listener.getResult();
+      await Effect.runPromise(symbolManager.addSymbolTable(table, uri));
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(uri),
+      );
+      const selected = await symbolManager.getSymbolAtPosition(
+        uri,
+        { line: 5, character: 23 },
+        'precise',
+      );
+      const symbols = await symbolManager.findSymbolsInFile(uri);
+      if (!hasTotal) {
+        expect(selected).toBeNull();
+      } else {
+        expect(selected?.name).toBe('total');
+        expect(selected?.kind).toBe(SymbolKind.Field);
+        expect(selected?.location.identifierRange.startLine).toBe(2);
+        expect(selected?.id).toBe(
+          symbols.find(
+            (symbol) =>
+              symbol.name === 'total' &&
+              symbol.location.identifierRange.startLine === 2,
+          )?.id,
+        );
+      }
+      const intermediate = await symbolManager.getSymbolAtPosition(
+        uri,
+        { line: 5, character: 16 },
+        'precise',
+      );
+      expect(intermediate?.id).toBe(
+        symbols.find(
+          (symbol) =>
+            symbol.name === 'Nested' && symbol.kind === SymbolKind.Class,
+        )?.id,
+      );
+    },
+  );
 
   it('resolves an explicitly typed enhanced-for variable as that variable', async () => {
     const uri = 'file:///test/EnhancedForHover.cls';

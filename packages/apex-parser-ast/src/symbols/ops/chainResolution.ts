@@ -682,6 +682,33 @@ export async function getAllPossibleResolutions(
   const resolutions: ChainResolutionContext[] = [];
   const stepName = step.name;
 
+  // Once a receiver is known, a member hop belongs exclusively to that
+  // receiver's type. Global instance/type strategies would turn a missing
+  // member into an unrelated enclosing field or same-named class.
+  if (
+    currentContext?.type === 'symbol' &&
+    (step.context === ReferenceContext.FIELD_ACCESS ||
+      step.context === ReferenceContext.CHAIN_STEP) &&
+    (currentContext.symbol.kind === SymbolKind.Variable ||
+      currentContext.symbol.kind === SymbolKind.Parameter ||
+      currentContext.symbol.kind === SymbolKind.Field ||
+      currentContext.symbol.kind === SymbolKind.Property ||
+      isReferenceableTypeSymbol(currentContext.symbol))
+  ) {
+    const member = await tryResolveAsMember(
+      self,
+      step,
+      currentContext,
+      nextStep,
+    );
+    if (member) return [{ type: 'symbol', symbol: member }];
+    // A type receiver can also qualify a nested type, but never a global value.
+    const nestedType = isReferenceableTypeSymbol(currentContext.symbol)
+      ? await tryResolveAsClass(self, stepName, currentContext, step.context)
+      : null;
+    return nestedType ? [{ type: 'symbol', symbol: nestedType }] : [];
+  }
+
   // Strategy 1: Try namespace resolution
   if (canResolveAsNamespace(step, currentContext)) {
     if (await isValidNsOp(self, stepName)) {
@@ -1484,6 +1511,18 @@ export async function tryResolveAsMember(
   }
 
   // Try as property if context suggests it
+  if (
+    stepContext === ReferenceContext.FIELD_ACCESS ||
+    stepContext === ReferenceContext.CHAIN_STEP
+  ) {
+    const fieldSymbol = await self.resolveMemberInContext(
+      currentContext,
+      stepName,
+      'field',
+      typeSubstitutions,
+    );
+    if (fieldSymbol) return fieldSymbol;
+  }
   if (stepContext === ReferenceContext.FIELD_ACCESS) {
     const propertySymbol = await self.resolveMemberInContext(
       currentContext,
@@ -2218,6 +2257,30 @@ export async function resolveMemberInContext(
                       // Error loading, continue to other strategies
                     }
                   }
+                }
+              }
+
+              // A cold receiver can already be bound to a same-named stdlib
+              // class before its describe-backed sObject is loaded. Only after
+              // that class misses may the loaded sObject supply its own member;
+              // never reinterpret a workspace class as an sObject.
+              if (
+                !typeClassSymbol ||
+                (typeClassSymbol.fileUri &&
+                  isStandardApexUri(typeClassSymbol.fileUri))
+              ) {
+                const sObjectTypes = typeSymbols.filter(
+                  (symbol) => symbol.kind === SymbolKind.SObject,
+                );
+                if (sObjectTypes.length === 1) {
+                  const member = await resolveMemberInContext(
+                    self,
+                    { type: 'symbol', symbol: sObjectTypes[0] },
+                    memberName,
+                    memberType,
+                    receiverTypeSubstitutions,
+                  );
+                  if (member) return member;
                 }
               }
 
@@ -3515,6 +3578,7 @@ export async function resolveSymbolReferenceToSymbol(
       typeReference.context === ReferenceContext.TYPE_DECLARATION ||
       typeReference.context === ReferenceContext.PARAMETER_TYPE ||
       typeReference.context === ReferenceContext.RETURN_TYPE ||
+      typeReference.context === ReferenceContext.CONSTRUCTOR_CALL ||
       typeReference.context === ReferenceContext.TRIGGER_TARGET_SOBJECT;
     if (typeReference.resolvedSymbolId && !isDeclaredTypeReference) {
       let shouldSkipFastPath = false;

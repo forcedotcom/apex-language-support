@@ -50,6 +50,46 @@ export function classifyMissingArtifactIdentifier(
 }
 
 /**
+ * Return every artifact kind still supported by parser-owned evidence.
+ *
+ * A standard-looking unresolved type name can denote either an Apex class or
+ * an org sObject. Keep both lookup paths available rather than assigning
+ * semantic ownership before an authoritative artifact has been loaded.
+ */
+export function classifyMissingArtifactCandidates(
+  evidence: ArtifactEvidence,
+): MissingArtifactIdentifierType[] {
+  const primary = classifyMissingArtifactIdentifier(evidence);
+  const isAmbiguousTypeReference =
+    evidence.context === ReferenceContext.TYPE_DECLARATION ||
+    evidence.context === ReferenceContext.CONSTRUCTOR_CALL ||
+    evidence.context === ReferenceContext.RETURN_TYPE ||
+    evidence.context === ReferenceContext.PARAMETER_TYPE ||
+    evidence.context === ReferenceContext.GENERIC_PARAMETER_TYPE ||
+    evidence.context === ReferenceContext.CAST_TYPE_REFERENCE ||
+    evidence.context === ReferenceContext.INSTANCEOF_TYPE_REFERENCE;
+  return primary === 'apex-class' && isAmbiguousTypeReference
+    ? ['apex-class', 'sobject']
+    : [primary];
+}
+
+/** True when this reference can represent a missing type artifact. */
+export function isMissingArtifactTypeReference(
+  context: ReferenceContext | undefined,
+): boolean {
+  return (
+    context === ReferenceContext.TYPE_DECLARATION ||
+    context === ReferenceContext.CONSTRUCTOR_CALL ||
+    context === ReferenceContext.RETURN_TYPE ||
+    context === ReferenceContext.PARAMETER_TYPE ||
+    context === ReferenceContext.GENERIC_PARAMETER_TYPE ||
+    context === ReferenceContext.CAST_TYPE_REFERENCE ||
+    context === ReferenceContext.INSTANCEOF_TYPE_REFERENCE ||
+    context === ReferenceContext.SOQL_FROM_TYPE
+  );
+}
+
+/**
  * Get the numeric order of a detail level for comparison
  * Higher numbers indicate more detail
  */
@@ -105,11 +145,7 @@ export function hasCrossFileResolution(
   const unresolvedTypeRefs = refs.filter(
     (ref) =>
       !ref.resolvedSymbolId &&
-      (ref.context === ReferenceContext.TYPE_DECLARATION ||
-        ref.context === ReferenceContext.CONSTRUCTOR_CALL ||
-        ref.context === ReferenceContext.RETURN_TYPE ||
-        ref.context === ReferenceContext.PARAMETER_TYPE ||
-        ref.context === ReferenceContext.SOQL_FROM_TYPE ||
+      (isMissingArtifactTypeReference(ref.context) ||
         ref.context === ReferenceContext.TRIGGER_TARGET_SOBJECT),
   );
 

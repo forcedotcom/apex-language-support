@@ -173,6 +173,9 @@ import {
   resolveSymbolReferenceToSymbol as resolveSymRefToSymOp,
 } from './ops/chainResolution';
 
+const isConstructorTypeContext = (context: ReferenceContext): boolean =>
+  context === ReferenceContext.CONSTRUCTOR_CALL;
+
 /**
  * File metadata for tracking symbol relationships
  */
@@ -2979,6 +2982,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const resolved = index.byId.get(typeRef.resolvedSymbolId);
       if (resolved) {
         if (
+          isConstructorTypeContext(typeRef.context) &&
+          isVariableSymbol(resolved)
+        ) {
+          return null;
+        }
+        if (
           typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT &&
           resolved.kind !== SymbolKind.SObject
         ) {
@@ -3014,6 +3023,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     if (!qualifier?.isQualified) {
+      if (isConstructorTypeContext(typeRef.context)) {
+        return null;
+      }
       const target = this.findSameFileSymbolInScope(
         typeRef.name,
         typeRef.location.identifierRange.startLine,
@@ -3296,7 +3308,28 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       }
 
       const references = symbolTable.getReferencesAtPosition(position);
-      return references;
+      if (references.length > 0) return references;
+
+      // Assignment member chains can retain the receiver's resolved symbol ID
+      // while their identifier range is refined to the terminal member. For a
+      // cursor before that member, recover the already-resolved receiver from
+      // its parser-owned expression range without affecting member selection.
+      return symbolTable.getAllReferences().filter((reference) => {
+        const range = reference.location.symbolRange;
+        const identifierRange = reference.location.identifierRange;
+        return (
+          reference.resolvedSymbolId !== undefined &&
+          (position.line < identifierRange.startLine ||
+            (position.line === identifierRange.startLine &&
+              position.character < identifierRange.startColumn)) &&
+          (position.line > range.startLine ||
+            (position.line === range.startLine &&
+              position.character >= range.startColumn)) &&
+          (position.line < range.endLine ||
+            (position.line === range.endLine &&
+              position.character <= range.endColumn))
+        );
+      });
     } catch (_error) {
       return [];
     }
@@ -6479,6 +6512,40 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         position,
       );
 
+      // SymbolTable's position index is keyed by the terminal member of a
+      // chain, so it may not return `receiver` for `receiver.member`. Locate a
+      // parser-owned chain root from the full reference graph and bind it using
+      // lexical scope before attempting to resolve the terminal member.
+      const symbolTable = this.symbolRefManager.getSymbolTableForFile(fileUri);
+      if (symbolTable) {
+        const sameFileIndex = this.buildSameFileSymbolIndex(symbolTable);
+        for (const reference of symbolTable.getAllReferences()) {
+          if (!isChainedSymbolReference(reference)) continue;
+          const root = reference.chainNodes?.[0];
+          if (
+            !root ||
+            isConstructorTypeContext(root.context) ||
+            !this.isPositionInIdentifierRange(
+              position,
+              root.location.identifierRange,
+            )
+          ) {
+            continue;
+          }
+          const localValue = this.findSameFileSymbolInScope(
+            root.name,
+            root.location.identifierRange.startLine,
+            root.location.identifierRange.startColumn,
+            symbolTable,
+            sameFileIndex,
+            true,
+          );
+          if (isVariableSymbol(localValue)) {
+            return localValue;
+          }
+        }
+      }
+
       if (typeReferences.length > 0) {
         // Generic symbol consumers (references, rename, etc.) must not turn a
         // language keyword into a class target. Hover and definition opt in
@@ -6556,8 +6623,6 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           !positionOnNonRootChainMember &&
           !hasExplicitInstanceReceiver
         ) {
-          const symbolTable =
-            this.symbolRefManager.getSymbolTableForFile(fileUri);
           if (symbolTable) {
             const sameFileIndex = this.buildSameFileSymbolIndex(symbolTable);
             for (const reference of typeReferences) {
@@ -6587,19 +6652,28 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           }
         }
 
-        // Step 2: Prioritize GENERIC_PARAMETER_TYPE and CLASS_REFERENCE references first
-        // These should be resolved as classes/types, not variables or methods
-        const genericParamRefs = typeReferences.filter(
-          (ref) => ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE,
-        );
-        const classRefs = typeReferences.filter(
-          (ref) => ref.context === ReferenceContext.CLASS_REFERENCE,
+        // Step 2: Prefer every parser-owned type token over an overlapping
+        // variable declaration reference. In `ContentVersion contentVersion`,
+        // navigating the type token must resolve the type artifact.
+        const explicitTypeRefs = typeReferences.filter(
+          (ref) =>
+            ref.context === ReferenceContext.GENERIC_PARAMETER_TYPE ||
+            ref.context === ReferenceContext.CLASS_REFERENCE ||
+            ref.context === ReferenceContext.TYPE_DECLARATION ||
+            ref.context === ReferenceContext.CONSTRUCTOR_CALL ||
+            ref.context === ReferenceContext.PARAMETER_TYPE ||
+            ref.context === ReferenceContext.CAST_TYPE_REFERENCE ||
+            ref.context === ReferenceContext.INSTANCEOF_TYPE_REFERENCE ||
+            ref.context === ReferenceContext.RETURN_TYPE ||
+            ref.context === ReferenceContext.INHERITANCE ||
+            ref.context === ReferenceContext.INTERFACE_IMPLEMENTATION ||
+            ref.context === ReferenceContext.TRIGGER_TARGET_SOBJECT,
         );
 
-        // Prefer GENERIC_PARAMETER_TYPE or CLASS_REFERENCE if available and position matches
+        // Prefer a matching explicit type reference.
         let referenceToResolve = typeReferences[0];
-        if (genericParamRefs.length > 0 || classRefs.length > 0) {
-          const typeRefs = [...genericParamRefs, ...classRefs];
+        if (explicitTypeRefs.length > 0) {
+          const typeRefs = explicitTypeRefs;
           // Find the type reference that matches the position
           for (const typeRef of typeRefs) {
             const typeLoc = typeRef.location.identifierRange;
@@ -6635,11 +6709,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               position.character <= methodLoc.endColumn;
             if (isExactMatch) {
               // METHOD_CALL matches position - prioritize it (unless we have a type reference)
-              if (
-                referenceToResolve.context !==
-                  ReferenceContext.GENERIC_PARAMETER_TYPE &&
-                referenceToResolve.context !== ReferenceContext.CLASS_REFERENCE
-              ) {
+              if (!explicitTypeRefs.includes(referenceToResolve)) {
                 referenceToResolve = methodRef;
                 // Break early - METHOD_CALL takes precedence
                 break;
@@ -6650,12 +6720,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
         // Step 2c: For chained references, find the most specific reference for this position
         // If position is on a specific chain member, prefer references that match that member
-        // BUT: Don't override METHOD_CALL, GENERIC_PARAMETER_TYPE or CLASS_REFERENCE if we've already selected one
+        // but do not override a selected method or explicit type reference.
         const isTypeOrMethodReferenceSelected =
           referenceToResolve.context === ReferenceContext.METHOD_CALL ||
-          referenceToResolve.context ===
-            ReferenceContext.GENERIC_PARAMETER_TYPE ||
-          referenceToResolve.context === ReferenceContext.CLASS_REFERENCE;
+          explicitTypeRefs.includes(referenceToResolve);
 
         // Prioritize chained references when position matches a chain member
         // This ensures we resolve the correct part of the chain (e.g., "System" in "System.Url")
@@ -6664,7 +6732,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         );
 
         // Always prefer chained references over non-chained references when available
-        // BUT: Don't override METHOD_CALL, GENERIC_PARAMETER_TYPE, or CLASS_REFERENCE if already selected
+        // but do not override a selected method or explicit type reference.
         if (chainedRefs.length > 0 && !isTypeOrMethodReferenceSelected) {
           // Check each chained reference to find the one that matches the position
           for (const ref of chainedRefs) {

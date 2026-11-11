@@ -21,7 +21,7 @@ import {
   BackgroundResolutionOutcome,
 } from '../services/MissingArtifactResolutionService';
 import { SObjectEnrichmentService } from '../services/SObjectEnrichmentService';
-import { classifyMissingArtifactIdentifier } from '../services/PrerequisiteHelpers';
+import { classifyMissingArtifactCandidates } from '../services/PrerequisiteHelpers';
 import { transformLspToParserPosition } from './positionUtils';
 /**
  * Utility functions for handling missing artifact resolution
@@ -142,23 +142,26 @@ export class MissingArtifactUtils {
         reference,
         cursorReference,
       );
-      const identifierType = classifyMissingArtifactIdentifier({
+      const identifierTypes = await this.classifyArtifactCandidates({
         ...reference,
         name: identifierName,
         searchHints,
       });
       const outcome = await service.resolveInBackground({
-        identifiers: [
-          {
-            name: identifierName,
-            identifierType,
-            provenance,
-            typeReference: reference,
-            ...(parentContext && { parentContext }),
-            ...(searchHints?.length && { searchHints }),
-            ...(resolvedQualifier && { resolvedQualifier }),
-          },
-        ],
+        identifiers: identifierTypes.map((identifierType) => ({
+          name: identifierName,
+          identifierType,
+          ...(identifierType === 'sobject' &&
+            !reference.isSObject && {
+              allowSObjectPlaceholder: false,
+            }),
+          provenance,
+          typeReference: reference,
+          ...(parentContext && { parentContext }),
+          ...(identifierType === 'apex-class' &&
+            searchHints?.length && { searchHints }),
+          ...(resolvedQualifier && { resolvedQualifier }),
+        })),
         origin: {
           uri,
           position,
@@ -232,23 +235,26 @@ export class MissingArtifactUtils {
         reference,
         cursorReference,
       );
-      const identifierType = classifyMissingArtifactIdentifier({
+      const identifierTypes = await this.classifyArtifactCandidates({
         ...reference,
         name: identifierName,
         searchHints,
       });
       const result = await service.resolveBlocking({
-        identifiers: [
-          {
-            name: identifierName,
-            provenance,
-            identifierType,
-            typeReference: reference,
-            ...(parentContext && { parentContext }),
-            ...(searchHints?.length && { searchHints }),
-            ...(resolvedQualifier && { resolvedQualifier }),
-          },
-        ],
+        identifiers: identifierTypes.map((identifierType) => ({
+          name: identifierName,
+          provenance,
+          identifierType,
+          ...(identifierType === 'sobject' &&
+            !reference.isSObject && {
+              allowSObjectPlaceholder: false,
+            }),
+          typeReference: reference,
+          ...(parentContext && { parentContext }),
+          ...(identifierType === 'apex-class' &&
+            searchHints?.length && { searchHints }),
+          ...(resolvedQualifier && { resolvedQualifier }),
+        })),
         origin: {
           uri,
           position,
@@ -329,6 +335,24 @@ export class MissingArtifactUtils {
       );
       return null;
     }
+  }
+
+  /**
+   * An ambiguous type can be an sObject only when the local semantic graph also
+   * contains a same-named class. Otherwise retain the normal lazy sObject path
+   * until parser-owned member or SOQL evidence makes it conclusive.
+   */
+  private async classifyArtifactCandidates(
+    reference: any,
+  ): Promise<ReturnType<typeof classifyMissingArtifactCandidates>> {
+    const candidates = classifyMissingArtifactCandidates(reference);
+    if (!candidates.includes('sobject') || reference.isSObject === true) {
+      return candidates;
+    }
+    const symbols = await this.symbolManager.findSymbolByName(reference.name);
+    return symbols.some((symbol) => symbol.kind === 'class')
+      ? candidates
+      : candidates.filter((candidate) => candidate !== 'sobject');
   }
 
   /**

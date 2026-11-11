@@ -150,6 +150,60 @@ describe('PrerequisiteOrchestrationService', () => {
     ).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps an ambiguous type reference conservative during document-wide prerequisites', async () => {
+    const unresolvedRef = {
+      name: 'Account',
+      resolvedSymbolId: undefined,
+      context: ReferenceContext.TYPE_DECLARATION,
+      location: {
+        symbolRange: { startLine: 1, startColumn: 1, endLine: 1, endColumn: 8 },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 8,
+        },
+      },
+    };
+    const symbolTable = {
+      getAllReferences: vi.fn().mockReturnValue([unresolvedRef]),
+      getMetadata: vi.fn().mockReturnValue({
+        documentVersion: 9,
+        parseCompleteness: 'complete',
+      }),
+    };
+    const symbolManager = {
+      getDetailLevelForFile: vi.fn().mockReturnValue('full'),
+      getSymbolTableForFile: vi.fn().mockReturnValue(symbolTable),
+      resolveCrossFileReferencesForFile: vi
+        .fn()
+        .mockReturnValue(Effect.succeed(undefined)),
+      isStandardLibraryType: vi.fn().mockReturnValue(false),
+      findSymbolByName: vi.fn().mockReturnValue([{ name: 'Account' }]),
+    };
+    mockMissingArtifactService.resolveBlocking.mockResolvedValue({
+      status: 'resolved',
+      opened: ['file:///Account.cls'],
+    });
+
+    const service = new PrerequisiteOrchestrationService(
+      logger,
+      symbolManager as never,
+      { enrichFiles: vi.fn().mockResolvedValue(undefined) } as never,
+    );
+
+    await service.runPrerequisitesForLspRequestType('references', uri);
+
+    expect(
+      mockMissingArtifactService.resolveBlocking.mock.calls[0][0].identifiers,
+    ).toEqual([
+      expect.objectContaining({
+        name: 'Account',
+        identifierType: 'apex-class',
+      }),
+    ]);
+  });
+
   it('supports on-demand strict definition escalation after initial miss', async () => {
     const unresolvedRef = {
       name: 'CustomType',

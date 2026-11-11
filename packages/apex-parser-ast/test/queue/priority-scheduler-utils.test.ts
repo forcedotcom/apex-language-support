@@ -355,76 +355,61 @@ describe('PriorityScheduler', () => {
           maxConcurrency: {
             CRITICAL: Infinity,
             IMMEDIATE: Infinity,
-            HIGH: Infinity,
+            HIGH: 1,
             NORMAL: Infinity,
             LOW: Infinity,
             BACKGROUND: Infinity,
           },
-          maxTotalConcurrency: Infinity,
+          maxTotalConcurrency: 1,
         }),
       );
 
       const executionOrder: Priority[] = [];
 
       const program = Effect.gen(function* () {
-        // Create refs to track tasks
-        const highTasksRef = yield* Ref.make<
-          ScheduledTask<string, never, never>[]
-        >([]);
-        const lowTaskRef = yield* Ref.make<ScheduledTask<
-          string,
-          never,
-          never
-        > | null>(null);
+        const setupStarted = yield* Deferred.make<void, never>();
+        const releaseSetup = yield* Deferred.make<void, never>();
+        const setupTask = yield* offerTask(
+          Priority.High,
+          Effect.gen(function* () {
+            yield* Deferred.succeed(setupStarted, undefined);
+            yield* Deferred.await(releaseSetup);
+            return 'setup';
+          }),
+        );
+        const setupFiber = yield* setupTask.fiber;
+        yield* Deferred.await(setupStarted);
 
-        // Submit many high priority tasks (forked to queue without waiting)
-        yield* Effect.all(
+        // Hold the only execution slot so all measured work is queued before
+        // the controller can build a high-priority dispatch streak.
+        const highTasks = yield* Effect.all(
           Array.from({ length: 5 }, (_, i) =>
-            Effect.fork(
-              offerTask(
-                Priority.High,
-                Effect.gen(function* () {
-                  executionOrder.push(Priority.High);
-                  yield* Effect.sleep('5 millis');
-                  return `high-${i}`;
-                }),
-              ).pipe(
-                Effect.tap((task) =>
-                  Ref.update(highTasksRef, (tasks) => [...tasks, task]),
-                ),
-              ),
+            offerTask(
+              Priority.High,
+              Effect.sync(() => {
+                executionOrder.push(Priority.High);
+                return `high-${i}`;
+              }),
             ),
           ),
         );
-
-        // Small yield to allow high tasks to be queued
-        yield* Effect.yieldNow();
-
-        // Submit a low priority task (forked to queue without waiting)
-        yield* Effect.fork(
-          offerTask(
-            Priority.Low,
-            Effect.gen(function* () {
-              executionOrder.push(Priority.Low);
-              return 'low';
-            }),
-          ).pipe(Effect.tap((task) => Ref.update(lowTaskRef, () => task))),
+        const lowTask = yield* offerTask(
+          Priority.Low,
+          Effect.sync(() => {
+            executionOrder.push(Priority.Low);
+            return 'low';
+          }),
         );
-
-        // Wait a bit for all offers to complete (tasks dequeued and forked)
-        yield* Effect.sleep('50 millis');
-
-        // Get all tasks
-        const highTasks = yield* Ref.get(highTasksRef);
-        const lowTask = yield* Ref.get(lowTaskRef);
-
-        if (highTasks.length !== 5 || !lowTask) {
-          throw new Error('Tasks not properly queued');
+        const queuedMetrics = yield* metrics();
+        if (
+          queuedMetrics.queueSizes[Priority.High] !== 5 ||
+          queuedMetrics.queueSizes[Priority.Low] !== 1
+        ) {
+          throw new Error('Measured tasks were not queued before release');
         }
 
-        // All tasks are now dequeued and forked
-        // The scheduler should process 3 high priority tasks, then trigger
-        // starvation relief and process the low priority task
+        yield* Deferred.succeed(releaseSetup, undefined);
+        yield* awaitFiber(setupFiber);
 
         // Wait for all tasks
         yield* Effect.all(
@@ -443,12 +428,12 @@ describe('PriorityScheduler', () => {
 
       const order = await Effect.runPromise(program);
 
-      // Low priority should execute before all high priority tasks complete
-      // (starvation relief should kick in after 3 high priority tasks)
-      const lowIndex = order.indexOf(Priority.Low);
+      expect(order).toHaveLength(6);
 
-      // Low should execute before the last high priority task
-      // With maxHighPriorityStreak=3, low should execute after at most 3 high tasks
+      // Low priority must execute while high-priority work remains queued.
+      // The scheduler triggers relief after more than the configured streak.
+      const lowIndex = order.indexOf(Priority.Low);
+      expect(lowIndex).toBeGreaterThan(0);
       expect(lowIndex).toBeLessThan(order.length - 1);
     });
 

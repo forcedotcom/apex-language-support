@@ -319,7 +319,11 @@ export class SObjectEnrichmentService {
     }
     await Promise.all(
       identifiers
-        .filter((identifier) => identifier.identifierType === 'sobject')
+        .filter(
+          (identifier) =>
+            identifier.identifierType === 'sobject' &&
+            identifier.allowSObjectPlaceholder !== false,
+        )
         .map((identifier) => this.ensurePlaceholder(identifier.name)),
     );
   }

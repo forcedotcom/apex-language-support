@@ -22,7 +22,10 @@ import {
 import { Effect } from 'effect';
 import type { MissingArtifactResolutionService } from '../../src/services/MissingArtifactResolutionService';
 import { SObjectEnrichmentService } from '../../src/services/SObjectEnrichmentService';
-import { classifyMissingArtifactIdentifier } from '../../src/services/PrerequisiteHelpers';
+import {
+  classifyMissingArtifactCandidates,
+  classifyMissingArtifactIdentifier,
+} from '../../src/services/PrerequisiteHelpers';
 
 const logger = {
   debug: vi.fn(),
@@ -231,6 +234,39 @@ describe('SObjectEnrichmentService', () => {
     expect(harness.tables.get(ownerUri)?.getMetadata().parseCompleteness).toBe(
       'incomplete',
     );
+  });
+
+  it('does not install a placeholder for a speculative sObject candidate', async () => {
+    const harness = createHarness();
+    const ownerUri = ownerUriForSObject('Account');
+    (
+      harness.resolver.resolveBlocking as MockedFunction<
+        MissingArtifactResolutionService['resolveBlocking']
+      >
+    ).mockImplementation(async () => {
+      expect(harness.tables.get(ownerUri)).toBeUndefined();
+      return { status: 'resolved', artifacts: [accountArtifact] };
+    });
+    const speculativeParams: FindMissingArtifactParams = {
+      ...params,
+      identifiers: [
+        {
+          name: 'Account',
+          identifierType: 'sobject',
+          allowSObjectPlaceholder: false,
+          provenance: semanticProvenance,
+        },
+      ],
+    };
+
+    await expect(
+      harness.service.resolveBlocking(speculativeParams),
+    ).resolves.toEqual({ status: 'resolved', artifacts: [accountArtifact] });
+
+    expect(harness.tables.get(ownerUri)?.getMetadata().parseCompleteness).toBe(
+      'complete',
+    );
+    expect(harness.symbolManager.addSymbolTable).toHaveBeenCalledTimes(1);
   });
 
   it('replaces the placeholder with one full table containing fields', async () => {
@@ -592,4 +628,46 @@ describe('classifyMissingArtifactIdentifier', () => {
   ])('uses %s', (_description, evidence, expected) => {
     expect(classifyMissingArtifactIdentifier(evidence)).toBe(expected);
   });
+});
+
+describe('classifyMissingArtifactCandidates', () => {
+  it.each([
+    [
+      'ambiguous type reference',
+      { name: 'Account', context: ReferenceContext.TYPE_DECLARATION },
+      ['apex-class', 'sobject'],
+    ],
+    [
+      'generic parameter type reference',
+      { name: 'Account', context: ReferenceContext.GENERIC_PARAMETER_TYPE },
+      ['apex-class', 'sobject'],
+    ],
+    [
+      'cast type reference',
+      { name: 'Account', context: ReferenceContext.CAST_TYPE_REFERENCE },
+      ['apex-class', 'sobject'],
+    ],
+    [
+      'instanceof type reference',
+      { name: 'Account', context: ReferenceContext.INSTANCEOF_TYPE_REFERENCE },
+      ['apex-class', 'sobject'],
+    ],
+    ['non-type reference', { name: 'Account' }, ['apex-class']],
+    [
+      'conclusive parser evidence',
+      { name: 'Account', isSObject: true },
+      ['sobject'],
+    ],
+    [
+      'SOQL FROM evidence',
+      { name: 'Account', context: ReferenceContext.SOQL_FROM_TYPE },
+      ['sobject'],
+    ],
+    ['custom suffix evidence', { name: 'Invoice__c' }, ['sobject']],
+  ])(
+    'returns concrete candidates for %s',
+    (_description, evidence, expected) => {
+      expect(classifyMissingArtifactCandidates(evidence)).toEqual(expected);
+    },
+  );
 });

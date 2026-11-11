@@ -7,6 +7,8 @@
  */
 
 import { vi } from 'vitest';
+import { DefinitionProcessingService } from '@salesforce/apex-lsp-compliant-services';
+import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Effect, LogLevel } from 'effect';
 import {
   ApexSymbolManager,
@@ -622,7 +624,7 @@ describe('worker.platform.shared', () => {
       'public class CodeLensTarget { RelatedType value; }',
       uri,
     );
-    const assistance = vi.fn(async (method: string) => {
+    const assistance = vi.fn(async (method: string, _params: unknown) => {
       if (method === 'dataOwner:QuerySymbolSubset') {
         return {
           entries: { [uri]: wireTable },
@@ -734,8 +736,18 @@ describe('worker.platform.shared', () => {
         findSymbolByName: vi.fn(async (name: string) => {
           if (name === 'AmbiguousType') {
             return [
-              { id: 'ambiguous-one', name, fileUri: 'file:///one.cls' },
-              { id: 'ambiguous-two', name, fileUri: 'file:///two.cls' },
+              {
+                id: 'ambiguous-one',
+                name,
+                kind: 'class',
+                fileUri: 'file:///one.cls',
+              },
+              {
+                id: 'ambiguous-two',
+                name,
+                kind: 'class',
+                fileUri: 'file:///two.cls',
+              },
             ];
           }
           return (currentTable?.getAllSymbols() ?? []).filter(
@@ -781,6 +793,326 @@ describe('worker.platform.shared', () => {
     expect(dependencyRequests[0][1]).toEqual({
       classNames: ['Ns.RelatedType', 'NestedType'],
     });
+  });
+
+  it('requests an sObject candidate when a same-named Apex class is already local', async () => {
+    const uri = 'file:///ContentVersionConsumer.cls';
+    const standardClassUri = 'apexlib://resources/ContentVersion.cls';
+    const assistance = vi.fn(async (method: string, _params: unknown) => {
+      if (method === 'dataOwner:QuerySymbolSubset') {
+        return { entries: {}, versions: {}, detailLevels: {} };
+      }
+      if (method === 'apex/findMissingArtifact') {
+        return { status: 'not-found' };
+      }
+      return { entries: {} };
+    });
+    setAssistanceTransport(assistance);
+
+    let currentTable: SymbolTable | undefined;
+    const completeTable = {
+      getMetadata: () => ({ parseCompleteness: 'complete' }),
+    };
+    const svc = {
+      storageManager: {
+        getStorage: () => ({ setDocument: vi.fn() }),
+      },
+      symbolManager: {
+        addSymbolTable: vi.fn((table: SymbolTable) => {
+          currentTable = table;
+          return Effect.void;
+        }),
+        getSymbolTableForFile: vi.fn(async (fileUri: string) => {
+          if (fileUri === uri) return currentTable;
+          if (fileUri === standardClassUri) return completeTable;
+          return undefined;
+        }),
+        getSymbol: vi.fn(async () => null),
+        findSymbolByFQN: vi.fn(async () => null),
+        findSymbolByName: vi.fn(async (name: string) =>
+          name === 'ContentVersion'
+            ? [
+                {
+                  id: 'standard-content-version',
+                  name,
+                  kind: 'class',
+                  fileUri: standardClassUri,
+                },
+              ]
+            : [],
+        ),
+        resolveCrossFileReferencesForFile: vi.fn(() => Effect.void),
+      },
+    } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
+    const content = [
+      'public class ContentVersionConsumer {',
+      '  void run() {',
+      '    ContentVersion version;',
+      '  }',
+      '}',
+    ].join('\n');
+
+    await Effect.runPromise(
+      prepareLspRequestCursor(svc, 'hover', uri, content, {
+        line: 2,
+        character: 6,
+      }),
+    );
+
+    const artifactRequests = assistance.mock.calls.filter(
+      ([method]) => method === 'apex/findMissingArtifact',
+    );
+    expect(artifactRequests).toHaveLength(1);
+    expect(artifactRequests[0][1]).toMatchObject({
+      identifiers: [
+        {
+          name: 'ContentVersion',
+          identifierType: 'sobject',
+          allowSObjectPlaceholder: false,
+        },
+      ],
+    });
+  });
+
+  it('requests a cold sObject describe for a field hover', async () => {
+    const uri = 'file:///ContentVersionReceiver.cls';
+    const fieldUri =
+      'file:///objects/ContentVersion/fields/VersionData.field-meta.xml';
+    const assistance = vi.fn(async (method: string) => {
+      if (method === 'apex/findMissingArtifact') {
+        return {
+          artifacts: [
+            {
+              identifierType: 'sobject',
+              name: 'ContentVersion',
+              describe: {
+                name: 'ContentVersion',
+                custom: false,
+                definitionTarget: {
+                  uri: 'file:///objects/ContentVersion/ContentVersion.object-meta.xml',
+                },
+                fields: [
+                  {
+                    name: 'VersionData',
+                    type: 'base64',
+                    definitionTarget: { uri: fieldUri },
+                  },
+                ],
+              },
+            },
+          ],
+        };
+      }
+      return { entries: {}, versions: {}, detailLevels: {} };
+    });
+    setAssistanceTransport(assistance);
+    const symbolManager = new ApexSymbolManager();
+    const svc = {
+      storageManager: { getStorage: () => ({ setDocument: vi.fn() }) },
+      symbolManager,
+    } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
+    const source = [
+      'public class ContentVersionReceiver {',
+      '  public void run(String base64data) {',
+      '    ContentVersion contentVersion = new ContentVersion();',
+      '    contentVersion.VersionData = EncodingUtil.base64Decode(base64data);',
+      '  }',
+      '}',
+    ].join('\n');
+    const position = { line: 3, character: 20 };
+
+    try {
+      await Effect.runPromise(
+        prepareLspRequestCursor(svc, 'hover', uri, source, position),
+      );
+
+      expect(assistance).toHaveBeenCalledWith(
+        'apex/findMissingArtifact',
+        expect.objectContaining({
+          identifiers: [
+            expect.objectContaining({
+              name: 'ContentVersion',
+              identifierType: 'sobject',
+              allowSObjectPlaceholder: false,
+            }),
+          ],
+          origin: { uri, position, requestKind: 'hover' },
+        }),
+        true,
+      );
+      await expect(
+        symbolManager.getSymbolAtPosition(
+          uri,
+          { line: 4, character: 20 },
+          'precise',
+        ),
+      ).resolves.toMatchObject({
+        name: 'VersionData',
+        kind: 'field',
+      });
+      await expect(
+        new DefinitionProcessingService(
+          getLogger(),
+          symbolManager,
+        ).processDefinition(
+          { textDocument: { uri }, position },
+          { prerequisitesPrepared: true },
+        ),
+      ).resolves.toEqual([expect.objectContaining({ uri: fieldUri })]);
+    } finally {
+      symbolManager.clear();
+    }
+  });
+
+  it.each([
+    ['apexlib://resources/ContentVersion.cls', true],
+    ['file:///ContentVersion.cls', false],
+  ])(
+    'handles a cold VersionData definition without overriding %s',
+    async (classUri, resolvesSObject) => {
+      const uri = 'file:///ContentVersionReceiver.cls';
+      const fieldUri =
+        'file:///objects/ContentVersion/fields/VersionData.field-meta.xml';
+      const symbolManager = new ApexSymbolManager();
+      const listener = new FullSymbolCollectorListener();
+      new CompilerService().compile(
+        'public class ContentVersion {}',
+        classUri,
+        listener,
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(listener.getResult(), classUri),
+      );
+      const assistance = vi.fn(async (method: string) => {
+        if (method === 'apex/findMissingArtifact') {
+          return {
+            artifacts: [
+              {
+                identifierType: 'sobject',
+                name: 'ContentVersion',
+                describe: {
+                  name: 'ContentVersion',
+                  custom: false,
+                  definitionTarget: {
+                    uri: 'file:///objects/ContentVersion/ContentVersion.object-meta.xml',
+                  },
+                  fields: [
+                    {
+                      name: 'VersionData',
+                      type: 'base64',
+                      definitionTarget: { uri: fieldUri },
+                    },
+                  ],
+                },
+              },
+            ],
+          };
+        }
+        return { entries: {}, versions: {}, detailLevels: {} };
+      });
+      setAssistanceTransport(assistance);
+      const svc = {
+        storageManager: { getStorage: () => ({ setDocument: vi.fn() }) },
+        symbolManager,
+      } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
+      const source = [
+        'public class ContentVersionReceiver {',
+        '  public void run(String base64data) {',
+        '    ContentVersion contentVersion = new ContentVersion();',
+        '    contentVersion.VersionData = EncodingUtil.base64Decode(base64data);',
+        '  }',
+        '}',
+      ].join('\n');
+      const position = { line: 3, character: 20 };
+      try {
+        const prepared = await Effect.runPromise(
+          prepareLspRequestCursor(svc, 'definition', uri, source, position),
+        );
+        expect(prepared.ready).toBe(true);
+        const references = await symbolManager.getReferencesAtPosition(uri, {
+          line: 4,
+          character: 20,
+        });
+        expect(
+          references.some((reference) => reference.name === 'VersionData'),
+        ).toBe(true);
+        const definition = await new DefinitionProcessingService(
+          getLogger(),
+          symbolManager,
+        ).processDefinition(
+          { textDocument: { uri }, position },
+          { prerequisitesPrepared: true },
+        );
+        expect(definition).toEqual(
+          resolvesSObject ? [expect.objectContaining({ uri: fieldUri })] : [],
+        );
+        const symbol = await symbolManager.getSymbolAtPosition(
+          uri,
+          { line: 4, character: 20 },
+          'precise',
+        );
+        if (resolvesSObject)
+          expect(symbol).toMatchObject({ name: 'VersionData', kind: 'field' });
+        else expect(symbol).toBeNull();
+        expect(assistance).toHaveBeenCalledWith(
+          'apex/findMissingArtifact',
+          expect.objectContaining({
+            identifiers: [
+              expect.objectContaining({
+                name: 'ContentVersion',
+                identifierType: 'sobject',
+                allowSObjectPlaceholder: false,
+              }),
+            ],
+            origin: { uri, position, requestKind: 'definition' },
+          }),
+          true,
+        );
+      } finally {
+        symbolManager.clear();
+      }
+    },
+  );
+
+  it('requests a dependency despite multiple same-named non-type candidates', async () => {
+    const uri = 'file:///NonTypeCandidates.cls';
+    const symbolManager = new ApexSymbolManager();
+    const assistance = vi.fn(async () => ({
+      entries: {},
+      versions: {},
+      detailLevels: {},
+    }));
+    setAssistanceTransport(assistance);
+    const svc = {
+      storageManager: { getStorage: () => ({ setDocument: vi.fn() }) },
+      symbolManager,
+    } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
+    try {
+      await Effect.runPromise(
+        prepareLspRequestCursor(
+          svc,
+          'hover',
+          uri,
+          [
+            'public class NonTypeCandidates {',
+            '  void first(ExternalType externalType) {}',
+            '  void second(ExternalType externalType) {}',
+            '}',
+          ].join('\n'),
+          { line: 1, character: 15 },
+        ),
+      );
+      expect(await symbolManager.findSymbolByName('ExternalType')).toHaveLength(
+        2,
+      );
+      expect(assistance).toHaveBeenCalledWith(
+        'dataOwner:ResolveDepUris',
+        { classNames: ['ExternalType'] },
+        true,
+      );
+    } finally {
+      symbolManager.clear();
+    }
   });
 
   it('reuses a version-matched local cursor without querying the owner', async () => {

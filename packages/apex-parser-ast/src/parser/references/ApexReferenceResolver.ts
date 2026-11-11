@@ -126,6 +126,15 @@ export class ApexReferenceResolver {
       // For chained references, ensure chain nodes are also resolved
       if (isChainedSymbolReference(ref) && ref.chainNodes) {
         for (const chainNode of ref.chainNodes) {
+          // Qualified member hops cannot bind through lexical scope. Their
+          // owner is the preceding receiver, resolved by the chain resolver.
+          if (
+            chainNode !== ref.chainNodes[0] &&
+            (chainNode.context === ReferenceContext.FIELD_ACCESS ||
+              chainNode.context === ReferenceContext.CHAIN_STEP)
+          ) {
+            continue;
+          }
           if (!chainNode.resolvedSymbolId) {
             const nodePosition = {
               line: chainNode.location.identifierRange.startLine,
@@ -180,6 +189,17 @@ export class ApexReferenceResolver {
     ref: SymbolReference,
     symbolTable: SymbolTable,
   ): boolean {
+    // Chain syntax is not class evidence when the identifier has a lexical
+    // value binding. Do not descend into unrelated child/sibling scopes.
+    const binding = symbolTable.resolveVariableAtPosition(
+      ref.name,
+      ref.location.identifierRange.startLine,
+      ref.location.identifierRange.startColumn,
+    );
+    if (binding) {
+      return false;
+    }
+
     // Check if this is a qualifier in a qualified call or base expression in a chain
     const isQualifierOrBase =
       this.isQualifierInQualifiedCall(ref, symbolTable) ||
@@ -655,6 +675,12 @@ export class ApexReferenceResolver {
       }
 
       firstNode.resolvedSymbolId = qualifierSymbol.id;
+
+      // Only a direct member belongs to the first type. Multi-hop chains must
+      // resolve each receiver before binding the terminal member at runtime.
+      if (ref.chainNodes.length > 2) {
+        return null;
+      }
 
       const classBlock = allSymbols.find(
         (s) =>

@@ -182,7 +182,7 @@ function contextToSearchHints(ref: SymbolReference): SearchHint[] {
 function dedupeByReferenceIdentity(specs: IdentifierSpec[]): IdentifierSpec[] {
   const byName = new Map<string, IdentifierSpec>();
   for (const spec of specs) {
-    const key = spec.provenance.referenceIdentity;
+    const key = `${spec.provenance.referenceIdentity}|${spec.identifierType ?? 'apex-class'}`;
     const existing = byName.get(key);
     const hasHints =
       (spec.searchHints?.length ?? 0) > 0 ||

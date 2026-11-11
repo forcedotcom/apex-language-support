@@ -33,6 +33,21 @@ describe('missing-artifact identifier wire provenance', () => {
     expect(decoded.provenance).toEqual(provenance);
   });
 
+  it('preserves whether an sObject candidate may install a placeholder', () => {
+    expect(
+      Schema.decodeUnknownSync(WireIdentifierSpecSchema)({
+        name: 'Account',
+        provenance,
+        identifierType: 'sobject',
+        allowSObjectPlaceholder: false,
+      }),
+    ).toMatchObject({
+      name: 'Account',
+      identifierType: 'sobject',
+      allowSObjectPlaceholder: false,
+    });
+  });
+
   it('decodes a legacy name-only identifier for boundary validation', () => {
     expect(
       Schema.decodeUnknownSync(WireIdentifierSpecSchema)({ name: 'Example' }),
