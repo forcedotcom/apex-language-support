@@ -265,6 +265,34 @@ describe('resolveMissingNamesViaDataOwner — ingestion contract', () => {
     expect(ingested[0].fileUri).toBe(TARGET_URI);
   });
 
+  it('does not replace the cursor table with a dependency lookup result', async () => {
+    const cursorUri = 'file:///test/Cursor.cls';
+    const dependencyUri = 'file:///test/CrossWorkerTarget.cls';
+    const { svc, ingested } = makeFakeServices(new Set());
+    const queryByName = (_method: string, _params: unknown) =>
+      Promise.resolve({
+        matches: [
+          { name: 'Cursor', fileUri: cursorUri },
+          { name: 'CrossWorkerTarget', fileUri: dependencyUri },
+        ],
+        entries: {
+          [cursorUri]: makeWireSymbolTable(cursorUri),
+          [dependencyUri]: makeWireSymbolTable(dependencyUri),
+        },
+      });
+
+    const count = await resolveMissingNamesViaDataOwner(
+      svc,
+      ['Cursor', 'CrossWorkerTarget'],
+      queryByName,
+      undefined,
+      new Set([cursorUri]),
+    );
+
+    expect(count).toBe(1);
+    expect(ingested).toEqual([{ fileUri: dependencyUri }]);
+  });
+
   it('skips null/missing entries while still counting valid ones', async () => {
     const { svc, ingested } = makeFakeServices(new Set());
     const wireTable = makeWireSymbolTable(TARGET_URI);

@@ -1912,7 +1912,7 @@ function loadCursorTargetDependencies(
         }).pipe(Effect.catchAll(() => Effect.succeed(undefined)))) as
           { entries?: Record<string, unknown> } | undefined;
         for (const [fileUri, data] of Object.entries(response?.entries ?? {})) {
-          if (!data) continue;
+          if (!data || fileUri === uri) continue;
           const table = SymbolTable.fromSerializedData(
             data as SerializedSymbolTableData,
           );
@@ -1920,7 +1920,14 @@ function loadCursorTargetDependencies(
           ingestedCount++;
         }
         const fallbackIngested = yield* Effect.tryPromise({
-          try: () => resolveMissingNamesViaDataOwner(svc, missingNames),
+          try: () =>
+            resolveMissingNamesViaDataOwner(
+              svc,
+              missingNames,
+              requestCoordinatorAssistancePromiseShared,
+              undefined,
+              new Set([uri]),
+            ),
           catch: () => 0,
         }).pipe(Effect.catchAll(() => Effect.succeed(0)));
         ingestedCount += fallbackIngested;
@@ -2263,6 +2270,8 @@ function loadCursorTargetDependencies(
  *   data-owner can disambiguate same-named matches across namespaces. Omitted
  *   from the wire payload when absent so unqualified queries are byte-identical
  *   to before.
+ * @param excludedFileUris Tables that must not be ingested, such as the live
+ *   cursor table that initiated the dependency lookup.
  * @returns Count of owning files ingested (0 on failure or no matches).
  */
 export async function resolveMissingNamesViaDataOwner(
@@ -2274,6 +2283,7 @@ export async function resolveMissingNamesViaDataOwner(
     blocking: boolean,
   ) => Promise<unknown> = requestCoordinatorAssistancePromiseShared,
   namespace?: string,
+  excludedFileUris = new Set<string>(),
 ): Promise<number> {
   // Drop duplicates and names the LOCAL name index already resolves before any
   // IPC. The local-skip also dedups against ResolveDepUris: any name it already
@@ -2317,7 +2327,7 @@ export async function resolveMissingNamesViaDataOwner(
     if (!response?.entries) return 0;
     let ingested = 0;
     for (const [fileUri, stData] of Object.entries(response.entries)) {
-      if (!stData) continue;
+      if (!stData || excludedFileUris.has(fileUri)) continue;
       const st = SymbolTable.fromSerializedData(
         stData as SerializedSymbolTableData,
       );
