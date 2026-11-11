@@ -37,7 +37,6 @@ import * as vscode from 'vscode';
 import { activate, deactivate } from '../src/extension';
 import { getOrgArtifactFileSystem } from '../src/services/org-artifact-fs';
 import { getClient } from '../src/language-server';
-import { APEX_EXTENSION_API_VERSION } from '@salesforce/apex-language-server-extension-api';
 
 // Import mocked functions
 
@@ -83,7 +82,7 @@ describe('Apex Language Server Extension ()', () => {
     expect(api.codeLens).toBeDefined();
     expect(api.codeLens.register).toEqual(expect.any(Function));
     expect(api.client).toBeDefined();
-    expect(api.apiVersion).toBe(APEX_EXTENSION_API_VERSION);
+    expect(api).not.toHaveProperty('apiVersion');
   });
 
   it('activates in a development host without Salesforce Services', async () => {

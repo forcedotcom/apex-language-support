@@ -45,13 +45,16 @@ import {
 } from './language-server';
 import type { CodeLensCallbackRegistry } from '@salesforce/apex-lsp-client';
 import {
-  APEX_EXTENSION_API_VERSION,
   type ApexClient as PublicApexClient,
   type ApexExtensionApi as PublicApexExtensionApi,
 } from '@salesforce/apex-language-server-extension-api';
 
 /** Public extension API for consumers that depend on this extension. */
-export type ApexExtensionApi = PublicApexExtensionApi<vscode.CodeLens> & {
+export type ApexExtensionApi = Omit<
+  PublicApexExtensionApi<vscode.CodeLens>,
+  'client' | 'codeLens'
+> & {
+  readonly client: PublicApexClient;
   /** Semantic CodeLens callbacks that companion extensions can register. */
   readonly codeLens: CodeLensCallbackRegistry<vscode.CodeLens>;
 };
@@ -252,7 +255,6 @@ async function activateExtension(
   logToOutputChannel('Language server started successfully', 'info');
 
   return {
-    apiVersion: APEX_EXTENSION_API_VERSION,
     client: createPublicClient(),
     codeLens,
   };

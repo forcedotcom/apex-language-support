@@ -21,9 +21,6 @@ import type {
   SymbolInformation,
 } from 'vscode-languageserver-protocol';
 
-/** Runtime version of the VS Code extension activation API. */
-export const APEX_EXTENSION_API_VERSION = 1;
-
 export type {
   CompletionItem,
   CompletionList,
@@ -96,8 +93,11 @@ export type ApexCodeLensRegistry<Lens = unknown> = {
 
 /** API returned by activating `salesforce.apex-language-server-extension`. */
 export type ApexExtensionApi<Lens = unknown> = {
-  readonly apiVersion: typeof APEX_EXTENSION_API_VERSION;
-  readonly client: ApexClient;
+  /**
+   * The activated client. Validate the methods a consumer needs with
+   * `hasApexClientCapabilities` before calling them.
+   */
+  readonly client: object;
   readonly codeLens?: ApexCodeLensRegistry<Lens>;
 };
 
@@ -114,23 +114,32 @@ export const APEX_CLIENT_CAPABILITIES = [
 
 export type ApexClientCapability = (typeof APEX_CLIENT_CAPABILITIES)[number];
 
+type IsUnion<Value, Whole = Value> = Value extends unknown
+  ? [Whole] extends [Value]
+    ? false
+    : true
+  : never;
+
+type HasAmbiguousCapabilities<
+  Capabilities extends readonly ApexClientCapability[],
+> = true extends {
+  [Index in keyof Capabilities]: IsUnion<Capabilities[Index]>;
+}[number]
+  ? true
+  : false;
+
+type ApexClientWithCapabilities<
+  Capabilities extends readonly ApexClientCapability[],
+> = number extends Capabilities['length']
+  ? object
+  : IsUnion<Capabilities> extends true
+    ? object
+    : HasAmbiguousCapabilities<Capabilities> extends true
+      ? object
+      : Pick<ApexClient, (typeof capabilityToMethod)[Capabilities[number]]>;
+
 const isCallable = (value: unknown): value is (...args: never[]) => unknown =>
   typeof value === 'function';
-
-const isApexClient = (value: unknown): value is ApexClient => {
-  if (typeof value !== 'object' || value === null) return false;
-  const client = value as Record<string, unknown>;
-  return (
-    isCallable(client.getLineBreakpointInfo) &&
-    isCallable(client.getExceptionBreakpointInfo) &&
-    isCallable(client.getFeatureState) &&
-    isCallable(client.hover) &&
-    isCallable(client.completion) &&
-    isCallable(client.definition) &&
-    isCallable(client.documentSymbol) &&
-    isCallable(client.semanticTokens)
-  );
-};
 
 const isApexCodeLensRegistry = (
   value: unknown,
@@ -140,24 +149,26 @@ const isApexCodeLensRegistry = (
   return isCallable(registry.register) && isCallable(registry.resolve);
 };
 
-/** Checks an unknown extension activation result before it is used as this API. */
+/** Checks that an unknown extension activation result has the public container shape. */
 export const isApexExtensionApi = (
   value: unknown,
 ): value is ApexExtensionApi => {
   if (typeof value !== 'object' || value === null) return false;
   const api = value as Record<string, unknown>;
   return (
-    api.apiVersion === APEX_EXTENSION_API_VERSION &&
-    isApexClient(api.client) &&
+    typeof api.client === 'object' &&
+    api.client !== null &&
     (api.codeLens === undefined || isApexCodeLensRegistry(api.codeLens))
   );
 };
 
-/** Checks whether a validated activation result supplies the requested methods. */
-export const hasApexClientCapabilities = (
+/** Checks and narrows an activated client to the methods a consumer requires. */
+export const hasApexClientCapabilities = <
+  const Capabilities extends readonly ApexClientCapability[],
+>(
   client: unknown,
-  required: readonly ApexClientCapability[],
-): boolean => {
+  required: Capabilities,
+): client is ApexClientWithCapabilities<Capabilities> => {
   if (typeof client !== 'object' || client === null) return false;
   const methods = client as Record<string, unknown>;
   return required.every((capability) =>
@@ -165,7 +176,7 @@ export const hasApexClientCapabilities = (
   );
 };
 
-const capabilityToMethod: Record<ApexClientCapability, keyof ApexClient> = {
+const capabilityToMethod = {
   lineBreakpointInfo: 'getLineBreakpointInfo',
   exceptionBreakpointInfo: 'getExceptionBreakpointInfo',
   featureState: 'getFeatureState',
@@ -174,4 +185,4 @@ const capabilityToMethod: Record<ApexClientCapability, keyof ApexClient> = {
   definition: 'definition',
   documentSymbol: 'documentSymbol',
   semanticTokens: 'semanticTokens',
-};
+} as const satisfies Record<ApexClientCapability, keyof ApexClient>;

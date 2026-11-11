@@ -8,7 +8,8 @@
 
 import * as Schema from 'effect/Schema';
 import {
-  APEX_EXTENSION_API_VERSION,
+  APEX_CLIENT_CAPABILITIES,
+  hasApexClientCapabilities,
   isApexExtensionApi,
   type ApexClient,
   type ApexExtensionApi,
@@ -17,15 +18,10 @@ import {
 /** Effect schema for the public client while preserving its implementation identity. */
 export const ApexClientSchema: Schema.Schema<ApexClient> = Schema.declare(
   (value): value is ApexClient =>
-    isApexExtensionApi({
-      apiVersion: APEX_EXTENSION_API_VERSION,
-      client: value,
-    }),
+    hasApexClientCapabilities(value, APEX_CLIENT_CAPABILITIES),
   { identifier: 'ApexClient' },
 );
 
 /** Effect schema for an Apex extension activation result. */
 export const ApexExtensionApiSchema: Schema.Schema<ApexExtensionApi> =
   Schema.declare(isApexExtensionApi, { identifier: 'ApexExtensionApi' });
-
-export { APEX_EXTENSION_API_VERSION };
