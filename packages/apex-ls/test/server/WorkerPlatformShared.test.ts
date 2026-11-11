@@ -874,6 +874,68 @@ describe('worker.platform.shared', () => {
     });
   });
 
+  it('requests a cold sObject candidate for a type and constructor hover', async () => {
+    const uri = 'file:///ContentVersionConsumer.cls';
+    const assistance = vi.fn(async (method: string, _params: unknown) => {
+      if (method === 'dataOwner:QuerySymbolSubset') {
+        return { entries: {}, versions: {}, detailLevels: {} };
+      }
+      if (method === 'apex/findMissingArtifact') {
+        return { status: 'not-found' };
+      }
+      return { entries: {} };
+    });
+    setAssistanceTransport(assistance);
+
+    let currentTable: SymbolTable | undefined;
+    const svc = {
+      storageManager: {
+        getStorage: () => ({ setDocument: vi.fn() }),
+      },
+      symbolManager: {
+        addSymbolTable: vi.fn((table: SymbolTable) => {
+          currentTable = table;
+          return Effect.void;
+        }),
+        getSymbolTableForFile: vi.fn(async (fileUri: string) =>
+          fileUri === uri ? currentTable : undefined,
+        ),
+        getSymbol: vi.fn(async () => null),
+        findSymbolByFQN: vi.fn(async () => null),
+        findSymbolByName: vi.fn(async () => []),
+        resolveCrossFileReferencesForFile: vi.fn(() => Effect.void),
+      },
+    } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
+    const content = [
+      'public class ContentVersionConsumer {',
+      '  void run() {',
+      '    ContentVersion version = new ContentVersion();',
+      '  }',
+      '}',
+    ].join('\n');
+
+    await Effect.runPromise(
+      prepareLspRequestCursor(svc, 'hover', uri, content, {
+        line: 2,
+        character: 6,
+      }),
+    );
+
+    const artifactRequests = assistance.mock.calls.filter(
+      ([method]) => method === 'apex/findMissingArtifact',
+    );
+    expect(artifactRequests).toHaveLength(1);
+    expect(artifactRequests[0][1]).toMatchObject({
+      identifiers: [
+        {
+          name: 'ContentVersion',
+          identifierType: 'sobject',
+          allowSObjectPlaceholder: false,
+        },
+      ],
+    });
+  });
+
   it('requests a cold sObject describe for a field hover', async () => {
     const uri = 'file:///ContentVersionReceiver.cls';
     const fieldUri =

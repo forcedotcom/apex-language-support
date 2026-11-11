@@ -36,6 +36,25 @@ export enum ReferenceContext {
   TRIGGER_TARGET_SOBJECT = 20, // For sObject names in trigger headers
 }
 
+/** True when the parser has established that a token must resolve to a type. */
+export function isExplicitTypeReferenceContext(
+  context: ReferenceContext,
+): boolean {
+  return (
+    context === ReferenceContext.TYPE_DECLARATION ||
+    context === ReferenceContext.PARAMETER_TYPE ||
+    context === ReferenceContext.RETURN_TYPE ||
+    context === ReferenceContext.CONSTRUCTOR_CALL ||
+    context === ReferenceContext.GENERIC_PARAMETER_TYPE ||
+    context === ReferenceContext.CAST_TYPE_REFERENCE ||
+    context === ReferenceContext.INSTANCEOF_TYPE_REFERENCE ||
+    context === ReferenceContext.INHERITANCE ||
+    context === ReferenceContext.INTERFACE_IMPLEMENTATION ||
+    context === ReferenceContext.SOQL_FROM_TYPE ||
+    context === ReferenceContext.TRIGGER_TARGET_SOBJECT
+  );
+}
+
 export type MemberAccessSemanticContext = {
   kind: 'member-access';
   receiverRange: Range;

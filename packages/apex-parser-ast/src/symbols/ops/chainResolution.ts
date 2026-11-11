@@ -62,6 +62,7 @@ import type {
   ChainResolutionContext,
   SymbolManagerOps,
 } from '../services/symbolResolver';
+import { isExplicitTypeReferenceContext } from '../../types/symbolReference';
 
 function canFirstChainNodeNameType(reference: SymbolReference): boolean {
   const name = reference.name.toLowerCase();
@@ -95,6 +96,7 @@ export async function resolveChainedSymbolReference(
   position?: { line: number; character: number },
   fileUri?: string,
 ): Promise<ApexSymbol | null> {
+  const requiresType = isExplicitTypeReferenceContext(typeReference.context);
   // Fast path: if already resolved by listener second-pass, use the ID directly
   // BUT: Skip fast path when position is on any chain member
   // This ensures we resolve the correct chain member (e.g., "numbers" or "size" in "numbers.size()")
@@ -113,7 +115,10 @@ export async function resolveChainedSymbolReference(
       const resolvedSymbol = await self.getSymbol(
         typeReference.resolvedSymbolId,
       );
-      if (resolvedSymbol) {
+      if (
+        resolvedSymbol &&
+        (!requiresType || isReferenceableTypeSymbol(resolvedSymbol))
+      ) {
         self.logger.debug(
           () =>
             `Using pre-resolved symbol ID "${typeReference.resolvedSymbolId}" ` +
@@ -149,7 +154,10 @@ export async function resolveChainedSymbolReference(
             const resolvedSymbol = await self.getSymbol(
               firstNode.resolvedSymbolId,
             );
-            if (resolvedSymbol) {
+            if (
+              resolvedSymbol &&
+              (!requiresType || isReferenceableTypeSymbol(resolvedSymbol))
+            ) {
               self.logger.debug(
                 () =>
                   'Using pre-resolved symbol ID ' +
@@ -3326,12 +3334,16 @@ export async function findTargetSymbolForReference(
   memberResolutionCache?: HashMap<string, ApexSymbol | null>,
   resolverStats?: ResolverStats,
 ): Promise<ApexSymbol | null> {
+  const requiresType = isExplicitTypeReferenceContext(typeRef.context);
   if (resolverStats) {
     resolverStats.resolverCalls += 1;
   }
   if (typeRef.resolvedSymbolId) {
     const resolvedSymbol = await self.getSymbol(typeRef.resolvedSymbolId);
-    if (resolvedSymbol) {
+    if (
+      resolvedSymbol &&
+      (!requiresType || isReferenceableTypeSymbol(resolvedSymbol))
+    ) {
       if (resolverStats) {
         resolverStats.resolverPreResolvedHits += 1;
       }
@@ -3377,7 +3389,7 @@ export async function findTargetSymbolForReference(
     }
   }
 
-  if (symbolTable && fileUri) {
+  if (symbolTable && fileUri && !requiresType) {
     const scopeHierarchyStart = Date.now();
     const position = {
       line: typeRef.location.identifierRange.startLine,
@@ -3508,8 +3520,12 @@ export async function findTargetSymbolForReference(
     const directMatch = allFileSymbols.find(
       (symbol) =>
         symbol.name?.toLowerCase() === typeRef.name.toLowerCase() &&
-        (typeRef.context !== ReferenceContext.TRIGGER_TARGET_SOBJECT ||
-          symbol.kind === SymbolKind.SObject),
+        (requiresType
+          ? typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
+            ? symbol.kind === SymbolKind.SObject
+            : isReferenceableTypeSymbol(symbol)
+          : typeRef.context !== ReferenceContext.TRIGGER_TARGET_SOBJECT ||
+            symbol.kind === SymbolKind.SObject),
     );
     if (resolverStats) {
       resolverStats.resolverDirectLookupMs += Date.now() - directLookupStart;
@@ -3524,7 +3540,10 @@ export async function findTargetSymbolForReference(
   if (resolverStats) {
     resolverStats.resolverBuiltInMs += Date.now() - builtInStart;
   }
-  if (builtInSymbol) {
+  if (
+    builtInSymbol &&
+    (!requiresType || isReferenceableTypeSymbol(builtInSymbol))
+  ) {
     return builtInSymbol;
   }
 
@@ -3574,13 +3593,8 @@ export async function resolveSymbolReferenceToSymbol(
       return null;
     }
 
-    const isDeclaredTypeReference =
-      typeReference.context === ReferenceContext.TYPE_DECLARATION ||
-      typeReference.context === ReferenceContext.PARAMETER_TYPE ||
-      typeReference.context === ReferenceContext.RETURN_TYPE ||
-      typeReference.context === ReferenceContext.CONSTRUCTOR_CALL ||
-      typeReference.context === ReferenceContext.TRIGGER_TARGET_SOBJECT;
-    if (typeReference.resolvedSymbolId && !isDeclaredTypeReference) {
+    const requiresType = isExplicitTypeReferenceContext(typeReference.context);
+    if (typeReference.resolvedSymbolId && !requiresType) {
       let shouldSkipFastPath = false;
       if (position && isChainedSymbolReference(typeReference)) {
         const chainMember = findChainMember(typeReference, position);
@@ -3756,15 +3770,8 @@ export async function resolveSymbolReferenceToSymbol(
       variableUsageLooksLikeClass = hasClassMatch;
     }
     const isClassReferenceContext =
+      requiresType ||
       typeReference.context === ReferenceContext.CLASS_REFERENCE ||
-      typeReference.context === ReferenceContext.TYPE_DECLARATION ||
-      typeReference.context === ReferenceContext.PARAMETER_TYPE ||
-      typeReference.context === ReferenceContext.RETURN_TYPE ||
-      typeReference.context === ReferenceContext.CONSTRUCTOR_CALL ||
-      typeReference.context === ReferenceContext.GENERIC_PARAMETER_TYPE ||
-      typeReference.context === ReferenceContext.CAST_TYPE_REFERENCE ||
-      typeReference.context === ReferenceContext.INSTANCEOF_TYPE_REFERENCE ||
-      typeReference.context === ReferenceContext.SOQL_FROM_TYPE ||
       (typeReference.context === ReferenceContext.VARIABLE_USAGE &&
         variableUsageLooksLikeClass);
     const isTriggerTargetSObject =

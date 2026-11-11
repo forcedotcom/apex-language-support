@@ -40,6 +40,7 @@ import {
   type SymbolTable,
 } from '../../src/types/symbol';
 import {
+  findTargetSymbolForReference,
   resolveMemberInContext,
   resolveQualifiedReferenceFromChain,
 } from '../../src/symbols/ops/chainResolution';
@@ -291,6 +292,96 @@ describe('qualifier-scoped member resolution (F11-3 regression guard)', () => {
     expect(listSymbol?.name).toBe('List');
     expect(stringSymbol?.kind).toBe(SymbolKind.Class);
     expect(stringSymbol?.name).toBe('String');
+  });
+
+  it('does not bind explicit type references in one method to a sibling method local', async () => {
+    const uri = 'file:///test/SiblingMethodTypeScope.cls';
+    const source = `public class SiblingMethodTypeScope {
+  void run() {
+    Widget widget = new Widget();
+  }
+
+  Widget build(Object input) {
+    List<Widget> values = new List<Widget>();
+    Widget casted = (Widget) input;
+    if (input instanceof Widget) {
+      return casted;
+    }
+    return values[0];
+  }
+}`;
+    const listener = new FullSymbolCollectorListener();
+    const result = compilerService.compile(source, uri, listener, {
+      collectReferences: true,
+      resolveReferences: true,
+    });
+    const symbolTable = result.result;
+    expect(symbolTable).toBeDefined();
+
+    const explicitTypeReferences = [
+      ...new Map(
+        symbolTable!
+          .getAllReferences()
+          .filter(
+            (reference) =>
+              reference.name === 'Widget' &&
+              (reference.context === ReferenceContext.GENERIC_PARAMETER_TYPE ||
+                reference.context === ReferenceContext.CAST_TYPE_REFERENCE ||
+                reference.context ===
+                  ReferenceContext.INSTANCEOF_TYPE_REFERENCE),
+          )
+          .map((reference) => {
+            const range = reference.location.identifierRange;
+            return [
+              `${reference.context}:${range.startLine}:${range.startColumn}:${range.endLine}:${range.endColumn}`,
+              reference,
+            ] as const;
+          }),
+      ).values(),
+    ];
+    expect(explicitTypeReferences).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          context: ReferenceContext.GENERIC_PARAMETER_TYPE,
+        }),
+        expect.objectContaining({
+          context: ReferenceContext.CAST_TYPE_REFERENCE,
+        }),
+        expect.objectContaining({
+          context: ReferenceContext.INSTANCEOF_TYPE_REFERENCE,
+        }),
+      ]),
+    );
+
+    for (const reference of explicitTypeReferences) {
+      const target = await findTargetSymbolForReference(
+        symbolManager as unknown as SymbolManagerOps,
+        reference,
+        uri,
+        null,
+        symbolTable ?? undefined,
+      );
+      expect(target).toBeNull();
+    }
+
+    await compileAndAdd('public class Widget {}', 'file:///test/Widget.cls');
+    await compileAndAdd(source, uri);
+    for (const position of [
+      { line: 7, character: source.split('\n')[6].indexOf('Widget') + 1 },
+      { line: 8, character: source.split('\n')[7].lastIndexOf('Widget') + 1 },
+      { line: 9, character: source.split('\n')[8].indexOf('Widget') + 1 },
+    ]) {
+      const resolved = await symbolManager.getSymbolAtPosition(
+        uri,
+        position,
+        'precise',
+      );
+      expect(resolved).toMatchObject({
+        kind: SymbolKind.Class,
+        name: 'Widget',
+        fileUri: 'file:///test/Widget.cls',
+      });
+    }
   });
 
   it('resolves a declaration type token before its variable symbol', async () => {
