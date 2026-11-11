@@ -111,6 +111,7 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
    */
   test('should navigate to interface from implementing class', async ({
     apexEditor,
+    hoverHelper,
   }) => {
     await test.step('Open interface implementation test file', async () => {
       await apexEditor.openFile('AccountProcessor.cls');
@@ -122,9 +123,11 @@ test.describe('Apex Go-to-Definition - Advanced Scenarios', () => {
     });
 
     await test.step('Navigate to interface definition', async () => {
-      await apexEditor.positionCursorOnWord('DataProcessor');
+      // Resolve the exact cross-file reference before F12. Workspace readiness
+      // alone does not guarantee the first request reaches a warm request pool.
+      await hoverHelper.hoverAtWithResolution(5, 42, 'DataProcessor');
       await apexEditor.goToDefinition();
-      await apexEditor.waitForNavigation('AccountProcessor.cls', 15000);
+      await apexEditor.waitForActiveTab('DataProcessor.cls', 15_000);
 
       const content = await apexEditor.findAndGetViewportContent(
         'interface DataProcessor',
