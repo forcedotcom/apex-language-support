@@ -131,6 +131,7 @@ jobs:
       lockfile-path: 'pnpm-lock.yaml'
       install-command: 'pnpm install --frozen-lockfile'
       dry-run: ${{ inputs.dry-run }}
+      require-approval: 'false'
     secrets: inherit
 
   # Only applies to the version-tag path: source-run-id has no GitHub Release for a tag-based

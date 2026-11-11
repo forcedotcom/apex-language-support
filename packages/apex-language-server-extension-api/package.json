@@ -1,6 +1,6 @@
 {
   "name": "@salesforce/apex-language-server-extension-api",
-  "version": "1.0.0",
+  "version": "0.11.75",
   "description": "Public Apex Language Server extension activation API contract",
   "private": false,
   "main": "./out/index.js",
