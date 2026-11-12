@@ -69,6 +69,18 @@ jobs:
           cache: ${{ matrix.package-manager }}
           cache-dependency-path: .cache-probe/${{ matrix.package-manager }}-${{ matrix.install-global-plugin }}.lock
 
+      - name: Ensure package-manager cache exists
+        shell: bash
+        env:
+          PACKAGE_MANAGER: ${{ matrix.package-manager }}
+        run: |
+          case "$PACKAGE_MANAGER" in
+            npm) cache_path="$(npm config get cache)" ;;
+            pnpm) cache_path="$(pnpm store path --silent)" ;;
+            yarn) cache_path="$(yarn --cwd .cache-probe cache dir)" ;;
+          esac
+          mkdir -p "$cache_path"
+
       - name: Install release-management plugin globally with npm
         if: matrix.install-global-plugin
         run: npm install -g @salesforce/plugin-release-management --omit=dev
