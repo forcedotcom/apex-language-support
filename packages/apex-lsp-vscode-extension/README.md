@@ -46,9 +46,12 @@ its exported `ApexExtensionApi`, and call its materialized `client`:
 
 ```typescript
 import * as vscode from 'vscode';
-import type { ApexExtensionApi } from '@salesforce/apex-language-server-extension-api';
+import {
+  hasApexClientCapabilities,
+  isApexExtensionApi,
+} from '@salesforce/apex-language-server-extension-api';
 
-const apexExtension = vscode.extensions.getExtension<ApexExtensionApi>(
+const apexExtension = vscode.extensions.getExtension(
   'salesforce.apex-language-server-extension',
 );
 if (!apexExtension) {
@@ -56,13 +59,22 @@ if (!apexExtension) {
 }
 
 const apex = await apexExtension.activate();
+if (
+  !isApexExtensionApi(apex) ||
+  !hasApexClientCapabilities(apex.client, [
+    'lineBreakpointInfo',
+    'exceptionBreakpointInfo',
+  ])
+) {
+  throw new Error('Apex Language Server debugger APIs are unavailable');
+}
 const uri = 'file:///workspace/force-app/main/default/classes/Example.cls';
 
 const lineBreakpoints = await apex.client.getLineBreakpointInfo(uri);
 const exceptionBreakpoints = await apex.client.getExceptionBreakpointInfo(uri);
 ```
 
-The activated API is defined by the versioned
+The activated API is defined by the
 `@salesforce/apex-language-server-extension-api` contract package. Its stable `client`
 facade supports breakpoint metadata, feature-state checks, and standard LSP
 hover, completion, definition, document-symbol, and semantic-token requests.

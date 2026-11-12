@@ -2,6 +2,18 @@
   "name": "@salesforce/apex-language-server-extension-api",
   "version": "1.0.0",
   "description": "Public Apex Language Server extension activation API contract",
+  "keywords": [
+    "salesforce",
+    "apex",
+    "language-server",
+    "lsp",
+    "vscode",
+    "vscode-extension"
+  ],
+  "homepage": "https://github.com/forcedotcom/apex-language-support#readme",
+  "bugs": {
+    "url": "https://github.com/forcedotcom/apex-language-support/issues"
+  },
   "private": false,
   "main": "./out/index.js",
   "module": "./out/index.js",

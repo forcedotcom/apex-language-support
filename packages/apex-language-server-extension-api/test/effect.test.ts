@@ -7,10 +7,7 @@
  */
 
 import * as Schema from 'effect/Schema';
-import {
-  ApexExtensionApiSchema,
-  APEX_EXTENSION_API_VERSION,
-} from '../src/effect';
+import { ApexExtensionApiSchema } from '../src/effect';
 
 describe('Effect Apex extension API schema', () => {
   it('accepts the same activation API shape as the standard guard', () => {
@@ -27,18 +24,23 @@ describe('Effect Apex extension API schema', () => {
 
     expect(
       Schema.decodeUnknownSync(ApexExtensionApiSchema)({
-        apiVersion: APEX_EXTENSION_API_VERSION,
         client,
       }),
-    ).toEqual({ apiVersion: APEX_EXTENSION_API_VERSION, client });
+    ).toEqual({ client });
   });
 
-  it('rejects an incompatible activation API version', () => {
-    expect(() =>
+  it('accepts a partial client but rejects a malformed activation result', () => {
+    expect(
       Schema.decodeUnknownSync(ApexExtensionApiSchema)({
         apiVersion: 0,
-        client: {},
+        client: { hover: async () => null },
       }),
+    ).toEqual({
+      apiVersion: 0,
+      client: { hover: expect.any(Function) },
+    });
+    expect(() =>
+      Schema.decodeUnknownSync(ApexExtensionApiSchema)({}),
     ).toThrow();
   });
 });
