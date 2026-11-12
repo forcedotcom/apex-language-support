@@ -44,6 +44,9 @@ jobs:
         run: |
           mkdir -p .cache-probe
           printf '%s\n' "$CACHE_BUSTER-$PACKAGE_MANAGER-$INSTALL_GLOBAL_PLUGIN" > ".cache-probe/$PACKAGE_MANAGER-$INSTALL_GLOBAL_PLUGIN.lock"
+          if [ "$PACKAGE_MANAGER" = yarn ]; then
+            printf '%s\n' '{"packageManager":"yarn@1.22.22"}' > .cache-probe/package.json
+          fi
 
       - name: Set up Node with package-manager cache
         uses: actions/setup-node@v4
@@ -58,15 +61,17 @@ jobs:
 
       - name: Report package-manager cache paths
         shell: bash
+        env:
+          PACKAGE_MANAGER: ${{ matrix.package-manager }}
         run: |
-          npm_cache="$(npm config get cache)"
-          yarn_cache="$(yarn cache dir)"
-          pnpm_store="$(pnpm store path --silent)"
+          case "$PACKAGE_MANAGER" in
+            npm) cache_path="$(npm config get cache)" ;;
+            yarn) cache_path="$(yarn --cwd .cache-probe cache dir)" ;;
+            pnpm) cache_path="$(pnpm store path --silent)" ;;
+          esac
 
-          for cache_path in "$npm_cache" "$yarn_cache" "$pnpm_store"; do
-            if [ -d "$cache_path" ]; then
-              printf 'exists: %s\n' "$cache_path"
-            else
-              printf 'absent: %s\n' "$cache_path"
-            fi
-          done
+          if [ -d "$cache_path" ]; then
+            printf 'exists: %s\n' "$cache_path"
+          else
+            printf 'absent: %s\n' "$cache_path"
+          fi
