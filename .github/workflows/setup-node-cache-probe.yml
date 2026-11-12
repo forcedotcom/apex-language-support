@@ -1,0 +1,72 @@
+name: Setup Node Cache Probe
+
+# Temporary diagnostic workflow for W-24887043. The push trigger is restricted to
+# this branch so the experiment can run before the workflow reaches the default branch.
+on:
+  push:
+    branches: [test/W-24887043-setup-node-cache-probe]
+  workflow_dispatch:
+    inputs:
+      cache-buster:
+        description: Unique value for this probe run
+        required: true
+        type: string
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  probe:
+    name: ${{ matrix.package-manager }} (${{ matrix.install-global-plugin && 'npm-install' || 'no-install' }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package-manager: [npm, yarn, pnpm]
+        install-global-plugin: [false, true]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        if: matrix.package-manager == 'pnpm'
+        uses: pnpm/action-setup@v4
+        with:
+          version: '12.11.2'
+
+      - name: Create unique cache dependency file
+        env:
+          CACHE_BUSTER: ${{ inputs.cache-buster || github.run_id }}
+          PACKAGE_MANAGER: ${{ matrix.package-manager }}
+          INSTALL_GLOBAL_PLUGIN: ${{ matrix.install-global-plugin }}
+        run: |
+          mkdir -p .cache-probe
+          printf '%s\n' "$CACHE_BUSTER-$PACKAGE_MANAGER-$INSTALL_GLOBAL_PLUGIN" > ".cache-probe/$PACKAGE_MANAGER-$INSTALL_GLOBAL_PLUGIN.lock"
+
+      - name: Set up Node with package-manager cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: ${{ matrix.package-manager }}
+          cache-dependency-path: .cache-probe/${{ matrix.package-manager }}-${{ matrix.install-global-plugin }}.lock
+
+      - name: Install release-management plugin globally with npm
+        if: matrix.install-global-plugin
+        run: npm install -g @salesforce/plugin-release-management --omit=dev
+
+      - name: Report package-manager cache paths
+        shell: bash
+        run: |
+          npm_cache="$(npm config get cache)"
+          yarn_cache="$(yarn cache dir)"
+          pnpm_store="$(pnpm store path --silent)"
+
+          for cache_path in "$npm_cache" "$yarn_cache" "$pnpm_store"; do
+            if [ -d "$cache_path" ]; then
+              printf 'exists: %s\n' "$cache_path"
+            else
+              printf 'absent: %s\n' "$cache_path"
+            fi
+          done

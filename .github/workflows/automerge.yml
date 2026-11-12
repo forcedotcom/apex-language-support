@@ -38,4 +38,6 @@ jobs:
       mergeMethod: squash
       maxVersionBump: minor
       package-manager-version: '12.11.2'
+      # This workflow only installs the release-management plugin globally.
+      cache-dependencies: false
       skipCI: ${{ github.event.inputs.skipCI == 'true' }}
