@@ -48,22 +48,19 @@ jobs:
             printf '%s\n' '{"packageManager":"yarn@1.22.22"}' > .cache-probe/package.json
           fi
 
-      - name: Report cache path before setup-node
+      - name: Report cache locations before setup-node
         shell: bash
-        env:
-          PACKAGE_MANAGER: ${{ matrix.package-manager }}
         run: |
-          case "$PACKAGE_MANAGER" in
-            npm) cache_path="$(npm config get cache)" ;;
-            yarn) cache_path="$(yarn --cwd .cache-probe cache dir)" ;;
-            pnpm) cache_path="$(pnpm store path --silent)" ;;
-          esac
-
-          if [ -d "$cache_path" ]; then
-            printf 'exists: %s\n' "$cache_path"
-          else
-            printf 'absent: %s\n' "$cache_path"
-          fi
+          for cache_path in \
+            "$HOME/.npm" \
+            "$HOME/.cache/yarn/v6" \
+            "$PNPM_HOME/store/v11"; do
+            if [ -d "$cache_path" ]; then
+              printf 'exists: %s\n' "$cache_path"
+            else
+              printf 'absent: %s\n' "$cache_path"
+            fi
+          done
 
       - name: Set up Node with package-manager cache
         uses: actions/setup-node@v4
