@@ -1099,12 +1099,14 @@ interface CursorTargetDependencyTelemetry {
   localHitCount: number;
   requestedCount: number;
   ingestedCount: number;
+  artifactDiscoveryRequested: boolean;
 }
 
 type DependencyTypeShape = {
   name?: string;
   typeReferenceId?: string;
   isArray?: boolean;
+  isCollection?: boolean;
   isPrimitive?: boolean;
   isBuiltIn?: boolean;
   namespace?: string | { name?: string; global?: string };
@@ -1219,32 +1221,82 @@ export const dependencyReferencesAtCursor = (
  * The full-detail cursor table must already be installed so body references,
  * local variable types, method return types, and receiver keywords are visible.
  */
-const cursorTableResolutionInFlight = new WeakMap<object, Promise<void>>();
+// The manager's re-entrancy guard is URI-wide, not table-wide. A replacement
+// must wait for the older table's pass before it can run its own reconciliation.
+const cursorTableResolutionInFlight = new WeakMap<
+  object,
+  Map<string, { table: object; resolution: Promise<void> }>
+>();
+// Canonical table identity and URI coordination handle cursor replacement.
+// The manager revision invalidates on any accepted mutable table change (including
+// late native SObjects), but not on the reference edges this pass materializes.
+const completedHoverCursorResolution = new WeakMap<object, number>();
 
 async function materializeCursorCrossFileReferences(
   svc: RequestServices,
   uri: string,
-  symbolTable: object,
+  reuseCompleted = false,
 ): Promise<void> {
-  const existing = cursorTableResolutionInFlight.get(symbolTable);
-  if (existing) return existing;
-
-  const resolution = Effect.runPromise(
-    svc.symbolManager.resolveCrossFileReferencesForFile(uri).pipe(
-      Effect.tapError((error) =>
-        Effect.logDebug(
-          `[ENRICHMENT] Cursor cross-file resolution failed for ${uri}: ${String(error)}`,
-        ),
-      ),
-      Effect.catchAll(() => Effect.void),
-    ),
-  ).finally(() => {
-    if (cursorTableResolutionInFlight.get(symbolTable) === resolution) {
-      cursorTableResolutionInFlight.delete(symbolTable);
+  let inFlight = cursorTableResolutionInFlight.get(svc.symbolManager);
+  if (!inFlight) {
+    inFlight = new Map();
+    cursorTableResolutionInFlight.set(svc.symbolManager, inFlight);
+  }
+  for (;;) {
+    const symbolTable = await svc.symbolManager.getSymbolTableForFile(uri);
+    if (!symbolTable) return;
+    const existing = inFlight.get(uri);
+    if (existing) {
+      await existing.resolution;
+      const canonical = await svc.symbolManager.getSymbolTableForFile(uri);
+      if (
+        canonical === existing.table &&
+        (!reuseCompleted || !svc.symbolManager.getSymbolTableRevision)
+      ) {
+        return;
+      }
+      // Re-read canonical identity and revision after the older URI pass.
+      continue;
     }
-  });
-  cursorTableResolutionInFlight.set(symbolTable, resolution);
-  return resolution;
+    const revision = svc.symbolManager.getSymbolTableRevision?.();
+    if (
+      reuseCompleted &&
+      revision !== undefined &&
+      completedHoverCursorResolution.get(symbolTable) === revision
+    ) {
+      return;
+    }
+
+    const resolution = Effect.runPromise(
+      svc.symbolManager.resolveCrossFileReferencesForFile(uri).pipe(
+        Effect.tap(() =>
+          Effect.sync(() => {
+            if (reuseCompleted && revision !== undefined) {
+              // Stamp the starting revision so a dependency arriving mid-pass
+              // cannot be mistaken for state that the whole pass observed.
+              completedHoverCursorResolution.set(symbolTable, revision);
+            }
+          }),
+        ),
+        Effect.tapError((error) =>
+          Effect.logDebug(
+            `[ENRICHMENT] Cursor cross-file resolution failed for ${uri}: ${String(error)}`,
+          ),
+        ),
+        Effect.catchAll(() => Effect.void),
+      ),
+    ).finally(() => {
+      if (inFlight.get(uri)?.resolution === resolution) {
+        inFlight.delete(uri);
+      }
+    });
+    inFlight.set(uri, { table: symbolTable, resolution });
+    await resolution;
+    if ((await svc.symbolManager.getSymbolTableForFile(uri)) === symbolTable) {
+      return;
+    }
+    // An edit during this pass invalidates its table, even if the pass succeeded.
+  }
 }
 
 function loadCursorTargetDependencies(
@@ -1252,6 +1304,8 @@ function loadCursorTargetDependencies(
   requestType: LSPRequestType,
   uri: string,
   position: { line: number; character: number },
+  attemptedMissingNames = new Set<string>(),
+  remainingDependencyPasses?: number,
 ): Effect.Effect<CursorTargetDependencyTelemetry, never, never> {
   return Effect.fn('worker.enrichment.loadCursorTargetDependencies', {
     attributes: { uri },
@@ -1261,6 +1315,7 @@ function loadCursorTargetDependencies(
       localHitCount: 0,
       requestedCount: 0,
       ingestedCount: 0,
+      artifactDiscoveryRequested: false,
     };
     const symbolTable = yield* Effect.promise(() =>
       svc.symbolManager.getSymbolTableForFile(uri),
@@ -1290,6 +1345,12 @@ function loadCursorTargetDependencies(
         parserPosition,
       );
     }
+    const passBudget =
+      remainingDependencyPasses ??
+      Math.max(
+        1,
+        ...references.map((reference) => reference.chainNodes?.length ?? 1),
+      );
     const cursorReferenceNodes = references.flatMap((reference) => [
       reference,
       ...(reference.chainNodes ?? []),
@@ -1305,6 +1366,10 @@ function loadCursorTargetDependencies(
       string,
       { name: string; exactFqn?: string }
     >();
+    const apexClassCandidateReferences = new Map<
+      string,
+      DependencyCursorReference
+    >();
     const sObjectCandidateReferences = new Map<
       string,
       DependencyCursorReference
@@ -1319,6 +1384,7 @@ function loadCursorTargetDependencies(
     const addCandidate = (
       name: string | undefined,
       exactFqn?: string,
+      provenanceReference?: DependencyCursorReference,
     ): void => {
       if (!name) return;
       const lower = name.toLowerCase();
@@ -1327,6 +1393,15 @@ function loadCursorTargetDependencies(
         name,
         ...(exactFqn ? { exactFqn } : {}),
       });
+      if (provenanceReference) {
+        apexClassCandidateReferences.set(
+          (exactFqn ?? name).toLowerCase(),
+          provenanceReference,
+        );
+        if (SObjectRegistry.isCustomSObjectName(name)) {
+          sObjectCandidateReferences.set(lower, provenanceReference);
+        }
+      }
     };
     const addSObjectCandidate = (
       reference: DependencyCursorReference,
@@ -1335,22 +1410,24 @@ function loadCursorTargetDependencies(
       const lower = reference.name.toLowerCase();
       if (['this', 'super', 'unknown', 'void', 'null'].includes(lower)) return;
       if (
-        reference.isSObject !== true &&
-        !SObjectRegistry.isCustomSObjectName(reference.name) &&
-        (reference.context === ReferenceContext.TYPE_DECLARATION ||
-          reference.context === ReferenceContext.CONSTRUCTOR_CALL ||
-          reference.context === ReferenceContext.RETURN_TYPE ||
-          reference.context === ReferenceContext.PARAMETER_TYPE ||
-          reference.context === ReferenceContext.GENERIC_PARAMETER_TYPE ||
-          reference.context === ReferenceContext.CAST_TYPE_REFERENCE ||
-          reference.context === ReferenceContext.INSTANCEOF_TYPE_REFERENCE)
+        reference.isSObject === true ||
+        reference.context === ReferenceContext.TYPE_DECLARATION ||
+        reference.context === ReferenceContext.CONSTRUCTOR_CALL ||
+        reference.context === ReferenceContext.RETURN_TYPE ||
+        reference.context === ReferenceContext.PARAMETER_TYPE ||
+        reference.context === ReferenceContext.GENERIC_PARAMETER_TYPE ||
+        reference.context === ReferenceContext.CAST_TYPE_REFERENCE ||
+        reference.context === ReferenceContext.INSTANCEOF_TYPE_REFERENCE
       ) {
         sObjectCandidateReferences.set(lower, reference);
       }
     };
     const visitedTypes = new Set<object>();
     const pendingResolvedSymbolIds = new Set<string>();
-    const addTypeInfoCandidate = (value: unknown): void => {
+    const addTypeInfoCandidate = (
+      value: unknown,
+      provenanceReference?: DependencyCursorReference,
+    ): void => {
       if (!value || typeof value !== 'object' || visitedTypes.has(value))
         return;
       visitedTypes.add(value);
@@ -1364,27 +1441,28 @@ function loadCursorTargetDependencies(
         namespace && type.name ? `${namespace}.${type.name}` : undefined;
       const exactFqn = resolvedFqn ?? structuredFqn;
       if (!type.isArray && !type.isPrimitive && !type.isBuiltIn) {
-        addCandidate(exactFqn ?? type.name, exactFqn);
-        // A member cursor selects the receiver value, not its declaration's
-        // type token. Preserve that parser-owned type reference for the same
-        // sObject probe used when the cursor is directly on a type.
-        if (type.typeReferenceId) {
-          for (const reference of symbolTable.getAllReferences()) {
-            const range = reference.location.identifierRange;
-            const identity =
-              `${uri}:${range.startLine}:${range.startColumn}:` +
-              `${reference.name}:${ReferenceContext[reference.context]}`;
-            if (identity === type.typeReferenceId) {
-              addSObjectCandidate(reference);
-            }
+        addCandidate(exactFqn ?? type.name, exactFqn, provenanceReference);
+      }
+      // A member cursor selects the receiver value, not its declaration's
+      // type token. Preserve that parser-owned type reference for the same
+      // sObject probe used when the cursor is directly on a type. Stdlib flags
+      // do not disambiguate a declared name that can also denote an org type.
+      if (!type.isArray && !type.isCollection && type.typeReferenceId) {
+        for (const reference of symbolTable.getAllReferences()) {
+          const range = reference.location.identifierRange;
+          const identity =
+            `${uri}:${range.startLine}:${range.startColumn}:` +
+            `${reference.name}:${ReferenceContext[reference.context]}`;
+          if (identity === type.typeReferenceId) {
+            addSObjectCandidate(reference);
           }
         }
       }
-      addTypeInfoCandidate(type.keyType);
+      addTypeInfoCandidate(type.keyType, provenanceReference);
       for (const parameter of type.typeParameters ?? []) {
-        addTypeInfoCandidate(parameter);
+        addTypeInfoCandidate(parameter, provenanceReference);
       }
-      addTypeInfoCandidate(type.resolvedType);
+      addTypeInfoCandidate(type.resolvedType, provenanceReference);
       if (type.resolvedSymbol?.id) {
         pendingResolvedSymbolIds.add(type.resolvedSymbol.id);
       }
@@ -1395,6 +1473,7 @@ function loadCursorTargetDependencies(
     const addResolvedSymbolType = function* (
       resolvedSymbolId: string | undefined,
       includeSymbolIdentity = false,
+      provenanceReference?: DependencyCursorReference,
     ) {
       if (!resolvedSymbolId) return;
       let symbol = loadedResolvedSymbols.get(resolvedSymbolId);
@@ -1409,9 +1488,11 @@ function loadCursorTargetDependencies(
         const symbolFqn = 'fqn' in symbol ? symbol.fqn : undefined;
         addCandidate(symbolFqn ?? symbol.name, symbolFqn);
       }
-      if ('type' in symbol) addTypeInfoCandidate(symbol.type);
+      if ('type' in symbol) {
+        addTypeInfoCandidate(symbol.type, provenanceReference);
+      }
       if (symbol && 'returnType' in symbol) {
-        addTypeInfoCandidate(symbol.returnType);
+        addTypeInfoCandidate(symbol.returnType, provenanceReference);
       }
     };
 
@@ -1421,7 +1502,7 @@ function loadCursorTargetDependencies(
         reference.context === ReferenceContext.CLASS_REFERENCE ||
         isExplicitTypeReferenceContext(reference.context)
       ) {
-        addCandidate(reference.name);
+        addCandidate(reference.name, undefined, reference);
       }
       yield* addResolvedSymbolType(reference.resolvedSymbolId);
       yield* addResolvedSymbolType(reference.resolvedTypeId, true);
@@ -1431,10 +1512,10 @@ function loadCursorTargetDependencies(
           node.context === ReferenceContext.CLASS_REFERENCE ||
           isExplicitTypeReferenceContext(node.context)
         ) {
-          addCandidate(node.name);
+          addCandidate(node.name, undefined, node);
         }
-        yield* addResolvedSymbolType(node.resolvedSymbolId);
-        yield* addResolvedSymbolType(node.resolvedTypeId, true);
+        yield* addResolvedSymbolType(node.resolvedSymbolId, false, node);
+        yield* addResolvedSymbolType(node.resolvedTypeId, true, node);
       }
 
       // The parser may conservatively classify a static type receiver as a
@@ -1444,7 +1525,40 @@ function loadCursorTargetDependencies(
       const chainNodes = reference.chainNodes;
       const chainHead = chainNodes?.[0];
       if (chainHead && chainNodes.length >= 2) {
-        addCandidate(chainHead.name);
+        addCandidate(chainHead.name, undefined, chainHead);
+      }
+
+      const selectedNodeIndex = chainNodes?.findIndex((node) =>
+        positionInParserRange(parserPosition, node.location?.identifierRange),
+      );
+      // Loading the chain head can make the next parser-owned member
+      // resolvable, exposing its declared type for the next dependency pass.
+      // Only inspect the prefix needed for the selected member; suffixes cannot
+      // affect its definition and must not delay this request.
+      const requiredPrefix =
+        selectedNodeIndex && selectedNodeIndex > 0
+          ? (chainNodes ?? []).slice(0, selectedNodeIndex)
+          : [];
+      for (const node of requiredPrefix) {
+        const nodeRange = node.location?.identifierRange;
+        if (!nodeRange) continue;
+        const resolvedNode = yield* Effect.promise(() =>
+          svc.symbolManager.getSymbolAtPosition(
+            uri,
+            {
+              line: nodeRange.startLine,
+              character: nodeRange.startColumn,
+            },
+            'precise',
+          ),
+        );
+        if (!resolvedNode) continue;
+        if ('type' in resolvedNode) {
+          addTypeInfoCandidate(resolvedNode.type, node);
+        }
+        if ('returnType' in resolvedNode) {
+          addTypeInfoCandidate(resolvedNode.returnType, node);
+        }
       }
     }
 
@@ -1558,13 +1672,21 @@ function loadCursorTargetDependencies(
         triggerTargetNames.has(candidateName.name.toLowerCase()) ||
         candidates.length <= 1
       ) {
-        missingNames.push(candidateName.name);
+        const lower = candidateName.name.toLowerCase();
+        if (!attemptedMissingNames.has(lower)) {
+          missingNames.push(candidateName.name);
+        }
       }
     }
 
     let ingestedCount = 0;
+    let addedDependencyTable = false;
+    let artifactDiscoveryRequested = false;
     if (missingNames.length > 0 || sObjectCandidateReferences.size > 0) {
       if (missingNames.length > 0) {
+        for (const name of missingNames) {
+          attemptedMissingNames.add(name.toLowerCase());
+        }
         const response = (yield* Effect.tryPromise({
           try: () =>
             requestCoordinatorAssistancePromiseShared(
@@ -1582,6 +1704,7 @@ function loadCursorTargetDependencies(
           );
           yield* svc.symbolManager.addSymbolTable(table, fileUri);
           ingestedCount++;
+          addedDependencyTable = true;
         }
         const fallbackIngested = yield* Effect.tryPromise({
           try: () =>
@@ -1595,6 +1718,7 @@ function loadCursorTargetDependencies(
           catch: () => 0,
         }).pipe(Effect.catchAll(() => Effect.succeed(0)));
         ingestedCount += fallbackIngested;
+        addedDependencyTable ||= fallbackIngested > 0;
       }
 
       // A cursor-target miss can be the first semantic observation of an org
@@ -1602,23 +1726,7 @@ function loadCursorTargetDependencies(
       // forward only parser-evidenced SObject type references through the
       // existing missing-artifact service, then retry the data-owner ingest.
       // No document text is inspected here.
-      const requestKinds = new Set([
-        'definition',
-        'implementation',
-        'hover',
-        'references',
-        'completion',
-        'signatureHelp',
-      ]);
-      const artifactRequestKind = requestKinds.has(requestType)
-        ? (requestType as
-            | 'definition'
-            | 'implementation'
-            | 'hover'
-            | 'references'
-            | 'completion'
-            | 'signatureHelp')
-        : 'references';
+      const artifactRequestKind = requestType;
       const metadata = symbolTable.getMetadata();
       const allReferences = symbolTable.getAllReferences();
       const hasSObjectTargetAtCursor = references.some(
@@ -1707,7 +1815,8 @@ function loadCursorTargetDependencies(
             if (
               !hasUnresolvedMemberTarget &&
               !isExplicitTypeReferenceContext(reference.context) &&
-              !locallyAvailableNames.has(name.toLowerCase())
+              !locallyAvailableNames.has(name.toLowerCase()) &&
+              !SObjectRegistry.isCustomSObjectName(name)
             ) {
               return undefined;
             }
@@ -1753,34 +1862,101 @@ function loadCursorTargetDependencies(
           ),
         ),
       );
+      const apexClassIdentifiers = stillMissingNames.flatMap((name) => {
+        const provenanceReference = apexClassCandidateReferences.get(
+          name.toLowerCase(),
+        );
+        const referenceRange = provenanceReference?.location?.identifierRange;
+        if (!provenanceReference || !referenceRange) return [];
+        return [
+          {
+            name,
+            identifierType: 'apex-class' as const,
+            provenance: {
+              sourceUri: uri,
+              ...(metadata.documentVersion !== undefined && {
+                documentVersion: metadata.documentVersion,
+              }),
+              referenceRange,
+              referenceIdentity: [
+                provenanceReference.context,
+                provenanceReference.name,
+                referenceRange.startLine,
+                referenceRange.startColumn,
+                referenceRange.endLine,
+                referenceRange.endColumn,
+              ].join('|'),
+              ...(provenanceReference.resolvedSymbolId && {
+                resolvedSymbolId: provenanceReference.resolvedSymbolId,
+              }),
+              ...(provenanceReference.resolvedTypeId && {
+                resolvedTypeId: provenanceReference.resolvedTypeId,
+              }),
+              parseCompleteness: metadata.parseCompleteness ?? 'unknown',
+            },
+          },
+        ];
+      });
       const sObjectIdentifiers = [
         ...confirmedSObjectIdentifiers,
         ...ambiguousSObjectIdentifiers,
+        ...apexClassIdentifiers.map((identifier) => ({
+          ...identifier,
+          identifierType: 'sobject' as const,
+          allowSObjectPlaceholder: false,
+        })),
       ];
+      const artifactIdentifiers = [
+        ...sObjectIdentifiers,
+        ...apexClassIdentifiers,
+      ];
+      // Only suppress hover's service-owned ambiguity fan-out when preparation
+      // itself has parser-proven SObject evidence. A type declaration that is
+      // presently represented only as an Apex-class candidate remains
+      // ambiguous; HoverProcessingService will dispatch both typed candidates.
+      artifactDiscoveryRequested = artifactIdentifiers.length > 0;
 
-      if (sObjectIdentifiers.length > 0) {
+      if (artifactIdentifiers.length > 0) {
+        // Hover must return promptly with its searching fallback while artifact
+        // discovery continues independently. Definition may wait because its
+        // contract is to navigate to the resolved owner when possible.
+        const artifactResolutionMode: 'background' | 'blocking' =
+          requestType === 'hover' ? 'background' : 'blocking';
         const artifactParams = {
-          identifiers: sObjectIdentifiers,
+          identifiers: artifactIdentifiers,
           origin: {
             uri,
             position,
             requestKind: artifactRequestKind,
           },
-          mode: 'blocking' as const,
+          mode: artifactResolutionMode,
         };
         const artifactLoadingEnabled =
           ApexSettingsManager.getInstance().getSettings().apex
             .findMissingArtifact.enabled;
         const rawArtifactResult = artifactLoadingEnabled
-          ? yield* Effect.tryPromise({
-              try: () =>
-                requestCoordinatorAssistancePromiseShared(
+          ? artifactResolutionMode === 'background'
+            ? yield* Effect.sync(() => {
+                // Hover must not await discovery, but the coordinator must
+                // await its handler so an eventual payload reaches the
+                // authoritative data owner. The detached promise owns errors
+                // because the request has already returned a searching hover.
+                void requestCoordinatorAssistancePromiseShared(
                   'apex/findMissingArtifact',
                   artifactParams,
                   true,
-                ),
-              catch: () => undefined,
-            }).pipe(Effect.catchAll(() => Effect.succeed(undefined)))
+                ).catch(() => undefined);
+                return undefined;
+              })
+            : yield* Effect.tryPromise({
+                try: () =>
+                  requestCoordinatorAssistancePromiseShared(
+                    'apex/findMissingArtifact',
+                    artifactParams,
+                    true,
+                  ),
+                catch: () => undefined,
+              }).pipe(Effect.catchAll(() => Effect.succeed(undefined)))
           : undefined;
         const { decodeFindMissingArtifactResult } = yield* Effect.promise(
           () => import('@salesforce/apex-lsp-compliant-services'),
@@ -1823,15 +1999,48 @@ function loadCursorTargetDependencies(
         // outcome is conservative (for example, a rolling-upgrade decoder
         // rejects a response shape) so the current request can observe the
         // authoritative table without waiting for another keystroke.
-        const artifactIngested = yield* Effect.tryPromise({
+        let artifactIngested = yield* Effect.tryPromise({
           try: () =>
             resolveMissingNamesViaDataOwner(
               svc,
-              sObjectIdentifiers.map((identifier) => identifier.name),
+              artifactIdentifiers.map((identifier) => identifier.name),
             ),
           catch: () => 0,
         }).pipe(Effect.catchAll(() => Effect.succeed(0)));
         ingestedCount += artifactIngested;
+        addedDependencyTable ||= artifactIngested > 0;
+
+        // Only blocking requests wait for a workspace source opened by the
+        // client. Hover returns its searching fallback while didOpen/compile
+        // progresses asynchronously, so it must not wait here.
+        if (
+          artifactResolutionMode === 'blocking' &&
+          artifactIngested === 0 &&
+          artifactResult &&
+          'opened' in artifactResult &&
+          Array.isArray(artifactResult.opened) &&
+          artifactResult.opened.length > 0
+        ) {
+          const pollMs =
+            ApexSettingsManager.getInstance().getSettings().apex
+              .findMissingArtifact.indexingBarrierPollMs ?? 100;
+          const maxWaitMs = 500;
+          const start = Date.now();
+          while (Date.now() - start < maxWaitMs && artifactIngested === 0) {
+            yield* Effect.sleep(`${pollMs} millis`);
+            const retriedIngested = yield* Effect.tryPromise({
+              try: () =>
+                resolveMissingNamesViaDataOwner(
+                  svc,
+                  artifactIdentifiers.map((identifier) => identifier.name),
+                ),
+              catch: () => 0,
+            }).pipe(Effect.catchAll(() => Effect.succeed(0)));
+            artifactIngested += retriedIngested;
+            ingestedCount += retriedIngested;
+            addedDependencyTable ||= retriedIngested > 0;
+          }
+        }
       }
 
       // Name-based dependency lookup prefers the warmed standard-library class
@@ -1874,18 +2083,39 @@ function loadCursorTargetDependencies(
     // parser-owned state; none reconstruct the receiver from document text.
     if (
       candidateNames.size > 0 &&
-      (needsCrossFileResolution || ingestedCount > 0)
+      (needsCrossFileResolution ||
+        ingestedCount > 0 ||
+        (requestType === 'hover' && symbolTable.getDetailLevel() === 'full'))
     ) {
       yield* Effect.promise(() =>
-        materializeCursorCrossFileReferences(svc, uri, symbolTable),
+        materializeCursorCrossFileReferences(
+          svc,
+          uri,
+          requestType === 'hover' && symbolTable.getDetailLevel() === 'full',
+        ),
       );
     }
 
+    const nextPass =
+      addedDependencyTable && passBudget > 1
+        ? yield* loadCursorTargetDependencies(
+            svc,
+            requestType,
+            uri,
+            position,
+            attemptedMissingNames,
+            passBudget - 1,
+          )
+        : undefined;
+
     const telemetry = {
-      candidateCount: candidateNames.size,
-      localHitCount,
-      requestedCount: missingNames.length,
-      ingestedCount,
+      candidateCount: candidateNames.size + (nextPass?.candidateCount ?? 0),
+      localHitCount: localHitCount + (nextPass?.localHitCount ?? 0),
+      requestedCount: missingNames.length + (nextPass?.requestedCount ?? 0),
+      ingestedCount: ingestedCount + (nextPass?.ingestedCount ?? 0),
+      artifactDiscoveryRequested:
+        artifactDiscoveryRequested ||
+        (nextPass?.artifactDiscoveryRequested ?? false),
     };
     yield* Effect.annotateCurrentSpan({
       'cursor_target.candidate_count': telemetry.candidateCount,
@@ -1906,6 +2136,7 @@ function loadCursorTargetDependencies(
           localHitCount: 0,
           requestedCount: 0,
           ingestedCount: 0,
+          artifactDiscoveryRequested: false,
         };
       }),
     ),
@@ -2012,6 +2243,7 @@ export interface PreparedLspRequestContext {
   readonly localTableChanged: boolean;
   readonly ready: boolean;
   readonly writeBackRequired: boolean;
+  readonly artifactDiscoveryRequested: boolean;
   readonly policy: LspRequestPreparationPolicy;
 }
 
@@ -2145,6 +2377,7 @@ export function prepareLspRequestCursor(
           localHitCount: 0,
           requestedCount: 0,
           ingestedCount: 0,
+          artifactDiscoveryRequested: false,
         };
 
     const detailReady =
@@ -2237,6 +2470,8 @@ export function prepareLspRequestCursor(
       localTableChanged,
       ready,
       writeBackRequired,
+      artifactDiscoveryRequested:
+        cursorTargetTelemetry.artifactDiscoveryRequested,
       policy,
     };
   })();

@@ -338,6 +338,47 @@ describe('HoverProcessingService semantic identity after enrichment', () => {
     expect(backgroundLookup).toHaveBeenCalledTimes(1);
   });
 
+  it('runs background discovery when preparation has no resolved artifact', async () => {
+    const settings = ApexSettingsManager.getInstance().getSettings();
+    getSettingsSpy.mockReturnValue({
+      ...settings,
+      apex: {
+        ...settings.apex,
+        findMissingArtifact: {
+          ...settings.apex.findMissingArtifact,
+          enabled: true,
+        },
+      },
+    });
+    const manager = managerFor(
+      [reference('PreparedOwner', ReferenceContext.CLASS_REFERENCE)],
+      [],
+      [],
+    );
+    const service = new HoverProcessingService(getLogger(), manager);
+    const backgroundLookup = vi.fn();
+    (
+      service as unknown as {
+        missingArtifactUtils: {
+          tryResolveMissingArtifactBackground: typeof backgroundLookup;
+        };
+      }
+    ).missingArtifactUtils = {
+      tryResolveMissingArtifactBackground: backgroundLookup,
+    };
+
+    const result = await service.processHover(params, {
+      prerequisitesPrepared: true,
+    });
+
+    expect(isSearchingHover(result)).toBe(true);
+    expect(backgroundLookup).toHaveBeenCalledWith(
+      params.textDocument.uri,
+      params.position,
+      'hover',
+    );
+  });
+
   it('shows a not-found hover after the selected reference was recently not found', async () => {
     const settings = ApexSettingsManager.getInstance().getSettings();
     getSettingsSpy.mockReturnValue({

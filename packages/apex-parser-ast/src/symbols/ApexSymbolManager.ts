@@ -39,7 +39,11 @@ import {
   RelationshipStats,
   PatternAnalysis,
 } from '../types/metrics';
-import { createFileUri, extractFilePath } from '../types/ProtocolHandler';
+import {
+  createFileUri,
+  extractFilePath,
+  isStandardApexUri,
+} from '../types/ProtocolHandler';
 import { ResolutionRequest, ResolutionResult } from './resolution/types';
 import {
   SymbolReference,
@@ -173,6 +177,7 @@ import {
   resolveQualifiedReferenceFromChain as resolveQualRefFromChainOp,
   findTargetSymbolForReference as findTargetSymForRefOp,
   resolveSymbolReferenceToSymbol as resolveSymRefToSymOp,
+  resolveAuthoritativeDeclarationType,
 } from './ops/chainResolution';
 
 /**
@@ -305,6 +310,12 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   // Track last processed SymbolTable state per file to avoid duplicate work
   private readonly lastProcessedTableStateByFile: HashMap<string, string> =
     new HashMap();
+  private symbolTableRevision = 0;
+
+  /** Mutable workspace/native table state, excluding immutable stdlib loads. */
+  getSymbolTableRevision(): number {
+    return this.symbolTableRevision;
+  }
   // Compiler service for enrichment operations
   private readonly compilerService: CompilerService;
 
@@ -1243,6 +1254,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
    * Clear all data
    */
   async clear(): Promise<void> {
+    this.symbolTableRevision++;
     this.symbolRefManager.clear();
     this.fileMetadata.clear();
     this.unifiedCache.clear();
@@ -1362,6 +1374,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
     // Remove from symbol graph (graph will normalize again, but we normalize here for consistency)
     this.symbolRefManager.removeFile(normalizedUri);
+    this.symbolTableRevision++;
 
     // Sync memory stats with the graph's stats to ensure consistency
     const graphCounts = this.symbolRefManager.getCounts();
@@ -2112,6 +2125,10 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         if (lastSignature === noopSignature) {
           return;
         }
+      }
+
+      if (!isStandardApexUri(normalizedUri)) {
+        self.symbolTableRevision++;
       }
 
       // Rebuild per-file reference edges from the canonical table selected by registration.
@@ -3995,6 +4012,64 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         )(
           self.processSymbolReferencesToGraphEffect(symbolTable, normalizedUri),
         );
+        for (const reference of references) {
+          if (isChainedSymbolReference(reference)) {
+            const head = reference.chainNodes[0];
+            // An invocation result is not evidence about a same-named value.
+            // The parser may retain the invocation as a separate reference
+            // while classifying the chain's head as an ambiguous CHAIN_STEP.
+            if (
+              head?.context === ReferenceContext.METHOD_CALL ||
+              references.some(
+                (candidate) =>
+                  candidate.context === ReferenceContext.METHOD_CALL &&
+                  !isChainedSymbolReference(candidate) &&
+                  candidate.location.identifierRange.startLine ===
+                    head?.location.identifierRange.startLine &&
+                  candidate.location.identifierRange.startColumn ===
+                    head?.location.identifierRange.startColumn,
+              )
+            )
+              continue;
+            const memberHops = reference.chainNodes
+              .slice(1)
+              .filter(
+                (node) =>
+                  node.context === ReferenceContext.FIELD_ACCESS ||
+                  node.context === ReferenceContext.PROPERTY_REFERENCE ||
+                  node.context === ReferenceContext.CHAIN_STEP,
+              );
+            if (memberHops.length === 0) continue;
+            const receiverId = reference.chainNodes[0]?.resolvedSymbolId;
+            const receiver = receiverId
+              ? yield* Effect.promise(() => self.getSymbol(receiverId))
+              : undefined;
+            if (
+              receiver &&
+              isVariableSymbol(receiver) &&
+              receiver.type.resolvedSymbol?.fileUri &&
+              isStandardApexUri(receiver.type.resolvedSymbol.fileUri)
+            ) {
+              // Member evidence must establish the declaration binding before
+              // a type-token request, not only after a member-token request.
+              // Intermediate non-call hops may remain parser-classified as
+              // CHAIN_STEP even when the terminal node is a METHOD_CALL.
+              // Select each hop through the normal receiver-scoped resolver.
+              for (const hop of memberHops) {
+                yield* Effect.promise(() =>
+                  self.resolveSymbolReferenceToSymbol(
+                    reference,
+                    normalizedUri,
+                    {
+                      line: hop.location.identifierRange.startLine,
+                      character: hop.location.identifierRange.startColumn,
+                    },
+                  ),
+                );
+              }
+            }
+          }
+        }
 
         // Resolve unqualified METHOD_CALL references through the superclass chain.
         // Same-file resolution (ApexReferenceResolver) only looks within the current
@@ -4373,6 +4448,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         if (typeRef.context === ReferenceContext.LITERAL) {
           return;
         }
+        const requiresSObject =
+          typeRef.isSObject === true ||
+          typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT;
 
         // Check if this is a cross-file reference BEFORE trying to resolve
         // This prevents recursive cascades when processing standard library classes
@@ -4412,7 +4490,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             (symbol) =>
               symbol.name === typeRef.name &&
               (isExplicitTypeReferenceContext(typeRef.context)
-                ? typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
+                ? requiresSObject
                   ? symbol.kind === SymbolKind.SObject
                   : isReferenceableApexType(symbol)
                 : true),
@@ -4483,16 +4561,21 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
 
           // Try to resolve the cross-file reference first
           // This handles cases where artifacts were loaded via artifact loading before cross-file resolution runs
-          let targetSymbol: ApexSymbol | null = null;
+          let targetSymbol = yield* Effect.promise(() =>
+            resolveAuthoritativeDeclarationType(self, typeRef, symbolTable),
+          );
 
-          if (isExplicitTypeReferenceContext(typeRef.context)) {
+          if (
+            !targetSymbol &&
+            isExplicitTypeReferenceContext(typeRef.context)
+          ) {
             if (typeRef.name.includes('.')) {
               const byFqn = yield* Effect.promise(() =>
                 self.findSymbolByFQN(typeRef.name),
               );
               targetSymbol =
                 byFqn &&
-                (typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
+                (requiresSObject
                   ? byFqn.kind === SymbolKind.SObject
                   : isReferenceableApexType(byFqn))
                   ? byFqn
@@ -4503,11 +4586,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
             );
             targetSymbol ??=
               symbols.find((s) =>
-                typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
+                requiresSObject
                   ? s.kind === SymbolKind.SObject
                   : isReferenceableApexType(s),
               ) || null;
-          } else {
+          } else if (!targetSymbol) {
             // For METHOD_CALL and FIELD_ACCESS: use Jorje-style resolution for qualifier
             // (e.g. Test.setMock -> System.Test, not Canvas.Test in default namespace)
             const qualifierInfo = self.extractQualifierFromChain(typeRef);
@@ -4619,9 +4702,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 const byFqn = yield* Effect.promise(() =>
                   self.findSymbolByFQN(typeRef.name),
                 );
-                if (byFqn) {
-                  targetSymbol = byFqn;
-                }
+                if (byFqn) targetSymbol = byFqn;
               }
             }
 
@@ -4629,9 +4710,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               const symbols = yield* Effect.promise(() =>
                 self.findSymbolByName(typeRef.name),
               );
-              if (symbols.length > 0) {
-                targetSymbol = symbols[0];
-              }
+              if (symbols.length > 0) targetSymbol = symbols[0];
             }
           }
 
@@ -4771,8 +4850,9 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           );
           if (
             targetSymbol &&
-            isExplicitTypeReferenceContext(typeRef.context) &&
-            !isReferenceableApexType(targetSymbol)
+            ((requiresSObject && targetSymbol.kind !== SymbolKind.SObject) ||
+              (isExplicitTypeReferenceContext(typeRef.context) &&
+                !isReferenceableApexType(targetSymbol)))
           ) {
             targetSymbol = null;
           }

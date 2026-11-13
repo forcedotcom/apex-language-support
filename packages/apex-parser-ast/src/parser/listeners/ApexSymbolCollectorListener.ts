@@ -4665,6 +4665,7 @@ export class ApexSymbolCollectorListener
    */
   enterFromNameList(ctx: FromNameListContext): void {
     try {
+      let rootFromName: string | undefined;
       for (const fieldName of ctx.fieldName_list()) {
         const name = fieldName
           .soqlId_list()
@@ -4674,6 +4675,7 @@ export class ApexSymbolCollectorListener
         if (!name) {
           continue;
         }
+        rootFromName ??= name;
         const location = this.getLocationForReference(fieldName);
         const key = `${name.toLowerCase()}:${
           location.identifierRange.startLine
@@ -4707,9 +4709,8 @@ export class ApexSymbolCollectorListener
         return;
       }
 
-      const declarationTypeRef = this.findQueryDeclarationTypeRef(query);
-      if (declarationTypeRef) {
-        this.markDeclaredQueryTypeAsSObject(declarationTypeRef);
+      if (rootFromName) {
+        this.markDirectQueryDeclarationAsSObject(query, rootFromName);
       }
       this.markSoqlBackedMapValueType(query);
     } catch (error) {
@@ -4717,9 +4718,10 @@ export class ApexSymbolCollectorListener
     }
   }
 
-  private findQueryDeclarationTypeRef(
+  private markDirectQueryDeclarationAsSObject(
     query: QueryContext,
-  ): TypeRefContext | undefined {
+    fromName: string,
+  ): void {
     const literal = query.parentCtx;
     const soqlPrimary = literal?.parentCtx;
     const primaryExpression = soqlPrimary?.parentCtx;
@@ -4731,7 +4733,7 @@ export class ApexSymbolCollectorListener
       !primaryExpression ||
       !isContextType(primaryExpression, PrimaryExpressionContext)
     ) {
-      return undefined;
+      return;
     }
 
     const initializerOwner = primaryExpression.parentCtx;
@@ -4741,18 +4743,58 @@ export class ApexSymbolCollectorListener
     ) {
       const declarators = initializerOwner.parentCtx;
       const declaration = declarators?.parentCtx;
-      return declaration &&
+      if (
+        declaration &&
         isContextType(declaration, LocalVariableDeclarationContext)
-        ? declaration.typeRef()
-        : undefined;
+      ) {
+        this.markLocalDeclarationTypeAsSObject(declaration, fromName);
+      }
+      return;
     }
-    return initializerOwner &&
+    if (
+      initializerOwner &&
       isContextType(initializerOwner, EnhancedForControlContext)
-      ? initializerOwner.typeRef()
-      : undefined;
+    ) {
+      this.markDeclaredQueryTypeAsSObject(initializerOwner.typeRef(), fromName);
+    }
   }
 
-  private markDeclaredQueryTypeAsSObject(typeRef: TypeRefContext): void {
+  private markLocalDeclarationTypeAsSObject(
+    declaration: LocalVariableDeclarationContext,
+    fromName: string,
+  ): void {
+    const reference = this.localVarDeclToTypeRefMap.get(declaration);
+    if (reference && reference.name.toLowerCase() === fromName.toLowerCase()) {
+      reference.isSObject = true;
+      return;
+    }
+    const typeRef = declaration.typeRef();
+    const typeInfo = createTypeInfoFromTypeRefUtil(typeRef);
+    if (typeInfo.name.toLowerCase() !== 'list') return;
+    const elementName =
+      typeInfo.typeParameters?.[0]?.originalTypeString?.split('.').pop() ??
+      typeInfo.typeParameters?.[0]?.name;
+    if (elementName?.toLowerCase() !== fromName.toLowerCase()) return;
+    const typeRange = this.getLocationForReference(typeRef).identifierRange;
+    for (const candidate of this.symbolTable.getAllReferences()) {
+      const range = candidate.location.identifierRange;
+      if (
+        candidate.name.toLowerCase() === fromName.toLowerCase() &&
+        candidate.context === ReferenceContext.GENERIC_PARAMETER_TYPE &&
+        range.startLine >= typeRange.startLine &&
+        range.endLine <= typeRange.endLine &&
+        range.startColumn >= typeRange.startColumn &&
+        range.endColumn <= typeRange.endColumn
+      ) {
+        candidate.isSObject = true;
+      }
+    }
+  }
+
+  private markDeclaredQueryTypeAsSObject(
+    typeRef: TypeRefContext,
+    fromName: string,
+  ): void {
     const typeInfo = createTypeInfoFromTypeRefUtil(typeRef);
     const normalizedName = typeInfo.name.toLowerCase();
     let evidenceTypeName: string | undefined;
@@ -4770,25 +4812,15 @@ export class ApexSymbolCollectorListener
         typeInfo.originalTypeString?.split('.').pop() ?? typeInfo.name;
     }
 
-    if (!evidenceTypeName) {
+    if (
+      !evidenceTypeName ||
+      evidenceTypeName.toLowerCase() !== fromName.toLowerCase()
+    ) {
       return;
     }
 
-    const typeRange = this.getLocation(typeRef).symbolRange;
     for (const reference of this.symbolTable.getAllReferences()) {
-      const range = reference.location.identifierRange;
-      const withinType =
-        range.startLine > typeRange.startLine ||
-        (range.startLine === typeRange.startLine &&
-          range.startColumn >= typeRange.startColumn);
-      const beforeTypeEnd =
-        range.endLine < typeRange.endLine ||
-        (range.endLine === typeRange.endLine &&
-          range.endColumn <= typeRange.endColumn);
-
       if (
-        withinType &&
-        beforeTypeEnd &&
         reference.name.toLowerCase() === evidenceTypeName.toLowerCase() &&
         (reference.context === ReferenceContext.TYPE_DECLARATION ||
           reference.context === ReferenceContext.PARAMETER_TYPE ||
