@@ -38,11 +38,13 @@ import {
   SymbolKind,
   type ApexSymbol,
   type SymbolTable,
+  type VariableSymbol,
 } from '../../src/types/symbol';
 import {
   findTargetSymbolForReference,
   resolveMemberInContext,
   resolveQualifiedReferenceFromChain,
+  resolveSymbolReferenceToSymbol,
 } from '../../src/symbols/ops/chainResolution';
 import { loadAndRegisterStdlibSymbolTable } from '../../src/symbols/ops/symbolRefResolution';
 import type { SymbolManagerOps } from '../../src/symbols/services/symbolResolver';
@@ -701,6 +703,869 @@ describe('qualifier-scoped member resolution (F11-3 regression guard)', () => {
       'file:///objects/Property__c/fields/Beds__c.field-meta.xml',
     );
   });
+
+  it.each(['native', 'lexical', 'ambiguous', 'missing'] as const)(
+    'narrows an unflagged BusinessHours receiver only from candidate members (%s)',
+    async (scenario) => {
+      const uri = 'file:///test/BusinessHoursMemberNarrowing.cls';
+      const standardClass =
+        await symbolManager.resolveStandardApexClass('BusinessHours');
+      expect(standardClass?.kind).toBe(SymbolKind.Class);
+      const sobjectTable = composeSObjectSymbolTable(
+        {
+          name: 'BusinessHours',
+          custom: false,
+          definitionTarget: { uri: 'org://BusinessHours' },
+          fields: (scenario === 'missing'
+            ? ['TimeZoneSidKey']
+            : ['Name', 'TimeZoneSidKey']
+          ).map((name) => ({
+            name,
+            type: 'string',
+            definitionTarget: { uri: `org://BusinessHours/${name}` },
+          })),
+        },
+        1,
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(
+          sobjectTable,
+          sobjectTable.getFileUri(),
+          1,
+        ),
+      );
+      await compileAndAdd(
+        'public class Unrelated { public String Name { get; set; } }',
+        'file:///test/Unrelated.cls',
+      );
+      if (scenario === 'ambiguous') {
+        await compileAndAdd(
+          'public class BusinessHours { public String Name { get; set; } }',
+          'file:///test/BusinessHours.cls',
+        );
+      }
+      const source = `public class BusinessHoursMemberNarrowing {
+  void run() {
+    BusinessHours bh = new BusinessHours();
+    bh.Name = 'Office';
+    ${scenario === 'native' ? "bh.TimeZoneSidKey = 'America/New_York';" : ''}
+    Boolean open = BusinessHours.isWithin(null, Datetime.now());
+  }
+  ${scenario === 'lexical' ? 'public class BusinessHours { public String Name { get; set; } }' : ''}
+}`;
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
+      const result = compilerService.compile(source, uri, listener);
+      expect(result.errors).toHaveLength(0);
+      const table = listener.getResult();
+      expect(
+        table
+          .getAllReferences()
+          .filter((ref) => ref.name === 'BusinessHours')
+          .some((ref) => ref.isSObject),
+      ).toBe(false);
+      await Effect.runPromise(symbolManager.addSymbolTable(table, uri));
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(uri),
+      );
+      const bh = table
+        .getAllSymbols()
+        .find(
+          (symbol) =>
+            symbol.kind === SymbolKind.Variable && symbol.name === 'bh',
+        ) as VariableSymbol | undefined;
+      expect(bh).toBeDefined();
+      if (scenario === 'native') {
+        const declaredType = await symbolManager.getSymbolAtPosition(
+          uri,
+          { line: 3, character: 5 },
+          'precise',
+        );
+        expect(declaredType?.id).toBe(sobjectTable.getRoots()[0].id);
+        expect(declaredType?.kind).toBe(SymbolKind.SObject);
+        const declaration = table
+          .getAllReferences()
+          .find(
+            (reference) =>
+              `${uri}:${reference.location.identifierRange.startLine}:` +
+                `${reference.location.identifierRange.startColumn}:${reference.name}:` +
+                `${ReferenceContext[reference.context]}` ===
+              bh?.type.typeReferenceId,
+          );
+        expect(declaration).toMatchObject({
+          context: ReferenceContext.TYPE_DECLARATION,
+          resolvedSymbolId: sobjectTable.getRoots()[0].id,
+          isSObject: true,
+        });
+        expect(declaration?.resolvedSymbolId).toBe(bh?.type.resolvedSymbol?.id);
+      }
+      const member = await symbolManager.getSymbolAtPosition(
+        uri,
+        { line: 4, character: 8 },
+        'precise',
+      );
+      if (scenario === 'native') {
+        expect(member?.id).toBe(
+          sobjectTable.getAllSymbols().find((symbol) => symbol.name === 'Name')
+            ?.id,
+        );
+        expect(bh?.type?.resolvedSymbol?.id).toBe(
+          sobjectTable.getRoots()[0].id,
+        );
+        const field = await symbolManager.getSymbolAtPosition(
+          uri,
+          { line: 5, character: 8 },
+          'precise',
+        );
+        expect(field?.id).toBe(
+          sobjectTable
+            .getAllSymbols()
+            .find((symbol) => symbol.name === 'TimeZoneSidKey')?.id,
+        );
+        const receiver = await symbolManager.getSymbolAtPosition(
+          uri,
+          { line: 5, character: 5 },
+          'precise',
+        );
+        expect(receiver?.id).toBe(bh?.id);
+        expect(
+          (receiver as VariableSymbol | null)?.type?.resolvedSymbol?.kind,
+        ).toBe(SymbolKind.SObject);
+      } else if (scenario === 'lexical') {
+        expect(member?.id).toBe(
+          table.getAllSymbols().find((symbol) => symbol.name === 'Name')?.id,
+        );
+        expect(bh?.type?.resolvedSymbol?.kind).toBe(SymbolKind.Class);
+        expect(bh?.type?.resolvedSymbol?.fileUri).toBe(uri);
+      } else {
+        expect(member).toBeNull();
+        expect(bh?.type?.resolvedSymbol?.kind).not.toBe(SymbolKind.SObject);
+      }
+      expect(member?.fileUri).not.toBe('file:///test/Unrelated.cls');
+      if (scenario !== 'lexical' && scenario !== 'ambiguous') {
+        const receiver = await symbolManager.getSymbolAtPosition(
+          uri,
+          { line: 6, character: 20 },
+          'precise',
+        );
+        const method = await symbolManager.getSymbolAtPosition(
+          uri,
+          { line: 6, character: 35 },
+          'precise',
+        );
+        expect(receiver?.id).toBe(standardClass?.id);
+        expect(method?.name).toBe('isWithin');
+        expect(method?.fileUri).toBe(standardClass?.fileUri);
+        const standardTable = standardClass?.fileUri
+          ? ops().symbolRefManager.getSymbolTableForFile(standardClass.fileUri)
+          : undefined;
+        expect(method?.id).toBe(
+          standardTable
+            ?.getAllSymbols()
+            .find(
+              (symbol) =>
+                symbol.kind === SymbolKind.Method && symbol.name === 'isWithin',
+            )?.id,
+        );
+      }
+    },
+  );
+
+  it('narrows a declaration first from an intermediate field in a method-ending chain', async () => {
+    await symbolManager.resolveStandardApexClass('BusinessHours');
+    const native = composeSObjectSymbolTable(
+      {
+        name: 'BusinessHours',
+        custom: false,
+        definitionTarget: { uri: 'org://BusinessHours' },
+        fields: [
+          {
+            name: 'Name',
+            type: 'string',
+            definitionTarget: { uri: 'org://BusinessHours/Name' },
+          },
+        ],
+      },
+      1,
+    );
+    await Effect.runPromise(
+      symbolManager.addSymbolTable(native, native.getFileUri(), 1),
+    );
+    const uri = 'file:///test/IntermediateFieldConsumer.cls';
+    const source = `public class IntermediateFieldConsumer {
+  void run() {
+    BusinessHours bh;
+    String n = bh.Name.toLowerCase();
+  }
+}`;
+    const listener = new ApexSymbolCollectorListener(undefined, 'full');
+    const compiled = compilerService.compile(source, uri, listener);
+    expect(compiled.errors).toHaveLength(0);
+    const table = listener.getResult();
+    const chain = table
+      .getAllReferences()
+      .find((reference) => reference.chainNodes?.length === 3);
+    expect(chain?.context).toBe(ReferenceContext.METHOD_CALL);
+    expect(chain?.chainNodes?.[1]).toMatchObject({
+      name: 'Name',
+      context: ReferenceContext.CHAIN_STEP,
+    });
+    expect(
+      table
+        .getAllReferences()
+        .some(
+          (reference) =>
+            reference.name === 'BusinessHours' && reference.isSObject,
+        ),
+    ).toBe(false);
+    await Effect.runPromise(symbolManager.addSymbolTable(table, uri));
+    await Effect.runPromise(
+      symbolManager.resolveCrossFileReferencesForFile(uri),
+    );
+
+    // No member lookup may establish the binding before this declaration lookup.
+    const declaredType = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 3, character: 5 },
+      'precise',
+    );
+    expect(declaredType?.id).toBe(native.getRoots()[0].id);
+    expect(declaredType?.kind).toBe(SymbolKind.SObject);
+    const bh = table
+      .getAllSymbols()
+      .find(
+        (symbol): symbol is VariableSymbol =>
+          symbol.kind === SymbolKind.Variable && symbol.name === 'bh',
+      );
+    expect(bh?.type.resolvedSymbol?.id).toBe(declaredType?.id);
+    const expressionLine = source.split('\n')[3];
+    const field = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 4, character: expressionLine.indexOf('Name') + 1 },
+      'precise',
+    );
+    expect(field?.id).toBe(
+      native.getAllSymbols().find((symbol) => symbol.name === 'Name')?.id,
+    );
+    const method = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 4, character: expressionLine.indexOf('toLowerCase') + 1 },
+      'precise',
+    );
+    expect(method).toMatchObject({
+      name: 'toLowerCase',
+      kind: SymbolKind.Method,
+      fileUri: 'apexlib://resources/StandardApexLibrary/System/String.cls',
+    });
+  });
+
+  it.each(['invocation', 'variable'] as const)(
+    'uses only variable chain heads as declaration member evidence (%s)',
+    async (scenario) => {
+      const standardClass =
+        await symbolManager.resolveStandardApexClass('BusinessHours');
+      expect(standardClass).toBeDefined();
+      const native = composeSObjectSymbolTable(
+        {
+          name: 'BusinessHours',
+          custom: false,
+          definitionTarget: { uri: 'org://BusinessHours' },
+          fields: [
+            {
+              name: 'Name',
+              type: 'string',
+              definitionTarget: { uri: 'org://BusinessHours/Name' },
+            },
+          ],
+        },
+        1,
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(native, native.getFileUri(), 1),
+      );
+      const uri = 'file:///test/InvocationHeadConsumer.cls';
+      const source = `public class InvocationHeadConsumer {
+  void run() {
+    BusinessHours bh;
+    String n = bh${scenario === 'invocation' ? '()' : ''}.Name.toLowerCase();
+  }
+  Other bh() { return new Other(); }
+  public class Other { public String Name; }
+}`;
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
+      const compiled = compilerService.compile(source, uri, listener);
+      expect(compiled.errors).toHaveLength(0);
+      const table = listener.getResult();
+      const references = table.getAllReferences();
+      const chain = references.find(
+        (reference) => reference.chainNodes?.length === 3,
+      );
+      const headRange = chain?.chainNodes?.[0].location.identifierRange;
+      expect(headRange).toBeDefined();
+      expect(
+        references.some(
+          (reference) =>
+            reference.name === 'bh' &&
+            reference.context === ReferenceContext.METHOD_CALL &&
+            reference.location.identifierRange.startLine ===
+              headRange?.startLine &&
+            reference.location.identifierRange.startColumn ===
+              headRange?.startColumn,
+        ),
+      ).toBe(scenario === 'invocation');
+      const declaration = references.find(
+        (reference) =>
+          reference.name === 'BusinessHours' &&
+          reference.context === ReferenceContext.TYPE_DECLARATION,
+      );
+      const bh = table
+        .getAllSymbols()
+        .find(
+          (symbol): symbol is VariableSymbol =>
+            symbol.kind === SymbolKind.Variable && symbol.name === 'bh',
+        );
+      expect(bh).toBeDefined();
+      await Effect.runPromise(symbolManager.addSymbolTable(table, uri));
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(uri),
+      );
+
+      // Request the declaration first: no member hover may establish its binding.
+      const declaredType = await symbolManager.getSymbolAtPosition(
+        uri,
+        { line: 3, character: 5 },
+        'precise',
+      );
+      if (scenario === 'invocation') {
+        expect(bh?.type.resolvedSymbol?.id).toBe(standardClass?.id);
+        expect(declaration?.isSObject).not.toBe(true);
+        expect(declaration?.resolvedSymbolId).not.toBe(native.getRoots()[0].id);
+        expect(declaredType?.id).toBe(standardClass?.id);
+      } else {
+        expect(bh?.type.resolvedSymbol?.id).toBe(native.getRoots()[0].id);
+        expect(declaration?.isSObject).toBe(true);
+        expect(declaredType?.id).toBe(native.getRoots()[0].id);
+      }
+    },
+  );
+
+  it.each(['inherited-ambiguous', 'unique-workspace'] as const)(
+    'preserves candidate membership and declaration identity (%s)',
+    async (scenario) => {
+      const standardClass =
+        await symbolManager.resolveStandardApexClass('BusinessHours');
+      const native = composeSObjectSymbolTable(
+        {
+          name: 'BusinessHours',
+          custom: false,
+          definitionTarget: { uri: 'org://BusinessHours' },
+          fields:
+            scenario === 'inherited-ambiguous'
+              ? [
+                  {
+                    name: 'Name',
+                    type: 'string',
+                    definitionTarget: { uri: 'org://BusinessHours/Name' },
+                  },
+                ]
+              : [],
+        },
+        1,
+      );
+      await compileAndAdd(
+        'public virtual class MemberBase { public String Name { get; set; } }',
+        'file:///test/MemberBase.cls',
+      );
+      const workspaceUri = 'file:///test/BusinessHours.cls';
+      const uri = 'file:///test/CandidateIdentityConsumer.cls';
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
+      const compiled = compilerService.compile(
+        `public class CandidateIdentityConsumer {
+  void run() {
+    BusinessHours bh;
+    bh.Name = 'Office';
+  }
+}`,
+        uri,
+        listener,
+      );
+      expect(compiled.errors).toHaveLength(0);
+      const table = listener.getResult();
+      await Effect.runPromise(symbolManager.addSymbolTable(table, uri));
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(uri),
+      );
+      const bh = table
+        .getAllSymbols()
+        .find(
+          (symbol): symbol is VariableSymbol =>
+            symbol.kind === SymbolKind.Variable && symbol.name === 'bh',
+        );
+      expect(bh).toBeDefined();
+      expect(bh?.type.resolvedSymbol?.id).toBe(standardClass?.id);
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(native, native.getFileUri(), 1),
+      );
+      await compileAndAdd(
+        scenario === 'inherited-ambiguous'
+          ? 'public class BusinessHours extends MemberBase {}'
+          : 'public class BusinessHours { public String Name { get; set; } }',
+        workspaceUri,
+      );
+      const workspace = await classSymbol(workspaceUri, 'BusinessHours');
+      const declaration = table
+        .getAllReferences()
+        .find(
+          (reference) =>
+            `${uri}:${reference.location.identifierRange.startLine}:` +
+              `${reference.location.identifierRange.startColumn}:${reference.name}:` +
+              ReferenceContext[reference.context] ===
+            bh?.type.typeReferenceId,
+        );
+      expect(declaration?.context).toBe(ReferenceContext.TYPE_DECLARATION);
+      for (let pass = 0; pass < 3; pass++) {
+        await Effect.runPromise(
+          symbolManager.resolveCrossFileReferencesForFile(uri),
+        );
+        if (scenario === 'unique-workspace') {
+          expect(declaration?.resolvedSymbolId, `graph pass ${pass}`).toBe(
+            workspace.id,
+          );
+          expect(bh?.type.resolvedSymbol?.id).toBe(workspace.id);
+        }
+        // Hover the declaration first: it must not restore the stdlib default
+        // before any subsequent member hover can narrow the receiver again.
+        const declaredType = await symbolManager.getSymbolAtPosition(
+          uri,
+          { line: 3, character: 5 },
+          'precise',
+        );
+        if (scenario === 'unique-workspace') {
+          expect(declaredType?.id, `declaration hover pass ${pass}`).toBe(
+            workspace.id,
+          );
+          expect(declaration?.resolvedSymbolId).toBe(workspace.id);
+          expect(bh?.type.resolvedSymbol?.id).toBe(workspace.id);
+        } else {
+          expect(declaration?.isSObject).not.toBe(true);
+          expect(declaration?.resolvedSymbolId).not.toBe(
+            native.getRoots()[0].id,
+          );
+          expect(bh?.type.resolvedSymbol?.kind).not.toBe(SymbolKind.SObject);
+        }
+        const member = await symbolManager.getSymbolAtPosition(
+          uri,
+          { line: 4, character: 8 },
+          'precise',
+        );
+        if (scenario === 'inherited-ambiguous') expect(member).toBeNull();
+        else {
+          expect(member?.fileUri).toBe(workspaceUri);
+          expect(declaration?.resolvedSymbolId).toBe(workspace.id);
+          expect(bh?.type.resolvedSymbol?.id).toBe(workspace.id);
+        }
+      }
+    },
+  );
+
+  it('resolves an explicitly qualified workspace inner type despite a native leaf-name collision', async () => {
+    const outerUri = 'file:///test/Outer.cls';
+    await compileAndAdd(
+      'public class Outer { public class Inner { public String field; } }',
+      outerUri,
+    );
+    const native = composeSObjectSymbolTable(
+      {
+        name: 'Inner',
+        custom: false,
+        definitionTarget: { uri: 'org://Inner' },
+        fields: [
+          {
+            name: 'field',
+            type: 'string',
+            definitionTarget: { uri: 'org://Inner/field' },
+          },
+        ],
+      },
+      1,
+    );
+    await Effect.runPromise(
+      symbolManager.addSymbolTable(native, native.getFileUri(), 1),
+    );
+    const uri = 'file:///test/QualifiedInnerConsumer.cls';
+    await compileAndAdd(
+      `public class QualifiedInnerConsumer {
+  void run() {
+    Outer.Inner value;
+    value.field = 'workspace';
+  }
+}`,
+      uri,
+    );
+    await Effect.runPromise(
+      symbolManager.resolveCrossFileReferencesForFile(uri),
+    );
+    const expected = (await symbolManager.findSymbolsInFile(outerUri)).find(
+      (symbol) => symbol.name === 'field',
+    );
+    expect(expected).toBeDefined();
+    const selected = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 4, character: 11 },
+      'precise',
+    );
+    expect(selected?.id).toBe(expected?.id);
+    const value = (await symbolManager.findSymbolsInFile(uri)).find(
+      (symbol) => symbol.name === 'value',
+    ) as VariableSymbol;
+    expect(value.type.resolvedSymbol?.fileUri).toBe(outerUri);
+  });
+
+  it.each(['repeat', 'shared', 'inaccessible', 'shared-ambiguous'] as const)(
+    'keeps exact declaration identity consistent during member narrowing (%s)',
+    async (scenario) => {
+      await symbolManager.resolveStandardApexClass('BusinessHours');
+      const native = composeSObjectSymbolTable(
+        {
+          name: 'BusinessHours',
+          custom: false,
+          definitionTarget: { uri: 'org://BusinessHours' },
+          fields: ['Name', 'TimeZoneSidKey'].map((name) => ({
+            name,
+            type: 'string',
+            definitionTarget: { uri: `org://BusinessHours/${name}` },
+          })),
+        },
+        1,
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(native, native.getFileUri(), 1),
+      );
+      if (scenario === 'inaccessible') {
+        await compileAndAdd(
+          'public class UnrelatedOwner { private class BusinessHours { public String Name; } }',
+          'file:///test/UnrelatedOwner.cls',
+        );
+      }
+      if (scenario === 'shared-ambiguous') {
+        await compileAndAdd(
+          'public class BusinessHours { public String Name; }',
+          'file:///test/BusinessHours.cls',
+        );
+      }
+      const shared = scenario === 'shared' || scenario === 'shared-ambiguous';
+      const uri = 'file:///test/DeclarationIdentityConsumer.cls';
+      const source = `public class DeclarationIdentityConsumer {
+  void run() {
+    BusinessHours bh${shared ? ', other' : ''};
+    bh.Name = 'Office';
+    ${shared ? "other.Name = 'Other';" : ''}
+  }
+}`;
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
+      const compiled = compilerService.compile(source, uri, listener);
+      expect(compiled.errors).toHaveLength(0);
+      const table = listener.getResult();
+      await Effect.runPromise(symbolManager.addSymbolTable(table, uri));
+      const variables = table
+        .getAllSymbols()
+        .filter(
+          (symbol) => symbol.kind === SymbolKind.Variable,
+        ) as VariableSymbol[];
+      expect(variables).toHaveLength(shared ? 2 : 1);
+      const bh = variables.find((symbol) => symbol.name === 'bh')!;
+      // A single parser-owned type token describes every declarator in this
+      // statement: narrowing that token must update all of its TypeInfo links.
+      if (shared)
+        expect(variables[1].type.typeReferenceId).toBe(bh.type.typeReferenceId);
+      const declaration = table
+        .getAllReferences()
+        .find(
+          (reference) =>
+            `${uri}:${reference.location.identifierRange.startLine}:` +
+              `${reference.location.identifierRange.startColumn}:${reference.name}:` +
+              ReferenceContext[reference.context] ===
+            bh.type.typeReferenceId,
+        );
+      expect(declaration?.context).toBe(ReferenceContext.TYPE_DECLARATION);
+      for (let pass = 0; pass < 3; pass++) {
+        await Effect.runPromise(
+          symbolManager.resolveCrossFileReferencesForFile(uri),
+        );
+        if (scenario === 'shared-ambiguous') {
+          expect(declaration?.isSObject).not.toBe(true);
+          for (const variable of variables)
+            expect(variable.type.resolvedSymbol?.kind).not.toBe(
+              SymbolKind.SObject,
+            );
+        } else {
+          expect(
+            declaration?.resolvedSymbolId,
+            `declaration pass ${pass}`,
+          ).toBe(native.getRoots()[0].id);
+          expect(declaration?.isSObject).toBe(true);
+          for (const variable of variables) {
+            expect(
+              variable.type.resolvedSymbol?.id,
+              `${variable.name} pass ${pass}`,
+            ).toBe(declaration?.resolvedSymbolId);
+          }
+        }
+        const member = await symbolManager.getSymbolAtPosition(
+          uri,
+          { line: 4, character: 8 },
+          'precise',
+        );
+        if (scenario === 'shared-ambiguous') expect(member).toBeNull();
+        else
+          expect(member?.id).toBe(
+            native.getAllSymbols().find((symbol) => symbol.name === 'Name')?.id,
+          );
+        if (shared) {
+          const otherMember = await symbolManager.getSymbolAtPosition(
+            uri,
+            { line: 5, character: 11 },
+            'precise',
+          );
+          if (scenario === 'shared-ambiguous') expect(otherMember).toBeNull();
+          else expect(otherMember?.id).toBe(member?.id);
+        }
+      }
+    },
+  );
+
+  it('keeps an explicitly qualified System.BusinessHours instance bound to stdlib', async () => {
+    const standardClass = await symbolManager.resolveStandardApexClass(
+      'System.BusinessHours',
+    );
+    expect(standardClass?.kind).toBe(SymbolKind.Class);
+    const sobjectTable = composeSObjectSymbolTable(
+      {
+        name: 'BusinessHours',
+        custom: false,
+        definitionTarget: { uri: 'org://BusinessHours' },
+        fields: [
+          {
+            name: 'Name',
+            type: 'string',
+            definitionTarget: { uri: 'org://BusinessHours/Name' },
+          },
+        ],
+      },
+      1,
+    );
+    await Effect.runPromise(
+      symbolManager.addSymbolTable(sobjectTable, sobjectTable.getFileUri(), 1),
+    );
+    const uri = 'file:///test/QualifiedBusinessHours.cls';
+    const source = `public class QualifiedBusinessHours {
+  void run() {
+    System.BusinessHours bh;
+    bh.Name = 'Office';
+  }
+}`;
+    await compileAndAdd(source, uri);
+    await Effect.runPromise(
+      symbolManager.resolveCrossFileReferencesForFile(uri),
+    );
+    const bh = (await symbolManager.findSymbolsInFile(uri)).find(
+      (symbol) => symbol.kind === SymbolKind.Variable && symbol.name === 'bh',
+    ) as VariableSymbol;
+    expect(bh.type.originalTypeString).toBe('System.BusinessHours');
+    const declaredType = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 3, character: 15 },
+      'precise',
+    );
+    expect(declaredType?.id).toBe(standardClass?.id);
+    const member = await symbolManager.getSymbolAtPosition(
+      uri,
+      { line: 4, character: 8 },
+      'precise',
+    );
+    expect(member).toBeNull();
+    expect(bh.type.resolvedSymbol?.id).toBe(standardClass?.id);
+  });
+
+  it.each(['workspace', 'lexical'] as const)(
+    'preserves inherited fields and properties on an authoritative %s binding despite an SObject collision',
+    async (scenario) => {
+      const baseUri = 'file:///test/MemberBase.cls';
+      await compileAndAdd(
+        'public virtual class MemberBase { public String inheritedField; ' +
+          'public String inheritedProperty { get; set; } }',
+        baseUri,
+      );
+      const sobjectTable = composeSObjectSymbolTable(
+        {
+          name: 'CollisionType',
+          custom: false,
+          definitionTarget: { uri: 'org://CollisionType' },
+          fields: [],
+        },
+        1,
+      );
+      const classUri = 'file:///test/CollisionType.cls';
+      const declaration = 'public class CollisionType extends MemberBase {}';
+      if (scenario === 'workspace') {
+        await compileAndAdd(declaration, classUri);
+      }
+      const uri = 'file:///test/InheritedCollisionConsumer.cls';
+      await compileAndAdd(
+        `public class InheritedCollisionConsumer {
+  void run() {
+    CollisionType receiver;
+    receiver.inheritedField = 'Field';
+    receiver.inheritedProperty = 'Property';
+  }
+  ${scenario === 'lexical' ? declaration : ''}
+}`,
+        uri,
+      );
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(uri),
+      );
+      const receiver = (await symbolManager.findSymbolsInFile(uri)).find(
+        (symbol) =>
+          symbol.kind === SymbolKind.Variable && symbol.name === 'receiver',
+      ) as VariableSymbol;
+      const boundType = receiver.type.resolvedSymbol as ApexSymbol;
+      expect(boundType).toMatchObject({
+        kind: SymbolKind.Class,
+        name: 'CollisionType',
+        fileUri: scenario === 'lexical' ? uri : classUri,
+      });
+      // Load the collision after the parser/manager establishes the class binding.
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(
+          sobjectTable,
+          sobjectTable.getFileUri(),
+          1,
+        ),
+      );
+      const baseSymbols = await symbolManager.findSymbolsInFile(baseUri);
+      for (const [name, kind, line] of [
+        ['inheritedField', SymbolKind.Field, 4],
+        ['inheritedProperty', SymbolKind.Property, 5],
+      ] as const) {
+        const expected = baseSymbols.find((symbol) => symbol.name === name);
+        expect(expected?.kind).toBe(kind);
+        // The normal type resolver already knows how to traverse inheritance.
+        const inherited = await resolveMemberInContext(
+          ops(),
+          { type: 'symbol', symbol: boundType },
+          name,
+          kind,
+        );
+        expect(inherited?.id).toBe(expected?.id);
+        const member = await symbolManager.getSymbolAtPosition(
+          uri,
+          { line, character: 15 },
+          'precise',
+        );
+        expect(member?.id).toBe(expected?.id);
+        expect(receiver.type.resolvedSymbol?.id).toBe(boundType.id);
+      }
+    },
+  );
+
+  it.each([ReferenceContext.TYPE_DECLARATION, ReferenceContext.SOQL_FROM_TYPE])(
+    'resolves BusinessHours SObject evidence without changing its static receiver (%s)',
+    async (context) => {
+      const uri = 'file:///test/BusinessHoursCollision.cls';
+      const standardClass =
+        await symbolManager.resolveStandardApexClass('BusinessHours');
+      expect(standardClass?.kind).toBe(SymbolKind.Class);
+
+      const sobjectTable = composeSObjectSymbolTable(
+        {
+          name: 'BusinessHours',
+          custom: false,
+          definitionTarget: { uri: 'org://BusinessHours' },
+          fields: [
+            {
+              name: 'Id',
+              type: 'id',
+              definitionTarget: { uri: 'org://BusinessHours/Id' },
+            },
+            {
+              name: 'IsDefault',
+              type: 'boolean',
+              definitionTarget: { uri: 'org://BusinessHours/IsDefault' },
+            },
+          ],
+        },
+        1,
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(
+          sobjectTable,
+          sobjectTable.getFileUri(),
+          1,
+        ),
+      );
+      const listener = new ApexSymbolCollectorListener(undefined, 'full');
+      const result = compilerService.compile(
+        `public class BusinessHoursCollision {
+  void run() {
+    BusinessHours bh = [SELECT Id FROM BusinessHours WHERE IsDefault = true LIMIT 1];
+    Boolean open = BusinessHours.isWithin(bh.Id, Datetime.now());
+  }
+}`,
+        uri,
+        listener,
+      );
+      expect(result.errors).toHaveLength(0);
+      const table = listener.getResult();
+      await Effect.runPromise(symbolManager.addSymbolTable(table, uri));
+      const reference = table
+        .getAllReferences()
+        .find((ref) => ref.name === 'BusinessHours' && ref.context === context);
+      expect(reference?.isSObject).toBe(true);
+      if (!reference) return;
+
+      const standardTable = standardClass?.fileUri
+        ? ops().symbolRefManager.getSymbolTableForFile(standardClass.fileUri)
+        : undefined;
+      expect(standardTable).toBeDefined();
+      expect(
+        await findTargetSymbolForReference(
+          ops(),
+          reference,
+          uri,
+          undefined,
+          standardTable,
+        ),
+      ).toBeNull();
+
+      const resolved = await resolveSymbolReferenceToSymbol(
+        ops(),
+        reference,
+        uri,
+      );
+      expect(resolved?.id).toBe(sobjectTable.getRoots()[0].id);
+      expect(resolved?.kind).toBe(SymbolKind.SObject);
+
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(uri),
+      );
+      const selected = await symbolManager.getSymbolAtPosition(
+        uri,
+        {
+          line: reference.location.identifierRange.startLine,
+          character: reference.location.identifierRange.startColumn + 1,
+        },
+        'precise',
+      );
+      expect(selected?.id).toBe(sobjectTable.getRoots()[0].id);
+      const receiver = await symbolManager.getSymbolAtPosition(
+        uri,
+        { line: 4, character: 20 },
+        'precise',
+      );
+      expect(receiver?.id).toBe(standardClass?.id);
+      expect(receiver?.kind).toBe(SymbolKind.Class);
+    },
+  );
 
   it.each([true, false])(
     'selects intermediate assignment members only when present on the receiver owner (%s)',

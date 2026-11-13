@@ -97,6 +97,16 @@ export type RequestKind =
   | 'completion'
   | 'signatureHelp';
 
+/**
+ * The operation that initiated artifact discovery. `mode` independently
+ * describes whether that operation waits for the result.
+ */
+export type ArtifactRequestKind =
+  | RequestKind
+  | import('./workerWireSchemas').LSPRequestType
+  | 'workspace-load'
+  | 'file-open-single';
+
 // ReferenceContext enum values for type-safe context checking
 export enum ReferenceContext {
   METHOD_CALL = 0,
@@ -276,7 +286,7 @@ export interface FindMissingArtifactParams {
   readonly origin: {
     readonly uri: string;
     readonly position?: { line: number; character: number };
-    readonly requestKind: RequestKind;
+    readonly requestKind: ArtifactRequestKind;
   };
   readonly mode: 'blocking' | 'background';
   readonly maxCandidates?: number;

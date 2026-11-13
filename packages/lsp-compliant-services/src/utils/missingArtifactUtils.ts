@@ -6,12 +6,13 @@
  * repo root or https://opensource.org/licenses/BSD-3-Clause
  */
 
-import { LoggerInterface } from '@salesforce/apex-lsp-shared';
+import { LoggerInterface, type RequestKind } from '@salesforce/apex-lsp-shared';
 import {
   ISymbolManager,
   ReferenceContext,
   SymbolReference,
   isChainedSymbolReference,
+  isVariableSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
 
 import {
@@ -90,7 +91,7 @@ export class MissingArtifactUtils {
   public async tryResolveMissingArtifactBackground(
     uri: string,
     position: any,
-    requestKind: 'hover' | 'definition' | 'completion' | 'references',
+    requestKind: RequestKind,
   ): Promise<BackgroundResolutionOutcome> {
     const service = this.getSObjectEnrichmentService();
     if (!service) {
@@ -192,7 +193,7 @@ export class MissingArtifactUtils {
   public async tryResolveMissingArtifactBlocking(
     uri: string,
     position: any,
-    requestKind: 'hover' | 'definition' | 'completion' | 'references',
+    requestKind: RequestKind,
   ): Promise<BlockingResult> {
     const service = this.getSObjectEnrichmentService();
     if (!service) {
@@ -337,22 +338,10 @@ export class MissingArtifactUtils {
     }
   }
 
-  /**
-   * An ambiguous type can be an sObject only when the local semantic graph also
-   * contains a same-named class. Otherwise retain the normal lazy sObject path
-   * until parser-owned member or SOQL evidence makes it conclusive.
-   */
   private async classifyArtifactCandidates(
     reference: any,
   ): Promise<ReturnType<typeof classifyMissingArtifactCandidates>> {
-    const candidates = classifyMissingArtifactCandidates(reference);
-    if (!candidates.includes('sobject') || reference.isSObject === true) {
-      return candidates;
-    }
-    const symbols = await this.symbolManager.findSymbolByName(reference.name);
-    return symbols.some((symbol) => symbol.kind === 'class')
-      ? candidates
-      : candidates.filter((candidate) => candidate !== 'sobject');
+    return classifyMissingArtifactCandidates(reference);
   }
 
   /**
@@ -484,7 +473,17 @@ export class MissingArtifactUtils {
           () =>
             `Found reference at position: ${reference.name} (context: ${reference.context})`,
         );
-        return { reference, cursorReference: selection.cursorReference };
+        const receiverDeclaration = await this.extractReceiverDeclaration(
+          uri,
+          reference,
+          selection.cursorReference,
+        );
+        return receiverDeclaration
+          ? {
+              reference: receiverDeclaration,
+              cursorReference: receiverDeclaration,
+            }
+          : { reference, cursorReference: selection.cursorReference };
       }
 
       // No references found at precise position
@@ -500,6 +499,65 @@ export class MissingArtifactUtils {
       );
       return null;
     }
+  }
+
+  private async extractReceiverDeclaration(
+    uri: string,
+    reference: SymbolReference,
+    cursorReference: SymbolReference,
+  ): Promise<SymbolReference | undefined> {
+    if (!isChainedSymbolReference(reference)) return undefined;
+    const nodes = reference.chainNodes ?? [];
+    const selectedIndex = nodes.indexOf(cursorReference);
+    if (selectedIndex !== 1) return undefined;
+    const receiver = nodes[0];
+    if (receiver.context === ReferenceContext.METHOD_CALL) return undefined;
+    const receiverPosition = {
+      line: receiver.location.identifierRange.startLine,
+      character: receiver.location.identifierRange.startColumn,
+    };
+    const receiverReferences = await this.symbolManager.getReferencesAtPosition(
+      uri,
+      receiverPosition,
+    );
+    // An ambiguous chain head can also have a standalone parser invocation.
+    // Its result is not evidence about a same-named variable's declared type.
+    if (
+      receiverReferences?.some(
+        (candidate) =>
+          candidate.context === ReferenceContext.METHOD_CALL &&
+          !isChainedSymbolReference(candidate) &&
+          candidate.location.identifierRange.startLine ===
+            receiverPosition.line &&
+          candidate.location.identifierRange.startColumn ===
+            receiverPosition.character,
+      )
+    )
+      return undefined;
+    const receiverSymbol = receiver.resolvedSymbolId
+      ? await this.symbolManager.getSymbol(receiver.resolvedSymbolId)
+      : await this.symbolManager.getSymbolAtPosition(
+          uri,
+          receiverPosition,
+          'precise',
+        );
+    if (!receiverSymbol || !isVariableSymbol(receiverSymbol)) return undefined;
+    const referenceId = receiverSymbol.type?.typeReferenceId;
+    if (!referenceId) return undefined;
+    const table = await this.symbolManager.getSymbolTableForFile(
+      receiverSymbol.fileUri,
+    );
+    // Follow the collector's declaration link, not a same-named type elsewhere
+    // in the file or the member token that cannot identify an artifact owner.
+    return table?.getAllReferences().find((candidate) => {
+      const range = candidate.location.identifierRange;
+      return (
+        candidate.context === ReferenceContext.TYPE_DECLARATION &&
+        referenceId ===
+          `${receiverSymbol.fileUri}:${range.startLine}:${range.startColumn}:` +
+            `${candidate.name}:${ReferenceContext[candidate.context]}`
+      );
+    });
   }
 
   /**

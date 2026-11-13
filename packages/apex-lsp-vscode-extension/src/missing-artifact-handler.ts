@@ -59,13 +59,21 @@ export async function handleFindMissingArtifact(
   params: FindMissingArtifactParams,
   _context: vscode.ExtensionContext,
   dependencies: MissingArtifactHandlerDependencies = createDefaultDependencies(),
+  ingestDocument?: (document: vscode.TextDocument) => void,
 ): Promise<FindMissingArtifactResult> {
   const names = params.identifiers.map(({ name }) => name).join(', ');
   logToOutputChannel(
     `🔍 Handling missing artifact request for: ${names}`,
     'debug',
   );
-  return resolveMissingArtifacts(params, createResolverProvider(dependencies));
+  return resolveMissingArtifacts(
+    params,
+    createResolverProvider(
+      dependencies,
+      params.origin.requestKind,
+      ingestDocument,
+    ),
+  );
 }
 
 function createDefaultDependencies(): MissingArtifactHandlerDependencies {
@@ -87,6 +95,8 @@ function createDefaultDependencies(): MissingArtifactHandlerDependencies {
 
 function createResolverProvider(
   dependencies: MissingArtifactHandlerDependencies,
+  requestKind: FindMissingArtifactParams['origin']['requestKind'],
+  ingestDocument?: (document: vscode.TextDocument) => void,
 ): OrgArtifactResolverProvider {
   return {
     isAvailable: dependencies.servicesAvailability.isAvailable,
@@ -108,7 +118,8 @@ function createResolverProvider(
       dependencies.sObjectAdapter.adapt(describe, generation),
     materializeSource: (input, generation) =>
       dependencies.fileSystem.materializeSource(input, generation)?.toString(),
-    openDocument: (uri, mode) => openDocument(vscode.Uri.parse(uri), mode),
+    openDocument: (uri, mode) =>
+      openDocument(vscode.Uri.parse(uri), mode, requestKind, ingestDocument),
     generation: () => dependencies.fileSystem.generation,
     sameDocument: (left, right) => {
       try {
@@ -200,11 +211,18 @@ async function notifySalesforceServicesUnavailable(
 async function openDocument(
   uri: vscode.Uri,
   mode: FindMissingArtifactParams['mode'],
+  requestKind: FindMissingArtifactParams['origin']['requestKind'],
+  ingestDocument?: (document: vscode.TextDocument) => void,
 ): Promise<boolean> {
   try {
     const document = await vscode.workspace.openTextDocument(uri);
-    if (mode === 'blocking') {
+    const revealDocument = mode === 'blocking' && requestKind === 'definition';
+    if (revealDocument) {
       await vscode.window.showTextDocument(document, { preview: false });
+    } else {
+      // Loading a document without revealing it does not synchronize it to the
+      // language server, so explicitly ingest recovered background sources.
+      ingestDocument?.(document);
     }
     logToOutputChannel(`✅ Opened file: ${uri.toString()}`, 'debug');
     return true;
