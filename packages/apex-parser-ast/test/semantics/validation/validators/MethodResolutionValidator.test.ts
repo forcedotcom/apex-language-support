@@ -439,6 +439,87 @@ private class FileUtilitiesTest {
   });
 
   describe('TIER 2: Return type checking', () => {
+    it('does not compare nested method calls to the outer assignment target', async () => {
+      const source = `
+        public class NestedCallResultTarget {
+          public Integer field;
+          public NestedCallResultTarget getObj() { return this; }
+          public Integer count() { return 1; }
+          public void run() {
+            Integer fieldValue = getObj().field;
+            Integer countValue = getObj().count();
+            Boolean comparison = getObj() == null;
+            fieldValue = getObj().field;
+          }
+        }
+      `;
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        source,
+        'file:///test/NestedCallResultTarget.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(
+        result.errors.filter(
+          (error: any) =>
+            error.code === ErrorCodes.METHOD_DOES_NOT_SUPPORT_RETURN_TYPE,
+        ),
+      ).toEqual([]);
+    });
+
+    it('resolves chained calls from their immediate method result type', async () => {
+      const source = `
+        public class ChainedCallReceiverType {
+          public ChainedCallReceiverType getObj() { return this; }
+          public Integer count() { return 1; }
+          public void run() {
+            Integer valid = getObj().count();
+            String incompatible = getObj().count();
+            getObj().missing();
+          }
+        }
+      `;
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        source,
+        'file:///test/ChainedCallReceiverType.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      const invalidMethods = (result.errors as any[]).filter(
+        (error: any) => error.code === ErrorCodes.INVALID_METHOD_NOT_FOUND,
+      );
+      const missingErrors = invalidMethods.filter((error: any) =>
+        error.message?.includes('missing'),
+      );
+      expect(missingErrors).toHaveLength(1);
+
+      const returnTypeErrors = (result.errors as any[]).filter(
+        (error: any) =>
+          error.code === ErrorCodes.METHOD_DOES_NOT_SUPPORT_RETURN_TYPE,
+      );
+      expect(returnTypeErrors).toHaveLength(1);
+      expect(returnTypeErrors[0].message).toContain('count');
+      expect(returnTypeErrors[0].message).toContain('String');
+    });
+
     it('should validate method calls with correct return types', async () => {
       // First compile the class with return types
       await compileFixtureWithOptions(
