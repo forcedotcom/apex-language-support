@@ -7,13 +7,20 @@
  */
 
 import { vi } from 'vitest';
-import { DefinitionProcessingService } from '@salesforce/apex-lsp-compliant-services';
+import {
+  DefinitionProcessingService,
+  HoverProcessingService,
+} from '@salesforce/apex-lsp-compliant-services';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import { Effect, LogLevel } from 'effect';
 import {
   ApexSymbolManager,
   CompilerService,
   FullSymbolCollectorListener,
+  ResourceLoader,
+  ReferenceContext,
+  SymbolKind,
+  composeSObjectSymbolTable,
   SymbolTable,
   VisibilitySymbolListener,
 } from '@salesforce/apex-lsp-parser-ast';
@@ -864,13 +871,13 @@ describe('worker.platform.shared', () => {
     );
     expect(artifactRequests).toHaveLength(1);
     expect(artifactRequests[0][1]).toMatchObject({
-      identifiers: [
-        {
+      identifiers: expect.arrayContaining([
+        expect.objectContaining({
           name: 'ContentVersion',
           identifierType: 'sobject',
           allowSObjectPlaceholder: false,
-        },
-      ],
+        }),
+      ]),
     });
   });
 
@@ -926,44 +933,562 @@ describe('worker.platform.shared', () => {
     );
     expect(artifactRequests).toHaveLength(1);
     expect(artifactRequests[0][1]).toMatchObject({
-      identifiers: [
-        {
+      identifiers: expect.arrayContaining([
+        expect.objectContaining({
           name: 'ContentVersion',
           identifierType: 'sobject',
           allowSObjectPlaceholder: false,
-        },
-      ],
+        }),
+      ]),
     });
   });
 
-  it('requests a cold sObject describe for a field hover', async () => {
-    const uri = 'file:///ContentVersionReceiver.cls';
-    const fieldUri =
-      'file:///objects/ContentVersion/fields/VersionData.field-meta.xml';
-    const assistance = vi.fn(async (method: string) => {
-      if (method === 'apex/findMissingArtifact') {
-        return {
-          artifacts: [
+  it.each([
+    ['child', 'file:///Wrapper.cls', 13],
+    ['nested', 'file:///Child.cls', 19],
+    ['total', 'file:///Grandchild.cls', 26],
+  ] as const)(
+    'loads cold multi-hop assignment dependencies for %s',
+    async (member, ownerUri, character) => {
+      const uri = 'file:///Caller.cls';
+      const dependencySources = new Map([
+        ['Wrapper', 'public class Wrapper { public Child child; }'],
+        [
+          'Child',
+          'public class Child { public Grandchild nested; public Integer total; }',
+        ],
+        ['Grandchild', 'public class Grandchild { public Integer total; }'],
+      ]);
+      const assistance = vi.fn(async (method: string, params: unknown) => {
+        if (method === 'dataOwner:ResolveDepUris') {
+          const names = (params as { classNames: string[] }).classNames;
+          return {
+            entries: Object.fromEntries(
+              names.flatMap((name) => {
+                const source = dependencySources.get(name);
+                return source
+                  ? [
+                      [
+                        `file:///${name}.cls`,
+                        compileToWireSymbolTable(source, `file:///${name}.cls`),
+                      ],
+                    ]
+                  : [];
+              }),
+            ),
+          };
+        }
+        if (method === 'dataOwner:QuerySymbolByName') {
+          const names = (params as { names: string[] }).names;
+          return {
+            entries: Object.fromEntries(
+              names.flatMap((name) => {
+                const source = dependencySources.get(name);
+                return source
+                  ? [
+                      [
+                        `file:///${name}.cls`,
+                        compileToWireSymbolTable(source, `file:///${name}.cls`),
+                      ],
+                    ]
+                  : [];
+              }),
+            ),
+          };
+        }
+        return { entries: {}, versions: {}, detailLevels: {} };
+      });
+      setAssistanceTransport(assistance);
+      const symbolManager = new ApexSymbolManager();
+      const svc = {
+        storageManager: { getStorage: () => ({ setDocument: vi.fn() }) },
+        symbolManager,
+      } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
+      const source = [
+        'public class Caller {',
+        '  public Child child;',
+        '  public Grandchild nested;',
+        '  public Integer total;',
+        '  void run(Wrapper receiver) {',
+        '    receiver.child.nested.total = 1;',
+        '  }',
+        '}',
+      ].join('\n');
+      const position = { line: 5, character };
+
+      try {
+        await Effect.runPromise(
+          prepareLspRequestCursor(svc, 'definition', uri, source, position),
+        );
+        const requestedNames = assistance.mock.calls
+          .filter(([method]) => method === 'dataOwner:ResolveDepUris')
+          .flatMap(
+            ([, params]) => (params as { classNames: string[] }).classNames,
+          );
+        expect(requestedNames).toContain('Wrapper');
+        expect(
+          assistance.mock.calls.filter(
+            ([method]) => method === 'apex/findMissingArtifact',
+          ),
+        ).toHaveLength(0);
+
+        await expect(
+          new DefinitionProcessingService(
+            getLogger(),
+            symbolManager,
+          ).processDefinition(
+            { textDocument: { uri }, position },
+            { prerequisitesPrepared: true },
+          ),
+        ).resolves.toEqual([expect.objectContaining({ uri: ownerUri })]);
+        await expect(
+          symbolManager.getSymbolAtPosition(
+            uri,
+            { line: 6, character },
+            'precise',
+          ),
+        ).resolves.toMatchObject({ name: member, fileUri: ownerUri });
+        if (member === 'child') {
+          expect(requestedNames).not.toContain('Child');
+          expect(requestedNames).not.toContain('Grandchild');
+        }
+      } finally {
+        symbolManager.clear();
+      }
+    },
+  );
+
+  it.each(['declaration-first', 'member-first'] as const)(
+    'reconciles noSoqlEvidence semantic identity with loaded dependencies (%s)',
+    async (order) => {
+      const uri = 'file:///noSoqlEvidence.cls';
+      const source = [
+        'public class noSoqlEvidence {',
+        '  void run() {',
+        '    BusinessHours bh;',
+        '    String n = bh.Name;',
+        '    Boolean open = BusinessHours.isWithin(null, Datetime.now());',
+        '  }',
+        '}',
+      ].join('\n');
+      const loader = ResourceLoader.getInstance();
+      await loader.initialize();
+      const symbolManager = new ApexSymbolManager({
+        isStdApexNamespace: (name) => loader.isStdApexNamespace(name),
+        hasClass: (name) => loader.hasClass(name),
+        findNamespaceForClass: (name) => loader.findNamespaceForClass(name),
+        getStandardNamespaces: () =>
+          new Map(
+            [...loader.getStandardNamespaces()].map(([name, classes]) => [
+              name,
+              classes.map((value) => value.value),
+            ]),
+          ),
+        resolveClassFqn: (name) =>
+          Promise.resolve(loader.resolveStandardClassFqn(name)),
+        getSymbolTable: (name) => loader.getSymbolTable(name),
+        getFile: (name) => loader.getFile(name),
+      });
+      const standard =
+        await symbolManager.resolveStandardApexClass('BusinessHours');
+      expect(standard?.kind).toBe(SymbolKind.Class);
+      const reconcile = vi.spyOn(
+        symbolManager,
+        'resolveCrossFileReferencesForFile',
+      );
+      const native = composeSObjectSymbolTable(
+        {
+          name: 'BusinessHours',
+          custom: false,
+          definitionTarget: { uri: 'org://BusinessHours' },
+          fields: [
             {
-              identifierType: 'sobject',
-              name: 'ContentVersion',
-              describe: {
-                name: 'ContentVersion',
-                custom: false,
-                definitionTarget: {
-                  uri: 'file:///objects/ContentVersion/ContentVersion.object-meta.xml',
-                },
-                fields: [
-                  {
-                    name: 'VersionData',
-                    type: 'base64',
-                    definitionTarget: { uri: fieldUri },
-                  },
-                ],
-              },
+              name: 'Name',
+              type: 'string',
+              definitionTarget: { uri: 'org://BusinessHours/Name' },
             },
           ],
-        };
+        },
+        1,
+      );
+      const assistance = vi.fn(async () => ({
+        entries: {},
+        versions: {},
+        detailLevels: {},
+      }));
+      setAssistanceTransport(assistance);
+      const svc = {
+        storageManager: { getStorage: () => ({ setDocument: vi.fn() }) },
+        symbolManager,
+      } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
+      const declarationPosition = { line: 2, character: 6 };
+      const memberPosition = { line: 3, character: 19 };
+      const assertNative = async () => {
+        const declared = await symbolManager.getSymbolAtPosition(
+          uri,
+          { line: 3, character: 6 },
+          'precise',
+        );
+        expect(declared?.id).toBe(native.getRoots()[0].id);
+        expect(declared?.kind).toBe(SymbolKind.SObject);
+        const table = await symbolManager.getSymbolTableForFile(uri);
+        expect(
+          table
+            ?.getAllReferences()
+            .find(
+              (reference) =>
+                reference.context === ReferenceContext.TYPE_DECLARATION &&
+                reference.name === 'BusinessHours',
+            ),
+        ).toMatchObject({
+          resolvedSymbolId: native.getRoots()[0].id,
+          isSObject: true,
+        });
+        const field = await symbolManager.getSymbolAtPosition(
+          uri,
+          { line: 4, character: 19 },
+          'precise',
+        );
+        expect(field?.id).toBe(
+          native.getAllSymbols().find((symbol) => symbol.name === 'Name')?.id,
+        );
+        expect(field?.kind).toBe(SymbolKind.Field);
+      };
+      const hover = async (position: { line: number; character: number }) => {
+        await Effect.runPromise(
+          prepareLspRequestCursor(svc, 'hover', uri, source, position),
+        );
+        const result = await new HoverProcessingService(
+          getLogger(),
+          symbolManager,
+        ).processHover(
+          { textDocument: { uri }, position },
+          { prerequisitesPrepared: true },
+        );
+        expect(result).not.toBeNull();
+        expect(JSON.stringify(result)).not.toContain('Searching for symbol');
+      };
+      try {
+        // Warm the full cursor against stdlib before native metadata arrives.
+        // The next hover must reconcile even though its type token is resolved
+        // and both dependency tables are already local.
+        await Effect.runPromise(
+          prepareLspRequestCursor(svc, 'hover', uri, source, {
+            line: 4,
+            character: 37,
+          }),
+        );
+        expect(reconcile).toHaveBeenCalledTimes(1);
+        await hover({ line: 4, character: 37 });
+        expect(reconcile).toHaveBeenCalledTimes(1);
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(native, native.getFileUri(), 1),
+        );
+        await hover(
+          order === 'declaration-first' ? declarationPosition : memberPosition,
+        );
+        // Resolve the declaration before selecting the field, so a member lookup cannot repair it.
+        await assertNative();
+        expect(reconcile).toHaveBeenCalledTimes(2);
+        for (let repeat = 0; repeat < 3; repeat++) {
+          await hover(declarationPosition);
+          await hover(memberPosition);
+          await assertNative();
+          await hover({ line: 4, character: 37 });
+          const staticReceiver = await symbolManager.getSymbolAtPosition(
+            uri,
+            { line: 5, character: 21 },
+            'precise',
+          );
+          expect(staticReceiver?.id).toBe(standard?.id);
+          const staticMethod = await symbolManager.getSymbolAtPosition(
+            uri,
+            { line: 5, character: 37 },
+            'precise',
+          );
+          expect(staticMethod).toMatchObject({
+            name: 'isWithin',
+            kind: SymbolKind.Method,
+            fileUri: standard?.fileUri,
+          });
+        }
+        expect(reconcile).toHaveBeenCalledTimes(2);
+        const updatedNative = composeSObjectSymbolTable(
+          {
+            name: 'BusinessHours',
+            custom: false,
+            definitionTarget: { uri: 'org://BusinessHours' },
+            fields: [
+              {
+                name: 'Name',
+                type: 'string',
+                definitionTarget: { uri: 'org://BusinessHours/Name' },
+              },
+            ],
+          },
+          2,
+        );
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(updatedNative, native.getFileUri(), 2),
+        );
+        const resolve =
+          ApexSymbolManager.prototype.resolveCrossFileReferencesForFile.bind(
+            symbolManager,
+          );
+        reconcile.mockImplementation((fileUri) =>
+          Effect.sleep('10 millis').pipe(Effect.zipRight(resolve(fileUri))),
+        );
+        await Promise.all([hover(declarationPosition), hover(memberPosition)]);
+        expect(reconcile).toHaveBeenCalledTimes(3);
+        await hover(memberPosition);
+        expect(reconcile).toHaveBeenCalledTimes(3);
+        // No-op and stale registrations must not invalidate completed work.
+        const canonicalNative = await symbolManager.getSymbolTableForFile(
+          native.getFileUri(),
+        );
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(
+            canonicalNative!,
+            native.getFileUri(),
+            2,
+          ),
+        );
+        await Effect.runPromise(
+          symbolManager.addSymbolTable(native, native.getFileUri(), 1),
+        );
+        await hover(memberPosition);
+        expect(reconcile).toHaveBeenCalledTimes(3);
+      } finally {
+        reconcile.mockRestore();
+        symbolManager.clear();
+      }
+    },
+  );
+
+  it('reconciles a replacement cursor table after an outstanding URI pass before caching completion', async () => {
+    const uri = 'file:///ReplacementRace.cls';
+    const source = [
+      'public class ReplacementRace {',
+      '  void run(Dependency value) {}',
+      '}',
+    ].join('\n');
+    const editedSource = source.replace('value', 'editedValue');
+    const symbolManager = new ApexSymbolManager();
+    const dependencyUri = 'file:///Dependency.cls';
+    await Effect.runPromise(
+      symbolManager.addSymbolTable(
+        SymbolTable.fromSerializedData(
+          compileToWireSymbolTable(
+            'public class Dependency {}',
+            dependencyUri,
+          ) as Parameters<typeof SymbolTable.fromSerializedData>[0],
+        ),
+        dependencyUri,
+      ),
+    );
+    setAssistanceTransport(async () => ({
+      entries: {},
+      versions: {},
+      detailLevels: {},
+    }));
+    const svc = {
+      storageManager: { getStorage: () => ({ setDocument: vi.fn() }) },
+      symbolManager,
+    } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
+    const position = { line: 1, character: 13 };
+    let releaseFirst!: () => void;
+    const firstGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    let firstStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      firstStarted = resolve;
+    });
+    let releaseReplacement!: () => void;
+    const replacementGate = new Promise<void>((resolve) => {
+      releaseReplacement = resolve;
+    });
+    let replacementStarted!: () => void;
+    const replacementPassStarted = new Promise<void>((resolve) => {
+      replacementStarted = resolve;
+    });
+    const processor = symbolManager as unknown as {
+      processSymbolReferencesToGraphEffect(
+        table: SymbolTable,
+        fileUri: string,
+      ): Effect.Effect<void>;
+    };
+    const process =
+      processor.processSymbolReferencesToGraphEffect.bind(processor);
+    const reconcile = vi.spyOn(
+      symbolManager,
+      'resolveCrossFileReferencesForFile',
+    );
+    const resolve =
+      ApexSymbolManager.prototype.resolveCrossFileReferencesForFile.bind(
+        symbolManager,
+      );
+    const processed: SymbolTable[] = [];
+    const reconcilingTables = new Set<SymbolTable>();
+    let firstTable: SymbolTable | null = null;
+    let holdFirst = true;
+    const processSpy = vi
+      .spyOn(processor, 'processSymbolReferencesToGraphEffect')
+      .mockImplementation((table, fileUri) =>
+        Effect.gen(function* () {
+          if (table === firstTable && holdFirst) {
+            holdFirst = false;
+            firstStarted();
+            yield* Effect.promise(() => firstGate);
+          } else if (reconcilingTables.has(table) && table !== firstTable) {
+            replacementStarted();
+            yield* Effect.promise(() => replacementGate);
+          }
+          yield* process(table, fileUri);
+          processed.push(table);
+        }),
+      );
+    reconcile.mockImplementation((fileUri) =>
+      Effect.gen(function* () {
+        const canonical = yield* Effect.promise(() =>
+          symbolManager.getSymbolTableForFile(fileUri),
+        );
+        if (canonical) reconcilingTables.add(canonical);
+        if (!firstTable) {
+          firstTable = canonical ?? null;
+        }
+        yield* resolve(fileUri);
+      }),
+    );
+    const hover = (content: string, version: number) =>
+      Effect.runPromise(
+        prepareLspRequestCursor(svc, 'hover', uri, content, position, version),
+      );
+    const first = hover(source, 1);
+    let replacement: Promise<unknown> | undefined;
+    let concurrentReplacement: Promise<unknown> | undefined;
+    try {
+      await started;
+      let replacementFinished = false;
+      replacement = hover(editedSource, 2).then((result) => {
+        replacementFinished = true;
+        return result;
+      });
+      await vi.waitFor(async () => {
+        const canonical = await symbolManager.getSymbolTableForFile(uri);
+        expect(canonical).not.toBe(firstTable);
+        expect(canonical?.getMetadata().documentVersion).toBe(2);
+      });
+      const replacementTable = await symbolManager.getSymbolTableForFile(uri);
+      // Let preparation reach reconciliation while A still owns the URI guard.
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(replacementFinished).toBe(false);
+      processed.length = 0;
+      releaseFirst();
+      await replacementPassStarted;
+      expect(processed).not.toContain(replacementTable);
+      expect(replacementFinished).toBe(false);
+      let concurrentFinished = false;
+      concurrentReplacement = hover(editedSource, 2).then((result) => {
+        concurrentFinished = true;
+        return result;
+      });
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(concurrentFinished).toBe(false);
+      expect(reconcile).toHaveBeenCalledTimes(2);
+      releaseReplacement();
+      await Promise.all([first, replacement, concurrentReplacement]);
+      expect(processed).toContain(replacementTable);
+      expect(reconcile).toHaveBeenCalledTimes(2);
+      await hover(editedSource, 2);
+      expect(reconcile).toHaveBeenCalledTimes(2);
+      expect(await symbolManager.getSymbolTableForFile(uri)).toBe(
+        replacementTable,
+      );
+    } finally {
+      releaseFirst();
+      releaseReplacement();
+      await Promise.all([first, replacement, concurrentReplacement]);
+      processSpy.mockRestore();
+      reconcile.mockRestore();
+      symbolManager.clear();
+    }
+  });
+
+  it('returns a cold hover for the nested assignment member', async () => {
+    const uri = 'file:///Caller.cls';
+    const dependencySources = new Map([
+      ['Wrapper', 'public class Wrapper { public Child child; }'],
+      [
+        'Child',
+        'public class Child { public Grandchild nested; public Integer total; }',
+      ],
+      ['Grandchild', 'public class Grandchild { public Integer total; }'],
+    ]);
+    setAssistanceTransport(async (method: string, params: unknown) => {
+      if (method !== 'dataOwner:ResolveDepUris') {
+        return { entries: {}, versions: {}, detailLevels: {} };
+      }
+      const names = (params as { classNames: string[] }).classNames;
+      return {
+        entries: Object.fromEntries(
+          names.flatMap((name) => {
+            const dependency = dependencySources.get(name);
+            return dependency
+              ? [
+                  [
+                    `file:///${name}.cls`,
+                    compileToWireSymbolTable(dependency, `file:///${name}.cls`),
+                  ],
+                ]
+              : [];
+          }),
+        ),
+      };
+    });
+    const symbolManager = new ApexSymbolManager();
+    const svc = {
+      storageManager: { getStorage: () => ({ setDocument: vi.fn() }) },
+      symbolManager,
+    } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
+    const source = [
+      'public class Caller {',
+      '  public Child child;',
+      '  public Grandchild nested;',
+      '  public Integer total;',
+      '  void run(Wrapper receiver) {',
+      '    receiver.child.nested.total = 1;',
+      '  }',
+      '}',
+    ].join('\n');
+    const position = { line: 5, character: 19 };
+
+    try {
+      await Effect.runPromise(
+        prepareLspRequestCursor(svc, 'hover', uri, source, position),
+      );
+
+      await expect(
+        new HoverProcessingService(getLogger(), symbolManager).processHover(
+          { textDocument: { uri }, position },
+          { prerequisitesPrepared: true },
+        ),
+      ).resolves.toMatchObject({
+        contents: {
+          kind: 'markdown',
+          value: expect.stringContaining('Grandchild Child.nested'),
+        },
+      });
+    } finally {
+      symbolManager.clear();
+    }
+  });
+
+  it('asks the client to locate a missing workspace Apex dependency', async () => {
+    const uri = 'file:///WorkspaceDependencyConsumer.cls';
+    const assistance = vi.fn(async (method: string, _params: unknown) => {
+      if (method === 'apex/findMissingArtifact') {
+        return { opened: ['file:///WorkspaceDependency.cls'] };
       }
       return { entries: {}, versions: {}, detailLevels: {} };
     });
@@ -974,53 +1499,199 @@ describe('worker.platform.shared', () => {
       symbolManager,
     } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
     const source = [
-      'public class ContentVersionReceiver {',
-      '  public void run(String base64data) {',
-      '    ContentVersion contentVersion = new ContentVersion();',
-      '    contentVersion.VersionData = EncodingUtil.base64Decode(base64data);',
-      '  }',
+      'public class WorkspaceDependencyConsumer {',
+      '  WorkspaceDependency value;',
       '}',
     ].join('\n');
-    const position = { line: 3, character: 20 };
 
     try {
       await Effect.runPromise(
-        prepareLspRequestCursor(svc, 'hover', uri, source, position),
+        prepareLspRequestCursor(svc, 'hover', uri, source, {
+          line: 1,
+          character: 4,
+        }),
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      const artifactRequest = assistance.mock.calls.find(
+        ([method]) => method === 'apex/findMissingArtifact',
+      );
+      expect(
+        (artifactRequest?.[1] as { identifiers: unknown[] }).identifiers,
+      ).toContainEqual(
+        expect.objectContaining({
+          name: 'WorkspaceDependency',
+          identifierType: 'apex-class',
+        }),
+      );
+      expect(artifactRequest?.[1]).toMatchObject({
+        origin: {
+          uri,
+          position: { line: 1, character: 4 },
+          requestKind: 'hover',
+        },
+        mode: 'background',
+      });
+    } finally {
+      symbolManager.clear();
+    }
+  });
+
+  it('queues a cold static receiver for background artifact discovery', async () => {
+    const uri = 'file:///StaticConsumer.cls';
+    const assistance = vi.fn(async (method: string, _params: unknown) => {
+      if (method === 'apex/findMissingArtifact') return { accepted: true };
+      return { entries: {}, versions: {}, detailLevels: {} };
+    });
+    setAssistanceTransport(assistance);
+    const symbolManager = new ApexSymbolManager();
+    const svc = {
+      storageManager: { getStorage: () => ({ setDocument: vi.fn() }) },
+      symbolManager,
+    } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
+    const source = [
+      'public class StaticConsumer {',
+      '  void run() {',
+      '    MissingOwner.doWork();',
+      '  }',
+      '}',
+    ].join('\n');
+
+    try {
+      await Effect.runPromise(
+        prepareLspRequestCursor(svc, 'hover', uri, source, {
+          line: 2,
+          character: 18,
+        }),
       );
 
       expect(assistance).toHaveBeenCalledWith(
         'apex/findMissingArtifact',
         expect.objectContaining({
-          identifiers: [
+          identifiers: expect.arrayContaining([
             expect.objectContaining({
-              name: 'ContentVersion',
-              identifierType: 'sobject',
-              allowSObjectPlaceholder: false,
+              name: 'MissingOwner',
+              identifierType: 'apex-class',
             }),
-          ],
-          origin: { uri, position, requestKind: 'hover' },
+          ]),
+          mode: 'background',
         }),
         true,
       );
-      await expect(
-        symbolManager.getSymbolAtPosition(
-          uri,
-          { line: 4, character: 20 },
-          'precise',
+    } finally {
+      symbolManager.clear();
+    }
+  });
+
+  it('progressively resolves a cold a.b.c.d hover after background indexing', async () => {
+    const uri = 'file:///ColdCaller.cls';
+    const dependencySources = new Map([
+      ['Root', 'public class Root { public Middle b; }'],
+      ['Middle', 'public class Middle { public Leaf c; }'],
+      ['Leaf', 'public class Leaf { public Integer d; }'],
+    ]);
+    const requestedOwners: string[] = [];
+    const assistance = vi.fn(async (method: string, params: unknown) => {
+      if (method === 'dataOwner:ResolveDepUris') {
+        // The request starts cold: no receiver owner is preloaded.
+        return { entries: {} };
+      }
+      if (method === 'apex/findMissingArtifact') {
+        const identifiers = (
+          params as {
+            identifiers: Array<{ name: string; identifierType: string }>;
+          }
+        ).identifiers;
+        requestedOwners.push(
+          ...identifiers
+            .filter((identifier) => identifier.identifierType === 'apex-class')
+            .map((identifier) => identifier.name),
+        );
+        return { accepted: true };
+      }
+      return { entries: {}, versions: {}, detailLevels: {} };
+    });
+    setAssistanceTransport(assistance);
+    const symbolManager = new ApexSymbolManager();
+    const svc = {
+      storageManager: { getStorage: () => ({ setDocument: vi.fn() }) },
+      symbolManager,
+    } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
+    const source = [
+      'public class ColdCaller {',
+      '  void run(Root a) {',
+      '    a.b.c.d = 1;',
+      '  }',
+      '}',
+    ].join('\n');
+    const position = { line: 2, character: 10 };
+    const processHover = () =>
+      new HoverProcessingService(getLogger(), symbolManager).processHover(
+        { textDocument: { uri }, position },
+        { prerequisitesPrepared: true },
+      );
+    const indexOwner = async (name: string) => {
+      const ownerUri = `file:///${name}.cls`;
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(
+          SymbolTable.fromSerializedData(
+            compileToWireSymbolTable(
+              dependencySources.get(name)!,
+              ownerUri,
+            ) as Parameters<typeof SymbolTable.fromSerializedData>[0],
+          ),
+          ownerUri,
         ),
-      ).resolves.toMatchObject({
-        name: 'VersionData',
-        kind: 'field',
+      );
+    };
+
+    try {
+      await Effect.runPromise(
+        prepareLspRequestCursor(svc, 'hover', uri, source, position),
+      );
+      await expect(processHover()).resolves.toMatchObject({
+        contents: {
+          kind: 'markdown',
+          value: expect.stringContaining('Searching'),
+        },
       });
-      await expect(
-        new DefinitionProcessingService(
-          getLogger(),
-          symbolManager,
-        ).processDefinition(
-          { textDocument: { uri }, position },
-          { prerequisitesPrepared: true },
-        ),
-      ).resolves.toEqual([expect.objectContaining({ uri: fieldUri })]);
+      expect(requestedOwners).toEqual(['Root']);
+
+      await indexOwner('Root');
+      await Effect.runPromise(
+        prepareLspRequestCursor(svc, 'hover', uri, source, position),
+      );
+      await expect(processHover()).resolves.toMatchObject({
+        contents: {
+          kind: 'markdown',
+          value: expect.stringContaining('Searching'),
+        },
+      });
+      expect(requestedOwners).toEqual(['Root', 'Middle']);
+
+      await indexOwner('Middle');
+      await Effect.runPromise(
+        prepareLspRequestCursor(svc, 'hover', uri, source, position),
+      );
+      await expect(processHover()).resolves.toMatchObject({
+        contents: {
+          kind: 'markdown',
+          value: expect.stringContaining('Searching'),
+        },
+      });
+      expect(requestedOwners).toEqual(['Root', 'Middle', 'Leaf']);
+
+      await indexOwner('Leaf');
+      await Effect.runPromise(
+        prepareLspRequestCursor(svc, 'hover', uri, source, position),
+      );
+      await expect(processHover()).resolves.toMatchObject({
+        contents: {
+          kind: 'markdown',
+          value: expect.stringContaining('Integer Leaf.d'),
+        },
+      });
     } finally {
       symbolManager.clear();
     }
@@ -1045,7 +1716,7 @@ describe('worker.platform.shared', () => {
       await Effect.runPromise(
         symbolManager.addSymbolTable(listener.getResult(), classUri),
       );
-      const assistance = vi.fn(async (method: string) => {
+      const assistance = vi.fn(async (method: string, _params: unknown) => {
         if (method === 'apex/findMissingArtifact') {
           return {
             artifacts: [

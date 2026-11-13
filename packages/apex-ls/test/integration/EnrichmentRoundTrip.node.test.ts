@@ -63,9 +63,17 @@ import {
   enableConsoleLogging,
   setLogLevel,
   type WorkerRole,
+  type FindMissingArtifactResult,
 } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import {
+  ApexSymbolManager,
+  ReferenceContext,
+  SymbolKind,
+  SymbolTable,
+  type SerializedSymbolTableData,
+} from '@salesforce/apex-lsp-parser-ast';
 
 const WORKER_ENTRY = path.resolve(__dirname, '../../dist/worker.platform.js');
 const LOG_LEVEL = 'error';
@@ -140,6 +148,7 @@ function wireProductionMediator(
   topology: WorkerTopology,
   dispatcher: ReturnType<typeof makeWorkerDispatcher>,
   logger: ReturnType<typeof getLogger>,
+  observeDataOwner?: (method: string, params: unknown) => void,
 ): CoordinatorAssistanceMediator {
   const resourceLoaderProxy = topology.resourceLoader
     ? new ResourceLoaderProxy(topology.resourceLoader, logger)
@@ -157,7 +166,10 @@ function wireProductionMediator(
       },
     }),
     logger,
-    (method, params) => dispatcher.queryDataOwner(method, params),
+    (method, params) => {
+      observeDataOwner?.(method, params);
+      return dispatcher.queryDataOwner(method, params);
+    },
   );
   mediator.attachToWorkers(
     getRawWorkers(),
@@ -513,6 +525,495 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
     expect(JSON.stringify(response.fieldHover.result)).not.toContain(
       'Searching for symbol',
     );
+  }, 120_000);
+
+  it('discovers cold BusinessHours from bare constructor receiver member hover', async () => {
+    const uri = 'file:///test/ColdBusinessHours.cls';
+    const nativeUri = 'apex-sobject://graph/businesshours';
+    const source = [
+      'public class ColdBusinessHours {',
+      '  void run() {',
+      '    BusinessHours bh = new BusinessHours();',
+      "    bh.Name = 'x';",
+      '    Boolean open = System.BusinessHours.isWithin(null, Datetime.now());',
+      '  }',
+      '}',
+    ].join('\n');
+    let resolveDescribe: (result: FindMissingArtifactResult) => void = () =>
+      undefined;
+    const describe = new Promise<FindMissingArtifactResult>((resolve) => {
+      resolveDescribe = resolve;
+    });
+    const submitSpy = vi
+      .spyOn(LSPQueueManager.prototype, 'submitFindMissingArtifactRequest')
+      .mockImplementation(async (params) =>
+        params.identifiers.some(
+          (identifier) =>
+            identifier.name === 'BusinessHours' &&
+            identifier.identifierType === 'sobject',
+        )
+          ? describe
+          : { notFound: true },
+      );
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger, () => source);
+      let cursorWriteBack: SerializedSymbolTableData | undefined;
+      let installed: Promise<unknown> | undefined;
+      const snapshotDispatcher = {
+        ...dispatcher,
+        queryDataOwner: async (
+          ...args: Parameters<typeof dispatcher.queryDataOwner>
+        ) => {
+          const request = dispatcher.queryDataOwner(...args);
+          if (args[0] === 'InstallSObjectArtifacts') installed = request;
+          const result = await request;
+          return args[0] === 'QuerySymbolSubset'
+            ? { ...(result as object), detailLevels: { [uri]: 'public-api' } }
+            : result;
+        },
+      };
+      wireProductionMediator(
+        topology,
+        snapshotDispatcher,
+        logger,
+        (method, params) => {
+          if (method === 'UpdateSymbolSubset')
+            cursorWriteBack = (
+              params as { enrichedSymbolTable: SerializedSymbolTableData }
+            ).enrichedSymbolTable;
+        },
+      );
+      yield* runRemoteStdlibWarmupPhase(topology, 1, ['System']);
+      const standardData = yield* Effect.promise(() =>
+        new ResourceLoaderProxy(
+          topology.resourceLoader!,
+          logger,
+        ).getSymbolTable('System/BusinessHours'),
+      );
+      const stdlib = SymbolTable.fromJSON(standardData);
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri,
+            languageId: 'apex',
+            version: 1,
+            getText: () => source,
+          },
+          textDocument: { uri },
+          text: source,
+        }),
+      );
+      const readSubset = () =>
+        dispatcher.queryDataOwner('QuerySymbolSubset', {
+          uris: [uri, nativeUri],
+          includeEntries: true,
+        }) as Promise<{ entries: Record<string, SerializedSymbolTableData> }>;
+      expect(
+        (yield* Effect.promise(readSubset)).entries[nativeUri],
+      ).toBeFalsy();
+      const hover = (line: number, character: number) =>
+        Effect.promise(() =>
+          dispatcher.dispatch('hover', {
+            textDocument: { uri },
+            content: source,
+            documentVersion: 1,
+            position: { line, character },
+          }),
+        );
+      for (let repeat = 0; repeat < 3; repeat++) {
+        const pending = yield* hover(3, 8);
+        expect(JSON.stringify(pending)).toContain('Searching for symbol');
+        expect(JSON.stringify(pending)).not.toContain('No definition found');
+      }
+      yield* Effect.promise(() =>
+        vi.waitFor(() => {
+          expect(
+            submitSpy.mock.calls.flatMap(([params]) => params.identifiers),
+          ).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                name: 'BusinessHours',
+                identifierType: 'sobject',
+                allowSObjectPlaceholder: false,
+                provenance: expect.objectContaining({
+                  sourceUri: uri,
+                  referenceRange: expect.objectContaining({
+                    startLine: 3,
+                    startColumn: 4,
+                  }),
+                }),
+              }),
+            ]),
+          );
+        }),
+      );
+      expect(
+        submitSpy.mock.calls
+          .flatMap(([params]) => params.identifiers)
+          .every((identifier) => identifier.name === 'BusinessHours'),
+      ).toBe(true);
+      expect(
+        (yield* Effect.promise(readSubset)).entries[nativeUri],
+      ).toBeFalsy();
+      resolveDescribe({
+        artifacts: [
+          {
+            identifierType: 'sobject',
+            name: 'BusinessHours',
+            describe: {
+              name: 'BusinessHours',
+              custom: false,
+              definitionTarget: { uri: 'org://BusinessHours' },
+              fields: [
+                {
+                  name: 'Name',
+                  type: 'string',
+                  definitionTarget: { uri: 'org://BusinessHours/Name' },
+                },
+              ],
+            },
+          },
+        ],
+      });
+      yield* Effect.promise(() =>
+        vi.waitFor(() => expect(installed).toBeDefined()),
+      );
+      yield* Effect.promise(() => installed!);
+      cursorWriteBack = undefined;
+      const settled = yield* hover(3, 8);
+      expect(JSON.stringify(settled)).toContain('String BusinessHours.Name');
+      expect(JSON.stringify(settled)).not.toContain('Searching for symbol');
+      expect(cursorWriteBack).toBeDefined();
+      const subset = yield* Effect.promise(readSubset);
+      const native = SymbolTable.fromSerializedData(subset.entries[nativeUri]);
+      const cursor = SymbolTable.fromSerializedData(cursorWriteBack!);
+      const nativeType = native.getRoots()[0];
+      const field = native
+        .getAllSymbols()
+        .find((symbol) => symbol.name === 'Name');
+      expect(
+        cursor
+          .getAllReferences()
+          .find(
+            (ref) =>
+              ref.context === ReferenceContext.TYPE_DECLARATION &&
+              ref.name === 'BusinessHours',
+          ),
+      ).toMatchObject({ resolvedSymbolId: nativeType.id, isSObject: true });
+      expect(
+        cursor.getAllSymbols().find((symbol) => symbol.name === 'bh'),
+      ).toMatchObject({
+        type: {
+          resolvedSymbol: { id: nativeType.id, kind: SymbolKind.SObject },
+        },
+      });
+      expect(
+        cursor
+          .getAllReferences()
+          .find(
+            (ref) =>
+              ref.context === ReferenceContext.CONSTRUCTOR_CALL &&
+              ref.name === 'BusinessHours',
+          )?.isSObject,
+      ).not.toBe(true);
+      const manager = new ApexSymbolManager();
+      try {
+        yield* manager.addSymbolTable(stdlib, stdlib.getFileUri());
+        yield* manager.addSymbolTable(native, nativeUri);
+        yield* manager.addSymbolTable(cursor, uri);
+        const target = yield* Effect.promise(() =>
+          manager.getSymbolAtPosition(
+            uri,
+            { line: 4, character: 8 },
+            'precise',
+          ),
+        );
+        expect(target).toMatchObject({
+          id: field?.id,
+          kind: SymbolKind.Field,
+          parentId: nativeType.id,
+          fileUri: nativeUri,
+        });
+      } finally {
+        yield* Effect.promise(() => manager.clear());
+      }
+      const staticHover = yield* hover(
+        4,
+        source.split('\n')[4].indexOf('isWithin') + 2,
+      );
+      expect(JSON.stringify(staticHover)).toContain(
+        'System.BusinessHours.isWithin',
+      );
+      expect(JSON.stringify(staticHover)).not.toContain('Searching for symbol');
+      const staticCursor = SymbolTable.fromSerializedData(cursorWriteBack!);
+      const staticReference = staticCursor
+        .getAllReferences()
+        .find(
+          (reference) => reference.name === 'System.BusinessHours.isWithin',
+        );
+      expect(staticReference?.resolvedSymbolId).toBe(
+        stdlib
+          .getAllSymbols()
+          .find(
+            (symbol) =>
+              symbol.name === 'isWithin' && symbol.kind === SymbolKind.Method,
+          )?.id,
+      );
+    }).pipe(Effect.scoped);
+    try {
+      await Effect.runPromise(program);
+    } finally {
+      resolveDescribe({ notFound: true });
+      submitSpy.mockRestore();
+    }
+  }, 120_000);
+
+  it('reconciles native BusinessHours declaration before member hover in a fresh topology', async () => {
+    const uri = 'file:///test/noSoqlEvidence.cls';
+    const nativeUri = 'apex-sobject://graph/businesshours';
+    const source = [
+      'public class noSoqlEvidence {',
+      '  void run() {',
+      '    BusinessHours bh;',
+      '    String n = bh.Name;',
+      '    Boolean open = BusinessHours.isWithin(null, Datetime.now());',
+      '  }',
+      '}',
+    ].join('\n');
+
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger, () => source);
+      let cursorWriteBack: SerializedSymbolTableData | undefined;
+      const snapshotDispatcher = {
+        ...dispatcher,
+        queryDataOwner: async (
+          ...args: Parameters<typeof dispatcher.queryDataOwner>
+        ) => {
+          const result = await dispatcher.queryDataOwner(...args);
+          if (args[0] === 'QuerySymbolSubset') {
+            // Keep writeback observable on cache hits without reparsing the
+            // cursor: only the advertised owner detail is lowered, not tables.
+            return {
+              ...(result as object),
+              detailLevels: { [uri]: 'public-api' },
+            };
+          }
+          return result;
+        },
+      };
+      wireProductionMediator(
+        topology,
+        snapshotDispatcher,
+        logger,
+        (method, params) => {
+          if (method === 'UpdateSymbolSubset') {
+            cursorWriteBack = (
+              params as {
+                enrichedSymbolTable: SerializedSymbolTableData;
+              }
+            ).enrichedSymbolTable;
+          }
+        },
+      );
+      yield* runRemoteStdlibWarmupPhase(topology, 1, ['System']);
+      expect(topology.resourceLoader).toBeDefined();
+      const standardData = yield* Effect.promise(() =>
+        new ResourceLoaderProxy(
+          topology.resourceLoader!,
+          logger,
+        ).getSymbolTable('System/BusinessHours'),
+      );
+      expect(standardData).toBeDefined();
+      const stdlib = SymbolTable.fromJSON(standardData);
+      yield* Effect.promise(() =>
+        dispatcher.queryDataOwner('InstallSObjectArtifacts', {
+          artifacts: [
+            {
+              identifierType: 'sobject' as const,
+              name: 'BusinessHours',
+              describe: {
+                name: 'BusinessHours',
+                custom: false,
+                definitionTarget: { uri: 'org://BusinessHours' },
+                fields: [
+                  {
+                    name: 'Name',
+                    type: 'string',
+                    definitionTarget: { uri: 'org://BusinessHours/Name' },
+                  },
+                ],
+              },
+            },
+          ],
+          originUri: uri,
+        }),
+      );
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri,
+            languageId: 'apex',
+            version: 1,
+            getText: () => source,
+          },
+          textDocument: { uri },
+          text: source,
+        }),
+      );
+
+      const readTables = async () => {
+        const subset = (await dispatcher.queryDataOwner('QuerySymbolSubset', {
+          uris: [uri, nativeUri],
+          includeEntries: true,
+        })) as { entries: Record<string, SerializedSymbolTableData> };
+        return {
+          cursor: SymbolTable.fromSerializedData(cursorWriteBack!),
+          native: SymbolTable.fromSerializedData(subset.entries[nativeUri]),
+          stdlib,
+        };
+      };
+      const assertIdentity = (
+        tables: Awaited<ReturnType<typeof readTables>>,
+      ) => {
+        const nativeType = tables.native.getRoots()[0];
+        const nativeField = tables.native
+          .getAllSymbols()
+          .find((symbol) => symbol.name === 'Name');
+        expect(nativeType.kind).toBe(SymbolKind.SObject);
+        expect(nativeField).toBeDefined();
+        const declaration = tables.cursor
+          .getAllReferences()
+          .find(
+            (reference) =>
+              reference.name === 'BusinessHours' &&
+              reference.context === ReferenceContext.TYPE_DECLARATION,
+          );
+        expect(declaration).toMatchObject({
+          resolvedSymbolId: nativeType.id,
+          isSObject: true,
+        });
+        const receiver = tables.cursor
+          .getAllSymbols()
+          .find((symbol) => symbol.name === 'bh');
+        expect(receiver).toMatchObject({
+          type: {
+            resolvedSymbol: { id: nativeType.id, kind: SymbolKind.SObject },
+          },
+        });
+        const nodes = tables.cursor
+          .getAllReferences()
+          .flatMap((reference) => [reference, ...(reference.chainNodes ?? [])]);
+        expect(nativeField).toMatchObject({
+          parentId: nativeType.id,
+          fileUri: nativeUri,
+        });
+        const standardType = tables.stdlib.getRoots()[0];
+        expect(standardType.kind).toBe(SymbolKind.Class);
+        expect(nodes).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              name: 'BusinessHours',
+              resolvedSymbolId: standardType.id,
+              location: expect.objectContaining({
+                identifierRange: expect.objectContaining({ startLine: 5 }),
+              }),
+            }),
+          ]),
+        );
+      };
+      const hover = (target: 'declaration' | 'member' | 'static') =>
+        Effect.gen(function* () {
+          cursorWriteBack = undefined;
+          const result = yield* topology.requestPool.executeEffect(
+            new DispatchHover({
+              textDocument: { uri },
+              content: source,
+              position:
+                target === 'declaration'
+                  ? { line: 2, character: 6 }
+                  : target === 'member'
+                    ? { line: 3, character: 19 }
+                    : { line: 4, character: 37 },
+            }),
+          );
+          // A prior request's snapshot cannot satisfy these assertions.
+          expect(cursorWriteBack).toBeDefined();
+          return result;
+        });
+      const first = yield* hover('declaration');
+      // Inspect the first write-back before any other hover can repair it.
+      assertIdentity(yield* Effect.promise(readTables));
+      const hovers = [first];
+      for (let repeat = 0; repeat < 3; repeat++) {
+        const declarationHover = yield* hover('declaration');
+        const memberHover = yield* hover('member');
+        expect(JSON.stringify(memberHover)).toContain(
+          'String BusinessHours.Name',
+        );
+        const current = yield* Effect.promise(readTables);
+        assertIdentity(current);
+        // Hover resolves members on demand without stamping every chain node.
+        // Resolve from THIS request's parser-owned writeback, not the first
+        // writeback or display text, and check exact field and owner identity.
+        const currentManager = new ApexSymbolManager();
+        try {
+          yield* currentManager.addSymbolTable(
+            current.stdlib,
+            current.stdlib.getFileUri(),
+          );
+          yield* currentManager.addSymbolTable(current.native, nativeUri);
+          yield* currentManager.addSymbolTable(current.cursor, uri);
+          const target = yield* Effect.promise(() =>
+            currentManager.getSymbolAtPosition(
+              uri,
+              { line: 4, character: 19 },
+              'precise',
+            ),
+          );
+          const nativeField = current.native
+            .getAllSymbols()
+            .find((symbol) => symbol.name === 'Name')!;
+          expect(target).toMatchObject({
+            id: nativeField.id,
+            kind: SymbolKind.Field,
+            parentId: current.native.getRoots()[0].id,
+            fileUri: nativeUri,
+          });
+        } finally {
+          yield* Effect.promise(() => currentManager.clear());
+        }
+        hovers.push(declarationHover, memberHover);
+        const staticHover = yield* hover('static');
+        expect(JSON.stringify(staticHover)).toContain('isWithin');
+        hovers.push(staticHover);
+        assertIdentity(yield* Effect.promise(readTables));
+      }
+      return hovers;
+    }).pipe(Effect.scoped);
+
+    const hovers = await Effect.runPromise(program);
+    for (const hover of hovers) {
+      expect(hover).not.toBeNull();
+      expect(JSON.stringify(hover)).not.toContain('Searching for symbol');
+    }
   }, 120_000);
 
   it('resolves ContentVersion assignment definition before hover with only its sObject table installed', async () => {
@@ -1143,6 +1644,15 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         ],
       });
 
+    const propertyRequestCount = () =>
+      submitSpy.mock.calls.filter(([params]) =>
+        params.identifiers.some(
+          (identifier) =>
+            identifier.name === 'Property__c' &&
+            identifier.identifierType === 'sobject',
+        ),
+      ).length;
+
     const program = Effect.gen(function* () {
       const topology = yield* initializeTopology({
         poolSize: 3,
@@ -1204,7 +1714,7 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         return {
           expression,
           labels: completion.items.map((item) => item.label),
-          artifactRequestCount: submitSpy.mock.calls.length,
+          propertyRequestCount: propertyRequestCount(),
         };
       };
 
@@ -1229,6 +1739,23 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
       const artifactRequestsAfterTyping = submitSpy.mock.calls.map(
         ([params]) => params,
       );
+      expect(artifactRequestsAfterTyping).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            identifiers: expect.arrayContaining([
+              expect.objectContaining({
+                name: 'Property__c',
+                identifierType: 'sobject',
+              }),
+            ]),
+            origin: expect.objectContaining({
+              uri,
+              requestKind: 'completion',
+            }),
+          }),
+        ]),
+      );
+      const propertyRequestCountAfterTyping = propertyRequestCount();
 
       currentSource = resolvedSource;
       currentVersion = 9;
@@ -1276,8 +1803,8 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
 
       return {
         completionPhases,
-        artifactRequestsAfterTyping,
-        artifactRequestCountAfterAllFeatures: submitSpy.mock.calls.length,
+        propertyRequestCountAfterTyping,
+        propertyRequestCountAfterAllFeatures: propertyRequestCount(),
         qualifierHover,
         fieldHover,
         qualifierDefinition,
@@ -1292,29 +1819,20 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
       );
       for (const expression of ['prop', 'proper', 'property']) {
         expect(phases[expression]?.labels).toContain('property');
-        expect(phases[expression]?.artifactRequestCount).toBe(0);
       }
       expect(phases['property.']?.labels).toContain('Beds__c');
-      expect(phases['property.']?.artifactRequestCount).toBe(1);
+      expect(phases['property.']?.propertyRequestCount).toBe(
+        result.propertyRequestCountAfterTyping,
+      );
       for (const expression of ['property.b', 'property.be', 'property.bed']) {
         expect(phases[expression]?.labels).toContain('Beds__c');
-        expect(phases[expression]?.artifactRequestCount).toBe(1);
+        expect(phases[expression]?.propertyRequestCount).toBe(
+          result.propertyRequestCountAfterTyping,
+        );
       }
-      expect(result.artifactRequestsAfterTyping).toEqual([
-        expect.objectContaining({
-          identifiers: expect.arrayContaining([
-            expect.objectContaining({
-              name: 'Property__c',
-              identifierType: 'sobject',
-            }),
-          ]),
-          origin: expect.objectContaining({
-            uri,
-            requestKind: 'completion',
-          }),
-        }),
-      ]);
-      expect(result.artifactRequestCountAfterAllFeatures).toBe(1);
+      expect(result.propertyRequestCountAfterAllFeatures).toBe(
+        result.propertyRequestCountAfterTyping,
+      );
       expect(JSON.stringify(result.qualifierHover)).toContain('Property__c');
       expect(JSON.stringify(result.qualifierHover)).not.toContain(
         'Searching for symbol',
@@ -1339,7 +1857,6 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
   }, 120_000);
 
   it('replaces an sObject searching hover after org metadata reaches the data owner', async () => {
-    const sobjectUri = 'apex-sobject://graph/property__c';
     const source = [
       'public class PropertyConsumer {',
       '  public void run() {',
@@ -1349,32 +1866,46 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
       '}',
     ].join('\n');
     const uri = 'file:///test/PropertyConsumer.cls';
+    let resolveDescribe: (result: FindMissingArtifactResult) => void = () =>
+      undefined;
+    const describe = new Promise<FindMissingArtifactResult>((resolve) => {
+      resolveDescribe = resolve;
+    });
     const submitSpy = vi
       .spyOn(LSPQueueManager.prototype, 'submitFindMissingArtifactRequest')
-      .mockResolvedValue({
-        artifacts: [
-          {
-            identifierType: 'sobject',
+      .mockImplementation(async (params) =>
+        params.identifiers.some(
+          (identifier) =>
+            identifier.name === 'Property__c' &&
+            identifier.identifierType === 'sobject',
+        )
+          ? describe
+          : { notFound: true },
+      );
+    const metadata: FindMissingArtifactResult = {
+      artifacts: [
+        {
+          identifierType: 'sobject',
+          name: 'Property__c',
+          describe: {
             name: 'Property__c',
-            describe: {
-              name: 'Property__c',
-              custom: true,
-              fields: [
-                {
-                  name: 'Beds__c',
-                  type: 'double',
-                  definitionTarget: {
-                    uri: 'file:///objects/Property__c/fields/Beds__c.field-meta.xml',
-                  },
+            custom: true,
+            fields: [
+              {
+                name: 'Beds__c',
+                type: 'double',
+                definitionTarget: {
+                  uri: 'file:///objects/Property__c/fields/Beds__c.field-meta.xml',
                 },
-              ],
-              definitionTarget: {
-                uri: 'file:///objects/Property__c.object-meta.xml',
               },
+            ],
+            definitionTarget: {
+              uri: 'file:///objects/Property__c.object-meta.xml',
             },
           },
-        ],
-      });
+        },
+      ],
+    };
 
     const program = Effect.gen(function* () {
       const topology = yield* initializeTopology({
@@ -1387,7 +1918,18 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
         workerLayerFactory,
       });
       const dispatcher = makeWorkerDispatcher(topology, logger, () => source);
-      wireProductionMediator(topology, dispatcher, logger);
+      let installed: Promise<unknown> | undefined;
+      const installationDispatcher = {
+        ...dispatcher,
+        queryDataOwner: (
+          ...args: Parameters<typeof dispatcher.queryDataOwner>
+        ) => {
+          const request = dispatcher.queryDataOwner(...args);
+          if (args[0] === 'InstallSObjectArtifacts') installed = request;
+          return request;
+        },
+      };
+      wireProductionMediator(topology, installationDispatcher, logger);
       yield* runRemoteStdlibWarmupPhase(topology, 3);
       yield* Effect.promise(() =>
         dispatcher.dispatch('documentOpen', {
@@ -1414,19 +1956,11 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
       const first = yield* hover(2, 8);
       expect(JSON.stringify(first.result)).toContain('Searching for symbol');
 
-      let installed = false;
-      for (let attempt = 0; attempt < 100 && !installed; attempt++) {
-        const subset = (yield* Effect.promise(() =>
-          dispatcher.queryDataOwner('QuerySymbolSubset', {
-            uris: [sobjectUri],
-          }),
-        )) as { entries: Record<string, unknown> };
-        installed = subset.entries[sobjectUri] != null;
-        if (!installed) {
-          yield* Effect.sleep('10 millis');
-        }
-      }
-      expect(installed).toBe(true);
+      resolveDescribe(metadata);
+      yield* Effect.promise(() =>
+        vi.waitFor(() => expect(installed).toBeDefined()),
+      );
+      yield* Effect.promise(() => installed!);
 
       return {
         type: yield* hover(2, 8),
@@ -1450,36 +1984,42 @@ describe('Enrichment round-trip through the worker topology (live assistance bus
       };
     }).pipe(Effect.scoped);
 
-    const second = await Effect.runPromise(program);
-    const typeContent = JSON.stringify(second.type.result);
-    expect(typeContent).toContain('Property__c');
-    expect(typeContent).not.toContain('Searching for symbol');
-    const declarationContent = JSON.stringify(second.declaration.result);
-    expect(declarationContent).toContain('Property__c');
-    expect(declarationContent).not.toContain('Searching for symbol');
-    const qualifierContent = JSON.stringify(second.qualifier.result);
-    expect(qualifierContent).toContain('Property__c');
-    expect(qualifierContent).not.toContain('Searching for symbol');
-    const fieldContent = JSON.stringify(second.field.result);
-    expect(fieldContent).toContain('Decimal Property__c.Beds__c');
-    expect(fieldContent).not.toContain('Searching for symbol');
-    expect(second.qualifierDefinition.result).toEqual([
-      expect.objectContaining({ uri }),
-    ]);
-    expect(second.fieldDefinition.result).toEqual([
-      expect.objectContaining({
-        uri: 'file:///objects/Property__c/fields/Beds__c.field-meta.xml',
-      }),
-    ]);
-    expect(submitSpy).toHaveBeenCalledTimes(1);
-    expect(submitSpy.mock.calls[0][0].identifiers).toEqual(
-      expect.arrayContaining([
+    try {
+      const second = await Effect.runPromise(program);
+      const typeContent = JSON.stringify(second.type.result);
+      expect(typeContent).toContain('Property__c');
+      expect(typeContent).not.toContain('Searching for symbol');
+      const declarationContent = JSON.stringify(second.declaration.result);
+      expect(declarationContent).toContain('Property__c');
+      expect(declarationContent).not.toContain('Searching for symbol');
+      const qualifierContent = JSON.stringify(second.qualifier.result);
+      expect(qualifierContent).toContain('Property__c');
+      expect(qualifierContent).not.toContain('Searching for symbol');
+      const fieldContent = JSON.stringify(second.field.result);
+      expect(fieldContent).toContain('Decimal Property__c.Beds__c');
+      expect(fieldContent).not.toContain('Searching for symbol');
+      expect(second.qualifierDefinition.result).toEqual([
+        expect.objectContaining({ uri }),
+      ]);
+      expect(second.fieldDefinition.result).toEqual([
         expect.objectContaining({
-          name: 'Property__c',
-          identifierType: 'sobject',
+          uri: 'file:///objects/Property__c/fields/Beds__c.field-meta.xml',
         }),
-      ]),
-    );
+      ]);
+      expect(
+        submitSpy.mock.calls.flatMap(([params]) => params.identifiers),
+      ).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: 'Property__c',
+            identifierType: 'sobject',
+          }),
+        ]),
+      );
+    } finally {
+      resolveDescribe({ notFound: true });
+      submitSpy.mockRestore();
+    }
   }, 120_000);
 
   it('returns instance members for refined this-access through the worker topology', async () => {
