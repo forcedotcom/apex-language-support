@@ -15,6 +15,8 @@ import {
   ApexSymbolManager,
   CompilerService,
   FullSymbolCollectorListener,
+  composeSObjectSymbolTable,
+  ownerUriForSObject,
   SymbolTable,
   ResourceLoader,
   STANDARD_APEX_LIBRARY_URI,
@@ -97,21 +99,30 @@ describe('DefinitionProcessingService Integration Tests - Keyword Context', () =
 
   describe('SystemKeywordTestClass fixture', () => {
     it('navigates a native sObject field to its definition target', async () => {
-      const propertyUri = 'file:///Property__c.cls';
-      const propertySource = [
-        'public class Property__c {',
-        '  public String foo__c;',
-        '}',
-      ].join('\n');
-      const propertyTable = new SymbolTable();
-      new CompilerService().compile(
-        propertySource,
-        propertyUri,
-        new FullSymbolCollectorListener(propertyTable),
-        {},
+      const objectTargetUri = 'org://Property__c';
+      const fieldTargetUri = 'org://Property__c/foo__c';
+      const propertyTable = composeSObjectSymbolTable(
+        {
+          name: 'Property__c',
+          custom: true,
+          definitionTarget: { uri: objectTargetUri },
+          fields: [
+            {
+              name: 'foo__c',
+              type: 'string',
+              definitionTarget: { uri: fieldTargetUri },
+            },
+          ],
+        },
+        1,
       );
       await Effect.runPromise(
-        symbolManager.addSymbolTable(propertyTable, propertyUri, 1, false),
+        symbolManager.addSymbolTable(
+          propertyTable,
+          ownerUriForSObject('Property__c'),
+          1,
+          false,
+        ),
       );
 
       const source = [
@@ -162,9 +173,12 @@ describe('DefinitionProcessingService Integration Tests - Keyword Context', () =
       });
 
       expect(typeResult).toEqual([
-        expect.objectContaining({ uri: propertyUri }),
+        expect.objectContaining({ uri: objectTargetUri }),
       ]);
-      expect(result).toEqual([expect.objectContaining({ uri: propertyUri })]);
+      expect(result).toEqual([
+        expect.objectContaining({ uri: fieldTargetUri }),
+      ]);
+      expect(typeResult![0].uri).not.toBe(result![0].uri);
     });
 
     it('navigates a managed class reference to its VFS-backed real source', async () => {

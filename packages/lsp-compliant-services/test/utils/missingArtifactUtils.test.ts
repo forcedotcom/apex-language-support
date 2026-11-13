@@ -10,13 +10,138 @@ import type { Mocked } from 'vitest';
 import { vi } from 'vitest';
 import { getLogger } from '@salesforce/apex-lsp-shared';
 import {
+  ApexSymbolManager,
+  CompilerService,
+  FullSymbolCollectorListener,
   ISymbolManager,
   ReferenceContext,
   isChainedSymbolReference,
 } from '@salesforce/apex-lsp-parser-ast';
 import { MissingArtifactUtils } from '../../src/utils/missingArtifactUtils';
+import { SObjectEnrichmentService } from '../../src/services/SObjectEnrichmentService';
+import { Effect } from 'effect';
 
 describe('MissingArtifactUtils', () => {
+  it.each(['bh().Name', 'bh().Name.toLowerCase()'])(
+    'does not discover a same-named local receiver declaration for an invocation head (%s)',
+    async (expression) => {
+      const uri = 'file:///InvocationBusinessHours.cls';
+      const source = [
+        'public class InvocationBusinessHours {',
+        '  Other bh() { return null; }',
+        '  void run() {',
+        '    BusinessHours bh;',
+        `    String name = ${expression};`,
+        '  }',
+        '}',
+      ].join('\n');
+      const listener = new FullSymbolCollectorListener();
+      new CompilerService().compile(source, uri, listener, {
+        collectReferences: true,
+        resolveReferences: true,
+      });
+      const table = listener.getResult();
+      const manager = new ApexSymbolManager();
+      const discovery = vi
+        .spyOn(SObjectEnrichmentService.prototype, 'resolveInBackground')
+        .mockResolvedValue('scheduled');
+      try {
+        await Effect.runPromise(manager.addSymbolTable(table, uri));
+        await new MissingArtifactUtils(
+          getLogger(),
+          manager,
+        ).tryResolveMissingArtifactBackground(
+          uri,
+          { line: 4, character: 24 },
+          'hover',
+        );
+        expect(discovery).toHaveBeenCalledOnce();
+        expect(
+          discovery.mock.calls[0][0].identifiers.map(
+            (identifier) => identifier.name,
+          ),
+        ).not.toContain('BusinessHours');
+      } finally {
+        discovery.mockRestore();
+        await manager.clear();
+      }
+    },
+  );
+
+  it('discovers a cold member through its receiver declaration with declaration provenance', async () => {
+    const uri = 'file:///ColdBusinessHours.cls';
+    const source = [
+      'public class ColdBusinessHours {',
+      '  void run() {',
+      '    BusinessHours bh = new BusinessHours();',
+      "    bh.Name = 'x';",
+      '  }',
+      '}',
+    ].join('\n');
+    const listener = new FullSymbolCollectorListener();
+    new CompilerService().compile(source, uri, listener, {
+      collectReferences: true,
+      resolveReferences: true,
+    });
+    const table = listener.getResult();
+    table.setMetadata({ documentVersion: 1, parseCompleteness: 'complete' });
+    const declaration = table
+      .getAllReferences()
+      .find(
+        (ref) =>
+          ref.name === 'BusinessHours' &&
+          ref.context === ReferenceContext.TYPE_DECLARATION,
+      );
+    const manager = new ApexSymbolManager();
+    const discovery = vi
+      .spyOn(SObjectEnrichmentService.prototype, 'resolveInBackground')
+      .mockResolvedValue('scheduled');
+    try {
+      await Effect.runPromise(manager.addSymbolTable(table, uri));
+      const outcome = await new MissingArtifactUtils(
+        getLogger(),
+        manager,
+      ).tryResolveMissingArtifactBackground(
+        uri,
+        { line: 3, character: 8 },
+        'hover',
+      );
+      expect(outcome).toBe('scheduled');
+      expect(discovery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifiers: expect.arrayContaining([
+            expect.objectContaining({
+              name: 'BusinessHours',
+              identifierType: 'sobject',
+              allowSObjectPlaceholder: false,
+              provenance: expect.objectContaining({
+                sourceUri: uri,
+                documentVersion: 1,
+                referenceRange: declaration?.location.identifierRange,
+                referenceIdentity: expect.stringContaining('|BusinessHours|'),
+                parseCompleteness: 'complete',
+              }),
+            }),
+          ]),
+        }),
+      );
+      expect(
+        discovery.mock.calls[0][0].identifiers.map(
+          (identifier) => identifier.name,
+        ),
+      ).toEqual(['BusinessHours', 'BusinessHours']);
+      expect(
+        table
+          .getAllReferences()
+          .find((ref) => ref.context === ReferenceContext.CONSTRUCTOR_CALL)
+          ?.isSObject,
+      ).not.toBe(true);
+    } finally {
+      discovery.mockRestore();
+      await manager.clear();
+    }
+  });
+
   let utils: MissingArtifactUtils;
   let mockSymbolManager: Mocked<ISymbolManager>;
   let logger: any;
@@ -29,6 +154,7 @@ describe('MissingArtifactUtils', () => {
     mockSymbolManager = {
       getReferencesAtPosition: vi.fn(),
       getSymbolAtPosition: vi.fn(),
+      getSymbol: vi.fn().mockResolvedValue(null),
       getSymbolTableForFile: vi.fn(),
       findSymbolsInFile: vi.fn().mockResolvedValue([]),
     } as any;
