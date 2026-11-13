@@ -37,6 +37,12 @@ if (!/^[0-9a-f]{40}$/i.test(resolvedSourceSha)) {
   throw new Error(`Cannot resolve API release source ${sourceRef}.`);
 }
 
+try {
+  execFileSync('git', ['merge-base', '--is-ancestor', baselineSha, resolvedSourceSha]);
+} catch {
+  throw new Error(`API release source ${resolvedSourceSha} does not descend from ${baselineTag}.`);
+}
+
 const base = baselineVersion.match(/^(\d+\.\d+\.\d+)/)?.[1];
 if (!base) {
   throw new Error(`API release tag ${baselineTag} has no stable SemVer core.`);

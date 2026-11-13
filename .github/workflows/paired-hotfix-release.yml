@@ -265,6 +265,8 @@ jobs:
     needs: [verify-source, verify-pair]
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
+    env:
+      SOURCE_HOST_VERSION: ${{ needs.verify-source.outputs.source-host-version }}
     steps:
       - name: Checkout verified source
         uses: actions/checkout@v6
@@ -272,50 +274,19 @@ jobs:
           ref: ${{ needs.verify-source.outputs.sha }}
           persist-credentials: false
 
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '22.x'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Download paired identity
-        uses: actions/download-artifact@v8
-        with:
-          name: paired-host-identity-${{ github.run_id }}
-          path: api-release
+      - name: Set up pnpm workspace
+        uses: ./.github/actions/setup-pnpm
 
       - name: Reject existing Marketplace host version
         run: |
           node <<'NODE'
           const assert = require('node:assert/strict');
-          const fs = require('node:fs');
           const { execFileSync } = require('node:child_process');
-          const path = 'api-release/extension-api-release.json';
-          const metadata = JSON.parse(fs.readFileSync(path, 'utf8'));
           const marketplace = JSON.parse(execFileSync('pnpm', ['exec', 'vsce', 'show', 'salesforce.apex-language-server-extension', '--json'],
             { cwd: 'packages/apex-lsp-vscode-extension', encoding: 'utf8' }));
           assert(Array.isArray(marketplace.versions), 'Marketplace response must include versions');
-          assert(!marketplace.versions.some(entry => entry.targetPlatform !== 'web' && entry.version === metadata.sourceHostPackageVersion), 'Host version already published on Marketplace');
-          metadata.hostPublication = { status: 'version-available', checkedAt: new Date().toISOString(),
-            version: metadata.sourceHostPackageVersion, immutableIdentityVerified: false };
-          fs.writeFileSync(path, JSON.stringify(metadata, null, 2) + '\n');
+          assert(!marketplace.versions.some(entry => entry.targetPlatform !== 'web' && entry.version === process.env.SOURCE_HOST_VERSION), 'Host version already published on Marketplace');
           NODE
-
-      - name: Upload Marketplace guard metadata
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: paired-marketplace-guard-${{ github.run_id }}
-          overwrite: true
-          path: api-release/extension-api-release.json
-          if-no-files-found: error
-          retention-days: 90
 
   api-version-guard:
     needs: verify-source
@@ -376,17 +347,8 @@ jobs:
           ref: ${{ needs.verify-source.outputs.sha }}
           persist-credentials: false
 
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '22.x'
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Set up pnpm workspace
+        uses: ./.github/actions/setup-pnpm
 
       - name: Download paired host identity
         uses: actions/download-artifact@v8
@@ -395,28 +357,10 @@ jobs:
           path: api-release
 
       - name: Verify Marketplace host checksum
-        run: |
-          node <<'NODE'
-          const assert = require('node:assert/strict');
-          const fs = require('node:fs');
-          const { execFileSync } = require('node:child_process');
-          const path = 'api-release/extension-api-release.json';
-          const metadata = JSON.parse(fs.readFileSync(path, 'utf8'));
-          const marketplace = JSON.parse(execFileSync('pnpm', ['exec', 'vsce', 'show', 'salesforce.apex-language-server-extension', '--json'],
-            { cwd: 'packages/apex-lsp-vscode-extension', encoding: 'utf8' }));
-          assert(Array.isArray(marketplace.versions), 'Marketplace response must include versions');
-          const versions = marketplace.versions.filter(entry => entry.targetPlatform !== 'web' && entry.version === metadata.sourceHostPackageVersion);
-          assert.equal(versions.length, 1, 'Expected exactly one matching non-web Marketplace host version');
-          const version = versions[0];
-          const checksums = (version.properties || []).filter(property => property.key === 'Microsoft.VisualStudio.Services.VsixSha256');
-          assert.equal(checksums.length, 1, 'Expected Marketplace VSIX SHA256 property');
-          const sha256 = checksums[0].value;
-          assert.match(sha256, /^[0-9a-f]{64}$/i, 'Expected valid Marketplace VSIX SHA256');
-          assert.equal(sha256.toLowerCase(), metadata.hostVsixSha256, 'Marketplace host checksum must match paired VSIX');
-          metadata.hostPublication = { status: 'verified', checkedAt: new Date().toISOString(),
-            version: version.version, sha256: sha256.toLowerCase(), immutableIdentityVerified: true };
-          fs.writeFileSync(path, JSON.stringify(metadata, null, 2) + '\n');
-          NODE
+        env:
+          METADATA_PATH: api-release/extension-api-release.json
+          RECORD_VERIFICATION: 'true'
+        run: node .github/scripts/verify-marketplace-host.mjs
 
       - name: Upload verified host publication metadata
         uses: actions/upload-artifact@v7
@@ -467,41 +411,12 @@ jobs:
             *) echo "Registry lookup failed: HTTP $STATUS"; exit 1 ;;
           esac
 
-      - name: Publish verified API tarball
+      - name: Publish and verify API tarball
         id: npm-publish
-        run: npm publish ./api-release/extension-api.tgz --access public --tag "$DIST_TAG" --ignore-scripts --registry=https://registry.npmjs.org
         env:
+          PUBLISH_IF_MISSING: 'true'
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Verify actual npm version, integrity, and dist-tag
-        if: ${{ always() && steps.npm-publish.outcome == 'success' }}
-        run: |
-          node <<'NODE'
-          const fs = require('node:fs');
-          const crypto = require('node:crypto');
-          const { execFileSync } = require('node:child_process');
-          const metadataPath = 'api-release/extension-api-release.json';
-          const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
-          const integrity = 'sha512-' + crypto.createHash('sha512').update(fs.readFileSync('api-release/extension-api.tgz')).digest('base64');
-          let verified = false;
-          for (let attempt = 0; attempt < 6; attempt++) {
-            try {
-              const view = spec => JSON.parse(execFileSync('npm', ['view', spec, '--json', '--registry=https://registry.npmjs.org', '--prefer-online'], { encoding: 'utf8' }));
-              const version = view(`${process.env.PACKAGE_NAME}@${process.env.API_VERSION}`);
-              const tags = view(process.env.PACKAGE_NAME)['dist-tags'];
-              metadata.npmVerification = { checkedAt: new Date().toISOString(), version: version.version,
-                distTag: process.env.DIST_TAG, distTagVersion: tags[process.env.DIST_TAG], integrity: version.dist.integrity };
-              verified = version.version === process.env.API_VERSION && tags[process.env.DIST_TAG] === process.env.API_VERSION && version.dist.integrity === integrity;
-              metadata.npmVerification.verified = verified;
-            } catch (error) {
-              metadata.npmVerification = { checkedAt: new Date().toISOString(), verified: false, error: error.message };
-            }
-            fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2) + '\n');
-            if (verified) break;
-            if (attempt < 5) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10000);
-          }
-          if (!verified) throw new Error('Post-publish npm verification failed; inspect release metadata');
-          NODE
+        run: node .github/scripts/publish-paired-api.mjs
 
       - name: Upload actual publication metadata
         if: always()
