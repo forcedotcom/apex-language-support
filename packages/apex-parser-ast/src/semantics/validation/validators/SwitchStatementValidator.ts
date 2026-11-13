@@ -330,6 +330,8 @@ function isWhenTypeCompatible(whenType: string, switchType: string): boolean {
 type SwitchExpressionKind =
   'scalar' | 'sobject' | 'enum' | 'unsupported' | 'unknown';
 
+type WhenTypeKind = 'sobject' | 'non-sobject' | 'unknown';
+
 async function classifySwitchExpressionType(
   typeName: string,
   symbolManager: ISymbolManagerInterface,
@@ -355,6 +357,21 @@ async function classifySwitchExpressionType(
     return 'unsupported';
   }
   return 'unknown';
+}
+
+async function classifyWhenType(
+  typeName: string,
+  symbolManager: ISymbolManagerInterface,
+): Promise<WhenTypeKind> {
+  if (typeName.toLowerCase() === 'sobject') {
+    return 'sobject';
+  }
+  if (await symbolManager.findSObjectType(typeName)) {
+    return 'sobject';
+  }
+  return (await symbolManager.findSymbolByName(typeName)).length > 0
+    ? 'non-sobject'
+    : 'unknown';
 }
 
 function whenLiteralKey(literal: WhenLiteralInfo): string | undefined {
@@ -691,6 +708,29 @@ export const SwitchStatementValidator: Validator = {
                   message: localizeTyped(ErrorCodes.ILLEGAL_NON_WHEN_TYPE),
                   location: getLocationFromContext(whenBlock.ctx),
                   code: ErrorCodes.ILLEGAL_NON_WHEN_TYPE,
+                });
+              }
+            }
+          }
+
+          // 5.25. A type-variable when clause on an SObject switch must bind
+          // an SObject type. Leave unresolved references to later resolution.
+          if (switchTypeInfo?.kind === 'sobject') {
+            for (const whenBlock of whenBlocks) {
+              if (!whenBlock.isTypeVariable || !whenBlock.typeName) {
+                continue;
+              }
+              const whenTypeKind = yield* Effect.promise(() =>
+                classifyWhenType(whenBlock.typeName!, symbolManager),
+              );
+              if (whenTypeKind === 'non-sobject') {
+                errors.push({
+                  message: localizeTyped(
+                    ErrorCodes.ILLEGAL_WHEN_TYPE,
+                    whenBlock.typeName,
+                  ),
+                  location: getLocationFromContext(whenBlock.ctx),
+                  code: ErrorCodes.ILLEGAL_WHEN_TYPE,
                 });
               }
             }
