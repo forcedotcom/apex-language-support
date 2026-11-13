@@ -624,6 +624,21 @@ export const SwitchStatementValidator: Validator = {
             continue;
           }
 
+          // An unsupported switch expression makes every clause-type check
+          // derivative. Report the primary error and avoid cascades from the
+          // otherwise valid grammar structure of its when clauses.
+          if (switchTypeInfo?.kind === 'unsupported') {
+            errors.push({
+              message: localizeTyped(
+                ErrorCodes.ILLEGAL_SWITCH_EXPRESSION_TYPE,
+                switchTypeInfo.type,
+              ),
+              location: switchLocation,
+              code: ErrorCodes.ILLEGAL_SWITCH_EXPRESSION_TYPE,
+            });
+            continue;
+          }
+
           // 2. Check when else placement (must be last)
           for (let i = 0; i < whenBlocks.length; i++) {
             const whenBlock = whenBlocks[i];
@@ -823,19 +838,6 @@ export const SwitchStatementValidator: Validator = {
                 );
               }
             }
-          }
-
-          // 8. Check the resolved switch expression type. If resolution is
-          // incomplete, preserve that uncertainty rather than interpreting text.
-          if (switchTypeInfo?.kind === 'unsupported') {
-            errors.push({
-              message: localizeTyped(
-                ErrorCodes.ILLEGAL_SWITCH_EXPRESSION_TYPE,
-                switchTypeInfo.type,
-              ),
-              location: switchLocation,
-              code: ErrorCodes.ILLEGAL_SWITCH_EXPRESSION_TYPE,
-            });
           }
 
           // TIER 2: Enum switch validation
