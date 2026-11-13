@@ -124,7 +124,8 @@ jobs:
       install-command: 'pnpm install --frozen-lockfile'
       dry-run: ${{ inputs.dry-run }}
       require-approval: 'false'
-    secrets: inherit
+    secrets:
+      VSCE_PERSONAL_ACCESS_TOKEN: ${{ secrets.VSCE_PERSONAL_ACCESS_TOKEN }}
 
   # Only applies to the version-tag path: source-run-id has no GitHub Release for a tag-based
   # publish to target, and vscode-manual-publish.yml's input validation hard-errors that

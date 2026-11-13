@@ -8,6 +8,7 @@ const read = path => readFileSync(join(process.cwd(), path), 'utf8');
 const workflow = read('.github/workflows/paired-hotfix-release.yml');
 const resumeWorkflow = read('.github/workflows/resume-paired-hotfix-api.yml');
 const packageWorkflow = read('.github/workflows/package.yml');
+const manualPublishWorkflow = read('.github/workflows/manual-publish.yml');
 const setupAction = read('.github/actions/setup-pnpm/action.yml');
 const marketplaceVerifier = read('.github/scripts/verify-marketplace-host.mjs');
 const apiPublisher = read('.github/scripts/publish-paired-api.mjs');
@@ -21,6 +22,10 @@ test('paired release uses immutable source and correctly orders publication', ()
   assert.match(workflow, /publish-api:\n    needs: \[verify-source, verify-host-publication\]/);
   assert.match(workflow, /require-approval: 'false'/);
   assert.doesNotMatch(workflow, /^\s*environment:/m);
+  assert.match(workflow, /secrets:\n      VSCE_PERSONAL_ACCESS_TOKEN: \$\{\{ secrets\.VSCE_PERSONAL_ACCESS_TOKEN \}\}/);
+  assert.doesNotMatch(workflow, /secrets: inherit/);
+  assert.match(manualPublishWorkflow, /secrets:\n      VSCE_PERSONAL_ACCESS_TOKEN: \$\{\{ secrets\.VSCE_PERSONAL_ACCESS_TOKEN \}\}/);
+  assert.doesNotMatch(manualPublishWorkflow, /secrets: inherit/);
 });
 
 test('both workflows use the shared release components', () => {

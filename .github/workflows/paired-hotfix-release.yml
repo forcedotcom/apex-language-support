@@ -334,7 +334,8 @@ jobs:
       install-command: 'pnpm install --frozen-lockfile'
       dry-run: 'false'
       require-approval: 'false'
-    secrets: inherit
+    secrets:
+      VSCE_PERSONAL_ACCESS_TOKEN: ${{ secrets.VSCE_PERSONAL_ACCESS_TOKEN }}
 
   verify-host-publication:
     needs: [verify-source, publish-extension]
