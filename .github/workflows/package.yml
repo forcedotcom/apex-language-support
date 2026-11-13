@@ -28,6 +28,11 @@ on:
         required: false
         default: 'false'
         type: string
+      flatten-vsix-artifacts:
+        description: 'Stage extension VSIXs at artifact root for the shared manual publisher'
+        required: false
+        default: false
+        type: boolean
     outputs:
       artifact-name:
         description: 'The calculated artifact name'
@@ -165,6 +170,7 @@ jobs:
           dry-run: ${{ inputs.dry-run }}
 
       - name: Upload VSIX artifacts
+        if: ${{ !inputs.flatten-vsix-artifacts }}
         id: upload
         uses: actions/upload-artifact@v7
         with:
@@ -174,6 +180,28 @@ jobs:
             packages/**/*.vsix.md5
             packages/checksums.md5
             packages/checksums.json
+          overwrite: true
+          retention-days: 5
+
+      - name: Stage flat extension VSIX artifacts
+        if: ${{ inputs.flatten-vsix-artifacts }}
+        run: |
+          mkdir -p vsix-staging
+          shopt -s nullglob
+          VSIX_FILES=(packages/apex-lsp-vscode-extension/*.vsix)
+          [ "${#VSIX_FILES[@]}" -gt 0 ] || { echo 'No extension VSIXs found.'; exit 1; }
+          for vsix in "${VSIX_FILES[@]}"; do
+            cp "$vsix" vsix-staging/
+          done
+
+      - name: Upload flat VSIX artifacts
+        if: ${{ inputs.flatten-vsix-artifacts }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.calc-artifact-name.outputs.artifact-name }}
+          path: vsix-staging/*.vsix
+          if-no-files-found: error
+          overwrite: true
           retention-days: 5
 
       - name: List VSIX files

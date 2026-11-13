@@ -74,9 +74,12 @@ test_workflow_files() {
         ".github/workflows/ci.yml"
         ".github/workflows/package.yml"
         ".github/workflows/release-npm.yml"
-        ".github/workflows/release-extensions.yml"
         ".github/workflows/nightly.yml"
-        ".github/actions/get-packages/action.yml"
+        ".github/workflows/publish-extension-api.yml"
+        ".github/workflows/paired-hotfix-release.yml"
+        ".github/workflows/manual-publish.yml"
+        ".github/workflows/promote-prerelease.yml"
+        ".github/workflows/promote-stable.yml"
     )
     
     local missing_files=()
@@ -237,6 +240,29 @@ test_version_bumping() {
     done
 }
 
+# Function to test independent extension API release SemVer validation
+test_extension_api_release_semver() {
+    print_status "INFO" "Testing extension API release SemVer..."
+
+    if node .github/scripts/test-validate-extension-api-release.mjs; then
+        print_status "SUCCESS" "Extension API release SemVer validation passed"
+    else
+        print_status "ERROR" "Extension API release SemVer validation failed"
+        return 1
+    fi
+}
+
+test_paired_hotfix_release() {
+    print_status "INFO" "Testing paired hotfix release workflow..."
+
+    if node .github/scripts/test-paired-hotfix-release.mjs; then
+        print_status "SUCCESS" "Paired hotfix release workflow validation passed"
+    else
+        print_status "ERROR" "Paired hotfix release workflow validation failed"
+        return 1
+    fi
+}
+
 # Function to test artifact naming
 test_artifact_naming() {
     print_status "INFO" "Testing artifact naming logic..."
@@ -305,6 +331,8 @@ main() {
         "test_package_structure"
         "test_change_detection"
         "test_version_bumping"
+        "test_extension_api_release_semver"
+        "test_paired_hotfix_release"
         "test_artifact_naming"
     )
     

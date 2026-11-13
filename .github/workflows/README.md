@@ -195,7 +195,7 @@ graph TB
     A[get-extensions] --> B[release-extensions]
 ```
 
-**Purpose:** Extension-only nightly orchestrator. The public extension API publishes from the resulting extension GitHub Release through `publish-extension-api.yml`, using the identical nightly version under npm's `nightly` dist-tag; other npm packages remain decoupled in `release-npm.yml`.
+**Purpose:** Extension-only nightly orchestrator. Extension-only releases do not publish the public extension API package.
 
 **Key Features:**
 
@@ -232,9 +232,7 @@ graph TB
 - Uses `ext-github-releases` to create GH releases with VSIX assets
 - Uses `ext-publish-matrix` (returns empty for nightly — no marketplace publish)
 
-**API coordination:** `publish-extension-api.yml` publishes the contract package from every extension GitHub Release. Nightly tags publish the identical version under npm's `nightly` dist-tag. `promote-prerelease.yml` then adds npm's `pre-release` dist-tag to that same version after Marketplace promotion. Stable promotion creates a new stable GitHub Release, which publishes the matching stable API version under `latest`.
-
-If automatic API publishing fails, manually dispatch **Publish Extension API** with the existing extension release tag. It retries only npm publishing; it does not recreate or republish the VSIX. To validate a feature branch, dispatch it from that branch with `dry_run: true` and a prospective API `version`; it builds, tests, lints, and packs without publishing to npm.
+**API coordination:** `publish-extension-api.yml` is intentionally disabled and rejects API-only publication. The only supported API publication path is **Paired Hotfix Release** (`paired-hotfix-release.yml`), which couples a verified API package with a Marketplace host publication from one immutable source SHA. It supports only `nightly` and `pre-release` channels; stable paired hotfixes are unsupported.
 
 **Version Scheme:**
 
@@ -248,7 +246,7 @@ If automatic API publishing fails, manually dispatch **Publish Extension API** w
 
 - Manual dispatch only (decoupled from nightly schedule)
 
-**Purpose:** Standalone npm package publishing for packages that are not extension API contracts. The workflow removes `apex-language-server-extension-api` from its selected release matrix, including the `all` option and change-detection results. The extension API is published only from `publish-extension-api.yml` after an Apex extension release is created.
+**Purpose:** Standalone npm package publishing for packages that are not extension API contracts. The workflow removes `apex-language-server-extension-api` from its selected release matrix, including the `all` option and change-detection results. The extension API is published only through the paired hotfix workflow.
 
 **Script Integration:**
 
@@ -278,9 +276,39 @@ graph LR
 
 - **CI** runs `pnpm run package:packages` (or `:prerelease`) only. Universal and web VSIX logic lives in **`packages/apex-lsp-vscode-extension`** Wireit (`package` / `package-web` and prerelease variants).
 - **Universal VSIX** (`vsce package`): desktop + browser entry points in one bundle — used for VS Code Marketplace / Open VSX, GitHub release assets, and Manual Publish.
-- **Web-target VSIX** (`vsce package --target web`, trimmed in `scripts/package-web-vsix.mjs`): internal **CBWeb** marketplace only (`nightly-extensions` `publish-to-cbweb-marketplace`). GitHub releases still attach universal only ([`ext-github-releases.ts`](.github/scripts/ext-github-releases.ts) excludes `*-web-*` filenames).
+- **Web-target VSIX** (`vsce package --target web`, trimmed in `scripts/package-web-vsix.mjs`): internal **CBWeb** marketplace only (`nightly-extensions` `publish-to-cbweb-marketplace`). GitHub releases still attach universal VSIX files only.
 
 ### 6. Additional Workflows
+
+#### Paired Hotfix Release (`paired-hotfix-release.yml`)
+
+**Purpose:** Publish a pre-release Marketplace host VSIX and its API package as one verified pair from a full, immutable source SHA.
+
+**Constraints:**
+
+- Supports only `nightly` and `pre-release` channels; stable paired hotfixes are unsupported.
+- Requires a full 40-character commit SHA and dispatch from a ref at that same commit.
+- Publishes the host to VS Code Marketplace only; it does not publish to Open VSX or the internal web marketplace.
+- Manual dispatch is the authorization control for Marketplace and npm writes; dispatch authority includes permission to publish. No separate IDE Experience or protected Environment approval is required.
+- Host publication depends on source, artifact-pair, Marketplace, and API-version verification guards. npm publication depends on verification of the published Marketplace checksum.
+- API SemVer is calculated from the nearest reachable `apex-language-server-extension-api-v*` tag. The tag name records the published API version and its target commit is the Conventional Commit boundary. API-only `fix:`, `feat:`, and breaking changes after that tag determine the next patch, minor, or major release respectively.
+- After npm integrity and dist-tag verification, the workflow creates the next immutable API release tag at the exact source SHA.
+- Retains verified API and host metadata artifacts for recovery.
+
+#### Resume Paired Hotfix API (`resume-paired-hotfix-api.yml`)
+
+**Purpose:** Complete or verify the npm portion of a prior paired hotfix run when its host publication has already been verified.
+
+**Constraints:**
+
+- Reuses the verified API tarball and host-publication metadata from the original paired run.
+- Requires the original run ID, full source SHA, API version, and channel to match the recorded pair.
+- Manual dispatch authorizes npm writes without a protected Environment approval. Publication depends on verification of the original run, API tarball, and Marketplace host identity.
+- Never republishes the host extension.
+
+#### Apex Manual Publish (`manual-publish.yml`)
+
+Manual dispatch authorizes registry and Marketplace writes for this extension-only workflow. It passes `require-approval: 'false'` to the shared publisher; no separate IDE Experience or protected Environment approval is required. Quality checks and explicit bypass inputs remain unchanged.
 
 #### Performance Benchmarks (`benchmark.yml`)
 
