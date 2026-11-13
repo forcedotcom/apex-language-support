@@ -209,7 +209,7 @@ export class ImplementationProcessingService implements IImplementationProcessor
           await this.missingArtifactUtils.tryResolveMissingArtifactBlocking(
             params.textDocument.uri,
             params.position,
-            'definition', // Use 'definition' as fallback since 'implementation' may not be supported
+            'implementation',
           );
 
         if (resolutionResult.status === 'resolved') {

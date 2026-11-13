@@ -27,12 +27,13 @@ const context = { subscriptions: [] } as unknown as vscode.ExtensionContext;
 function params(
   identifiers: FindMissingArtifactParams['identifiers'],
   mode: 'blocking' | 'background' = 'blocking',
+  requestKind: FindMissingArtifactParams['origin']['requestKind'] = 'definition',
 ): FindMissingArtifactParams {
   return {
     identifiers,
     origin: {
       uri: 'file:///workspace/Consumer.cls',
-      requestKind: 'definition',
+      requestKind,
     },
     mode,
     maxCandidatesToOpen: 10,
@@ -317,6 +318,94 @@ describe('handleFindMissingArtifact', () => {
       opened: [expect.stringMatching(/RemoteClass\.cls$/i)],
     });
     expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(1);
+    expect(vscode.window.showTextDocument).not.toHaveBeenCalled();
+  });
+
+  it('does not show an Apex class resolved for a blocking hover request', async () => {
+    const harness = createDependencies((request) => ({
+      kind: 'not-found',
+      artifactKind: request.kind,
+      name: request.name,
+    }));
+    harness.workspaceResolve.mockResolvedValue(
+      new Map([
+        [
+          'apex-class:classa',
+          {
+            kind: 'source',
+            uri: vscode.Uri.parse('file:///workspace/ClassA.cls'),
+          },
+        ],
+      ]),
+    );
+
+    const ingestDocument = vi.fn();
+    await handleFindMissingArtifact(
+      params(
+        [{ name: 'ClassA', identifierType: 'apex-class' }],
+        'blocking',
+        'hover',
+      ),
+      context,
+      harness.dependencies,
+      ingestDocument,
+    );
+
+    expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(1);
+    expect(vscode.window.showTextDocument).not.toHaveBeenCalled();
+    expect(ingestDocument).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not show an org Apex class resolved for a blocking hover request', async () => {
+    const harness = createDependencies((request) => ({
+      kind: 'apex-source',
+      id: '01p',
+      name: request.name,
+      source: `public class ${request.name} {}`,
+    }));
+
+    await handleFindMissingArtifact(
+      params(
+        [{ name: 'RemoteClass', identifierType: 'apex-class' }],
+        'blocking',
+        'hover',
+      ),
+      context,
+      harness.dependencies,
+    );
+
+    expect(vscode.workspace.openTextDocument).toHaveBeenCalledTimes(1);
+    expect(vscode.window.showTextDocument).not.toHaveBeenCalled();
+  });
+
+  it('does not show an Apex class resolved for a blocking implementation request', async () => {
+    const harness = createDependencies((request) => ({
+      kind: 'not-found',
+      artifactKind: request.kind,
+      name: request.name,
+    }));
+    harness.workspaceResolve.mockResolvedValue(
+      new Map([
+        [
+          'apex-class:implementationclass',
+          {
+            kind: 'source',
+            uri: vscode.Uri.parse('file:///workspace/ImplementationClass.cls'),
+          },
+        ],
+      ]),
+    );
+
+    await handleFindMissingArtifact(
+      params(
+        [{ name: 'ImplementationClass', identifierType: 'apex-class' }],
+        'blocking',
+        'implementation',
+      ),
+      context,
+      harness.dependencies,
+    );
+
     expect(vscode.window.showTextDocument).not.toHaveBeenCalled();
   });
 
