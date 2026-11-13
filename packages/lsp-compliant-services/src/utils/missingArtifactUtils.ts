@@ -143,7 +143,7 @@ export class MissingArtifactUtils {
         reference,
         cursorReference,
       );
-      const identifierTypes = await this.classifyArtifactCandidates({
+      const identifierTypes = classifyMissingArtifactCandidates({
         ...reference,
         name: identifierName,
         searchHints,
@@ -236,7 +236,7 @@ export class MissingArtifactUtils {
         reference,
         cursorReference,
       );
-      const identifierTypes = await this.classifyArtifactCandidates({
+      const identifierTypes = classifyMissingArtifactCandidates({
         ...reference,
         name: identifierName,
         searchHints,
@@ -336,12 +336,6 @@ export class MissingArtifactUtils {
       );
       return null;
     }
-  }
-
-  private async classifyArtifactCandidates(
-    reference: any,
-  ): Promise<ReturnType<typeof classifyMissingArtifactCandidates>> {
-    return classifyMissingArtifactCandidates(reference);
   }
 
   /**
@@ -507,7 +501,7 @@ export class MissingArtifactUtils {
     cursorReference: SymbolReference,
   ): Promise<SymbolReference | undefined> {
     if (!isChainedSymbolReference(reference)) return undefined;
-    const nodes = reference.chainNodes ?? [];
+    const nodes = reference.chainNodes;
     const selectedIndex = nodes.indexOf(cursorReference);
     if (selectedIndex !== 1) return undefined;
     const receiver = nodes[0];
@@ -574,7 +568,7 @@ export class MissingArtifactUtils {
     const candidates = references
       .map((reference) => {
         const matchingNode = isChainedSymbolReference(reference)
-          ? (reference.chainNodes ?? [])
+          ? reference.chainNodes
               .filter((node) => this.positionInIdentifierRange(position, node))
               .sort(
                 (left, right) =>

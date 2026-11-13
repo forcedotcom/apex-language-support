@@ -29,6 +29,7 @@ import {
   Queue,
   Deferred,
   Option,
+  Schedule,
 } from 'effect';
 import type * as Tracer from 'effect/Tracer';
 import {
@@ -1614,12 +1615,6 @@ async function materializeCursorCrossFileReferences(
             }
           }),
         ),
-        Effect.tapError((error) =>
-          Effect.logDebug(
-            `[ENRICHMENT] Cursor cross-file resolution failed for ${uri}: ${String(error)}`,
-          ),
-        ),
-        Effect.catchAll(() => Effect.void),
       ),
     ).finally(() => {
       if (inFlight.get(uri)?.resolution === resolution) {
@@ -1635,17 +1630,85 @@ async function materializeCursorCrossFileReferences(
   }
 }
 
-function loadCursorTargetDependencies(
+const loadCursorTargetDependencies = Effect.fn(
+  'worker.enrichment.loadCursorTargetDependencies',
+)(function* (
   svc: RequestServices,
   requestType: LSPRequestType,
   uri: string,
   position: { line: number; character: number },
-  attemptedMissingNames = new Set<string>(),
-  remainingDependencyPasses?: number,
-): Effect.Effect<CursorTargetDependencyTelemetry, never, never> {
-  return Effect.fn('worker.enrichment.loadCursorTargetDependencies', {
-    attributes: { uri },
-  })(function* () {
+) {
+  yield* Effect.annotateCurrentSpan({ uri });
+  const attemptedMissingNames = new Set<string>();
+  const firstPass = yield* loadCursorTargetDependencyPass(
+    svc,
+    requestType,
+    uri,
+    position,
+    attemptedMissingNames,
+  );
+  const result = yield* Effect.iterate(
+    {
+      remainingPasses: firstPass.passBudget - 1,
+      addedDependencyTable: firstPass.addedDependencyTable,
+      telemetry: firstPass.telemetry,
+    },
+    {
+      while: ({ remainingPasses, addedDependencyTable }) =>
+        addedDependencyTable && remainingPasses > 0,
+      body: (state) =>
+        loadCursorTargetDependencyPass(
+          svc,
+          requestType,
+          uri,
+          position,
+          attemptedMissingNames,
+        ).pipe(
+          Effect.map((pass) => ({
+            remainingPasses: state.remainingPasses - 1,
+            addedDependencyTable: pass.addedDependencyTable,
+            telemetry: {
+              candidateCount:
+                state.telemetry.candidateCount + pass.telemetry.candidateCount,
+              localHitCount:
+                state.telemetry.localHitCount + pass.telemetry.localHitCount,
+              requestedCount:
+                state.telemetry.requestedCount + pass.telemetry.requestedCount,
+              ingestedCount:
+                state.telemetry.ingestedCount + pass.telemetry.ingestedCount,
+              artifactDiscoveryRequested:
+                state.telemetry.artifactDiscoveryRequested ||
+                pass.telemetry.artifactDiscoveryRequested,
+            },
+          })),
+        ),
+    },
+  );
+  yield* Effect.annotateCurrentSpan({
+    'cursor_target.candidate_count': result.telemetry.candidateCount,
+    'cursor_target.local_hit_count': result.telemetry.localHitCount,
+    'cursor_target.requested_count': result.telemetry.requestedCount,
+    'cursor_target.ingested_count': result.telemetry.ingestedCount,
+  });
+  return result.telemetry;
+});
+
+function loadCursorTargetDependencyPass(
+  svc: RequestServices,
+  requestType: LSPRequestType,
+  uri: string,
+  position: { line: number; character: number },
+  attemptedMissingNames: Set<string>,
+): Effect.Effect<
+  {
+    readonly passBudget: number;
+    readonly addedDependencyTable: boolean;
+    readonly telemetry: CursorTargetDependencyTelemetry;
+  },
+  never,
+  never
+> {
+  return Effect.gen(function* () {
     const empty: CursorTargetDependencyTelemetry = {
       candidateCount: 0,
       localHitCount: 0,
@@ -1656,7 +1719,8 @@ function loadCursorTargetDependencies(
     const symbolTable = yield* Effect.promise(() =>
       svc.symbolManager.getSymbolTableForFile(uri),
     );
-    if (!symbolTable) return empty;
+    if (!symbolTable)
+      return { passBudget: 1, addedDependencyTable: false, telemetry: empty };
 
     const {
       ReferenceContext,
@@ -1681,12 +1745,10 @@ function loadCursorTargetDependencies(
         parserPosition,
       );
     }
-    const passBudget =
-      remainingDependencyPasses ??
-      Math.max(
-        1,
-        ...references.map((reference) => reference.chainNodes?.length ?? 1),
-      );
+    const passBudget = Math.max(
+      1,
+      ...references.map((reference) => reference.chainNodes?.length ?? 1),
+    );
     const cursorReferenceNodes = references.flatMap((reference) => [
       reference,
       ...(reference.chainNodes ?? []),
@@ -2064,6 +2126,34 @@ function loadCursorTargetDependencies(
       // No document text is inspected here.
       const artifactRequestKind = requestType;
       const metadata = symbolTable.getMetadata();
+      const artifactProvenance = (
+        reference: DependencyCursorReference,
+        referenceRange: NonNullable<
+          NonNullable<DependencyCursorReference['location']>['identifierRange']
+        >,
+        identity = [
+          reference.context,
+          reference.name,
+          referenceRange.startLine,
+          referenceRange.startColumn,
+          referenceRange.endLine,
+          referenceRange.endColumn,
+        ].join('|'),
+      ) => ({
+        sourceUri: uri,
+        ...(metadata.documentVersion !== undefined && {
+          documentVersion: metadata.documentVersion,
+        }),
+        referenceRange,
+        referenceIdentity: identity,
+        ...(reference.resolvedSymbolId && {
+          resolvedSymbolId: reference.resolvedSymbolId,
+        }),
+        ...(reference.resolvedTypeId && {
+          resolvedTypeId: reference.resolvedTypeId,
+        }),
+        parseCompleteness: metadata.parseCompleteness ?? 'unknown',
+      });
       const allReferences = symbolTable.getAllReferences();
       const hasSObjectTargetAtCursor = references.some(
         (reference) =>
@@ -2123,21 +2213,11 @@ function loadCursorTargetDependencies(
               {
                 name,
                 identifierType: 'sobject' as const,
-                provenance: {
-                  sourceUri: uri,
-                  ...(metadata.documentVersion !== undefined && {
-                    documentVersion: metadata.documentVersion,
-                  }),
-                  referenceRange: reference.location.identifierRange,
-                  referenceIdentity: referenceIdentity(reference),
-                  ...(reference.resolvedSymbolId && {
-                    resolvedSymbolId: reference.resolvedSymbolId,
-                  }),
-                  ...(reference.resolvedTypeId && {
-                    resolvedTypeId: reference.resolvedTypeId,
-                  }),
-                  parseCompleteness: metadata.parseCompleteness ?? 'unknown',
-                },
+                provenance: artifactProvenance(
+                  reference,
+                  reference.location.identifierRange,
+                  referenceIdentity(reference),
+                ),
               },
             ];
           })
@@ -2167,28 +2247,7 @@ function loadCursorTargetDependencies(
               // Ambiguous type references must not install a placeholder that
               // masks a same-named Apex class while describe is in flight.
               allowSObjectPlaceholder: false,
-              provenance: {
-                sourceUri: uri,
-                ...(metadata.documentVersion !== undefined && {
-                  documentVersion: metadata.documentVersion,
-                }),
-                referenceRange,
-                referenceIdentity: [
-                  reference.context,
-                  reference.name,
-                  referenceRange.startLine,
-                  referenceRange.startColumn,
-                  referenceRange.endLine,
-                  referenceRange.endColumn,
-                ].join('|'),
-                ...(reference.resolvedSymbolId && {
-                  resolvedSymbolId: reference.resolvedSymbolId,
-                }),
-                ...(reference.resolvedTypeId && {
-                  resolvedTypeId: reference.resolvedTypeId,
-                }),
-                parseCompleteness: metadata.parseCompleteness ?? 'unknown',
-              },
+              provenance: artifactProvenance(reference, referenceRange),
             };
           }),
         ).then((identifiers) =>
@@ -2208,28 +2267,7 @@ function loadCursorTargetDependencies(
           {
             name,
             identifierType: 'apex-class' as const,
-            provenance: {
-              sourceUri: uri,
-              ...(metadata.documentVersion !== undefined && {
-                documentVersion: metadata.documentVersion,
-              }),
-              referenceRange,
-              referenceIdentity: [
-                provenanceReference.context,
-                provenanceReference.name,
-                referenceRange.startLine,
-                referenceRange.startColumn,
-                referenceRange.endLine,
-                referenceRange.endColumn,
-              ].join('|'),
-              ...(provenanceReference.resolvedSymbolId && {
-                resolvedSymbolId: provenanceReference.resolvedSymbolId,
-              }),
-              ...(provenanceReference.resolvedTypeId && {
-                resolvedTypeId: provenanceReference.resolvedTypeId,
-              }),
-              parseCompleteness: metadata.parseCompleteness ?? 'unknown',
-            },
+            provenance: artifactProvenance(provenanceReference, referenceRange),
           },
         ];
       });
@@ -2354,28 +2392,27 @@ function loadCursorTargetDependencies(
           artifactIngested === 0 &&
           artifactResult &&
           'opened' in artifactResult &&
-          Array.isArray(artifactResult.opened) &&
-          artifactResult.opened.length > 0
+          (artifactResult.opened?.length ?? 0) > 0
         ) {
           const pollMs =
             ApexSettingsManager.getInstance().getSettings().apex
               .findMissingArtifact.indexingBarrierPollMs ?? 100;
-          const maxWaitMs = 500;
-          const start = Date.now();
-          while (Date.now() - start < maxWaitMs && artifactIngested === 0) {
-            yield* Effect.sleep(`${pollMs} millis`);
-            const retriedIngested = yield* Effect.tryPromise({
-              try: () =>
-                resolveMissingNamesViaDataOwner(
-                  svc,
-                  artifactIdentifiers.map((identifier) => identifier.name),
-                ),
-              catch: () => 0,
-            }).pipe(Effect.catchAll(() => Effect.succeed(0)));
-            artifactIngested += retriedIngested;
-            ingestedCount += retriedIngested;
-            addedDependencyTable ||= retriedIngested > 0;
-          }
+          const names = artifactIdentifiers.map(({ name }) => name);
+          const polling = Schedule.spaced(pollMs).pipe(
+            Schedule.intersect(Schedule.recurUpTo('500 millis')),
+            Schedule.whileInput((count: number) => count === 0),
+            Schedule.passthrough,
+          );
+          const retriedIngested = yield* Effect.tryPromise(() =>
+            resolveMissingNamesViaDataOwner(svc, names),
+          ).pipe(
+            // Discovery is best-effort; failed lookups remain eligible to poll.
+            Effect.orElseSucceed(() => 0),
+            Effect.scheduleFrom<never, number, number>(0, polling),
+          );
+          artifactIngested += retriedIngested;
+          ingestedCount += retriedIngested;
+          addedDependencyTable ||= retriedIngested > 0;
         }
       }
 
@@ -2432,26 +2469,12 @@ function loadCursorTargetDependencies(
       );
     }
 
-    const nextPass =
-      addedDependencyTable && passBudget > 1
-        ? yield* loadCursorTargetDependencies(
-            svc,
-            requestType,
-            uri,
-            position,
-            attemptedMissingNames,
-            passBudget - 1,
-          )
-        : undefined;
-
     const telemetry = {
-      candidateCount: candidateNames.size + (nextPass?.candidateCount ?? 0),
-      localHitCount: localHitCount + (nextPass?.localHitCount ?? 0),
-      requestedCount: missingNames.length + (nextPass?.requestedCount ?? 0),
-      ingestedCount: ingestedCount + (nextPass?.ingestedCount ?? 0),
-      artifactDiscoveryRequested:
-        artifactDiscoveryRequested ||
-        (nextPass?.artifactDiscoveryRequested ?? false),
+      candidateCount: candidateNames.size,
+      localHitCount,
+      requestedCount: missingNames.length,
+      ingestedCount,
+      artifactDiscoveryRequested,
     };
     yield* Effect.annotateCurrentSpan({
       'cursor_target.candidate_count': telemetry.candidateCount,
@@ -2459,23 +2482,11 @@ function loadCursorTargetDependencies(
       'cursor_target.requested_count': telemetry.requestedCount,
       'cursor_target.ingested_count': telemetry.ingestedCount,
     });
-    return telemetry;
-  })().pipe(
-    Effect.catchAll((error) =>
-      Effect.sync(() => {
-        getLogger().warn(
-          () =>
-            `[ENRICHMENT] Cursor-target dependency load failed for ${uri}: ${String(error)}`,
-        );
-        return {
-          candidateCount: 0,
-          localHitCount: 0,
-          requestedCount: 0,
-          ingestedCount: 0,
-          artifactDiscoveryRequested: false,
-        };
-      }),
-    ),
+    return { passBudget, addedDependencyTable, telemetry };
+  }).pipe(
+    Effect.withSpan('worker.enrichment.loadCursorTargetDependencyPass', {
+      attributes: { uri },
+    }),
   );
 }
 

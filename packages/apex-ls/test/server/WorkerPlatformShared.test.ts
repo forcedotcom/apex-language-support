@@ -12,7 +12,7 @@ import {
   HoverProcessingService,
 } from '@salesforce/apex-lsp-compliant-services';
 import { getLogger } from '@salesforce/apex-lsp-shared';
-import { Effect, LogLevel } from 'effect';
+import { Clock, Effect, Fiber, LogLevel, TestClock, TestContext } from 'effect';
 import {
   ApexSymbolManager,
   CompilerService,
@@ -1483,6 +1483,128 @@ describe('worker.platform.shared', () => {
       symbolManager.clear();
     }
   });
+
+  it.each(['definition', 'hover'] as const)(
+    'waits for opened workspace dependencies only for blocking %s requests',
+    async (requestType) => {
+      const uri = 'file:///OpenedDependencyConsumer.cls';
+      const dependencyUri = 'file:///OpenedDependency.cls';
+      const dependency = compileToWireSymbolTable(
+        'public class OpenedDependency {}',
+        dependencyUri,
+      );
+      let discoveryRequested = false;
+      let lookupCount = 0;
+      const assistance = vi.fn(async (method: string) => {
+        if (method === 'apex/findMissingArtifact') {
+          discoveryRequested = true;
+          return { opened: [dependencyUri] };
+        }
+        if (method === 'dataOwner:QuerySymbolByName' && discoveryRequested) {
+          lookupCount++;
+          if (lookupCount === 3)
+            return { entries: { [dependencyUri]: dependency } };
+        }
+        return { entries: {}, versions: {}, detailLevels: {} };
+      });
+      setAssistanceTransport(assistance);
+      const symbolManager = new ApexSymbolManager();
+      const svc = {
+        storageManager: { getStorage: () => ({ setDocument: vi.fn() }) },
+        symbolManager,
+      } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
+      try {
+        await Effect.runPromise(
+          Effect.gen(function* () {
+            const fiber = yield* Effect.fork(
+              prepareLspRequestCursor(
+                svc,
+                requestType,
+                uri,
+                'public class OpenedDependencyConsumer { OpenedDependency value; }',
+                { line: 0, character: 42 },
+              ),
+            );
+            yield* TestClock.adjust('100 millis');
+            yield* TestClock.adjust('100 millis');
+            yield* Fiber.join(fiber);
+          }).pipe(Effect.provide(TestContext.TestContext)),
+        );
+        expect(lookupCount).toBe(requestType === 'definition' ? 3 : 1);
+        const loaded = await symbolManager.getSymbolTableForFile(dependencyUri);
+        if (requestType === 'definition')
+          expect(loaded).toBeInstanceOf(SymbolTable);
+        else expect(loaded).toBeUndefined();
+      } finally {
+        await symbolManager.clear();
+      }
+    },
+  );
+
+  it.each([0, 350, 600] as const)(
+    'checks the polling budget before sleeping and lets a %s ms lookup finish',
+    async (lookupDelayMs) => {
+      const uri = 'file:///PollingBudgetConsumer.cls';
+      const dependencyUri = 'file:///PollingDependency.cls';
+      let discoveryRequested = false;
+      let lookupCount = 0;
+      let clock: Clock.Clock | undefined;
+      const lookupStartedAt: number[] = [];
+      const assistance = vi.fn(async (method: string) => {
+        if (method === 'apex/findMissingArtifact') {
+          discoveryRequested = true;
+          return { opened: [dependencyUri] };
+        }
+        if (method === 'dataOwner:QuerySymbolByName' && discoveryRequested) {
+          lookupCount++;
+          if (lookupCount > 1) {
+            if (!clock) throw new Error('Test clock not initialized');
+            lookupStartedAt.push(
+              await Effect.runPromise(clock.currentTimeMillis),
+            );
+            await Effect.runPromise(clock.sleep(lookupDelayMs));
+          }
+        }
+        return { entries: {}, versions: {}, detailLevels: {} };
+      });
+      setAssistanceTransport(assistance);
+      const symbolManager = new ApexSymbolManager();
+      const svc = {
+        storageManager: { getStorage: () => ({ setDocument: vi.fn() }) },
+        symbolManager,
+      } as unknown as Parameters<typeof prepareLspRequestCursor>[0];
+      try {
+        await Effect.runPromise(
+          Effect.gen(function* () {
+            clock = yield* TestClock.testClock();
+            const fiber = yield* Effect.fork(
+              prepareLspRequestCursor(
+                svc,
+                'definition',
+                uri,
+                'public class PollingBudgetConsumer { PollingDependency value; }',
+                { line: 0, character: 40 },
+              ),
+            );
+            for (let step = 0; step < 5; step++) {
+              yield* TestClock.adjust('100 millis');
+              if (lookupDelayMs > 0) yield* TestClock.adjust(lookupDelayMs);
+            }
+            yield* Fiber.join(fiber);
+          }).pipe(Effect.provide(TestContext.TestContext)),
+        );
+        expect(lookupStartedAt).toEqual(
+          lookupDelayMs === 0
+            ? [100, 200, 300, 400, 500]
+            : lookupDelayMs === 350
+              ? [100, 550]
+              : [100],
+        );
+      } finally {
+        await symbolManager.clear();
+      }
+    },
+  );
 
   it('asks the client to locate a missing workspace Apex dependency', async () => {
     const uri = 'file:///WorkspaceDependencyConsumer.cls';
