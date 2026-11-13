@@ -65,6 +65,7 @@ import { ValidationTier } from '../ValidationTier';
 import { ValidationError, type Validator } from '../ValidatorRegistry';
 import { localizeTyped } from '../../../i18n/messageInstance';
 import { ErrorCodes } from '../../../generated/ErrorCodes';
+import { isStandardTypeAlias } from '../utils/standardTypeIdentity';
 import { BaseApexParserListener } from '../../../parser/listeners/BaseApexParserListener';
 import { ISymbolManager } from '../ArtifactLoadingHelper';
 import type { ISymbolManager as ISymbolManagerInterface } from '../../../types/ISymbolManager';
@@ -1810,7 +1811,8 @@ export const ExpressionValidator: Validator = {
               // Basic compatibility check - full validation requires TIER 2
               if (
                 !areTypesCompatible(effectiveSourceType, targetTypeLower) &&
-                sourceTypeLower !== 'null'
+                sourceTypeLower !== 'null' &&
+                !isStandardTypeAlias(effectiveSourceType, 'object')
               ) {
                 errors.push({
                   message: localizeTyped(

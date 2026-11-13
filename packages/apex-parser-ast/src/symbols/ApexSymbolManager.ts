@@ -97,6 +97,7 @@ import {
   inTypeSymbolGroup,
   isChainedSymbolReference,
   isBlockSymbol,
+  isReferenceableApexType,
   isVariableSymbol,
 } from '../utils/symbolNarrowing';
 import { resolveArgumentSemantics } from '../utils/argumentTypeResolution';
@@ -173,12 +174,6 @@ import {
   findTargetSymbolForReference as findTargetSymForRefOp,
   resolveSymbolReferenceToSymbol as resolveSymRefToSymOp,
 } from './ops/chainResolution';
-
-const isExplicitTypeTarget = (symbol: ApexSymbol): boolean =>
-  symbol.kind === SymbolKind.Class ||
-  symbol.kind === SymbolKind.Interface ||
-  symbol.kind === SymbolKind.Enum ||
-  symbol.kind === SymbolKind.SObject;
 
 /**
  * File metadata for tracking symbol relationships
@@ -2987,7 +2982,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       if (resolved) {
         if (
           isExplicitTypeReferenceContext(typeRef.context) &&
-          !isExplicitTypeTarget(resolved)
+          !isReferenceableApexType(resolved)
         ) {
           return null;
         }
@@ -3076,7 +3071,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       if (
         isExplicitTypeReferenceContext(typeRef.context) &&
         head &&
-        !isExplicitTypeTarget(head)
+        !isReferenceableApexType(head)
       ) {
         head = null;
       }
@@ -4419,7 +4414,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               (isExplicitTypeReferenceContext(typeRef.context)
                 ? typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
                   ? symbol.kind === SymbolKind.SObject
-                  : isExplicitTypeTarget(symbol)
+                  : isReferenceableApexType(symbol)
                 : true),
           );
           if (!symbolInFile) {
@@ -4499,7 +4494,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                 byFqn &&
                 (typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
                   ? byFqn.kind === SymbolKind.SObject
-                  : isExplicitTypeTarget(byFqn))
+                  : isReferenceableApexType(byFqn))
                   ? byFqn
                   : null;
             }
@@ -4510,7 +4505,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               symbols.find((s) =>
                 typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
                   ? s.kind === SymbolKind.SObject
-                  : isExplicitTypeTarget(s),
+                  : isReferenceableApexType(s),
               ) || null;
           } else {
             // For METHOD_CALL and FIELD_ACCESS: use Jorje-style resolution for qualifier
@@ -4625,16 +4620,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   self.findSymbolByFQN(typeRef.name),
                 );
                 if (byFqn) {
-                  targetSymbol = isExplicitTypeReferenceContext(typeRef.context)
-                    ? typeRef.context ===
-                      ReferenceContext.TRIGGER_TARGET_SOBJECT
-                      ? byFqn.kind === SymbolKind.SObject
-                        ? byFqn
-                        : null
-                      : isExplicitTypeTarget(byFqn)
-                        ? byFqn
-                        : null
-                    : byFqn;
+                  targetSymbol = byFqn;
                 }
               }
             }
@@ -4643,17 +4629,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               const symbols = yield* Effect.promise(() =>
                 self.findSymbolByName(typeRef.name),
               );
-              const targetCandidates = isExplicitTypeReferenceContext(
-                typeRef.context,
-              )
-                ? symbols.filter((symbol) =>
-                    typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
-                      ? symbol.kind === SymbolKind.SObject
-                      : isExplicitTypeTarget(symbol),
-                  )
-                : symbols;
-              if (targetCandidates.length > 0) {
-                targetSymbol = targetCandidates[0];
+              if (symbols.length > 0) {
+                targetSymbol = symbols[0];
               }
             }
           }
@@ -4795,7 +4772,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           if (
             targetSymbol &&
             isExplicitTypeReferenceContext(typeRef.context) &&
-            !isExplicitTypeTarget(targetSymbol)
+            !isReferenceableApexType(targetSymbol)
           ) {
             targetSymbol = null;
           }

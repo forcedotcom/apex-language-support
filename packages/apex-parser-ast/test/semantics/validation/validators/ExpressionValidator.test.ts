@@ -456,6 +456,56 @@ describe('ExpressionValidator', () => {
       expect(result.isValid).toBe(true);
     });
 
+    it('allows Object downcasts without reporting incompatible cast types', async () => {
+      const { symbolTable, options } = await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'ObjectCastToCustomType.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+        },
+      );
+
+      const result = await runValidator(
+        ExpressionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(
+        result.errors.some(
+          (error) => error.code === ErrorCodes.INCOMPATIBLE_CAST_TYPES,
+        ),
+      ).toBe(false);
+    });
+
+    it('reports incompatible casts from non-Object source types', async () => {
+      const { symbolTable, options } = await compileFixtureWithOptions(
+        VALIDATOR_CATEGORY,
+        'IncompatibleCastTypes.cls',
+        undefined,
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.IMMEDIATE,
+          allowArtifactLoading: false,
+        },
+      );
+
+      const result = await runValidator(
+        ExpressionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(
+        result.errors.some(
+          (error) => error.code === ErrorCodes.INCOMPATIBLE_CAST_TYPES,
+        ),
+      ).toBe(true);
+    });
+
     it('should detect invalid bitwise negate operator types', async () => {
       const { symbolTable, options } = await compileFixtureWithOptions(
         VALIDATOR_CATEGORY,
