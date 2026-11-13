@@ -205,6 +205,96 @@ describe('SwitchStatementValidator', () => {
     expect(hasError).toBe(true);
   });
 
+  it('reports only the switch expression error for unsupported switch types', async () => {
+    const source = `
+      public class InvalidUnsupportedSwitch {
+        public void run(InvalidUnsupportedSwitch value) {
+          switch on value {
+            when Account account {}
+            when Contact contact {}
+          }
+        }
+      }
+    `;
+    const { symbolTable, options } = await compileSourceLayeredWithOptions(
+      source,
+      'file:///test/InvalidUnsupportedSwitch.cls',
+      symbolManager,
+      compilerService,
+      { tier: ValidationTier.THOROUGH, allowArtifactLoading: false },
+    );
+
+    const result = await runValidator(
+      SwitchStatementValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatchObject({
+      code: ErrorCodes.ILLEGAL_SWITCH_EXPRESSION_TYPE,
+    });
+  });
+
+  it('does not compare literal when values after rejecting the switch type', async () => {
+    const source = `
+      public class InvalidUnsupportedLiteralSwitch {
+        public void run(InvalidUnsupportedLiteralSwitch value) {
+          switch on value {
+            when 'value' {}
+            when else {}
+          }
+        }
+      }
+    `;
+    const { symbolTable, options } = await compileSourceLayeredWithOptions(
+      source,
+      'file:///test/InvalidUnsupportedLiteralSwitch.cls',
+      symbolManager,
+      compilerService,
+      { tier: ValidationTier.THOROUGH, allowArtifactLoading: false },
+    );
+
+    const result = await runValidator(
+      SwitchStatementValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatchObject({
+      code: ErrorCodes.ILLEGAL_SWITCH_EXPRESSION_TYPE,
+    });
+  });
+
+  it('does not report duplicate clauses after rejecting the switch type', async () => {
+    const source = `
+      public class InvalidUnsupportedDuplicateSwitch {
+        public void run(InvalidUnsupportedDuplicateSwitch value) {
+          switch on value {
+            when 'value' {}
+            when 'value' {}
+          }
+        }
+      }
+    `;
+    const { symbolTable, options } = await compileSourceLayeredWithOptions(
+      source,
+      'file:///test/InvalidUnsupportedDuplicateSwitch.cls',
+      symbolManager,
+      compilerService,
+      { tier: ValidationTier.THOROUGH, allowArtifactLoading: false },
+    );
+
+    const result = await runValidator(
+      SwitchStatementValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toMatchObject({
+      code: ErrorCodes.ILLEGAL_SWITCH_EXPRESSION_TYPE,
+    });
+  });
+
   it('should detect ILLEGAL_NON_WHEN_TYPE when literal used on SObject switch', async () => {
     const { symbolTable, options } = await compileFixtureWithOptions(
       VALIDATOR_CATEGORY,
