@@ -45,6 +45,7 @@ import {
   SymbolReference,
   ReferenceContext,
   ChainedSymbolReference,
+  isExplicitTypeReferenceContext,
 } from '../types/symbolReference';
 import {
   ApexSymbolRefManager,
@@ -96,6 +97,7 @@ import {
   inTypeSymbolGroup,
   isChainedSymbolReference,
   isBlockSymbol,
+  isReferenceableApexType,
   isVariableSymbol,
 } from '../utils/symbolNarrowing';
 import { resolveArgumentSemantics } from '../utils/argumentTypeResolution';
@@ -172,9 +174,6 @@ import {
   findTargetSymbolForReference as findTargetSymForRefOp,
   resolveSymbolReferenceToSymbol as resolveSymRefToSymOp,
 } from './ops/chainResolution';
-
-const isConstructorTypeContext = (context: ReferenceContext): boolean =>
-  context === ReferenceContext.CONSTRUCTOR_CALL;
 
 /**
  * File metadata for tracking symbol relationships
@@ -2982,8 +2981,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
       const resolved = index.byId.get(typeRef.resolvedSymbolId);
       if (resolved) {
         if (
-          isConstructorTypeContext(typeRef.context) &&
-          isVariableSymbol(resolved)
+          isExplicitTypeReferenceContext(typeRef.context) &&
+          !isReferenceableApexType(resolved)
         ) {
           return null;
         }
@@ -3023,7 +3022,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
     }
 
     if (!qualifier?.isQualified) {
-      if (isConstructorTypeContext(typeRef.context)) {
+      if (isExplicitTypeReferenceContext(typeRef.context)) {
         return null;
       }
       const target = this.findSameFileSymbolInScope(
@@ -3069,20 +3068,29 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
         isChainedSymbolReference(typeRef) &&
         typeRef.chainNodes?.[0]?.resolvedSymbolId;
       head = resolvedHeadId ? (index.byId.get(resolvedHeadId) ?? null) : null;
+      if (
+        isExplicitTypeReferenceContext(typeRef.context) &&
+        head &&
+        !isReferenceableApexType(head)
+      ) {
+        head = null;
+      }
 
       if (!head) {
         const headLocation =
           isChainedSymbolReference(typeRef) && typeRef.chainNodes?.[0]
             ? typeRef.chainNodes[0].location.identifierRange
             : typeRef.location.identifierRange;
-        head = this.findSameFileSymbolInScope(
-          qualifier.qualifier,
-          headLocation.startLine,
-          headLocation.startColumn,
-          symbolTable,
-          index,
-          true,
-        );
+        head = isExplicitTypeReferenceContext(typeRef.context)
+          ? this.findSameFileType(qualifier.qualifier, index)
+          : this.findSameFileSymbolInScope(
+              qualifier.qualifier,
+              headLocation.startLine,
+              headLocation.startColumn,
+              symbolTable,
+              index,
+              true,
+            );
       }
     }
 
@@ -4403,8 +4411,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           const symbolInFile = allSymbols.find(
             (symbol) =>
               symbol.name === typeRef.name &&
-              (typeRef.context !== ReferenceContext.TRIGGER_TARGET_SOBJECT ||
-                symbol.kind === SymbolKind.SObject),
+              (isExplicitTypeReferenceContext(typeRef.context)
+                ? typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
+                  ? symbol.kind === SymbolKind.SObject
+                  : isReferenceableApexType(symbol)
+                : true),
           );
           if (!symbolInFile) {
             // Symbol not in current file - this is a cross-file reference
@@ -4474,21 +4485,27 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           // This handles cases where artifacts were loaded via artifact loading before cross-file resolution runs
           let targetSymbol: ApexSymbol | null = null;
 
-          // For TYPE_DECLARATION and CONSTRUCTOR_CALL, try to find the type in symbol manager
-          if (
-            typeRef.context === ReferenceContext.TYPE_DECLARATION ||
-            typeRef.context === ReferenceContext.CONSTRUCTOR_CALL
-          ) {
+          if (isExplicitTypeReferenceContext(typeRef.context)) {
+            if (typeRef.name.includes('.')) {
+              const byFqn = yield* Effect.promise(() =>
+                self.findSymbolByFQN(typeRef.name),
+              );
+              targetSymbol =
+                byFqn &&
+                (typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
+                  ? byFqn.kind === SymbolKind.SObject
+                  : isReferenceableApexType(byFqn))
+                  ? byFqn
+                  : null;
+            }
             const symbols = yield* Effect.promise(() =>
               self.findSymbolByName(typeRef.name),
             );
-            targetSymbol =
-              symbols.find(
-                (s) =>
-                  s.kind === SymbolKind.Class ||
-                  s.kind === SymbolKind.Interface ||
-                  s.kind === SymbolKind.Enum ||
-                  s.kind === SymbolKind.SObject,
+            targetSymbol ??=
+              symbols.find((s) =>
+                typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
+                  ? s.kind === SymbolKind.SObject
+                  : isReferenceableApexType(s),
               ) || null;
           } else {
             // For METHOD_CALL and FIELD_ACCESS: use Jorje-style resolution for qualifier
@@ -4603,12 +4620,7 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
                   self.findSymbolByFQN(typeRef.name),
                 );
                 if (byFqn) {
-                  targetSymbol =
-                    typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
-                      ? byFqn.kind === SymbolKind.SObject
-                        ? byFqn
-                        : null
-                      : byFqn;
+                  targetSymbol = byFqn;
                 }
               }
             }
@@ -4617,14 +4629,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
               const symbols = yield* Effect.promise(() =>
                 self.findSymbolByName(typeRef.name),
               );
-              const targetCandidates =
-                typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
-                  ? symbols.filter(
-                      (symbol) => symbol.kind === SymbolKind.SObject,
-                    )
-                  : symbols;
-              if (targetCandidates.length > 0) {
-                targetSymbol = targetCandidates[0];
+              if (symbols.length > 0) {
+                targetSymbol = symbols[0];
               }
             }
           }
@@ -4763,6 +4769,13 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           targetSymbol = yield* Effect.promise(() =>
             self.getSymbol(resolvedId),
           );
+          if (
+            targetSymbol &&
+            isExplicitTypeReferenceContext(typeRef.context) &&
+            !isReferenceableApexType(targetSymbol)
+          ) {
+            targetSymbol = null;
+          }
           if (targetSymbol) {
             self.logger.debug(
               () =>
@@ -6524,7 +6537,8 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
           const root = reference.chainNodes?.[0];
           if (
             !root ||
-            isConstructorTypeContext(root.context) ||
+            isExplicitTypeReferenceContext(reference.context) ||
+            isExplicitTypeReferenceContext(root.context) ||
             !this.isPositionInIdentifierRange(
               position,
               root.location.identifierRange,

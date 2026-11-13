@@ -1603,8 +1603,13 @@ function loadCursorTargetDependencies(
     );
     if (!symbolTable) return empty;
 
-    const { ReferenceContext, SObjectRegistry, SymbolKind, SymbolTable } =
-      yield* Effect.promise(() => import('@salesforce/apex-lsp-parser-ast'));
+    const {
+      ReferenceContext,
+      SObjectRegistry,
+      SymbolKind,
+      SymbolTable,
+      isExplicitTypeReferenceContext,
+    } = yield* Effect.promise(() => import('@salesforce/apex-lsp-parser-ast'));
     const parserPosition = {
       line: position.line + 1,
       character: position.character,
@@ -1750,11 +1755,7 @@ function loadCursorTargetDependencies(
       addSObjectCandidate(reference);
       if (
         reference.context === ReferenceContext.CLASS_REFERENCE ||
-        reference.context === ReferenceContext.CONSTRUCTOR_CALL ||
-        reference.context === ReferenceContext.TYPE_DECLARATION ||
-        reference.context === ReferenceContext.INHERITANCE ||
-        reference.context === ReferenceContext.INTERFACE_IMPLEMENTATION ||
-        reference.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
+        isExplicitTypeReferenceContext(reference.context)
       ) {
         addCandidate(reference.name);
       }
@@ -1764,8 +1765,7 @@ function loadCursorTargetDependencies(
         addSObjectCandidate(node);
         if (
           node.context === ReferenceContext.CLASS_REFERENCE ||
-          node.context === ReferenceContext.CONSTRUCTOR_CALL ||
-          node.context === ReferenceContext.TYPE_DECLARATION
+          isExplicitTypeReferenceContext(node.context)
         ) {
           addCandidate(node.name);
         }
@@ -2042,6 +2042,7 @@ function loadCursorTargetDependencies(
             if (!referenceRange) return undefined;
             if (
               !hasUnresolvedMemberTarget &&
+              !isExplicitTypeReferenceContext(reference.context) &&
               !locallyAvailableNames.has(name.toLowerCase())
             ) {
               return undefined;

@@ -14,7 +14,11 @@ import {
   ScopeSymbol,
   VariableSymbol,
 } from '../../types/symbol';
-import { SymbolReference, ReferenceContext } from '../../types/symbolReference';
+import {
+  SymbolReference,
+  ReferenceContext,
+  isExplicitTypeReferenceContext,
+} from '../../types/symbolReference';
 import {
   isChainedSymbolReference,
   isBlockSymbol,
@@ -339,6 +343,12 @@ export class ApexReferenceResolver {
       case ReferenceContext.TYPE_DECLARATION:
       case ReferenceContext.PARAMETER_TYPE:
       case ReferenceContext.RETURN_TYPE:
+      case ReferenceContext.GENERIC_PARAMETER_TYPE:
+      case ReferenceContext.CAST_TYPE_REFERENCE:
+      case ReferenceContext.INSTANCEOF_TYPE_REFERENCE:
+      case ReferenceContext.INHERITANCE:
+      case ReferenceContext.INTERFACE_IMPLEMENTATION:
+      case ReferenceContext.SOQL_FROM_TYPE:
         return this.resolveTypeReference(ref, allSymbols);
 
       case ReferenceContext.TRIGGER_TARGET_SOBJECT:
@@ -359,6 +369,9 @@ export class ApexReferenceResolver {
         );
 
       default:
+        if (isExplicitTypeReferenceContext(ref.context)) {
+          return null;
+        }
         return symbolTable.lookup(ref.name, containingScope) || null;
     }
   }
@@ -521,7 +534,8 @@ export class ApexReferenceResolver {
           s.name === ref.name &&
           (s.kind === SymbolKind.Class ||
             s.kind === SymbolKind.Interface ||
-            s.kind === SymbolKind.Enum),
+            s.kind === SymbolKind.Enum ||
+            s.kind === SymbolKind.SObject),
       ) || null
     );
   }
@@ -578,7 +592,9 @@ export class ApexReferenceResolver {
       const firstNode = ref.chainNodes[0];
       const lastNode = ref.chainNodes[ref.chainNodes.length - 1];
 
-      // Try to resolve the first node as a variable
+      const requiresType = isExplicitTypeReferenceContext(lastNode.context);
+
+      // Expression chains may begin with a scoped value. Type chains may not.
       const nodePosition = {
         line: firstNode.location.identifierRange.startLine,
         character: firstNode.location.identifierRange.startColumn,
@@ -589,10 +605,9 @@ export class ApexReferenceResolver {
           ? nodeScopeHierarchy[nodeScopeHierarchy.length - 1]
           : null;
 
-      let firstNodeSymbol = symbolTable.lookup(
-        firstNode.name,
-        nodeContainingScope,
-      );
+      let firstNodeSymbol = requiresType
+        ? null
+        : symbolTable.lookup(firstNode.name, nodeContainingScope);
       if (
         firstNodeSymbol &&
         (firstNodeSymbol.kind === SymbolKind.Variable ||
@@ -653,9 +668,8 @@ export class ApexReferenceResolver {
 
       // For constructor calls and type references, try resolving the full name
       if (
-        lastNode.context === ReferenceContext.CONSTRUCTOR_CALL ||
         lastNode.context === ReferenceContext.CLASS_REFERENCE ||
-        lastNode.context === ReferenceContext.TYPE_DECLARATION
+        isExplicitTypeReferenceContext(lastNode.context)
       ) {
         // Try to resolve the full qualified type name (e.g., "System.Url")
         const fullTypeName = ref.name; // Should contain the full name like "System.Url"
