@@ -1,27 +1,24 @@
-name: Publish VS Code Marketplace (Trusted) [TEST]
-run-name: "VS Code Marketplace OIDC test: ${{ inputs.release-tag }}"
+name: Publish VS Code Marketplace (Trusted)
+run-name: "VS Code Marketplace: ${{ inputs.release-tag }}"
 
-# Dispatch-only, registration/test workflow for VS Code Marketplace OIDC trusted publishing
-# (vsce --oidc, shipped by Microsoft 2026-10-28). Exists purely so this file is registered on
-# main and can be dispatched by filename -- GitHub won't run a workflow_dispatch workflow by name
-# until it exists on the repo's default branch, even when the intent is to run a different
-# branch's content via `--ref`.
+# The actual `vsce publish --oidc` for the version-tag path lives here. The Marketplace's
+# trusted-publisher match keys off the OIDC token's job_workflow_ref claim, which only matches
+# the calling repo's own workflow filename when the publish step runs inline as a step inside
+# the caller's own job (a composite action), not as a separate job via a nested cross-repo
+# reusable workflow `uses:` call. So manual-publish.yml dispatches this file via
+# `gh workflow run` (a new, independent run, not a `uses:` call) instead of publishing the
+# Marketplace itself, giving the publish a job_workflow_ref that matches *this* file. Register
+# the Marketplace trusted publisher against this file.
 #
-# Unlike Open VSX's trusted-publisher match (confirmed to key off the OIDC token's workflow_ref
-# claim, not job_workflow_ref), it isn't yet known whether the Marketplace's trust check behaves
-# the same way when the actual `vsce publish --oidc` step runs nested inside a cross-repo reusable
-# workflow (salesforcecli/github-workflows). This file -- together with salesforcedx-vscode's
-# identical test workflow -- is the empirical test for that: register a Trusted Publishing policy
-# naming this repo + this exact workflow filename on the Marketplace publisher management page,
-# then dispatch against an already-published, --skip-duplicate-safe tag. See W-24756661.
-#
-# Not wired into any real release channel yet -- that depends on what this test finds.
+# source-run-id has no GitHub Release for this tag-based publish to target, so manual-publish.yml
+# only dispatches this file on the version-tag path -- same constraint as
+# publishOpenVSXTrusted.yml.
 
 on:
   workflow_dispatch:
     inputs:
       release-tag:
-        description: 'Nightly git tag to publish from (e.g. apex-language-server-extension-v0.5.3-nightly.20260301)'
+        description: 'Release tag to publish (e.g. apex-language-server-extension-v0.5.3-nightly.20260301 or apex-language-server-extension-v0.6.0)'
         required: true
         type: string
       dry-run:
@@ -31,15 +28,14 @@ on:
 
 jobs:
   publish:
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
-    # TEMPORARY: pinned to the github-workflows PR branch adding --oidc support
-    # (salesforcecli/github-workflows#203), to validate end-to-end before that PR merges.
-    uses: salesforcecli/github-workflows/.github/workflows/vscode-publish-release-vsix.yml@ms/W-24756661-vsce-trusted-publishing
-    with:
-      release-tag: ${{ inputs.release-tag }}
-      vsix-name-pattern: 'apex-language-server-extension-*.vsix'
-      exclude-web-vsix: 'true'
-      dry-run: ${{ inputs.dry-run || false }}
-    secrets: inherit
+      id-token: write # vsce exchanges this job's OIDC token for a Marketplace publishing token
+    steps:
+      - uses: salesforcecli/github-workflows/.github/actions/vscode/publish-release-vsix@main
+        with:
+          release-tag: ${{ inputs.release-tag }}
+          vsix-name-pattern: 'apex-language-server-extension-*.vsix'
+          exclude-web-vsix: 'true'
+          dry-run: ${{ inputs.dry-run || false }}

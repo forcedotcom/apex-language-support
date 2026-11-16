@@ -1,0 +1,4 @@
+false_positive:
+  - id: .github/workflows/publishVSCodeMarketplaceTrusted.yml:a707e0df59dea45aaa0f92a2c73207e93aab8c9204a8ac5054c5f0d89a6b96fc
+    justification: Same-repo action reference (salesforcecli/github-workflows), not a third-party action. The full owner/repo ref is required because callers run these as reusable workflows, so ./ paths would resolve to the caller's repo.
+not_exploitable: []
