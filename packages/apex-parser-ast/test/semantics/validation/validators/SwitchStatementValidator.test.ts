@@ -18,6 +18,10 @@ import {
 } from './helpers/validation-test-helpers';
 import { ErrorCodes } from '../../../../src/generated/ErrorCodes';
 import { SymbolKind, type ApexSymbol } from '../../../../src/types/symbol';
+import {
+  composeSObjectSymbolTable,
+  ownerUriForSObject,
+} from '../../../../src/sobjects/SObjectSymbolTableComposer';
 
 describe('SwitchStatementValidator', () => {
   let symbolManager: ApexSymbolManager;
@@ -293,6 +297,51 @@ describe('SwitchStatementValidator', () => {
     const { symbolTable, options } = await compileSourceLayeredWithOptions(
       source,
       'file:///test/ValidSObjectWhenPattern.cls',
+      symbolManager,
+      compilerService,
+      { tier: ValidationTier.THOROUGH, allowArtifactLoading: false },
+    );
+
+    const result = await runValidator(
+      SwitchStatementValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(
+      result.errors.some(
+        (error: any) => error.code === ErrorCodes.ILLEGAL_WHEN_TYPE,
+      ),
+    ).toBe(false);
+  });
+
+  it('allows native sObject patterns from the symbol graph', async () => {
+    for (const name of ['Account', 'Contact']) {
+      const sObjectTable = composeSObjectSymbolTable(
+        {
+          name,
+          custom: false,
+          definitionTarget: { uri: `org://${name}` },
+          fields: [],
+        },
+        1,
+      );
+      await Effect.runPromise(
+        symbolManager.addSymbolTable(sObjectTable, ownerUriForSObject(name)),
+      );
+    }
+    const { symbolTable, options } = await compileSourceLayeredWithOptions(
+      `
+        public class ValidNativeSObjectPatterns {
+          public void run(SObject value) {
+            switch on value {
+              when Account account {}
+              when Contact contact {}
+              when else {}
+            }
+          }
+        }
+      `,
+      'file:///test/ValidNativeSObjectPatterns.cls',
       symbolManager,
       compilerService,
       { tier: ValidationTier.THOROUGH, allowArtifactLoading: false },

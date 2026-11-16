@@ -412,7 +412,14 @@ export class ApexReferenceResolver {
       }
     }
 
-    return symbolTable.lookup(ref.name, null) || null;
+    return (
+      allSymbols.find(
+        (symbol) =>
+          symbol.name?.toLowerCase() === ref.name.toLowerCase() &&
+          (symbol.kind === SymbolKind.Field ||
+            symbol.kind === SymbolKind.Property),
+      ) || null
+    );
   }
 
   /**
