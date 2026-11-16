@@ -236,6 +236,7 @@ describe('SwitchStatementValidator', () => {
     expect(result.errors).toHaveLength(1);
     expect(result.errors[0]).toMatchObject({
       code: ErrorCodes.ILLEGAL_SWITCH_EXPRESSION_TYPE,
+      message: 'InvalidUnsupportedSwitch is not a valid switch expression type',
     });
   });
 
@@ -472,6 +473,46 @@ describe('SwitchStatementValidator', () => {
       (e: any) => e.code === ErrorCodes.INVALID_WHEN_EXPRESSION_TYPE,
     );
     expect(hasError).toBe(true);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({
+        code: ErrorCodes.INVALID_WHEN_EXPRESSION_TYPE,
+        message:
+          "Integer value in 'when expression' cannot be implicitly converted to the String type in switch expression",
+      }),
+    );
+  });
+
+  it('uses canonical casing for literal switch expression types', async () => {
+    const source = `
+      public class InvalidLiteralSwitch {
+        public void run() {
+          switch on 'test' {
+            when 123 {}
+            when else {}
+          }
+        }
+      }
+    `;
+    const { symbolTable, options } = await compileSourceLayeredWithOptions(
+      source,
+      'file:///test/InvalidLiteralSwitch.cls',
+      symbolManager,
+      compilerService,
+      { tier: ValidationTier.THOROUGH, allowArtifactLoading: false },
+    );
+
+    const result = await runValidator(
+      SwitchStatementValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({
+        code: ErrorCodes.INVALID_WHEN_EXPRESSION_TYPE,
+        message:
+          "Integer value in 'when expression' cannot be implicitly converted to the String type in switch expression",
+      }),
+    );
   });
 
   it('should detect INVALID_WHEN_FIELD_CONSTANT when field not static final', async () => {
