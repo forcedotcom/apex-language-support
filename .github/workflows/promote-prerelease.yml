@@ -75,3 +75,18 @@ jobs:
           gh workflow run publishOpenVSXTrusted.yml \
             --repo "${{ github.repository }}" \
             -f release-tag="$NIGHTLY_TAG"
+
+  promote-extension-api:
+    needs: [find-nightly, promote]
+    if: always() && needs.promote.result == 'success' && inputs.dry-run != 'true'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
+      NIGHTLY_TAG: ${{ needs.find-nightly.outputs.nightly-tag }}
+    steps:
+      - name: Promote matching nightly API to npm pre-release
+        run: |
+          gh workflow run publish-extension-api.yml \
+            --repo "${{ github.repository }}" \
+            -f release_tag="$NIGHTLY_TAG" \
+            -f npm_dist_tag=pre-release
