@@ -17,8 +17,9 @@ the manual escape hatches for when you need to publish out of band.
 | ----------------------------------------- | ---------------------------------------------------------------------------------- |
 | Ship a normal nightly/pre-release         | Nothing — `nightly.yml` runs daily at 04:00 UTC                                    |
 | Promote a nightly to the pre-release slot | Nothing — `promote-prerelease.yml` runs Wed 07:00 UTC (or dispatch it)             |
-| Promote a pre-release to stable           | Nothing — `promote-stable.yml` runs Wed 06:00 UTC (or dispatch it)                 |
+| Promote a pre-release to stable           | Dispatch `promote-stable.yml` manually                                               |
 | Publish a specific build right now        | Run **Manual Publish** (`manual-publish.yml`)                                      |
+| Ship a paired API hotfix                  | Run **Paired Hotfix Release** (`paired-hotfix-release.yml`)                         |
 | Pick up a new version in code-builder-web | Bump the pin and update the lock file (see [below](#manual-step-code-builder-web)) |
 
 ---
@@ -62,26 +63,21 @@ These live in repo/org secrets — you only need to know they exist:
 
 ## The release pipeline (automated)
 
-Releases flow through three channels. Each stage publishes the **same VSIX**
-(repackaged with a new version string only at the stable step). The public
-extension API is published and promoted in lockstep, so companion extensions
-can install the npm contract that matches their VSIX.
+Normal extension releases flow through three channels. Each stage publishes the
+**same VSIX** (repackaged with a new version string only at the stable step).
+They do not publish the public extension API package.
 
 ```
  nightly.yml (daily 04:00 UTC)
    └─> nightly-extensions.yml
          bump (odd minor) → package → GitHub Release + tag (no marketplace publish)
-         npm API → identical version under `nightly`
-                                                               │
-  promote-prerelease.yml (Wed 07:00 UTC)                       │
-    └─> takes a nightly ≥7 days old ──────────────────────────┘
-         publishes unchanged VSIX to the PRE-RELEASE slot
-         npm API → same nightly version also under `pre-release`
-                                                               │
-  promote-stable.yml (Wed 06:00 UTC)                           │
-    └─> takes latest pre-release ──────────────────────────────┘
-         repackages VSIX with EVEN minor → publishes to STABLE slot
-         npm API → matching stable version under `latest`
+   promote-prerelease.yml (Wed 07:00 UTC)
+     └─> takes a nightly ≥7 days old
+          publishes unchanged VSIX to the PRE-RELEASE slot
+
+   promote-stable.yml (manual)
+     └─> takes latest pre-release
+          repackages VSIX with EVEN minor → publishes to STABLE slot
 ```
 
 ### Stage 1 — Nightly (`nightly.yml` → `nightly-extensions.yml`)
@@ -95,8 +91,7 @@ can install the npm contract that matches their VSIX.
      `v{VERSION}-nightly.{DATE}` (e.g. `v0.5.3-nightly.20260301`; non-main branches append the branch: `v{VERSION}-nightly.{BRANCH}.{DATE}`).
   3. Packages the VSIX (`npm run package:packages:prerelease`).
   4. Creates a GitHub Release with desktop and web VSIX assets plus MD5 checksums attached (no marketplace publish at this stage).
-  5. Publishes `@salesforce/apex-language-server-extension-api` at the same
-     version as the nightly tag under npm's `nightly` dist-tag.
+  5. Does not publish `@salesforce/apex-language-server-extension-api`.
   6. Manual Publish can send the released web VSIX to the internal CBWeb marketplace.
 - **Manual dispatch inputs:** `branch`, `extensions`, `dry-run`.
 
@@ -106,30 +101,18 @@ can install the npm contract that matches their VSIX.
 - **What it does:** finds an eligible nightly (default ≥7 days old), downloads
   that exact VSIX from its GitHub Release, and publishes it **unchanged** to the
   pre-release marketplace slot. Records a tracking tag
-  `marketplace-prerelease-apex-lsp-vscode-extension-v{VERSION}`.
-  The same `@salesforce/apex-language-server-extension-api@{VERSION}-nightly.*`
-  artifact receives npm's `pre-release` dist-tag.
+  `marketplace-prerelease-apex-lsp-vscode-extension-v{VERSION}`. It does not
+  publish or promote the extension API package.
 
 ### Stage 3 — Promote to stable (`promote-stable.yml`)
 
-- **Trigger:** schedule `0 6 * * 3` (Wed 06:00 UTC), or manual dispatch.
+- **Trigger:** manual dispatch.
 - **What it does:** takes the latest pre-release, computes the stable version
   (next **even** minor), **repackages** the VSIX (rewrites `package.json`
   version and `extension.vsixmanifest`), publishes to the stable slot with
   `--pre-release: false`, creates a stable GitHub Release, and tags
-  `marketplace-stable-apex-lsp-vscode-extension-v{VERSION}`.
-  The stable GitHub Release publishes the matching
-  `@salesforce/apex-language-server-extension-api@{VERSION}` under npm's
-  `latest` dist-tag.
-
-If the API publish job fails after the extension release is created, dispatch
-**Publish Extension API** with that existing release tag. The retry builds and
-publishes only the matching npm package; it does not alter the VSIX release.
-
-To validate a feature branch before merging, dispatch **Publish Extension API**
-from that branch with `dry_run: true` and a prospective npm `version` such as
-`0.11.71-nightly.20261106`. The dry run builds, typechecks, tests, lints, and
-packs the API without creating an npm version or altering a VSIX release.
+  `marketplace-stable-apex-lsp-vscode-extension-v{VERSION}`. It does not
+  publish the extension API package.
 
 ---
 
@@ -149,20 +132,18 @@ Run it from **Actions → Manual Publish → Run workflow**. Inputs:
 | `registries`            | `all` (default), `vsce`, `ovsx`, or `none`. Use `none` with `publish-web-vsix: true` for an internal-only publish.                                                                  |
 | `publish-web-vsix`      | `false` (default) excludes the web VSIX. Set to `true` to publish it to the internal CBWeb marketplace; use only with `slot: pre-release`.                                          |
 | `target-stable-version` | Optional stable override (valid semver, **even** minor). Required when using `source-run-id` with `slot: stable`.                                                                   |
-| `publish-extension-api` | `auto` (default) coordinates a tag-based pre-release and lets the stable GitHub Release publish npm `latest`; `required` rejects `source-run-id`; `skip` publishes only the VSIX.   |
 | `skip-quality-checks`   | Bypass the CI quality gate. Required for the `source-run-id` path.                                                                                                                  |
 | `confirm-bypass`        | Must be exactly `BYPASS` when skipping the quality gate.                                                                                                                            |
 | `dry-run`               | `true` runs the whole flow without publishing or tagging.                                                                                                                           |
 
-The workflow has an environment approval gate, so a maintainer must approve the
-publish job after the preview step.
+Manual dispatch is the authorization control for registry and Marketplace
+writes: permission to dispatch includes permission to publish. The workflow
+passes `require-approval: 'false'` to the shared publisher; no separate IDE
+Experience or protected Environment approval is required. Quality checks and
+explicit bypass inputs still apply.
 
-For `version-tag` sources, `slot: pre-release` assigns npm's `pre-release`
-dist-tag to the matching nightly API package. `slot: stable` creates a stable
-GitHub Release, which triggers the matching stable API publish under `latest`.
-For `source-run-id`, `auto` skips API coordination because a CI artifact has no
-immutable release tag; choose `required` to make that unsupported combination
-fail rather than publish a potentially mismatched API.
+Manual Publish publishes extension artifacts only; it never publishes the
+extension API package.
 
 > **Tip:** always do a `dry-run: true` pass first and read the preview summary
 > before publishing for real.
@@ -194,6 +175,47 @@ npm run package:packages:prerelease   # pre-release VSIX
 
 Output: `apex-language-server-extension-{VERSION}.vsix` (desktop + browser) and a
 `-web-*.vsix` variant used only by the internal CBWeb marketplace.
+
+---
+
+## Paired API hotfix (`paired-hotfix-release.yml`)
+
+API-only publishing is disabled. Use **Paired Hotfix Release** when a
+pre-release host publication and an API publication must be produced together.
+This workflow does not support stable hotfixes.
+
+Run it from **Actions → Paired Hotfix Release → Run workflow** with:
+
+| Input | Notes |
+| --- | --- |
+| `source_sha` | Required full 40-character commit SHA. Dispatch the workflow from a ref that points to this exact commit. |
+| `api_version` | Required independent API SemVer. Its prerelease identifier must match the selected channel. |
+| `channel` | `nightly` or `pre-release` only. This also selects the npm dist-tag. |
+| `dry_run` | Defaults to `true`. Builds and verifies the host and API artifacts without publication. |
+
+For a non-dry run, manual dispatch authorizes both Marketplace and npm writes;
+there are no separate protected Environment approval gates. The workflow
+packages and verifies both artifacts, checks Marketplace and API-version
+availability, then publishes the universal host VSIX to the VS Code Marketplace.
+It publishes neither Open VSX nor the internal web marketplace. Only after
+verifying the Marketplace VSIX checksum against the paired artifact does it
+publish the verified API tarball to npm.
+
+API SemVer is independent of the host version. The latest reachable
+`apex-language-server-extension-api-v<version>` Git tag provides both the last
+published API version and its exact source boundary. The workflow evaluates
+API-package commits after that tag, takes the maximum Conventional Commit bump
+(`fix:` = patch, `feat:` = minor, breaking change = major), and requires the
+submitted `api_version` prerelease core to match. After npm integrity and
+dist-tag verification, it creates the release tag at the verified source SHA.
+
+If npm publication must be completed after host publication succeeded, use
+**Resume Paired Hotfix API** (`resume-paired-hotfix-api.yml`). Provide the
+original paired run ID, source SHA, API version, and channel. The recovery
+workflow's manual dispatch authorizes npm writes without a separate protected
+Environment approval. It verifies the original run provenance, prior paired
+artifacts, and Marketplace host identity, then publishes or verifies npm. It
+never republishes the host extension.
 
 ---
 
@@ -271,24 +293,33 @@ Apex extension publishes.
 - [ ] Conventional-commit PRs merged to `main` (`fix:` / `feat:` / `feat!:`).
 - [ ] Confirm the nightly published: check Actions → `nightly`, the new GitHub
       Release, and the Marketplace/Open VSX listings.
-- [ ] Confirm Wed promotions ran (pre-release, then stable) as expected.
+- [ ] Confirm the scheduled pre-release promotion ran as expected.
+- [ ] Dispatch stable promotion when a stable release is required.
 - [ ] Update `code-builder-web` pin (Option A) and open a PR there.
 
 **Manual / hotfix release:**
 
 - [ ] Identify the source (nightly `version-tag`, or branch `source-run-id`).
 - [ ] Run **Manual Publish** with `dry-run: true`; review the preview.
-- [ ] Re-run with `dry-run: false`; approve the environment gate.
+- [ ] Dispatch with `dry-run: false` to authorize publication.
 - [ ] Verify the new version on both registries.
 - [ ] If `publish-web-vsix: true`, verify the web VSIX in the internal CBWeb marketplace.
 - [ ] Update `code-builder-web` pin and open a PR there.
+
+**Paired API hotfix:**
+
+- [ ] Dispatch from a ref at the required full source SHA with `dry_run: true`.
+- [ ] Review the verified host and API candidate results.
+- [ ] Dispatch with `dry_run: false` to authorize host and npm publication.
+- [ ] Confirm Marketplace checksum verification succeeded before npm publication.
+- [ ] If npm publication did not complete, use **Resume Paired Hotfix API** with the original paired run identity; do not republish the host.
 
 ---
 
 ## References
 
 - `.github/workflows/README.md` — full workflow architecture and scripts.
-- `.github/workflows/{nightly,nightly-extensions,promote-prerelease,promote-stable,manual-publish,package}.yml`
+- `.github/workflows/{nightly,nightly-extensions,promote-prerelease,promote-stable,manual-publish,paired-hotfix-release,resume-paired-hotfix-api,package}.yml`
 - `.github/actions/publish-vsix/action.yml` — the actual `vsce`/`ovsx` calls.
 - `.github/scripts/ext-version-bumper.ts` — even/odd version bump logic.
 - `code-builder-web/cbweb/extensions.json` + `cbweb/.extensions-lock.json`.

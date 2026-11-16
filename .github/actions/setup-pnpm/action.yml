@@ -1,0 +1,19 @@
+name: Set up pnpm workspace
+description: Enable Corepack, install Node.js, and install locked workspace dependencies after checkout.
+
+runs:
+  using: composite
+  steps:
+    - name: Enable Corepack
+      shell: bash
+      run: corepack enable
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: '22.x'
+        cache: pnpm
+
+    - name: Install dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile

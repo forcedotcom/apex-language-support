@@ -1,0 +1,185 @@
+name: Resume Paired Hotfix API
+run-name: 'Resume paired API: ${{ inputs.api_version }} from run ${{ inputs.source_run_id }}'
+
+# Completes a paired release only after a prior run has published and verified
+# the matching Marketplace VSIX. It never republishes the host extension.
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: 'Original Paired Hotfix Release workflow run ID'
+        required: true
+        type: string
+      source_sha:
+        description: 'Full source SHA recorded by the original paired run'
+        required: true
+        type: string
+      api_version:
+        description: 'API SemVer recorded by the original paired run'
+        required: true
+        type: string
+      channel:
+        description: 'API dist-tag channel recorded by the original paired run'
+        required: true
+        type: choice
+        options: [nightly, pre-release]
+
+concurrency:
+  group: extension-api-registry
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  verify-prior-pair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout original paired source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.source_sha }}
+          persist-credentials: false
+
+      - name: Set up pnpm workspace
+        uses: ./.github/actions/setup-pnpm
+
+      - name: Assert checkout identity
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          [[ "$SOURCE_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo 'A full commit SHA is required.'; exit 1; }
+          [ "$(git rev-parse HEAD)" = "${SOURCE_SHA,,}" ] || { echo 'Checkout SHA mismatch.'; exit 1; }
+
+      - name: Download original API candidate
+        uses: actions/download-artifact@v8
+        with:
+          name: paired-api-candidate-${{ inputs.source_run_id }}
+          path: api-release
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Download original verified host metadata
+        uses: actions/download-artifact@v8
+        with:
+          name: paired-host-verification-${{ inputs.source_run_id }}
+          path: api-release
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Validate prior paired release identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          API_VERSION: ${{ inputs.api_version }}
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const crypto = require('node:crypto');
+          const fs = require('node:fs');
+          const { execFileSync } = require('node:child_process');
+          const metadata = JSON.parse(fs.readFileSync('api-release/extension-api-release.json', 'utf8'));
+          assert.match(process.env.SOURCE_SHA, /^[0-9a-f]{40}$/i, 'A full source SHA is required');
+          const sourceRun = JSON.parse(execFileSync('gh', ['api', `repos/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.SOURCE_RUN_ID}`], { encoding: 'utf8' }));
+          assert.equal(sourceRun.repository?.full_name, process.env.GITHUB_REPOSITORY, 'Original run must belong to this repository');
+          assert.equal(sourceRun.path, '.github/workflows/paired-hotfix-release.yml', 'Original run must use the paired-hotfix workflow path');
+          assert.equal(sourceRun.name, 'Paired Hotfix Release', 'Original run must use the paired-hotfix workflow name');
+          assert.equal(sourceRun.event, 'workflow_dispatch', 'Original run must be a manual paired release');
+          assert.equal(sourceRun.head_sha, process.env.SOURCE_SHA.toLowerCase(), 'Original run head SHA must match the source SHA');
+          assert.equal(metadata.sourceSha, process.env.SOURCE_SHA.toLowerCase(), 'Source SHA must match the original pair');
+          assert.equal(metadata.apiVersion, process.env.API_VERSION, 'API version must match the original pair');
+          assert.equal(metadata.channel, process.env.CHANNEL, 'Channel must match the original pair');
+          assert.equal(metadata.distTag, process.env.CHANNEL, 'Dist-tag must match the channel');
+          assert.equal(metadata.hostSourceRunId, process.env.SOURCE_RUN_ID, 'Host source run must match the original pair');
+          assert.equal(metadata.hostPublication?.immutableIdentityVerified, true, 'Original host publication must be verified');
+          assert.equal(metadata.hostPublication.version, metadata.sourceHostPackageVersion, 'Verified host version must match the original pair');
+          assert.equal(metadata.hostPublication.sha256, metadata.hostVsixSha256, 'Verified host checksum must match the original pair');
+          const tarball = fs.readFileSync('api-release/extension-api.tgz');
+          assert.equal(crypto.createHash('sha256').update(tarball).digest('hex'), metadata.tarballSha256, 'API tarball checksum must match original metadata');
+          const manifest = JSON.parse(execFileSync('tar', ['-xOf', 'api-release/extension-api.tgz', 'package/package.json'], { encoding: 'utf8' }));
+          assert.equal(manifest.name, '@salesforce/apex-language-server-extension-api', 'Packed API package name must match');
+          assert.equal(manifest.version, process.env.API_VERSION, 'Packed API version must match the original pair');
+          NODE
+
+      - name: Verify Marketplace host checksum
+        env:
+          METADATA_PATH: api-release/extension-api-release.json
+        run: node .github/scripts/verify-marketplace-host.mjs
+
+      - name: Upload verified recovery candidate
+        uses: actions/upload-artifact@v7
+        with:
+          name: paired-recovery-candidate-${{ github.run_id }}
+          overwrite: true
+          path: api-release/
+          if-no-files-found: error
+          retention-days: 90
+
+  publish-api:
+    needs: verify-prior-pair
+    runs-on: ubuntu-latest
+    env:
+      PACKAGE_NAME: '@salesforce/apex-language-server-extension-api'
+      API_VERSION: ${{ inputs.api_version }}
+      DIST_TAG: ${{ inputs.channel }}
+    steps:
+      - name: Download verified recovery candidate
+        uses: actions/download-artifact@v8
+        with:
+          name: paired-recovery-candidate-${{ github.run_id }}
+          path: api-release
+
+      - name: Setup Node.js for npm publication
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Publish or verify the paired API tarball
+        id: npm
+        env:
+          PUBLISH_IF_MISSING: 'true'
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: node .github/scripts/publish-paired-api.mjs
+
+      - name: Upload actual publication metadata
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: paired-hotfix-recovery-release-${{ github.run_id }}
+          overwrite: true
+          path: api-release/extension-api-release.json
+          if-no-files-found: error
+          retention-days: 90
+
+  record-api-release-tag:
+    needs: publish-api
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      SOURCE_SHA: ${{ inputs.source_sha }}
+      API_VERSION: ${{ inputs.api_version }}
+    steps:
+      - name: Checkout verified source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.source_sha }}
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Record immutable API release boundary
+        run: |
+          TAG="apex-language-server-extension-api-v$API_VERSION"
+          EXISTING=$(git ls-remote origin "refs/tags/$TAG^{}" | awk '{print $1}')
+          if [ -n "$EXISTING" ]; then
+            [ "$EXISTING" = "$SOURCE_SHA" ] || { echo "API release tag points to a different source: $TAG"; exit 1; }
+            echo "API release tag already records this source: $TAG"
+            exit 0
+          fi
+          git tag --annotate "$TAG" "$SOURCE_SHA" --message "API release $API_VERSION"
+          git push origin "refs/tags/$TAG"

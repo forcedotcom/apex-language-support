@@ -2,7 +2,7 @@
 # It is intentionally decoupled from the nightly schedule — the npm publishing
 # strategy (dependency ordering, dist-tag promotion tiers) is pending design.
 # The extension API is excluded below because it must be released only with its
-# matching VSIX through publish-extension-api.yml.
+# matching VSIX through paired-hotfix-release.yml.
 # Do NOT add a schedule trigger or workflow_call trigger until that design is complete.
 name: Release NPM Packages
 

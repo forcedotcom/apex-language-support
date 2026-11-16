@@ -56,3 +56,6 @@ jobs:
           gh workflow run publishOpenVSXTrusted.yml \
             --repo "${{ github.repository }}" \
             -f release-tag="$RELEASE_TAG"
+
+  # Stable paired host/API hotfixes are unsupported. The shared stable publisher
+  # cannot publish an in-series patch from an immutable source SHA.

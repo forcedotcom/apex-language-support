@@ -74,15 +74,6 @@ on:
         required: false
         default: ''
         type: string
-      publish-extension-api:
-        description: 'Coordinate the matching extension API npm package: auto promotes tag-based pre-releases and follows stable release creation; required rejects source-run-id; skip publishes only the VSIX'
-        required: false
-        default: 'auto'
-        type: choice
-        options:
-          - auto
-          - required
-          - skip
       skip-quality-checks:
         description: 'Skip CI quality gate. REQUIRED when using source-run-id.'
         required: false
@@ -109,6 +100,7 @@ permissions:
   contents: write
   packages: write
   actions: read
+  checks: read
 
 jobs:
   manual-publish:
@@ -134,7 +126,9 @@ jobs:
       lockfile-path: 'pnpm-lock.yaml'
       install-command: 'pnpm install --frozen-lockfile'
       dry-run: ${{ inputs.dry-run }}
-    secrets: inherit
+      require-approval: 'false'
+    secrets:
+      VSCE_PERSONAL_ACCESS_TOKEN: ${{ secrets.VSCE_PERSONAL_ACCESS_TOKEN }}
 
   # Only applies to the version-tag path: source-run-id has no GitHub Release for a tag-based
   # publish to target, and vscode-manual-publish.yml's input validation hard-errors that
