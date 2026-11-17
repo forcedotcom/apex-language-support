@@ -602,6 +602,49 @@ private class FileUtilitiesTest {
       ).toHaveLength(1);
     });
 
+    it('uses the indexed element type of an intermediate method result', async () => {
+      await compileSourceLayeredWithOptions(
+        'public class IndexedChainedResult { public Integer count() { return 1; } }',
+        'file:///test/IndexedChainedResult.cls',
+        symbolManager,
+        compilerService,
+        { tier: ValidationTier.THOROUGH, allowArtifactLoading: true },
+      );
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        `
+          public class IndexedChainedResultCaller {
+            public List<IndexedChainedResult> getResults() {
+              return new List<IndexedChainedResult>();
+            }
+            public void run() {
+              Integer valid = getResults()[0].count();
+            }
+          }
+        `,
+        'file:///test/IndexedChainedResultCaller.cls',
+        symbolManager,
+        compilerService,
+        { tier: ValidationTier.THOROUGH, allowArtifactLoading: true },
+      );
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri(),
+        ),
+      );
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(
+        result.errors.filter(
+          (error: any) =>
+            error.code === ErrorCodes.INVALID_METHOD_NOT_FOUND &&
+            error.message?.includes('count'),
+        ),
+      ).toEqual([]);
+    });
+
     it('should validate method calls with correct return types', async () => {
       // First compile the class with return types
       await compileFixtureWithOptions(
