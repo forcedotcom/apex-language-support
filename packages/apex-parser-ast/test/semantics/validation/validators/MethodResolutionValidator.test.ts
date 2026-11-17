@@ -481,6 +481,7 @@ private class FileUtilitiesTest {
         public class InvocationResultWrapperTarget {
           public Integer count() { return 1; }
           public void run(Boolean flag) {
+            String condition = count() == 1 ? 'yes' : 'no';
             String ternary = flag ? count() : 0;
             String coalescing = count() ?? 0;
           }
@@ -552,6 +553,53 @@ private class FileUtilitiesTest {
       expect(returnTypeErrors).toHaveLength(1);
       expect(returnTypeErrors[0].message).toContain('count');
       expect(returnTypeErrors[0].message).toContain('String');
+    });
+
+    it('preserves an intermediate call return type over the chain head type', async () => {
+      await compileSourceLayeredWithOptions(
+        'public class ChainedResult { public Integer count() { return 1; } }',
+        'file:///test/ChainedResult.cls',
+        symbolManager,
+        compilerService,
+        { tier: ValidationTier.THOROUGH, allowArtifactLoading: true },
+      );
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        `
+          public class ChainedResultCaller {
+            public ChainedResult getResult() { return new ChainedResult(); }
+            public void run() {
+              Integer valid = getResult().count();
+              String incompatible = getResult().count();
+            }
+          }
+        `,
+        'file:///test/ChainedResultCaller.cls',
+        symbolManager,
+        compilerService,
+        { tier: ValidationTier.THOROUGH, allowArtifactLoading: true },
+      );
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri(),
+        ),
+      );
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(
+        result.errors.filter(
+          (error: any) => error.code === ErrorCodes.INVALID_METHOD_NOT_FOUND,
+        ),
+      ).toEqual([]);
+      expect(
+        result.errors.filter(
+          (error: any) =>
+            error.code === ErrorCodes.METHOD_DOES_NOT_SUPPORT_RETURN_TYPE &&
+            error.message?.includes('count'),
+        ),
+      ).toHaveLength(1);
     });
 
     it('should validate method calls with correct return types', async () => {

@@ -439,7 +439,9 @@ const invocationResultTarget = (
     const wrapsValue =
       wrapper instanceof SubExpressionContext
         ? wrapper.expression() === valueExpression
-        : wrapper.expression_list().includes(valueExpression);
+        : wrapper instanceof CondExpressionContext
+          ? wrapper.expression_list().slice(1).includes(valueExpression)
+          : wrapper.expression_list().includes(valueExpression);
     if (!wrapsValue) break;
     valueExpression = wrapper;
   }
