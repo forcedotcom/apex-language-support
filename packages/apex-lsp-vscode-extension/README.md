@@ -658,7 +658,7 @@ Enable/disable the extension.
 **Type**: `"off"` | `"messages"` | `"verbose"`  
 **Default**: `"off"`
 
-LSP message tracing for debugging (logs to "Apex Language Server" output channel).
+LSP message tracing for debugging (logs to the "Apex Language Server Extension (Worker/Server)" output channel).
 
 ## Commands
 
