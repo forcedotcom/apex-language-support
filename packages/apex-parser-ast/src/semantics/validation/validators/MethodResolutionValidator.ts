@@ -309,7 +309,10 @@ export const MethodResolutionValidator: Validator = {
               }
             }
 
-            if (receiverAsVariable) {
+            const immediateReceiver = methodCall.chainNodes?.at(-2);
+            const receiverIsMethodResult =
+              immediateReceiver?.context === ReferenceContext.METHOD_CALL;
+            if (receiverAsVariable && !receiverIsMethodResult) {
               // Receiver is a variable = instance call
               if (!qualifierNode?.semanticContext?.indexedAccess) {
                 receiverType =
@@ -349,11 +352,12 @@ export const MethodResolutionValidator: Validator = {
               }
             } else {
               // No variable found - use pre-resolved symbol from enrichment (e.g. System.debug)
-              const preResolvedSymbol = qualifierNode?.resolvedSymbolId
-                ? yield* Effect.promise(() =>
-                    symbolManager.getSymbol(qualifierNode.resolvedSymbolId!),
-                  )
-                : null;
+              const preResolvedSymbol =
+                !receiverIsMethodResult && qualifierNode?.resolvedSymbolId
+                  ? yield* Effect.promise(() =>
+                      symbolManager.getSymbol(qualifierNode.resolvedSymbolId!),
+                    )
+                  : null;
               if (
                 preResolvedSymbol &&
                 isClassOrInterfaceSymbol(preResolvedSymbol)
@@ -396,7 +400,7 @@ export const MethodResolutionValidator: Validator = {
                   }
                 }
                 if (methodCall.isStatic === undefined) {
-                  isStaticCall = true;
+                  isStaticCall = !receiverIsMethodResult;
                 }
               } else {
                 // Receiver is not a variable - resolve as type (static call candidate).
@@ -430,7 +434,7 @@ export const MethodResolutionValidator: Validator = {
                   isClassOrInterfaceSymbol(resolutionResult.symbol)
                 ) {
                   targetClass = resolutionResult.symbol;
-                  isStaticCall = true;
+                  isStaticCall = !receiverIsMethodResult;
                 } else {
                   continue;
                 }
