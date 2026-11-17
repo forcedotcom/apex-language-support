@@ -26,6 +26,7 @@ import {
   Effect,
   LogLevel,
   Schema,
+  Schedule,
   Queue,
   Deferred,
   Option,
@@ -1561,50 +1562,56 @@ export const dependencyReferencesAtCursor = (
 // must wait for the older table's pass before it can run its own reconciliation.
 const cursorTableResolutionInFlight = new WeakMap<
   object,
-  Map<string, { table: object; resolution: Promise<void> }>
+  Map<string, { table: object; resolution: Deferred.Deferred<void> }>
 >();
 // Canonical table identity and URI coordination handle cursor replacement.
 // The manager revision invalidates on any accepted mutable table change (including
 // late native SObjects), but not on the reference edges this pass materializes.
 const completedHoverCursorResolution = new WeakMap<object, number>();
 
-async function materializeCursorCrossFileReferences(
+function materializeCursorCrossFileReferences(
   svc: RequestServices,
   uri: string,
   reuseCompleted = false,
-): Promise<void> {
-  let inFlight = cursorTableResolutionInFlight.get(svc.symbolManager);
-  if (!inFlight) {
-    inFlight = new Map();
-    cursorTableResolutionInFlight.set(svc.symbolManager, inFlight);
-  }
-  for (;;) {
-    const symbolTable = await svc.symbolManager.getSymbolTableForFile(uri);
-    if (!symbolTable) return;
-    const existing = inFlight.get(uri);
-    if (existing) {
-      await existing.resolution;
-      const canonical = await svc.symbolManager.getSymbolTableForFile(uri);
+): Effect.Effect<void, never, never> {
+  const resolve = (): Effect.Effect<void, never, never> =>
+    Effect.gen(function* () {
+      let inFlight = cursorTableResolutionInFlight.get(svc.symbolManager);
+      if (!inFlight) {
+        inFlight = new Map();
+        cursorTableResolutionInFlight.set(svc.symbolManager, inFlight);
+      }
+      const symbolTable = yield* Effect.promise(() =>
+        svc.symbolManager.getSymbolTableForFile(uri),
+      );
+      if (!symbolTable) return;
+      const existing = inFlight.get(uri);
+      if (existing) {
+        yield* Deferred.await(existing.resolution);
+        const canonical = yield* Effect.promise(() =>
+          svc.symbolManager.getSymbolTableForFile(uri),
+        );
+        if (
+          canonical === existing.table &&
+          (!reuseCompleted || !svc.symbolManager.getSymbolTableRevision)
+        ) {
+          return;
+        }
+        // Re-read canonical identity and revision after the older URI pass.
+        return yield* resolve();
+      }
+      const revision = svc.symbolManager.getSymbolTableRevision?.();
       if (
-        canonical === existing.table &&
-        (!reuseCompleted || !svc.symbolManager.getSymbolTableRevision)
+        reuseCompleted &&
+        revision !== undefined &&
+        completedHoverCursorResolution.get(symbolTable) === revision
       ) {
         return;
       }
-      // Re-read canonical identity and revision after the older URI pass.
-      continue;
-    }
-    const revision = svc.symbolManager.getSymbolTableRevision?.();
-    if (
-      reuseCompleted &&
-      revision !== undefined &&
-      completedHoverCursorResolution.get(symbolTable) === revision
-    ) {
-      return;
-    }
 
-    const resolution = Effect.runPromise(
-      svc.symbolManager.resolveCrossFileReferencesForFile(uri).pipe(
+      const resolution = yield* Deferred.make<void>();
+      inFlight.set(uri, { table: symbolTable, resolution });
+      yield* svc.symbolManager.resolveCrossFileReferencesForFile(uri).pipe(
         Effect.tap(() =>
           Effect.sync(() => {
             if (reuseCompleted && revision !== undefined) {
@@ -1614,25 +1621,25 @@ async function materializeCursorCrossFileReferences(
             }
           }),
         ),
-        Effect.tapError((error) =>
-          Effect.logDebug(
-            `[ENRICHMENT] Cursor cross-file resolution failed for ${uri}: ${String(error)}`,
-          ),
+        Effect.ensuring(
+          Effect.sync(() => {
+            if (inFlight.get(uri)?.resolution === resolution) {
+              inFlight.delete(uri);
+            }
+          }).pipe(Effect.zipRight(Deferred.succeed(resolution, undefined))),
         ),
-        Effect.catchAll(() => Effect.void),
-      ),
-    ).finally(() => {
-      if (inFlight.get(uri)?.resolution === resolution) {
-        inFlight.delete(uri);
+      );
+      if (
+        (yield* Effect.promise(() =>
+          svc.symbolManager.getSymbolTableForFile(uri),
+        )) === symbolTable
+      ) {
+        return;
       }
+      // An edit during this pass invalidates its table, even if the pass succeeded.
+      return yield* resolve();
     });
-    inFlight.set(uri, { table: symbolTable, resolution });
-    await resolution;
-    if ((await svc.symbolManager.getSymbolTableForFile(uri)) === symbolTable) {
-      return;
-    }
-    // An edit during this pass invalidates its table, even if the pass succeeded.
-  }
+  return Effect.suspend(resolve);
 }
 
 function loadCursorTargetDependencies(
@@ -2335,12 +2342,9 @@ function loadCursorTargetDependencies(
         // outcome is conservative (for example, a rolling-upgrade decoder
         // rejects a response shape) so the current request can observe the
         // authoritative table without waiting for another keystroke.
+        const names = artifactIdentifiers.map(({ name }) => name);
         let artifactIngested = yield* Effect.tryPromise({
-          try: () =>
-            resolveMissingNamesViaDataOwner(
-              svc,
-              artifactIdentifiers.map((identifier) => identifier.name),
-            ),
+          try: () => resolveMissingNamesViaDataOwner(svc, names),
           catch: () => 0,
         }).pipe(Effect.catchAll(() => Effect.succeed(0)));
         ingestedCount += artifactIngested;
@@ -2360,22 +2364,20 @@ function loadCursorTargetDependencies(
           const pollMs =
             ApexSettingsManager.getInstance().getSettings().apex
               .findMissingArtifact.indexingBarrierPollMs ?? 100;
-          const maxWaitMs = 500;
-          const start = Date.now();
-          while (Date.now() - start < maxWaitMs && artifactIngested === 0) {
-            yield* Effect.sleep(`${pollMs} millis`);
-            const retriedIngested = yield* Effect.tryPromise({
-              try: () =>
-                resolveMissingNamesViaDataOwner(
-                  svc,
-                  artifactIdentifiers.map((identifier) => identifier.name),
-                ),
-              catch: () => 0,
-            }).pipe(Effect.catchAll(() => Effect.succeed(0)));
-            artifactIngested += retriedIngested;
-            ingestedCount += retriedIngested;
-            addedDependencyTable ||= retriedIngested > 0;
-          }
+          const polling = Schedule.spaced(pollMs).pipe(
+            Schedule.intersect(Schedule.recurUpTo('500 millis')),
+            Schedule.whileInput((count: number) => count === 0),
+            Schedule.passthrough,
+          );
+          const retriedIngested = yield* Effect.tryPromise(() =>
+            resolveMissingNamesViaDataOwner(svc, names),
+          ).pipe(
+            Effect.orElseSucceed(() => 0),
+            Effect.scheduleFrom<never, number, number>(0, polling),
+          );
+          artifactIngested += retriedIngested;
+          ingestedCount += retriedIngested;
+          addedDependencyTable ||= retriedIngested > 0;
         }
       }
 
@@ -2423,12 +2425,10 @@ function loadCursorTargetDependencies(
         ingestedCount > 0 ||
         (requestType === 'hover' && symbolTable.getDetailLevel() === 'full'))
     ) {
-      yield* Effect.promise(() =>
-        materializeCursorCrossFileReferences(
-          svc,
-          uri,
-          requestType === 'hover' && symbolTable.getDetailLevel() === 'full',
-        ),
+      yield* materializeCursorCrossFileReferences(
+        svc,
+        uri,
+        requestType === 'hover' && symbolTable.getDetailLevel() === 'full',
       );
     }
 
