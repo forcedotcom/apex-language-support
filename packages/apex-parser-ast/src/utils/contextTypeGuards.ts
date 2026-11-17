@@ -40,6 +40,8 @@ import {
   IdPrimaryContext,
   PreOpExpressionContext,
   SubExpressionContext,
+  CondExpressionContext,
+  CoalExpressionContext,
   ModifierContext,
   AssignExpressionContext,
   ArrayExpressionContext,
@@ -428,10 +430,18 @@ const invocationResultTarget = (
   }
   if (!expression) return undefined;
   let valueExpression = expression;
-  while (valueExpression.parentCtx instanceof SubExpressionContext) {
-    const subExpression = valueExpression.parentCtx;
-    if (subExpression.expression() !== valueExpression) break;
-    valueExpression = subExpression;
+  while (
+    valueExpression.parentCtx instanceof SubExpressionContext ||
+    valueExpression.parentCtx instanceof CondExpressionContext ||
+    valueExpression.parentCtx instanceof CoalExpressionContext
+  ) {
+    const wrapper = valueExpression.parentCtx;
+    const wrapsValue =
+      wrapper instanceof SubExpressionContext
+        ? wrapper.expression() === valueExpression
+        : wrapper.expression_list().includes(valueExpression);
+    if (!wrapsValue) break;
+    valueExpression = wrapper;
   }
 
   if (valueExpression.parentCtx instanceof AssignExpressionContext) {

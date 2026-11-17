@@ -476,6 +476,40 @@ private class FileUtilitiesTest {
       ).toEqual([]);
     });
 
+    it('checks invocation results within ternary and coalescing expressions', async () => {
+      const source = `
+        public class InvocationResultWrapperTarget {
+          public Integer count() { return 1; }
+          public void run(Boolean flag) {
+            String ternary = flag ? count() : 0;
+            String coalescing = count() ?? 0;
+          }
+        }
+      `;
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        source,
+        'file:///test/InvocationResultWrapperTarget.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(
+        result.errors.filter(
+          (error: any) =>
+            error.code === ErrorCodes.METHOD_DOES_NOT_SUPPORT_RETURN_TYPE &&
+            error.message?.includes('count'),
+        ),
+      ).toHaveLength(2);
+    });
+
     it('resolves chained calls from their immediate method result type', async () => {
       const source = `
         public class ChainedCallReceiverType {

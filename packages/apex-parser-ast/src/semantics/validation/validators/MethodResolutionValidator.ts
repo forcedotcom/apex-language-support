@@ -742,23 +742,7 @@ function resolveMethodCallReceiverType(
   tier?: ValidationTier,
 ): Effect.Effect<string | null, never, never> {
   return Effect.gen(function* () {
-    const immediateReceiver = methodCall.chainNodes?.at(-2);
-    const receiverMethodReference = immediateReceiver
-      ? symbolTable
-          .getAllReferences()
-          .find(
-            (reference) =>
-              reference.context === ReferenceContext.METHOD_CALL &&
-              reference.name === immediateReceiver.name &&
-              reference.location.identifierRange.startLine ===
-                immediateReceiver.location.identifierRange.startLine &&
-              reference.location.identifierRange.startColumn ===
-                immediateReceiver.location.identifierRange.startColumn,
-          )
-      : undefined;
-    const receiverMethodId =
-      immediateReceiver?.resolvedSymbolId ??
-      receiverMethodReference?.resolvedSymbolId;
+    const receiverMethodId = methodCall.chainNodes?.at(-2)?.resolvedSymbolId;
     if (receiverMethodId && symbolManager) {
       const receiverMethod = yield* Effect.promise(() =>
         symbolManager.getSymbol(receiverMethodId),
