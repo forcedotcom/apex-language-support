@@ -746,17 +746,17 @@ function resolveMethodCallReceiverType(
   tier?: ValidationTier,
 ): Effect.Effect<string | null, never, never> {
   return Effect.gen(function* () {
-    const receiverMethodId = methodCall.chainNodes?.at(-2)?.resolvedSymbolId;
+    const immediateReceiver = methodCall.chainNodes?.at(-2);
+    const receiverMethodId = immediateReceiver?.resolvedSymbolId;
     if (receiverMethodId && symbolManager) {
       const receiverMethod = yield* Effect.promise(() =>
         symbolManager.getSymbol(receiverMethodId),
       );
       if (isMethodSymbol(receiverMethod) && receiverMethod.returnType) {
-        return (
-          receiverMethod.returnType.originalTypeString ??
-          receiverMethod.returnType.name ??
-          null
-        );
+        const receiverType = immediateReceiver?.semanticContext?.indexedAccess
+          ? indexedAccessResultType(receiverMethod.returnType)
+          : receiverMethod.returnType;
+        return receiverType?.originalTypeString ?? receiverType?.name ?? null;
       }
     }
 
