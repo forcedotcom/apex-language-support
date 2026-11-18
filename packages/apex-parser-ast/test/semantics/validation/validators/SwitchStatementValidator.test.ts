@@ -515,6 +515,76 @@ describe('SwitchStatementValidator', () => {
     );
   });
 
+  it('uses canonical casing for primitive types declared in lowercase', async () => {
+    const source = `
+      public class InvalidLowercasePrimitiveSwitch {
+        public static final integer WHEN_VALUE = 123;
+
+        public void run(string value) {
+          switch on value {
+            when WHEN_VALUE {}
+            when else {}
+          }
+        }
+      }
+    `;
+    const { symbolTable, options } = await compileSourceLayeredWithOptions(
+      source,
+      'file:///test/InvalidLowercasePrimitiveSwitch.cls',
+      symbolManager,
+      compilerService,
+      { tier: ValidationTier.THOROUGH, allowArtifactLoading: false },
+    );
+
+    const result = await runValidator(
+      SwitchStatementValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({
+        code: ErrorCodes.INVALID_WHEN_EXPRESSION_TYPE,
+        message:
+          "Integer value in 'when expression' cannot be implicitly converted to the String type in switch expression",
+      }),
+    );
+  });
+
+  it('uses canonical casing for System-qualified primitive types', async () => {
+    const source = `
+      public class InvalidQualifiedPrimitiveSwitch {
+        public static final System.integer WHEN_VALUE = 123;
+
+        public void run(System.string value) {
+          switch on value {
+            when WHEN_VALUE {}
+            when else {}
+          }
+        }
+      }
+    `;
+    const { symbolTable, options } = await compileSourceLayeredWithOptions(
+      source,
+      'file:///test/InvalidQualifiedPrimitiveSwitch.cls',
+      symbolManager,
+      compilerService,
+      { tier: ValidationTier.THOROUGH, allowArtifactLoading: false },
+    );
+
+    const result = await runValidator(
+      SwitchStatementValidator.validate(symbolTable, options),
+      symbolManager,
+    );
+
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({
+        code: ErrorCodes.INVALID_WHEN_EXPRESSION_TYPE,
+        message:
+          "Integer value in 'when expression' cannot be implicitly converted to the String type in switch expression",
+      }),
+    );
+  });
+
   it('should detect INVALID_WHEN_FIELD_CONSTANT when field not static final', async () => {
     const { symbolTable, options } = await compileFixtureWithOptions(
       VALIDATOR_CATEGORY,
