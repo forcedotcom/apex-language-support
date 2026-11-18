@@ -308,18 +308,48 @@ async function resolveIdentifierType(
 
   return {
     type: symbol.type.name.toLowerCase(),
-    displayType: symbol.type.originalTypeString || symbol.type.name,
+    displayType: typeDisplay(
+      symbol.type.originalTypeString || symbol.type.name,
+    ),
   };
 }
 
-function literalTypeDisplay(type: string): string {
-  return type.charAt(0).toUpperCase() + type.slice(1);
+function typeDisplay(type: string): string {
+  const primitiveType = type.replace(/^System\./i, '').toLowerCase();
+  switch (primitiveType) {
+    case 'blob':
+      return 'Blob';
+    case 'boolean':
+      return 'Boolean';
+    case 'date':
+      return 'Date';
+    case 'datetime':
+      return 'Datetime';
+    case 'decimal':
+      return 'Decimal';
+    case 'double':
+      return 'Double';
+    case 'id':
+      return 'Id';
+    case 'integer':
+      return 'Integer';
+    case 'long':
+      return 'Long';
+    case 'object':
+      return 'Object';
+    case 'string':
+      return 'String';
+    case 'time':
+      return 'Time';
+    default:
+      return type;
+  }
 }
 
 function switchTypeDisplay(typeInfo: ExpressionTypeInfo): string {
   if (typeInfo.semanticType) {
-    return (
-      typeInfo.semanticType.originalTypeString || typeInfo.semanticType.name
+    return typeDisplay(
+      typeInfo.semanticType.originalTypeString || typeInfo.semanticType.name,
     );
   }
 
@@ -328,7 +358,7 @@ function switchTypeDisplay(typeInfo: ExpressionTypeInfo): string {
     return 'Id';
   }
 
-  return normalizedType ? literalTypeDisplay(normalizedType) : '';
+  return normalizedType ? typeDisplay(normalizedType) : '';
 }
 
 /**
@@ -821,7 +851,7 @@ export const SwitchStatementValidator: Validator = {
                 if (wl.literalType) {
                   whenType = {
                     type: wl.literalType,
-                    displayType: literalTypeDisplay(wl.literalType),
+                    displayType: typeDisplay(wl.literalType),
                   };
                 } else if (wl.identifierParts) {
                   whenType = yield* Effect.promise(() =>
