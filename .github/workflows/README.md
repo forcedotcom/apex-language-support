@@ -195,7 +195,7 @@ graph TB
     A[get-extensions] --> B[release-extensions]
 ```
 
-**Purpose:** Extension-only nightly orchestrator. Extension-only releases do not publish the public extension API package.
+**Purpose:** Extension-only nightly orchestrator. Nightly releases create extension GitHub Releases but do not publish to the Marketplace or npm.
 
 **Key Features:**
 
@@ -232,7 +232,9 @@ graph TB
 - Uses `ext-github-releases` to create GH releases with VSIX assets
 - Uses `ext-publish-matrix` (returns empty for nightly — no marketplace publish)
 
-**API coordination:** `publish-extension-api.yml` is intentionally disabled and rejects API-only publication. The only supported API publication path is **Paired Hotfix Release** (`paired-hotfix-release.yml`), which couples a verified API package with a Marketplace host publication from one immutable source SHA. It supports only `nightly` and `pre-release` channels; stable paired hotfixes are unsupported.
+**API coordination:** `publish-extension-api.yml` publishes the contract package only after the matching VSIX is published to the VS Code Marketplace. `publishVSCodeMarketplaceTrusted.yml` dispatches it after manual tag-based Marketplace publication. `promote-prerelease.yml` dispatches it with npm's `pre-release` dist-tag after promotion, and `promote-stable.yml` dispatches it with `latest` after stable publication.
+
+If automatic API publishing fails, manually dispatch **Publish Extension API** with the existing extension release tag. It retries only npm publishing; it does not recreate or republish the VSIX. To validate a feature branch, dispatch it from that branch with `dry_run: true` and a prospective API `version`; it builds, tests, lints, and packs without publishing to npm.
 
 **Version Scheme:**
 
@@ -246,7 +248,7 @@ graph TB
 
 - Manual dispatch only (decoupled from nightly schedule)
 
-**Purpose:** Standalone npm package publishing for packages that are not extension API contracts. The workflow removes `apex-language-server-extension-api` from its selected release matrix, including the `all` option and change-detection results. The extension API is published only through the paired hotfix workflow.
+**Purpose:** Standalone npm package publishing for packages that are not extension API contracts. The workflow removes `apex-language-server-extension-api` from its selected release matrix, including the `all` option and change-detection results. Extension API publishing is triggered only after its matching Marketplace publication.
 
 **Script Integration:**
 

@@ -57,5 +57,20 @@ jobs:
             --repo "${{ github.repository }}" \
             -f release-tag="$RELEASE_TAG"
 
+  publish-extension-api:
+    needs: promote
+    if: always() && needs.promote.result == 'success' && inputs.dry-run != 'true'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.IDEE_GH_TOKEN }}
+      RELEASE_TAG: ${{ needs.promote.outputs.release-tag }}
+    steps:
+      - name: Publish matching API to npm latest
+        run: |
+          gh workflow run publish-extension-api.yml \
+            --repo "${{ github.repository }}" \
+            -f release_tag="$RELEASE_TAG" \
+            -f npm_dist_tag=latest
+
   # Stable paired host/API hotfixes are unsupported. The shared stable publisher
   # cannot publish an in-series patch from an immutable source SHA.
