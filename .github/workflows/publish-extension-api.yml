@@ -34,17 +34,27 @@ permissions:
   contents: read
 
 jobs:
-  publish:
+  validate:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      dist-tag: ${{ steps.release.outputs.dist-tag }}
     env:
       PACKAGE_NAME: '@salesforce/apex-language-server-extension-api'
-      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
-      SOURCE_REF: ${{ github.event.release.tag_name || inputs.release_tag || inputs.source_ref || github.ref }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      SOURCE_REF: ${{ inputs.source_ref || github.ref }}
       VERSION_INPUT: ${{ inputs.version }}
       NPM_DIST_TAG: ${{ inputs.npm_dist_tag }}
       DRY_RUN: ${{ inputs.dry_run || 'false' }}
     steps:
-      - name: Checkout extension release
+      - name: Checkout extension release tag
+        if: env.DRY_RUN != 'true'
+        uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+
+      - name: Checkout dry-run source
+        if: env.DRY_RUN == 'true'
         uses: actions/checkout@v6
         with:
           ref: ${{ env.SOURCE_REF }}
@@ -67,6 +77,14 @@ jobs:
         run: |
           VERSION="${RELEASE_TAG#apex-language-server-extension-v}"
           VERSION="${VERSION#v}"
+          if [ "$DRY_RUN" != 'true' ] && { [ -z "$RELEASE_TAG" ] || [ -n "$VERSION_INPUT" ]; }; then
+            echo 'Non-dry-run publishing requires release_tag and derives its version from that tag.'
+            exit 1
+          fi
+          if [ "$DRY_RUN" != 'true' ] && [[ "$RELEASE_TAG" != apex-language-server-extension-v* ]]; then
+            echo "Invalid extension release tag: $RELEASE_TAG"
+            exit 1
+          fi
           if [ -n "$VERSION_INPUT" ]; then
             VERSION="$VERSION_INPUT"
           fi
@@ -92,11 +110,47 @@ jobs:
           pnpm --filter "$PACKAGE_NAME" run test
           pnpm --filter "$PACKAGE_NAME" run lint
 
+      - name: Pack verified extension API
+        run: pnpm --filter "$PACKAGE_NAME" pack --pack-destination /tmp
+
+      - name: Upload verified extension API
+        if: env.DRY_RUN != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-api-package
+          path: /tmp/*.tgz
+          if-no-files-found: error
+
+  publish:
+    needs: validate
+    if: inputs.dry_run != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # npm trusted publishing and OIDC-authenticated dist-tag updates
+    env:
+      PACKAGE_NAME: '@salesforce/apex-language-server-extension-api'
+      VERSION: ${{ needs.validate.outputs.version }}
+      NPM_DIST_TAG: ${{ needs.validate.outputs.dist-tag }}
+    steps:
+      # npm 11.21+ supports OIDC-authenticated dist-tag management as well as publishing.
+      - name: Setup npm for trusted publishing
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+
+      - name: Install npm for trusted publishing
+        run: npm install --global npm@11.21.0
+
+      - name: Download verified extension API
+        uses: actions/download-artifact@v4
+        with:
+          name: extension-api-package
+          path: /tmp/extension-api-package
+
       - name: Check whether this API version is already published
         id: published
-        if: env.DRY_RUN != 'true'
         run: |
-          VERSION=$(node -p "require('./packages/apex-language-server-extension-api/package.json').version")
           if npm view "$PACKAGE_NAME@$VERSION" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
             echo "published=true" >> "$GITHUB_OUTPUT"
           else
@@ -104,17 +158,8 @@ jobs:
           fi
 
       - name: Publish extension API
-        if: env.DRY_RUN != 'true' && steps.published.outputs.published != 'true'
-        run: pnpm --filter "$PACKAGE_NAME" publish --access public --no-git-checks --tag "${{ steps.release.outputs.dist-tag }}"
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        if: steps.published.outputs.published != 'true'
+        run: npm publish /tmp/extension-api-package/*.tgz --access public --tag "$NPM_DIST_TAG" --registry=https://registry.npmjs.org
 
       - name: Apply npm dist-tag
-        if: env.DRY_RUN != 'true'
-        run: npm dist-tag add "$PACKAGE_NAME@${{ steps.release.outputs.version }}" "${{ steps.release.outputs.dist-tag }}" --registry=https://registry.npmjs.org
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Pack extension API dry run
-        if: env.DRY_RUN == 'true'
-        run: pnpm --filter "$PACKAGE_NAME" pack --pack-destination /tmp
+        run: npm dist-tag add "$PACKAGE_NAME@$VERSION" "$NPM_DIST_TAG" --registry=https://registry.npmjs.org
