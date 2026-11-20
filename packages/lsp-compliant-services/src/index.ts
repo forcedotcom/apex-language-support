@@ -72,6 +72,16 @@ export * from './services/CompletionProcessingService';
 export * from './services/strategies';
 export * from './services/WorkspaceSymbolProcessingService';
 export * from './services/WorkspaceLoadCoordinator';
+export {
+  createWorkerAssistancePort,
+  type WorkerAssistancePort,
+  type FindOccurrenceCandidatesParams,
+  type FindOccurrenceCandidatesResult,
+  type CheckMemberConflictsParams,
+  type CheckMemberConflictsResult,
+  type ResolveMethodRenameFamilyParams,
+  type ResolveMethodRenameFamilyResult,
+} from './services/assistance/WorkerAssistancePort';
 export * from './services/DiagnosticRefreshService';
 export * from './services/MissingArtifactResolutionService';
 export * from './services/SObjectEnrichmentService';
