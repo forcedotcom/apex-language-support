@@ -105,6 +105,15 @@ export {
   loadReferencedTypesForFile as loadReferencedTypesViaAssistance,
 } from './services/cursor/crossFileResolution';
 export { fullDetailCursorBySymbolManager } from './services/cursor/fullDetailCursorCache';
+export {
+  ReferencesProcessingService,
+  type IReferencesProcessor,
+} from './services/ReferencesProcessingService';
+export {
+  resolveOccurrencesForCursor,
+  resolveOccurrencesForCursorEffect,
+  type CursorOccurrenceResolution,
+} from './services/references/occurrenceResolution';
 export type {
   PositionReq,
   RefsReq,

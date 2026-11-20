@@ -38,6 +38,7 @@ import type { SignatureHelpProcessingService } from '../services/SignatureHelpPr
 import type { CodeActionProcessingService } from '../services/CodeActionProcessingService';
 import type { DefinitionProcessingService } from '../services/DefinitionProcessingService';
 import type { ImplementationProcessingService } from '../services/ImplementationProcessingService';
+import type { ReferencesProcessingService } from '../services/ReferencesProcessingService';
 import type { DocumentSymbolProcessingService } from '../services/DocumentSymbolProcessingService';
 import type { CodeLensProcessingService } from '../services/CodeLensProcessingService';
 import type { DiagnosticProcessingService } from '../services/DiagnosticProcessingService';
@@ -139,6 +140,7 @@ export interface RequestServices {
   readonly codeActionService: CodeActionProcessingService;
   readonly definitionService: DefinitionProcessingService;
   readonly implementationService: ImplementationProcessingService;
+  readonly referencesService: ReferencesProcessingService;
   readonly documentSymbolService: DocumentSymbolProcessingService;
   readonly codeLensService: CodeLensProcessingService;
   readonly diagnosticService: DiagnosticProcessingService;
@@ -166,6 +168,7 @@ export const bootstrapRequestServicesEffect: Effect.Effect<
     codeActionService: factory.createCodeActionService(),
     definitionService: factory.createDefinitionService(),
     implementationService: factory.createImplementationService(),
+    referencesService: factory.createReferencesService(),
     documentSymbolService: factory.createDocumentSymbolService(),
     codeLensService: factory.createCodeLensService(),
     diagnosticService: factory.createDiagnosticService(),

@@ -84,6 +84,9 @@ import {
   type LSPRequestType,
   type LspRequestPreparationPolicy,
   type RequestServices,
+  type CursorOccurrenceResolution,
+  createWorkerAssistancePort,
+  resolveOccurrencesForCursor as coreResolveOccurrencesForCursor,
   fullDetailCursorBySymbolManager,
   referenceIdentity,
   exactCursorReference,
@@ -2336,6 +2339,13 @@ export const ensureRequestServices: Effect.Effect<RequestServices> =
           ),
         );
 
+        // Feature services reach the data owner through a typed port over the
+        // same transport; without it they degrade to the coordinator-local
+        // result (no references).
+        svc.referencesService.setAssistancePort(
+          createWorkerAssistancePort(requestCoordinatorAssistancePromiseShared),
+        );
+
         yield* Effect.logInfo('[ENRICHMENT] services bootstrapped');
         return svc;
       }),
@@ -2552,183 +2562,26 @@ export function writeBackEnrichedSymbols(
 // module).
 
 // ---------------------------------------------------------------------------
-// Find-references helpers (W-23272674)
+// Find-references (W-23272674)
 // ---------------------------------------------------------------------------
 
-const scanReferenceCandidates = Effect.fn('references.candidates.scan')(
-  function* (
-    candidates: Array<{ uri: string; content: string }>,
-    target: { name: string; kind?: string },
-  ) {
-    const metrics = {
-      uniqueScanCount: 0,
-      contentChars: 0,
-      failureCount: 0,
-      parserMs: 0,
-      occurrenceScanMs: 0,
-    };
-    const occurrences = yield* Effect.promise(() =>
-      scanCandidatesForOccurrences(candidates, target, metrics),
-    );
-    yield* Effect.annotateCurrentSpan({
-      'references.candidate_count': candidates.length,
-      'references.unique_scan_count': metrics.uniqueScanCount,
-      'references.content_chars': metrics.contentChars,
-      'references.candidate_failure_count': metrics.failureCount,
-      'references.candidate_success_count':
-        metrics.uniqueScanCount - metrics.failureCount,
-      'references.parser_ms': metrics.parserMs,
-      'references.occurrence_scan_ms': metrics.occurrenceScanMs,
-      'references.occurrence_count': occurrences.length,
-      'references.outcome': metrics.failureCount > 0 ? 'partial' : 'complete',
-    });
-    return occurrences;
-  },
-);
-
-/**
- * The resolved target symbol plus every occurrence of it across the workspace,
- * as produced by {@link resolveOccurrencesForCursor}. `null` occurrences here
- * never happen — the helper returns the whole struct as `null` instead — but
- * the shape keeps target + occurrences together for the caller.
- */
-export type CursorOccurrenceResolution = {
-  target: { name: string; kind?: string };
-  occurrences: CursorOccurrence[];
-};
-
-/**
- * Shared cursor→occurrences core for the workspace-wide two-phase scan
- * (W-23272674), reused by find-references and rename (W-23631073). Runs the
- * kind-agnostic stages that both features need, in order:
- *
- *   1. recompile the cursor file at full detail (so in-body usages resolve),
- *      aborting when there's no text to compile;
- *   2. resolve the cursor position → target symbol name + kind
- *      ({@link targetSymbolForCursor});
- *   3. phase-1 lexical prefilter of the workspace via the data-owner
- *      (`FindOccurrenceCandidates`), overriding the cursor file's candidate
- *      content with the live editor buffer for fidelity;
- *   4. phase-2 standalone parse + reference scan over each candidate
- *      ({@link scanCandidatesForOccurrences}).
- *
- * Returns the target + its occurrences, or `null` when the cursor can't be
- * resolved (no text / no target). Result assembly is deliberately left to the
- * caller: find-references maps occurrences to an LSP `Location[]` (and adds the
- * declaration when `includeDeclaration` is set); rename builds a
- * `WorkspaceEdit`. Neither the declaration lookup nor `includeDeclaration`
- * lives here — they are references-specific.
- */
+// The occurrence-resolution core and the Location[] assembly live in
+// `ReferencesProcessingService` (@salesforce/apex-lsp-compliant-services). This
+// wrapper binds the worker's data-owner assistance transport for existing
+// callers (tests, platform shells) that resolve occurrences directly.
 export async function resolveOccurrencesForCursor(
   svc: RequestServices,
   req: PositionReq,
   logPrefix = 'OCCURRENCES',
 ): Promise<CursorOccurrenceResolution | null> {
-  return Effect.runPromise(
-    resolveOccurrencesForCursorEffect(svc, req, logPrefix),
+  return coreResolveOccurrencesForCursor(
+    svc,
+    createWorkerAssistancePort(requestCoordinatorAssistancePromiseShared),
+    req,
+    logPrefix,
   );
 }
-
-// One parser-owned pipeline for traced requests and existing async callers.
-function resolveOccurrencesForCursorEffect(
-  svc: RequestServices,
-  req: PositionReq,
-  logPrefix = 'OCCURRENCES',
-): Effect.Effect<CursorOccurrenceResolution | null> {
-  return Effect.gen(function* () {
-    const cursorRecompiled = yield* Effect.gen(function* () {
-      const recompiled = yield* Effect.promise(() =>
-        recompileCursorFileAtFullDetail(
-          svc,
-          req.textDocument.uri,
-          req.content,
-          { resolveCrossFileReferences: false },
-        ),
-      );
-      yield* Effect.annotateCurrentSpan({
-        'references.content_chars': req.content?.length ?? 0,
-        'references.cursor_recompiled': recompiled,
-        'references.outcome': recompiled
-          ? 'compiled'
-          : typeof req.content === 'string'
-            ? 'not-compiled'
-            : 'no-text',
-      });
-      return recompiled;
-    }).pipe(Effect.withSpan('references.cursor.compile'));
-    if (!cursorRecompiled && typeof req.content !== 'string') {
-      getLogger().warn(
-        () =>
-          `[${logPrefix}] No document text for ${req.textDocument.uri}; ` +
-          'cursor file cannot be recompiled at full detail, so position ' +
-          'resolution cannot succeed. Aborting with no result.',
-      );
-      yield* Effect.annotateCurrentSpan('references.outcome', 'no-text');
-      return null;
-    }
-    const target = yield* Effect.gen(function* () {
-      // Load parser-declared dependencies before binding the cursor identity.
-      yield* Effect.promise(() =>
-        loadReferencedTypesForFile(svc, req.textDocument.uri),
-      );
-      const target = yield* Effect.promise(() =>
-        targetSymbolForCursor(svc, req.textDocument.uri, req.position),
-      );
-      yield* Effect.annotateCurrentSpan(
-        'references.outcome',
-        target?.name ? 'resolved' : 'no-target',
-      );
-      return target;
-    }).pipe(Effect.withSpan('references.cursor.prerequisites'));
-    emitWorkerLog(
-      'info',
-      `[${logPrefix}] target: name=${target?.name ?? '<none>'} ` +
-        `kind=${target?.kind ?? '<none>'}`,
-    );
-    if (!target?.name) {
-      yield* Effect.annotateCurrentSpan('references.outcome', 'no-target');
-      return null;
-    }
-    const rawCandidates = yield* Effect.gen(function* () {
-      const scan = yield* Effect.promise(() =>
-        requestCoordinatorAssistancePromiseShared(
-          'dataOwner:FindOccurrenceCandidates',
-          { symbolName: target.name },
-          true,
-        ),
-      );
-      const candidates =
-        (scan as { candidates?: Array<{ uri: string; content: string }> })
-          ?.candidates ?? [];
-      yield* Effect.annotateCurrentSpan({
-        'references.candidate_count': candidates.length,
-        'references.content_chars': candidates.reduce(
-          (sum, candidate) => sum + candidate.content.length,
-          0,
-        ),
-        'references.outcome': candidates.length > 0 ? 'found' : 'empty',
-      });
-      return candidates;
-    }).pipe(Effect.withSpan('references.discovery.roundTrip'));
-    // Preserve the live cursor buffer; all other candidates use stored text.
-    const candidates =
-      typeof req.content === 'string'
-        ? rawCandidates.map((candidate) =>
-            candidate.uri === req.textDocument.uri
-              ? { ...candidate, content: req.content as string }
-              : candidate,
-          )
-        : rawCandidates;
-    emitWorkerLog('info', `[${logPrefix}] candidates: ${candidates.length}`);
-    const occurrences = yield* scanReferenceCandidates(candidates, target);
-    emitWorkerLog(
-      'info',
-      `[${logPrefix}] phase2: ${occurrences.length} occurrence(s) across ` +
-        `${candidates.length} candidate(s)`,
-    );
-    return { target: { name: target.name, kind: target.kind }, occurrences };
-  });
-}
+export type { CursorOccurrenceResolution };
 
 async function captureResolutionStateAttributes(
   svc: RequestServices,
@@ -3055,121 +2908,7 @@ const requestHandlers = {
   ),
   DispatchReferences: effectRequestHandler<RefsReq>(
     'DispatchReferences',
-    (svc, req) =>
-      Effect.gen(function* () {
-        // Find-references (W-23272674) runs a workspace-wide, two-phase scan:
-        //   phase-1 (data-owner): cheap lexical prefilter of all stored workspace
-        //     documents for the target name → candidate {uri, content};
-        //   phase-2: parse each candidate STANDALONE and scan its own references
-        //     for genuine usages of the target — no shared-graph ingest (see
-        //     scanCandidatesForOccurrences / memory
-        //     project-findreferences-standalone-pivot).
-        // The cursor file still needs a full-detail recompile so the TARGET under
-        // the cursor resolves to a name + kind (the data-owner serves public-api
-        // detail, bodies stripped). That single recompile is bounded and stable;
-        // the former per-candidate ingest was the unbounded cost that timed out.
-        //
-        // Stages 1-4 (recompile → resolve target → prefilter → scan) are the
-        // kind-agnostic core shared with rename (W-23631073); this handler owns
-        // only the references-specific Location[] assembly below.
-        const resolved = yield* resolveOccurrencesForCursorEffect(
-          svc,
-          req,
-          'REFERENCES',
-        );
-        return yield* Effect.gen(function* () {
-          const occurrences = resolved?.occurrences ?? [];
-          let duplicates = 0;
-          let declarationFound = false;
-          let declarationKey: string | undefined;
-          let declarationOutcome = req.context.includeDeclaration
-            ? 'not-found'
-            : 'not-requested';
-
-          // Build the LSP result. Parser coordinates are 1-based line / 0-based
-          // column; LSP is 0-based line, so subtract 1 from each line. De-dupe by
-          // (uri, range) so a symbol referenced twice at the same token — or the
-          // declaration coinciding with a reference — is one entry.
-          const locations: Array<{
-            uri: string;
-            range: {
-              start: { line: number; character: number };
-              end: { line: number; character: number };
-            };
-          }> = [];
-          const seenRanges = new Set<string>();
-          const pushLocation = (
-            uri: string,
-            r: {
-              startLine: number;
-              startColumn: number;
-              endLine: number;
-              endColumn: number;
-            },
-          ): void => {
-            // NUL separator between uri and range so a URI ending in digits can't
-            // abut the line number and collapse two distinct (uri,range) pairs onto
-            // one key. Pure safety; behavior unchanged for real URIs.
-            const key = `${uri}\x1f${r.startLine}:${r.startColumn}:${r.endLine}:${r.endColumn}`;
-            if (seenRanges.has(key)) {
-              duplicates++;
-              if (key === declarationKey) declarationOutcome = 'deduped';
-              return;
-            }
-            if (declarationFound && seenRanges.size === 0) declarationKey = key;
-            seenRanges.add(key);
-            locations.push({
-              uri,
-              range: {
-                start: { line: r.startLine - 1, character: r.startColumn },
-                end: { line: r.endLine - 1, character: r.endColumn },
-              },
-            });
-          };
-
-          // Include the declaration when requested. The cursor file was recompiled
-          // into the shared graph above, so the precise symbol at the cursor (or
-          // the symbol its usage resolves to) carries the declaration's identifier
-          // range.
-          if (resolved && req.context.includeDeclaration) {
-            const decl = yield* Effect.promise(() =>
-              declarationLocationForCursor(
-                svc,
-                req.textDocument.uri,
-                req.position,
-              ),
-            );
-            if (decl) {
-              declarationFound = true;
-              pushLocation(decl.uri, decl.identifierRange);
-              declarationOutcome = 'added';
-            }
-          }
-
-          for (const occ of occurrences) {
-            pushLocation(occ.uri, occ.identifierRange);
-          }
-
-          emitWorkerLog(
-            'info',
-            `[REFERENCES] done (${locations.length} location(s))`,
-          );
-          yield* Effect.annotateCurrentSpan({
-            'references.occurrence_count': occurrences.length,
-            'references.location_count': locations.length,
-            'references.duplicate_location_count': duplicates,
-            'references.declaration_requested': req.context.includeDeclaration,
-            'references.declaration_found': declarationFound,
-            'references.declaration_outcome': declarationOutcome,
-            // Candidate scanning owns completeness: it can return parser-owned
-            // best-effort occurrences after a partial candidate parse. This
-            // stage only assembles the LSP response, so do not overstate the
-            // request result as complete here.
-            'references.outcome': resolved ? 'assembled' : 'early',
-          });
-          return locations;
-        }).pipe(Effect.withSpan('references.response.assemble'));
-      }),
+    (svc, req) => svc.referencesService.resolveReferences(req),
   ),
   // renameLocal (W-23631077): resolve the local variable/parameter under the
   // cursor and return a single-file WorkspaceEdit renaming its declaration and
