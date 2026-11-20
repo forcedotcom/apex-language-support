@@ -11,7 +11,12 @@ import {
   CompilationResult,
 } from '../../src/parser/compilerService';
 import { ApexSymbolCollectorListener } from '../../src/parser/listeners/ApexSymbolCollectorListener';
-import { SymbolTable, SymbolKind, ScopeSymbol } from '../../src/types/symbol';
+import {
+  ApexSymbol,
+  SymbolTable,
+  SymbolKind,
+  ScopeSymbol,
+} from '../../src/types/symbol';
 import {
   isBlockSymbol,
   inTypeSymbolGroup,
@@ -1506,6 +1511,66 @@ describe('ApexSymbolCollectorListener - Scope Hierarchy Tests', () => {
           expect(x?.kind).toBe(SymbolKind.Variable);
         }
       }
+    });
+  });
+
+  describe('Switch Pattern Variable Scopes', () => {
+    it('declares a when type variable only in its when scope', () => {
+      const apexCode = `
+        public class TestClass {
+          public void run(SObject value) {
+            switch on value {
+              when Account account {
+                System.debug(account.Name);
+              }
+              when else {
+                System.debug(value);
+              }
+            }
+          }
+        }
+      `;
+
+      const table = new SymbolTable();
+      const listener = new ApexSymbolCollectorListener(table, 'full');
+      const result = compilerService.compile(
+        apexCode,
+        'TestClass.cls',
+        listener,
+      );
+      const symbolTable = result.result;
+      if (!symbolTable) {
+        throw new Error('Symbol table is null');
+      }
+
+      const whenScopes = symbolTable
+        .getAllSymbols()
+        .filter(
+          (symbol): symbol is ScopeSymbol =>
+            isBlockSymbol(symbol) && symbol.scopeType === 'when',
+        );
+      expect(whenScopes).toHaveLength(2);
+
+      const accountScope = whenScopes.find((scope) =>
+        symbolTable
+          .getSymbolsInScope(scope.id)
+          .some((symbol) => symbol.name === 'account'),
+      );
+      expect(accountScope).toBeDefined();
+      expect(
+        symbolTable
+          .getSymbolsInScope(accountScope!.id)
+          .find((symbol) => symbol.name === 'account'),
+      ).toMatchObject({ kind: SymbolKind.Variable, type: { name: 'Account' } });
+
+      const elseScope = whenScopes.find(
+        (scope) => scope.id !== accountScope?.id,
+      );
+      expect(
+        symbolTable
+          .getSymbolsInScope(elseScope!.id)
+          .some((symbol) => symbol.name === 'account'),
+      ).toBe(false);
     });
   });
 

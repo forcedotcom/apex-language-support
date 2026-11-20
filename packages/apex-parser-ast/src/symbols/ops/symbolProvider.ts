@@ -89,8 +89,11 @@ export const findSObjectType = (
   Effect.gen(function* () {
     const symbols = yield* findByName(name);
     return (
-      symbols.find((s) => s.kind === 'class' && s.namespace === 'SObject') ??
-      null
+      symbols.find(
+        (s) =>
+          s.kind === SymbolKind.SObject ||
+          (s.kind === SymbolKind.Class && s.namespace === 'SObject'),
+      ) ?? null
     );
   });
 

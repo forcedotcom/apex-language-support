@@ -219,6 +219,7 @@ export const VariableResolutionValidator: Validator = {
         const variable = findVariableInScope(
           variableName,
           variableRef.parentContext,
+          variableRef.location,
           allSymbols,
           symbolTable,
         );
@@ -390,6 +391,7 @@ export const VariableResolutionValidator: Validator = {
             let objectVariable = findVariableInScope(
               objName,
               fieldRef.parentContext,
+              fieldRef.location,
               allSymbols,
               symbolTable,
             );
@@ -609,6 +611,7 @@ export const VariableResolutionValidator: Validator = {
             const objectVariable = findVariableInScope(
               baseNode.name,
               fieldRef.parentContext,
+              fieldRef.location,
               allSymbols,
               symbolTable,
             );
@@ -803,6 +806,7 @@ function resolveChainTargetType(
     const firstVar = findVariableInScope(
       firstNode.name,
       undefined,
+      firstNode.location,
       allSymbols,
       symbolTable,
     );
@@ -949,19 +953,31 @@ function findMethodInClassHierarchy(
 function findVariableInScope(
   variableName: string,
   parentContext: string | undefined,
+  location: SymbolReference['location'],
   allSymbols: ApexSymbol[],
   symbolTable: SymbolTable,
 ): VariableSymbol | null {
-  // Use symbol table's lookup method which searches through scopes
-  const symbol = symbolTable.lookup(variableName, null);
-
-  if (
-    symbol &&
-    (symbol.kind === SymbolKind.Variable ||
-      symbol.kind === SymbolKind.Parameter ||
-      symbol.kind === SymbolKind.Field)
-  ) {
-    return symbol as VariableSymbol;
+  const position = location?.identifierRange ?? location?.symbolRange;
+  if (position) {
+    const scopes = symbolTable
+      .getScopeHierarchy({
+        line: position.startLine,
+        character: position.startColumn,
+      })
+      .reverse();
+    for (const scope of scopes) {
+      const symbol = allSymbols.find(
+        (candidate) =>
+          candidate.parentId === scope.id &&
+          candidate.name?.toLowerCase() === variableName.toLowerCase() &&
+          (candidate.kind === SymbolKind.Variable ||
+            candidate.kind === SymbolKind.Parameter ||
+            candidate.kind === SymbolKind.Field),
+      );
+      if (symbol) {
+        return symbol as VariableSymbol;
+      }
+    }
   }
 
   // When parentContext is a method name, check method parameters (lookup with null
@@ -990,20 +1006,6 @@ function findVariableInScope(
         if (param) return param;
       }
     }
-  }
-
-  // Fallback: search allSymbols directly if lookup failed
-  // This handles cases where variables might not be in the symbol table's scope tree
-  const matchingSymbols = allSymbols.filter(
-    (s) =>
-      (s.kind === SymbolKind.Variable ||
-        s.kind === SymbolKind.Parameter ||
-        s.kind === SymbolKind.Field) &&
-      s.name?.toLowerCase() === variableName.toLowerCase(),
-  );
-
-  if (matchingSymbols.length > 0) {
-    return matchingSymbols[0] as VariableSymbol;
   }
 
   return null;

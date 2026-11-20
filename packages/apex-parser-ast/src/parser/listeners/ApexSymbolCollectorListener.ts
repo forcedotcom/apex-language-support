@@ -3385,6 +3385,29 @@ export class ApexSymbolCollectorListener
    */
   enterWhenControl(ctx: WhenControlContext): void {
     this.enterScope('when', ctx);
+
+    const whenValue = ctx.whenValue();
+    const typeRef = whenValue?.typeRef();
+    const identifier = whenValue?.id();
+    if (!typeRef || !identifier) {
+      return;
+    }
+
+    const scope = this.getCurrentScopeSymbol();
+    const name = identifier.getText();
+    const existing = this.symbolTable.findSymbolInCurrentScope(name, scope);
+    if (existing?.kind === SymbolKind.Variable) {
+      return;
+    }
+
+    const variable = this.createVariableSymbol(
+      identifier as unknown as ParserRuleContext,
+      this.createDefaultModifiers(),
+      name,
+      SymbolKind.Variable,
+      this.createTypeInfoFromTypeRef(typeRef),
+    );
+    this.symbolTable.addSymbol(variable, scope);
   }
 
   /**

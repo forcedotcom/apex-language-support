@@ -821,15 +821,12 @@ export async function getAllPossibleResolutions(
       }
     }
 
-    // If not found via resolvedSymbolId or scope, try global lookup (works for fields and global variables)
+    // Scope lookup is authoritative for local variables. A workspace-wide fallback
+    // must not make a sibling block's local variable visible.
     if (!variableSymbol) {
       const variableSymbols = await self.findSymbolByName(stepName);
       variableSymbol = variableSymbols.find(
-        (s) =>
-          s.kind === 'variable' ||
-          s.kind === 'field' ||
-          s.kind === 'parameter' ||
-          s.kind === 'property',
+        (s) => s.kind === 'field' || s.kind === 'property',
       );
     }
 

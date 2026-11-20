@@ -202,6 +202,83 @@ describe('VariableResolutionValidator', () => {
   });
 
   describe('BlockContentListener fixes - no false VARIABLE_DOES_NOT_EXIST', () => {
+    it('resolves a variable bound by a switch when type clause', async () => {
+      const sourceCode = `
+        public class TestClass {
+          public void run(SObject value) {
+            switch on value {
+              when Account account {
+                System.debug(account);
+              }
+              when else {}
+            }
+          }
+        }
+      `;
+
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        sourceCode,
+        'file:///test/TestClass.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      const result = await runValidator(
+        VariableResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(
+        result.errors.filter(
+          (error: any) => error.code === ErrorCodes.VARIABLE_DOES_NOT_EXIST,
+        ),
+      ).toEqual([]);
+    });
+
+    it('does not resolve a switch pattern variable from a sibling when clause', async () => {
+      const sourceCode = `
+        public class TestClass {
+          public void run(SObject value) {
+            switch on value {
+              when Account onlyAccount {}
+              when Contact contact {
+                System.debug(onlyAccount);
+              }
+              when else {}
+            }
+          }
+        }
+      `;
+
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        sourceCode,
+        'file:///test/TestClass.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+
+      const result = await runValidator(
+        VariableResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(
+        result.errors.some(
+          (error) =>
+            error.code === ErrorCodes.VARIABLE_DOES_NOT_EXIST &&
+            error.message?.includes('onlyAccount'),
+        ),
+      ).toBe(true);
+    });
+
     it('should not report VARIABLE_DOES_NOT_EXIST for System.debug (uses compileLayered)', async () => {
       const sourceCode = `
         public class TestClass {
