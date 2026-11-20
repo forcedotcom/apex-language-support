@@ -309,33 +309,55 @@ jobs:
   publish-extension:
     needs: [verify-source, package-extension, marketplace-guard, api-version-guard]
     if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
     permissions:
-      contents: write
-      packages: write
       actions: read
-      checks: read
-    uses: salesforcecli/github-workflows/.github/workflows/vscode-manual-publish.yml@main
-    with:
-      extension-name: 'apex-lsp-vscode-extension'
-      vsix-name-pattern: 'apex-language-server-extension-${{ needs.verify-source.outputs.source-host-version }}.vsix'
-      source-run-id: ${{ github.run_id }}
-      vsix-artifact-name: paired-host-candidate-${{ github.run_id }}
-      slot: 'pre-release'
-      registries: 'vsce'
-      publish-web-vsix: 'false'
-      skip-quality-checks: 'true'
-      confirm-bypass: 'BYPASS'
-      exclude-web-vsix: 'true'
-      extensions-root: 'packages'
-      package-manager: 'pnpm'
-      package-manager-version: '12.11.2'
-      cache-dependency-path: 'pnpm-lock.yaml'
-      lockfile-path: 'pnpm-lock.yaml'
-      install-command: 'pnpm install --frozen-lockfile'
-      dry-run: 'false'
-      require-approval: 'false'
-    secrets:
-      VSCE_PERSONAL_ACCESS_TOKEN: ${{ secrets.VSCE_PERSONAL_ACCESS_TOKEN }}
+      contents: read
+      id-token: write # vsce exchanges this job's OIDC token for a Marketplace publishing token
+    steps:
+      - name: Checkout verified source
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.verify-source.outputs.sha }}
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          cache: 'pnpm'
+
+      - name: Install locked VSCE publisher
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Download verified host VSIX
+        uses: actions/download-artifact@v8
+        with:
+          name: paired-host-candidate-${{ github.run_id }}
+          path: vsix-artifacts
+
+      # Source-run artifacts cannot use the release-tag composite action. Publish the verified
+      # artifact inline so Marketplace trusted publishing binds to this workflow's identity.
+      - name: Publish verified host VSIX to VS Code Marketplace
+        env:
+          SOURCE_HOST_VERSION: ${{ needs.verify-source.outputs.source-host-version }}
+        run: |
+          VSIX_FILE="vsix-artifacts/apex-language-server-extension-${SOURCE_HOST_VERSION}.vsix"
+          [ -f "$VSIX_FILE" ] || { echo "Verified host VSIX not found: $VSIX_FILE"; exit 1; }
+          for attempt in 1 2 3; do
+            if pnpm --filter apex-language-server-extension exec vsce publish --packagePath "$GITHUB_WORKSPACE/$VSIX_FILE" --oidc --pre-release --skip-duplicate; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Publish failed; retrying in 15s..."
+              sleep 15
+            fi
+          done
+          echo 'Failed to publish the verified host VSIX after 3 attempts.'
+          exit 1
 
   verify-host-publication:
     needs: [verify-source, publish-extension]

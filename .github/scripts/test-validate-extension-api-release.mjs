@@ -8,7 +8,7 @@ const repoRoot = process.cwd();
 const fixtureRoot = join(tmpdir(), `extension-api-release-${process.pid}`);
 const tagPrefix = 'apex-language-server-extension-api-v';
 
-const run = ({ name, baseline = '0.11.75-nightly.1', commit, version, divergentSource = false, status = 0, output }) => {
+const run = ({ name, baseline = '0.11.75-nightly.1', childBaseline = false, commit, version, divergentSource = false, status = 0, output }) => {
   const directory = join(fixtureRoot, name);
   mkdirSync(join(directory, 'packages', 'apex-language-server-extension-api'), { recursive: true });
   execFileSync('git', ['init', '--quiet'], { cwd: directory });
@@ -17,7 +17,19 @@ const run = ({ name, baseline = '0.11.75-nightly.1', commit, version, divergentS
   writeFileSync(join(directory, 'packages', 'apex-language-server-extension-api', 'contract.ts'), 'export {}\n');
   execFileSync('git', ['add', '.'], { cwd: directory });
   execFileSync('git', ['commit', '--quiet', '-m', 'chore: baseline'], { cwd: directory });
-  if (baseline) execFileSync('git', ['tag', '--annotate', `${tagPrefix}${baseline}`, '--message', 'baseline'], { cwd: directory });
+  if (baseline) {
+    if (childBaseline) {
+      const branch = execFileSync('git', ['branch', '--show-current'], { cwd: directory, encoding: 'utf8' }).trim();
+      execFileSync('git', ['checkout', '--quiet', '-b', 'publication'], { cwd: directory });
+      writeFileSync(join(directory, 'publication.txt'), 'materialized package version\n');
+      execFileSync('git', ['add', '.'], { cwd: directory });
+      execFileSync('git', ['commit', '--quiet', '-m', 'chore(api): prepare baseline'], { cwd: directory });
+      execFileSync('git', ['tag', '--annotate', `${tagPrefix}${baseline}`, '--message', 'baseline'], { cwd: directory });
+      execFileSync('git', ['checkout', '--quiet', branch], { cwd: directory });
+    } else {
+      execFileSync('git', ['tag', '--annotate', `${tagPrefix}${baseline}`, '--message', 'baseline'], { cwd: directory });
+    }
+  }
   if (commit) {
     writeFileSync(join(directory, 'packages', 'apex-language-server-extension-api', 'contract.ts'), `${commit}\n`);
     execFileSync('git', ['add', '.'], { cwd: directory });
@@ -50,12 +62,13 @@ const run = ({ name, baseline = '0.11.75-nightly.1', commit, version, divergentS
 
 try {
   run({ name: 'patch', commit: 'fix(api): correct a compatible response', version: '0.11.76-nightly.1', output: /baseline-version=0.11.75-nightly.1[\s\S]*version=0.11.76[\s\S]*bump=patch/ });
+  run({ name: 'child-baseline', childBaseline: true, commit: 'fix(api): correct a compatible response', version: '0.11.76-nightly.1', output: /baseline-version=0.11.75-nightly.1[\s\S]*version=0.11.76[\s\S]*bump=patch/ });
   run({ name: 'minor', commit: 'feat(api): add a capability', version: '0.12.0-pre-release.1', output: /version=0.12.0[\s\S]*bump=minor/ });
   run({ name: 'major', commit: 'feat(api)!: remove a capability', version: '1.0.0-nightly.1', output: /version=1.0.0[\s\S]*bump=major/ });
   run({ name: 'wrong-bump', commit: 'feat(api): add a capability', version: '0.11.76-nightly.1', status: 1, output: /does not match the minor bump/ });
   run({ name: 'no-api-commit', version: '0.11.76-nightly.1', status: 1, output: /requires an API package commit/ });
-  run({ name: 'no-tag', baseline: null, commit: 'fix(api): change', version: '0.11.76-nightly.1', status: 1, output: /No names found/ });
-  run({ name: 'divergent-source', commit: 'fix(api): change', version: '0.11.76-nightly.1', divergentSource: true, status: 1, output: /does not descend from/ });
+  run({ name: 'no-tag', baseline: null, commit: 'fix(api): change', version: '0.11.76-nightly.1', status: 1, output: /No API release tag is an ancestor/ });
+  run({ name: 'divergent-source', commit: 'fix(api): change', version: '0.11.76-nightly.1', divergentSource: true, status: 1, output: /No API release tag is an ancestor/ });
 } finally {
   rmSync(fixtureRoot, { recursive: true, force: true });
 }

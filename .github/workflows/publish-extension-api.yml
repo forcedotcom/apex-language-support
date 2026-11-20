@@ -1,12 +1,13 @@
 name: Publish Extension API
 
-# Publish the extension API only after its matching VSIX has been published to
-# the Marketplace. Callers provide the immutable extension release tag.
+# Publish the API only after its matching VSIX has reached the Marketplace. The
+# prepared API tag records the release source and materialized npm version used
+# by the shared npm publisher.
 on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Existing Apex extension release tag for a publish or retry, for example apex-language-server-extension-v0.11.70-nightly.20261105'
+        description: 'Required for publish/retry. Existing Apex extension release tag; the API version is derived from this tag. Do not set version. Example: apex-language-server-extension-v0.11.70-nightly.20261105'
         required: false
         type: string
       source_ref:
@@ -14,15 +15,15 @@ on:
         required: false
         type: string
       version:
-        description: 'Prospective API version for dry-run mode, for example 0.11.70-nightly.20261105'
+        description: 'Dry-run only. Prospective API version when no release_tag is supplied. Do not set for publish/retry.'
         required: false
         type: string
       npm_dist_tag:
-        description: 'npm dist-tag to apply after publishing or verifying the API version'
+        description: 'npm dist-tag to apply during publication'
         required: false
         type: string
       dry_run:
-        description: 'Build, test, lint, and pack without publishing to npm'
+        description: 'Build, test, lint, and validate the prospective API version without creating a tag or publishing'
         required: false
         default: 'false'
         type: choice
@@ -34,20 +35,33 @@ permissions:
   contents: read
 
 jobs:
-  publish:
+  prepare:
     runs-on: ubuntu-latest
+    outputs:
+      api-tag: ${{ steps.release.outputs.api-tag }}
+      version: ${{ steps.release.outputs.version }}
+      dist-tag: ${{ steps.release.outputs.dist-tag }}
     env:
       PACKAGE_NAME: '@salesforce/apex-language-server-extension-api'
-      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
-      SOURCE_REF: ${{ github.event.release.tag_name || inputs.release_tag || inputs.source_ref || github.ref }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      SOURCE_REF: ${{ inputs.source_ref || github.ref }}
       VERSION_INPUT: ${{ inputs.version }}
       NPM_DIST_TAG: ${{ inputs.npm_dist_tag }}
       DRY_RUN: ${{ inputs.dry_run || 'false' }}
     steps:
-      - name: Checkout extension release
+      - name: Checkout extension release tag
+        if: env.DRY_RUN != 'true'
+        uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+
+      - name: Checkout dry-run source
+        if: env.DRY_RUN == 'true'
         uses: actions/checkout@v6
         with:
           ref: ${{ env.SOURCE_REF }}
+          fetch-depth: 0
 
       - name: Enable Corepack
         run: corepack enable
@@ -56,27 +70,42 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '22.x'
-          registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Set API version from extension release
+      - name: Prepare API release source
         id: release
         run: |
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            printf '%s' "${value%"${value##*[![:space:]]}"}"
+          }
+          RELEASE_TAG=$(trim "$RELEASE_TAG")
+          VERSION_INPUT=$(trim "$VERSION_INPUT")
+          NPM_DIST_TAG=$(trim "$NPM_DIST_TAG")
           VERSION="${RELEASE_TAG#apex-language-server-extension-v}"
           VERSION="${VERSION#v}"
+
+          if [ "$DRY_RUN" != 'true' ] && { [ -z "$RELEASE_TAG" ] || [ -n "$VERSION_INPUT" ]; }; then
+            echo 'Non-dry-run publishing requires release_tag and derives its version from that tag.'
+            exit 1
+          fi
+          if [ "$DRY_RUN" != 'true' ] && [[ "$RELEASE_TAG" != apex-language-server-extension-v* && "$RELEASE_TAG" != v* ]]; then
+            echo "Invalid extension release tag: $RELEASE_TAG"
+            exit 1
+          fi
           if [ -n "$VERSION_INPUT" ]; then
             VERSION="$VERSION_INPUT"
           fi
           if [ -z "$VERSION" ]; then
-            echo "Provide release_tag for a publish/retry, or version for a dry run."
+            echo 'Provide release_tag for a publish/retry, or version for a dry run.'
             exit 1
           fi
           node -e "if (!require('semver').valid(process.argv[1])) process.exit(1)" "$VERSION"
-          npm pkg set "version=$VERSION" --prefix packages/apex-language-server-extension-api
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
           if [[ "$VERSION" == *-nightly.* ]]; then
             DEFAULT_DIST_TAG=nightly
           else
@@ -84,37 +113,75 @@ jobs:
           fi
           DIST_TAG="${NPM_DIST_TAG:-$DEFAULT_DIST_TAG}"
           [[ "$DIST_TAG" =~ ^[a-z][a-z0-9-]*$ ]] || { echo "Invalid npm dist-tag: $DIST_TAG"; exit 1; }
+
+          API_TAG="apex-language-server-extension-api-v$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "api-tag=$API_TAG" >> "$GITHUB_OUTPUT"
           echo "dist-tag=$DIST_TAG" >> "$GITHUB_OUTPUT"
+
+          npm pkg set "version=$VERSION" --prefix packages/apex-language-server-extension-api
+          npm pkg set 'scripts.build=pnpm --filter @salesforce/apex-language-server-extension-api run build'
 
       - name: Build and verify extension API
         run: |
           pnpm --filter "$PACKAGE_NAME" run typecheck
           pnpm --filter "$PACKAGE_NAME" run test
           pnpm --filter "$PACKAGE_NAME" run lint
+          pnpm run build
 
-      - name: Check whether this API version is already published
-        id: published
-        if: env.DRY_RUN != 'true'
+  record:
+    needs: prepare
+    if: inputs.dry_run != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      API_TAG: ${{ needs.prepare.outputs.api-tag }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+    steps:
+      - name: Checkout extension release tag
+        uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+
+      - name: Record immutable API release source
         run: |
-          VERSION=$(node -p "require('./packages/apex-language-server-extension-api/package.json').version")
-          if npm view "$PACKAGE_NAME@$VERSION" version --registry=https://registry.npmjs.org >/dev/null 2>&1; then
-            echo "published=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "published=false" >> "$GITHUB_OUTPUT"
+          SOURCE_SHA=$(git rev-parse HEAD)
+          EXISTING=$(git ls-remote origin "refs/tags/$API_TAG^{}" | awk '{print $1}')
+          if [ -n "$EXISTING" ]; then
+            git fetch origin "refs/tags/$API_TAG:refs/tags/$API_TAG"
+            [ "$(git rev-parse "$API_TAG^")" = "$SOURCE_SHA" ] || { echo "API tag does not descend directly from extension release: $API_TAG"; exit 1; }
+            [ "$(git show "$API_TAG:packages/apex-language-server-extension-api/package.json" | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8")).version')" = "$VERSION" ] || { echo "API tag records a different package version: $API_TAG"; exit 1; }
+            echo "Reusing prepared API release tag: $API_TAG"
+            git checkout --detach "$API_TAG"
+            exit 0
           fi
 
-      - name: Publish extension API
-        if: env.DRY_RUN != 'true' && steps.published.outputs.published != 'true'
-        run: pnpm --filter "$PACKAGE_NAME" publish --access public --no-git-checks --tag "${{ steps.release.outputs.dist-tag }}"
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          npm pkg set "version=$VERSION" --prefix packages/apex-language-server-extension-api
+          npm pkg set 'scripts.build=pnpm --filter @salesforce/apex-language-server-extension-api run build'
+          git add packages/apex-language-server-extension-api/package.json package.json
+          UNEXPECTED=$(git diff --cached --name-only | grep -Ev '^(package.json|packages/apex-language-server-extension-api/package.json)$' || true)
+          [ -z "$UNEXPECTED" ] || { echo "Unexpected staged paths: $UNEXPECTED"; exit 1; }
+          TREE=$(git write-tree)
+          PREPARED_SHA=$(GIT_AUTHOR_NAME='github-actions[bot]' GIT_AUTHOR_EMAIL='41898282+github-actions[bot]@users.noreply.github.com' GIT_COMMITTER_NAME='github-actions[bot]' GIT_COMMITTER_EMAIL='41898282+github-actions[bot]@users.noreply.github.com' git commit-tree "$TREE" -p "$SOURCE_SHA" -m "chore(api): prepare $VERSION [skip ci]")
+          GIT_COMMITTER_NAME='github-actions[bot]' GIT_COMMITTER_EMAIL='41898282+github-actions[bot]@users.noreply.github.com' git tag --annotate "$API_TAG" "$PREPARED_SHA" --message "API release $VERSION"
+          git push origin "refs/tags/$API_TAG"
 
-      - name: Apply npm dist-tag
-        if: env.DRY_RUN != 'true'
-        run: npm dist-tag add "$PACKAGE_NAME@${{ steps.release.outputs.version }}" "${{ steps.release.outputs.dist-tag }}" --registry=https://registry.npmjs.org
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Pack extension API dry run
-        if: env.DRY_RUN == 'true'
-        run: pnpm --filter "$PACKAGE_NAME" pack --pack-destination /tmp
+  publish:
+    needs: [prepare, record]
+    if: inputs.dry_run != 'true'
+    permissions:
+      contents: read
+      id-token: write
+    uses: salesforcecli/github-workflows/.github/workflows/npmPublish.yml@main
+    with:
+      githubTag: refs/tags/${{ needs.prepare.outputs.api-tag }}
+      tag: ${{ needs.prepare.outputs.dist-tag }}
+      packageManager: pnpm
+      packageManagerVersion: '12.11.2'
+      cacheDependencyPath: pnpm-lock.yaml
+      nodeVersion: '22.x'
+      packagePath: ./packages/apex-language-server-extension-api
+      trustedPublishing: true
