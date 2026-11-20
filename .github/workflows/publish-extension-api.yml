@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Existing Apex extension release tag for a publish or retry, for example apex-language-server-extension-v0.11.70-nightly.20261105'
+        description: 'Required for publish/retry. Existing Apex extension release tag; the API version is derived from this tag. Do not set version. Example: apex-language-server-extension-v0.11.70-nightly.20261105'
         required: false
         type: string
       source_ref:
@@ -14,7 +14,7 @@ on:
         required: false
         type: string
       version:
-        description: 'Prospective API version for dry-run mode, for example 0.11.70-nightly.20261105'
+        description: 'Dry-run only. Prospective API version when no release_tag is supplied. Do not set for publish/retry.'
         required: false
         type: string
       npm_dist_tag:
