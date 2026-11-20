@@ -15,12 +15,14 @@
  * runtimeContext.ts for the rationale).
  */
 
-export type PositionReq = {
-  textDocument: { uri: string };
-  position: { line: number; character: number };
-  content?: string;
-  documentVersion?: number;
-};
+import type { PositionReq } from '@salesforce/apex-lsp-compliant-services';
+
+export type {
+  PositionReq,
+  RefsReq,
+  RenameReq,
+} from '@salesforce/apex-lsp-compliant-services';
+
 export type DocOnlyReq = {
   textDocument: { uri: string };
   content?: string;
@@ -28,12 +30,6 @@ export type DocOnlyReq = {
 export type DocWithContentReq = {
   textDocument: { uri: string };
   content?: string;
-};
-export type RefsReq = PositionReq & {
-  context: { includeDeclaration: boolean };
-};
-export type RenameReq = PositionReq & {
-  newName: string;
 };
 export type CompletionReq = PositionReq & {
   context?: { triggerKind: number; triggerCharacter?: string };

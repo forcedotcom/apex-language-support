@@ -82,6 +82,26 @@ export {
   type ResolveMethodRenameFamilyParams,
   type ResolveMethodRenameFamilyResult,
 } from './services/assistance/WorkerAssistancePort';
+export {
+  referenceIdentity,
+  exactCursorReference,
+  resolveCursorSymbol,
+  declaringFileForCursorSymbol,
+  scanCandidatesForOccurrences,
+  targetSymbolForCursor,
+  declarationLocationForCursor,
+  fieldDeclarationRangeFromParse,
+  fieldRenameDeclarationDecision,
+  methodDeclarationRangeFromParse,
+  type SymbolManagerHost,
+  type OccurrenceRange,
+  type CursorOccurrence,
+} from './services/cursor/cursorResolution';
+export type {
+  PositionReq,
+  RefsReq,
+  RenameReq,
+} from './services/cursor/requestTypes';
 export * from './services/DiagnosticRefreshService';
 export * from './services/MissingArtifactResolutionService';
 export * from './services/SObjectEnrichmentService';

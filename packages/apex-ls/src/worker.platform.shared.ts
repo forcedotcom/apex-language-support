@@ -84,6 +84,18 @@ import {
   type LSPRequestType,
   type LspRequestPreparationPolicy,
   type RequestServices,
+  referenceIdentity,
+  exactCursorReference,
+  resolveCursorSymbol,
+  declaringFileForCursorSymbol,
+  scanCandidatesForOccurrences,
+  targetSymbolForCursor,
+  declarationLocationForCursor,
+  fieldDeclarationRangeFromParse,
+  fieldRenameDeclarationDecision,
+  methodDeclarationRangeFromParse,
+  type OccurrenceRange,
+  type CursorOccurrence,
 } from '@salesforce/apex-lsp-compliant-services';
 import type {
   ApexSymbol,
@@ -164,20 +176,6 @@ import {
   type SignatureHelpReq,
   type CodeActionReq,
 } from './worker/requestTypes.ts';
-import {
-  referenceIdentity,
-  exactCursorReference,
-  resolveCursorSymbol,
-  declaringFileForCursorSymbol,
-  scanCandidatesForOccurrences,
-  targetSymbolForCursor,
-  declarationLocationForCursor,
-  fieldDeclarationRangeFromParse,
-  fieldRenameDeclarationDecision,
-  methodDeclarationRangeFromParse,
-  type OccurrenceRange,
-  type CursorOccurrence,
-} from './worker/cursorResolution.ts';
 import { fullDetailCursorBySymbolManager } from './worker/fullDetailCursorCache.ts';
 import {
   resolveMissingNamesViaDataOwner,
@@ -197,7 +195,7 @@ export {
 };
 
 // Cursor / occurrence / declaration-range resolution substrate lives in
-// ./worker/cursorResolution.ts. Re-exported here to preserve the public
+// @salesforce/apex-lsp-compliant-services. Re-exported here to preserve the public
 // surface consumed by the platform shells and tests.
 export {
   exactCursorReference,

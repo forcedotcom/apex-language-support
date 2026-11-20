@@ -12,21 +12,24 @@
  * reference, locate a declaration, scan occurrence candidates, and disambiguate
  * declaration ranges from a standalone parse.
  *
- * These operate on the services passed in (svc) and pure parse data — no
+ * These operate on the symbol manager passed in (svc) and pure parse data — no
  * enrichment, service-acquisition or cross-file query dependencies — so this is
- * a mid-layer module that both the composition root and the rename subsystem
- * import, with no back-edge to either.
- *
- * Imported with an explicit .ts extension for tsx-in-worker resolution (see
- * runtimeContext.ts for the rationale).
+ * a mid-layer module that both the references and rename services import.
  */
 
-import type {
-  SymbolReference,
-  ApexSymbol,
+import {
+  CompilerService,
+  FullSymbolCollectorListener,
+  SymbolTable,
+  findOccurrencesInFile,
+  type ApexSymbol,
+  type ISymbolManager,
+  type SymbolReference,
 } from '@salesforce/apex-lsp-parser-ast';
-import type { RequestServices } from '@salesforce/apex-lsp-compliant-services';
 import { getLogger } from '@salesforce/apex-lsp-shared';
+
+/** The slice of the request services that cursor resolution reads. */
+export type SymbolManagerHost = { readonly symbolManager: ISymbolManager };
 
 type ParserPosition = { line: number; character: number };
 
@@ -156,7 +159,7 @@ const referenceOwnerIds = (reference: CursorReference): Set<string> => {
 };
 
 async function resolveReferenceSymbol(
-  svc: RequestServices,
+  svc: SymbolManagerHost,
   reference: CursorReference,
 ): Promise<ApexSymbol | null> {
   if (reference.resolvedSymbolId) {
@@ -200,7 +203,7 @@ async function resolveReferenceSymbol(
 
 /** Resolve a declaration or the exact parser reference under the cursor. */
 export async function resolveCursorSymbol(
-  svc: RequestServices,
+  svc: SymbolManagerHost,
   uri: string,
   position: ParserPosition,
 ): Promise<ApexSymbol | null> {
@@ -248,7 +251,7 @@ export async function resolveCursorSymbol(
  * fileUri, in which case the caller falls back to the cursor file.
  */
 export async function declaringFileForCursorSymbol(
-  svc: RequestServices,
+  svc: SymbolManagerHost,
   uri: string,
   position: { line: number; character: number },
 ): Promise<string | null> {
@@ -319,13 +322,6 @@ export async function scanCandidatesForOccurrences(
     occurrenceScanMs: number;
   },
 ): Promise<CursorOccurrence[]> {
-  const {
-    CompilerService,
-    FullSymbolCollectorListener,
-    SymbolTable,
-    findOccurrencesInFile,
-  } = await import('@salesforce/apex-lsp-parser-ast');
-
   const out: CursorOccurrence[] = [];
 
   // De-dupe candidate URIs so a file mentioned twice is scanned once.
@@ -396,7 +392,7 @@ export async function scanCandidatesForOccurrences(
  * resolve) before this runs.
  */
 export async function targetSymbolForCursor(
-  svc: RequestServices,
+  svc: SymbolManagerHost,
   uri: string,
   position: { line: number; character: number },
 ): Promise<{ name: string; kind?: string } | null> {
@@ -439,7 +435,7 @@ type DeclarationLocation = {
  * determined (the caller then simply omits the declaration).
  */
 export async function declarationLocationForCursor(
-  svc: RequestServices,
+  svc: SymbolManagerHost,
   uri: string,
   position: { line: number; character: number },
 ): Promise<DeclarationLocation | null> {

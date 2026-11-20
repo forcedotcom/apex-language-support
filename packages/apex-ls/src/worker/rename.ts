@@ -31,10 +31,6 @@ import {
   type ApexSymbol,
   type TypeSymbol,
 } from '@salesforce/apex-lsp-parser-ast';
-import type { RequestServices } from '@salesforce/apex-lsp-compliant-services';
-import { emitWorkerLog } from './workerLog.ts';
-import { requestCoordinatorAssistancePromiseShared } from './runtimeContext.ts';
-import type { RenameReq, PositionReq } from './requestTypes.ts';
 import {
   targetSymbolForCursor,
   declarationLocationForCursor,
@@ -44,7 +40,11 @@ import {
   methodDeclarationRangeFromParse,
   fieldRenameDeclarationDecision,
   type OccurrenceRange,
-} from './cursorResolution.ts';
+  type RequestServices,
+} from '@salesforce/apex-lsp-compliant-services';
+import { emitWorkerLog } from './workerLog.ts';
+import { requestCoordinatorAssistancePromiseShared } from './runtimeContext.ts';
+import type { RenameReq, PositionReq } from './requestTypes.ts';
 import {
   recompileCursorFileAtFullDetail,
   loadReferencedTypesForFile,
