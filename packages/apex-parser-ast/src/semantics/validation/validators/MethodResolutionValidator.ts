@@ -144,14 +144,16 @@ export const MethodResolutionValidator: Validator = {
         }
 
         const callLocation = methodCall.location;
+        const terminalCall = methodCall.chainNodes?.at(-1);
+        const terminalLocation = terminalCall?.location ?? callLocation;
         const callLine =
-          callLocation.identifierRange?.startLine ??
-          callLocation.symbolRange?.startLine ??
+          terminalLocation.identifierRange?.startLine ??
+          terminalLocation.symbolRange?.startLine ??
           0;
         // Dedupe: same logical call can produce multiple refs (e.g. chain nodes)
         const callColumn =
-          callLocation.identifierRange?.startColumn ??
-          callLocation.symbolRange?.startColumn ??
+          terminalLocation.identifierRange?.startColumn ??
+          terminalLocation.symbolRange?.startColumn ??
           0;
         const callKey = `${callLine}:${callColumn}:${methodName}`;
         if (processedCalls.has(callKey)) continue;
@@ -307,7 +309,10 @@ export const MethodResolutionValidator: Validator = {
               }
             }
 
-            if (receiverAsVariable) {
+            const immediateReceiver = methodCall.chainNodes?.at(-2);
+            const receiverIsMethodResult =
+              immediateReceiver?.context === ReferenceContext.METHOD_CALL;
+            if (receiverAsVariable && !receiverIsMethodResult) {
               // Receiver is a variable = instance call
               if (!qualifierNode?.semanticContext?.indexedAccess) {
                 receiverType =
@@ -347,11 +352,12 @@ export const MethodResolutionValidator: Validator = {
               }
             } else {
               // No variable found - use pre-resolved symbol from enrichment (e.g. System.debug)
-              const preResolvedSymbol = qualifierNode?.resolvedSymbolId
-                ? yield* Effect.promise(() =>
-                    symbolManager.getSymbol(qualifierNode.resolvedSymbolId!),
-                  )
-                : null;
+              const preResolvedSymbol =
+                !receiverIsMethodResult && qualifierNode?.resolvedSymbolId
+                  ? yield* Effect.promise(() =>
+                      symbolManager.getSymbol(qualifierNode.resolvedSymbolId!),
+                    )
+                  : null;
               if (
                 preResolvedSymbol &&
                 isClassOrInterfaceSymbol(preResolvedSymbol)
@@ -394,7 +400,7 @@ export const MethodResolutionValidator: Validator = {
                   }
                 }
                 if (methodCall.isStatic === undefined) {
-                  isStaticCall = true;
+                  isStaticCall = !receiverIsMethodResult;
                 }
               } else {
                 // Receiver is not a variable - resolve as type (static call candidate).
@@ -428,7 +434,7 @@ export const MethodResolutionValidator: Validator = {
                   isClassOrInterfaceSymbol(resolutionResult.symbol)
                 ) {
                   targetClass = resolutionResult.symbol;
-                  isStaticCall = true;
+                  isStaticCall = !receiverIsMethodResult;
                 } else {
                   continue;
                 }
@@ -446,11 +452,12 @@ export const MethodResolutionValidator: Validator = {
         );
 
         if (candidateMethods.length === 0) {
-          // Multi-hop chain calls (e.g. result.records.size()) have intermediate field
-          // accesses that we can't resolve without full chain traversal. Only the first
-          // chain node's type is resolved; intermediate fields are skipped. Give benefit
-          // of the doubt — skip the error rather than report a false positive.
-          if ((methodCall.chainNodes?.length ?? 0) > 1) {
+          // Intermediate field accesses may remain unresolved. A resolved immediate
+          // method-call receiver, however, supplies its declared return type above.
+          if (
+            (methodCall.chainNodes?.length ?? 0) > 1 &&
+            !methodCall.chainNodes?.at(-2)?.resolvedSymbolId
+          ) {
             continue;
           }
           // Method not found
@@ -739,6 +746,20 @@ function resolveMethodCallReceiverType(
   tier?: ValidationTier,
 ): Effect.Effect<string | null, never, never> {
   return Effect.gen(function* () {
+    const immediateReceiver = methodCall.chainNodes?.at(-2);
+    const receiverMethodId = immediateReceiver?.resolvedSymbolId;
+    if (receiverMethodId && symbolManager) {
+      const receiverMethod = yield* Effect.promise(() =>
+        symbolManager.getSymbol(receiverMethodId),
+      );
+      if (isMethodSymbol(receiverMethod) && receiverMethod.returnType) {
+        const receiverType = immediateReceiver?.semanticContext?.indexedAccess
+          ? indexedAccessResultType(receiverMethod.returnType)
+          : receiverMethod.returnType;
+        return receiverType?.originalTypeString ?? receiverType?.name ?? null;
+      }
+    }
+
     const indexedReceiver =
       methodCall.chainNodes?.[0]?.semanticContext?.indexedAccess;
     const receiverTypeName = (variable: VariableSymbol): string | null => {

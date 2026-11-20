@@ -39,6 +39,9 @@ import {
   LiteralPrimaryContext,
   IdPrimaryContext,
   PreOpExpressionContext,
+  SubExpressionContext,
+  CondExpressionContext,
+  CoalExpressionContext,
   ModifierContext,
   AssignExpressionContext,
   ArrayExpressionContext,
@@ -426,31 +429,43 @@ const invocationResultTarget = (
     current = current.parentCtx;
   }
   if (!expression) return undefined;
-  let resultExpression: ExpressionContext = expression;
-
-  while (resultExpression.parentCtx instanceof ExpressionContext) {
-    const parent: ExpressionContext = resultExpression.parentCtx;
-    if (parent instanceof AssignExpressionContext) {
-      const [target, value] = parent.expression_list();
-      if (value !== resultExpression || !target) return undefined;
-      const targetPrimary =
-        target instanceof PrimaryExpressionContext
-          ? target.primary()
-          : undefined;
-      const targetIdentifier =
-        targetPrimary instanceof IdPrimaryContext
-          ? targetPrimary.id().getText()
-          : undefined;
-      return {
-        kind: 'assignment',
-        targetRange: parserRuleRange(target),
-        targetIdentifier,
-      };
-    }
-    resultExpression = parent;
+  let valueExpression = expression;
+  while (
+    valueExpression.parentCtx instanceof SubExpressionContext ||
+    valueExpression.parentCtx instanceof CondExpressionContext ||
+    valueExpression.parentCtx instanceof CoalExpressionContext
+  ) {
+    const wrapper = valueExpression.parentCtx;
+    const wrapsValue =
+      wrapper instanceof SubExpressionContext
+        ? wrapper.expression() === valueExpression
+        : wrapper instanceof CondExpressionContext
+          ? wrapper.expression_list().slice(1).includes(valueExpression)
+          : wrapper.expression_list().includes(valueExpression);
+    if (!wrapsValue) break;
+    valueExpression = wrapper;
   }
 
-  const declarator = resultExpression.parentCtx;
+  if (valueExpression.parentCtx instanceof AssignExpressionContext) {
+    const assignment = valueExpression.parentCtx;
+    const [target, value] = assignment.expression_list();
+    if (value !== valueExpression || !target || !assignment.ASSIGN()) {
+      return undefined;
+    }
+    const targetPrimary =
+      target instanceof PrimaryExpressionContext ? target.primary() : undefined;
+    const targetIdentifier =
+      targetPrimary instanceof IdPrimaryContext
+        ? targetPrimary.id().getText()
+        : undefined;
+    return {
+      kind: 'assignment',
+      targetRange: parserRuleRange(target),
+      targetIdentifier,
+    };
+  }
+
+  const declarator = valueExpression.parentCtx;
   if (!(declarator instanceof VariableDeclaratorContext)) return undefined;
   const declaration = declarator.parentCtx?.parentCtx;
   if (!(declaration instanceof LocalVariableDeclarationContext)) {

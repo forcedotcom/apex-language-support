@@ -439,6 +439,212 @@ private class FileUtilitiesTest {
   });
 
   describe('TIER 2: Return type checking', () => {
+    it('does not compare nested method calls to the outer assignment target', async () => {
+      const source = `
+        public class NestedCallResultTarget {
+          public Integer field;
+          public NestedCallResultTarget getObj() { return this; }
+          public Integer count() { return 1; }
+          public void run() {
+            Integer fieldValue = getObj().field;
+            Integer countValue = getObj().count();
+            Boolean comparison = getObj() == null;
+            fieldValue = getObj().field;
+          }
+        }
+      `;
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        source,
+        'file:///test/NestedCallResultTarget.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(
+        result.errors.filter(
+          (error: any) =>
+            error.code === ErrorCodes.METHOD_DOES_NOT_SUPPORT_RETURN_TYPE,
+        ),
+      ).toEqual([]);
+    });
+
+    it('checks invocation results within ternary and coalescing expressions', async () => {
+      const source = `
+        public class InvocationResultWrapperTarget {
+          public Integer count() { return 1; }
+          public void run(Boolean flag) {
+            String condition = count() == 1 ? 'yes' : 'no';
+            String ternary = flag ? count() : 0;
+            String coalescing = count() ?? 0;
+          }
+        }
+      `;
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        source,
+        'file:///test/InvocationResultWrapperTarget.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(
+        result.errors.filter(
+          (error: any) =>
+            error.code === ErrorCodes.METHOD_DOES_NOT_SUPPORT_RETURN_TYPE &&
+            error.message?.includes('count'),
+        ),
+      ).toHaveLength(2);
+    });
+
+    it('resolves chained calls from their immediate method result type', async () => {
+      const source = `
+        public class ChainedCallReceiverType {
+          public ChainedCallReceiverType getObj() { return this; }
+          public Integer count() { return 1; }
+          public void run() {
+            Integer valid = getObj().count();
+            String incompatible = getObj().count();
+            getObj().missing();
+          }
+        }
+      `;
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        source,
+        'file:///test/ChainedCallReceiverType.cls',
+        symbolManager,
+        compilerService,
+        {
+          tier: ValidationTier.THOROUGH,
+          allowArtifactLoading: true,
+        },
+      );
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      const invalidMethods = (result.errors as any[]).filter(
+        (error: any) => error.code === ErrorCodes.INVALID_METHOD_NOT_FOUND,
+      );
+      const missingErrors = invalidMethods.filter((error: any) =>
+        error.message?.includes('missing'),
+      );
+      expect(missingErrors).toHaveLength(1);
+
+      const returnTypeErrors = (result.errors as any[]).filter(
+        (error: any) =>
+          error.code === ErrorCodes.METHOD_DOES_NOT_SUPPORT_RETURN_TYPE,
+      );
+      expect(returnTypeErrors).toHaveLength(1);
+      expect(returnTypeErrors[0].message).toContain('count');
+      expect(returnTypeErrors[0].message).toContain('String');
+    });
+
+    it('preserves an intermediate call return type over the chain head type', async () => {
+      await compileSourceLayeredWithOptions(
+        'public class ChainedResult { public Integer count() { return 1; } }',
+        'file:///test/ChainedResult.cls',
+        symbolManager,
+        compilerService,
+        { tier: ValidationTier.THOROUGH, allowArtifactLoading: true },
+      );
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        `
+          public class ChainedResultCaller {
+            public ChainedResult getResult() { return new ChainedResult(); }
+            public void run() {
+              Integer valid = getResult().count();
+              String incompatible = getResult().count();
+            }
+          }
+        `,
+        'file:///test/ChainedResultCaller.cls',
+        symbolManager,
+        compilerService,
+        { tier: ValidationTier.THOROUGH, allowArtifactLoading: true },
+      );
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri(),
+        ),
+      );
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(
+        result.errors.filter(
+          (error: any) => error.code === ErrorCodes.INVALID_METHOD_NOT_FOUND,
+        ),
+      ).toEqual([]);
+      expect(
+        result.errors.filter(
+          (error: any) =>
+            error.code === ErrorCodes.METHOD_DOES_NOT_SUPPORT_RETURN_TYPE &&
+            error.message?.includes('count'),
+        ),
+      ).toHaveLength(1);
+    });
+
+    it('uses the indexed element type of an intermediate method result', async () => {
+      await compileSourceLayeredWithOptions(
+        'public class IndexedChainedResult { public Integer count() { return 1; } }',
+        'file:///test/IndexedChainedResult.cls',
+        symbolManager,
+        compilerService,
+        { tier: ValidationTier.THOROUGH, allowArtifactLoading: true },
+      );
+      const { symbolTable, options } = await compileSourceLayeredWithOptions(
+        `
+          public class IndexedChainedResultCaller {
+            public List<IndexedChainedResult> getResults() {
+              return new List<IndexedChainedResult>();
+            }
+            public void run() {
+              Integer valid = getResults()[0].count();
+            }
+          }
+        `,
+        'file:///test/IndexedChainedResultCaller.cls',
+        symbolManager,
+        compilerService,
+        { tier: ValidationTier.THOROUGH, allowArtifactLoading: true },
+      );
+      await Effect.runPromise(
+        symbolManager.resolveCrossFileReferencesForFile(
+          symbolTable.getFileUri(),
+        ),
+      );
+      const result = await runValidator(
+        MethodResolutionValidator.validate(symbolTable, options),
+        symbolManager,
+      );
+
+      expect(
+        result.errors.filter(
+          (error: any) =>
+            error.code === ErrorCodes.INVALID_METHOD_NOT_FOUND &&
+            error.message?.includes('count'),
+        ),
+      ).toEqual([]);
+    });
+
     it('should validate method calls with correct return types', async () => {
       // First compile the class with return types
       await compileFixtureWithOptions(

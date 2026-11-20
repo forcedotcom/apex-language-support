@@ -2043,6 +2043,89 @@ describe('ApexSymbolCollectorListener with Type References', () => {
         }),
       );
     });
+
+    it('does not assign a result target to calls nested in another expression', () => {
+      const sourceCode = `public class NestedInvocationTargets {
+  public Integer count() { return 1; }
+  public NestedInvocationTargets getObj() { return this; }
+  public void run() {
+    Integer direct = count();
+    Integer member = getObj().count();
+    Boolean comparison = getObj() == null;
+    Integer existing;
+    existing = getObj().count();
+  }
+      }`;
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(
+        sourceCode,
+        'NestedInvocationTargets.cls',
+        listener,
+      );
+      const calls = listener
+        .getResult()
+        .getAllReferences()
+        .filter(
+          (reference) =>
+            reference.context === ReferenceContext.METHOD_CALL &&
+            ['count', 'getObj'].includes(reference.name),
+        );
+
+      const callsWithResultTargets = calls.filter(
+        (reference) => reference.semanticContext?.invocation?.resultTarget,
+      );
+      expect(callsWithResultTargets).toHaveLength(1);
+      expect(
+        callsWithResultTargets[0].semanticContext?.invocation?.resultTarget,
+      ).toEqual(
+        expect.objectContaining({
+          kind: 'declared-variable',
+          targetIdentifier: 'direct',
+        }),
+      );
+
+      for (const call of calls.filter(
+        (reference) => reference !== callsWithResultTargets[0],
+      )) {
+        expect(call.semanticContext?.invocation?.resultTarget).toBeUndefined();
+      }
+    });
+
+    it('preserves result targets through parentheses but not compound assignments', () => {
+      const sourceCode = `public class ParenthesizedInvocationTargets {
+  public Integer count() { return 1; }
+  public void run() {
+    Integer parenthesized = (count());
+    Integer total = 0;
+    total += count();
+  }
+}`;
+      const listener = new ApexSymbolCollectorListener();
+      compilerService.compile(
+        sourceCode,
+        'ParenthesizedInvocationTargets.cls',
+        listener,
+      );
+      const calls = listener
+        .getResult()
+        .getAllReferences()
+        .filter(
+          (reference) =>
+            reference.name === 'count' &&
+            reference.context === ReferenceContext.METHOD_CALL,
+        );
+
+      expect(calls).toHaveLength(2);
+      expect(calls[0].semanticContext?.invocation?.resultTarget).toEqual(
+        expect.objectContaining({
+          kind: 'declared-variable',
+          targetIdentifier: 'parenthesized',
+        }),
+      );
+      expect(
+        calls[1].semanticContext?.invocation?.resultTarget,
+      ).toBeUndefined();
+    });
   });
 
   describe('Invalid void declarations', () => {
