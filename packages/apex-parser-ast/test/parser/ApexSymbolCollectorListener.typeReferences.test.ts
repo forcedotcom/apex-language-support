@@ -404,6 +404,60 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       expect(listDeclaration?.isSObject).toBeUndefined();
     });
 
+    it('uses the root FROM type despite a singular query limit', () => {
+      const references = compileReferences(`
+        public class SoqlEvidence {
+          public void run() {
+            BusinessHours hours = [SELECT Id, Name FROM BusinessHours LIMIT 2];
+          }
+        }
+      `);
+
+      expect(
+        references.some(
+          (ref) =>
+            ref.name === 'BusinessHours' &&
+            ref.context === ReferenceContext.SOQL_FROM_TYPE &&
+            ref.isSObject === true,
+        ),
+      ).toBe(true);
+      expect(
+        references.some(
+          (ref) =>
+            ref.name === 'BusinessHours' &&
+            ref.context === ReferenceContext.TYPE_DECLARATION &&
+            ref.isSObject === true,
+        ),
+      ).toBe(true);
+    });
+
+    it('does not assign the root FROM type to an incompatible declaration', () => {
+      const references = compileReferences(`
+        public class SoqlEvidence {
+          public void run() {
+            Contact contact = [SELECT Id FROM BusinessHours];
+          }
+        }
+      `);
+
+      expect(
+        references.some(
+          (ref) =>
+            ref.name === 'BusinessHours' &&
+            ref.context === ReferenceContext.SOQL_FROM_TYPE &&
+            ref.isSObject === true,
+        ),
+      ).toBe(true);
+      expect(
+        references.some(
+          (ref) =>
+            ref.name === 'Contact' &&
+            ref.context === ReferenceContext.TYPE_DECLARATION &&
+            ref.isSObject === true,
+        ),
+      ).toBe(false);
+    });
+
     it('marks a SOQL-for-loop declaration type', () => {
       const references = compileReferences(`
         public class SoqlEvidence {
@@ -538,6 +592,26 @@ describe('ApexSymbolCollectorListener with Type References', () => {
       expect(constructors[0].isSObject).toBe(true);
       expect(constructors[1].isSObject).toBeUndefined();
       expect(constructors[2].isSObject).toBeUndefined();
+    });
+
+    it('treats named-field construction as sObject evidence despite a standard-class collision', () => {
+      const references = compileReferences(`
+        public class SObjectEvidence {
+          public void run() {
+            BusinessHours named = new BusinessHours(Name = 'Support');
+            BusinessHours bare = new BusinessHours();
+          }
+        }
+      `);
+      const constructors = references.filter(
+        (ref) =>
+          ref.name === 'BusinessHours' &&
+          ref.context === ReferenceContext.CONSTRUCTOR_CALL,
+      );
+
+      expect(constructors).toHaveLength(2);
+      expect(constructors[0].isSObject).toBe(true);
+      expect(constructors[1].isSObject).toBeUndefined();
     });
 
     it('marks only a Map value type whose constructor argument is SOQL', () => {
