@@ -19,6 +19,8 @@ interface SetupOptions {
   workspacePath?: string;
   /** Whether to log setup steps */
   verbose?: boolean;
+  /** Configure the workspace for the native LSP trace experiment. */
+  enableLspTraceExperiment?: boolean;
 }
 
 /**
@@ -27,13 +29,19 @@ interface SetupOptions {
  * - Logging level is "error" to avoid performance impact from verbose logging
  * - Server mode is "development" for testing
  */
-const WORKSPACE_SETTINGS = {
+const workspaceSettings = (enableLspTraceExperiment = false) => ({
   'apex.logLevel': process.env.E2E_APEX_DIAGNOSTICS === '1' ? 'debug' : 'error',
   'apex.environment.serverMode': 'development',
-  ...(process.env.E2E_APEX_DIAGNOSTICS === '1' && {
+  ...((process.env.E2E_APEX_DIAGNOSTICS === '1' ||
+    enableLspTraceExperiment) && {
     'apex.trace.server': 'verbose',
   }),
-};
+  ...(enableLspTraceExperiment && {
+    'apex.experimental.workers': {
+      lspRequest: { poolSize: 1 },
+    },
+  }),
+});
 
 /**
  * Sets up test workspace with sample files for e2e tests.
@@ -45,7 +53,11 @@ const WORKSPACE_SETTINGS = {
 export async function setupTestWorkspace(
   options: SetupOptions = {},
 ): Promise<string> {
-  const { sampleFiles = [], workspacePath: customWorkspacePath } = options;
+  const {
+    sampleFiles = [],
+    workspacePath: customWorkspacePath,
+    enableLspTraceExperiment = false,
+  } = options;
 
   // Determine workspace path
   const workspacePath =
@@ -64,7 +76,10 @@ export async function setupTestWorkspace(
   const vscodeDir = path.join(workspacePath, '.vscode');
   fs.mkdirSync(vscodeDir, { recursive: true });
   const settingsPath = path.join(vscodeDir, 'settings.json');
-  fs.writeFileSync(settingsPath, JSON.stringify(WORKSPACE_SETTINGS, null, 2));
+  fs.writeFileSync(
+    settingsPath,
+    JSON.stringify(workspaceSettings(enableLspTraceExperiment), null, 2),
+  );
 
   // Copy the complete DX fixture, including sfdx-project.json, the standard
   // force-app layout, and every .cls-meta.xml companion. ComponentSet-based

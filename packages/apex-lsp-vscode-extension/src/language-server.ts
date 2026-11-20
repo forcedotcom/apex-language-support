@@ -484,7 +484,7 @@ const createDesktopLanguageClient = async (
   ]);
   const serverMode = determineServerMode(context);
   const rawClient = new LanguageClient(
-    'apexLanguageServer',
+    'apex',
     'Apex Language Server Extension (Node.js)',
     serverConfig.createServerOptions(context, serverMode),
     serverConfig.createClientOptions(
