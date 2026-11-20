@@ -162,14 +162,6 @@ import {
 } from './worker/dataOwnerQueue.ts';
 import { emitWorkerLog } from './worker/workerLog.ts';
 import {
-  resolveLocalRename,
-  resolvePrepareRenameForLocal,
-  resolveFieldRename,
-  resolvePrepareRenameForField,
-  resolveMethodRename,
-  resolvePrepareRenameForMethod,
-} from './worker/rename.ts';
-import {
   completionResultForWire,
   type PositionReq,
   type DocOnlyReq,
@@ -2341,10 +2333,12 @@ export const ensureRequestServices: Effect.Effect<RequestServices> =
 
         // Feature services reach the data owner through a typed port over the
         // same transport; without it they degrade to the coordinator-local
-        // result (no references).
-        svc.referencesService.setAssistancePort(
-          createWorkerAssistancePort(requestCoordinatorAssistancePromiseShared),
+        // result (no references; local rename only).
+        const assistancePort = createWorkerAssistancePort(
+          requestCoordinatorAssistancePromiseShared,
         );
+        svc.referencesService.setAssistancePort(assistancePort);
+        svc.renameService.setAssistancePort(assistancePort);
 
         yield* Effect.logInfo('[ENRICHMENT] services bootstrapped');
         return svc;
@@ -2917,39 +2911,16 @@ const requestHandlers = {
   // scan (which would surface same-named locals in other files). A cursor that
   // doesn't resolve to a renamable local returns `null` (LSP: "nothing to
   // rename"); the field/method/type kinds land in later groups.
-  DispatchRename: requestHandler<RenameReq>(
-    'DispatchRename',
-    async (svc, req) => {
-      // renameLocal first (single-file, no svc needed). A `null` means the
-      // cursor isn't a local → fall through to renameField (W-23631084), then
-      // renameMethod (W-23631132) — both use `svc` for the workspace-wide scan.
-      // A type/constructor cursor returns null from all three (renameType TBD).
-      const local = await resolveLocalRename(req);
-      if (local !== null) return local;
-      // Only a `null` (not-my-kind) may fall through; a RenameErrorResult must
-      // return so a field/method name-conflict isn't retried as another kind.
-      const field = await resolveFieldRename(svc, req);
-      if (field !== null) return field;
-      return resolveMethodRename(svc, req);
-    },
+  DispatchRename: requestHandler<RenameReq>('DispatchRename', (svc, req) =>
+    svc.renameService.resolveRename(req),
   ),
-  // Generalized prepareRename (W-23631152): dispatch local → field → method,
-  // mirroring the DispatchRename RESOLVE chain (local → field → method) so F2
-  // opens the rename box on every kind that renameResolve can service. Each
-  // path returns the identifier range + placeholder for its kind, or `null`
-  // (LSP: "nothing to rename") to fall through to the next — matching how the
-  // field/local paths surface an un-renamable cursor (they never throw a
-  // distinct error shape; a failed `canBeRenamed()`-style gate is simply a
-  // null, so no new error type is introduced here). TYPE prepareRename is
-  // deferred to Group 6 (renameType); append `?? (await
-  // resolvePrepareRenameForType(svc, req))` here when that lands — this is the
-  // extension seam.
+  // Generalized prepareRename (W-23631152): local → field → method, mirroring
+  // the DispatchRename resolve chain so F2 opens the rename box on every kind
+  // that rename can service. TYPE prepareRename is deferred to Group 6
+  // (renameType).
   DispatchPrepareRename: requestHandler<PositionReq>(
     'DispatchPrepareRename',
-    async (svc, req) =>
-      (await resolvePrepareRenameForLocal(req)) ??
-      (await resolvePrepareRenameForField(svc, req)) ??
-      (await resolvePrepareRenameForMethod(svc, req)),
+    (svc, req) => svc.renameService.resolvePrepareRename(req),
   ),
   DispatchImplementation: effectRequestHandler<PositionReq>(
     'DispatchImplementation',

@@ -39,6 +39,7 @@ import type { CodeActionProcessingService } from '../services/CodeActionProcessi
 import type { DefinitionProcessingService } from '../services/DefinitionProcessingService';
 import type { ImplementationProcessingService } from '../services/ImplementationProcessingService';
 import type { ReferencesProcessingService } from '../services/ReferencesProcessingService';
+import type { RenameProcessingService } from '../services/RenameProcessingService';
 import type { DocumentSymbolProcessingService } from '../services/DocumentSymbolProcessingService';
 import type { CodeLensProcessingService } from '../services/CodeLensProcessingService';
 import type { DiagnosticProcessingService } from '../services/DiagnosticProcessingService';
@@ -141,6 +142,7 @@ export interface RequestServices {
   readonly definitionService: DefinitionProcessingService;
   readonly implementationService: ImplementationProcessingService;
   readonly referencesService: ReferencesProcessingService;
+  readonly renameService: RenameProcessingService;
   readonly documentSymbolService: DocumentSymbolProcessingService;
   readonly codeLensService: CodeLensProcessingService;
   readonly diagnosticService: DiagnosticProcessingService;
@@ -169,6 +171,7 @@ export const bootstrapRequestServicesEffect: Effect.Effect<
     definitionService: factory.createDefinitionService(),
     implementationService: factory.createImplementationService(),
     referencesService: factory.createReferencesService(),
+    renameService: factory.createRenameService(),
     documentSymbolService: factory.createDocumentSymbolService(),
     codeLensService: factory.createCodeLensService(),
     diagnosticService: factory.createDiagnosticService(),
