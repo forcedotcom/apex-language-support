@@ -81,7 +81,7 @@ jobs:
             echo 'Non-dry-run publishing requires release_tag and derives its version from that tag.'
             exit 1
           fi
-          if [ "$DRY_RUN" != 'true' ] && [[ "$RELEASE_TAG" != apex-language-server-extension-v* ]]; then
+          if [ "$DRY_RUN" != 'true' ] && [[ "$RELEASE_TAG" != apex-language-server-extension-v* && "$RELEASE_TAG" != v* ]]; then
             echo "Invalid extension release tag: $RELEASE_TAG"
             exit 1
           fi
