@@ -97,6 +97,14 @@ export {
   type OccurrenceRange,
   type CursorOccurrence,
 } from './services/cursor/cursorResolution';
+export {
+  resolveMissingNamesViaDataOwner as resolveMissingNamesViaAssistance,
+  hasCompleteLocalSymbolTable,
+  hasCompleteLocalSObjectTable,
+  recompileCursorFileAtFullDetail,
+  loadReferencedTypesForFile as loadReferencedTypesViaAssistance,
+} from './services/cursor/crossFileResolution';
+export { fullDetailCursorBySymbolManager } from './services/cursor/fullDetailCursorCache';
 export type {
   PositionReq,
   RefsReq,

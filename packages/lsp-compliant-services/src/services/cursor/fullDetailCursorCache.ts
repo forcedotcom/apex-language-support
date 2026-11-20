@@ -9,14 +9,11 @@
 /**
  * Per-SymbolManager cache of the most recent full-detail cursor recompiles,
  * keyed by document URI. Shared between the cross-file recompile path and the
- * enrichment/preparation code in the composition root, so it lives in its own
- * leaf module to avoid a back-edge between them.
- *
- * Imported with an explicit .ts extension for tsx-in-worker resolution (see
- * runtimeContext.ts for the rationale).
+ * enrichment/preparation code in the worker composition root, so it lives in
+ * its own leaf module.
  */
 
-import type { RequestServices } from '@salesforce/apex-lsp-compliant-services';
+import type { SymbolManagerHost } from './cursorResolution';
 
 export interface FullDetailCursorCacheEntry {
   readonly content: string;
@@ -25,7 +22,7 @@ export interface FullDetailCursorCacheEntry {
 }
 
 export const fullDetailCursorBySymbolManager = new WeakMap<
-  RequestServices['symbolManager'],
+  SymbolManagerHost['symbolManager'],
   Map<string, FullDetailCursorCacheEntry>
 >();
 export const MAX_FULL_DETAIL_CURSOR_CACHE_ENTRIES = 32;

@@ -84,6 +84,7 @@ import {
   type LSPRequestType,
   type LspRequestPreparationPolicy,
   type RequestServices,
+  fullDetailCursorBySymbolManager,
   referenceIdentity,
   exactCursorReference,
   resolveCursorSymbol,
@@ -176,7 +177,6 @@ import {
   type SignatureHelpReq,
   type CodeActionReq,
 } from './worker/requestTypes.ts';
-import { fullDetailCursorBySymbolManager } from './worker/fullDetailCursorCache.ts';
 import {
   resolveMissingNamesViaDataOwner,
   hasCompleteLocalSymbolTable,
