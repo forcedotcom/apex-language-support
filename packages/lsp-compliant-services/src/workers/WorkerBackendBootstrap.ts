@@ -40,6 +40,8 @@ import type { DefinitionProcessingService } from '../services/DefinitionProcessi
 import type { ImplementationProcessingService } from '../services/ImplementationProcessingService';
 import type { ReferencesProcessingService } from '../services/ReferencesProcessingService';
 import type { RenameProcessingService } from '../services/RenameProcessingService';
+import { RenameAssistService } from '../services/dataOwner/RenameAssistService';
+import { OccurrenceCandidateService } from '../services/dataOwner/OccurrenceCandidateService';
 import type { DocumentSymbolProcessingService } from '../services/DocumentSymbolProcessingService';
 import type { CodeLensProcessingService } from '../services/CodeLensProcessingService';
 import type { DiagnosticProcessingService } from '../services/DiagnosticProcessingService';
@@ -55,6 +57,8 @@ export interface DataOwnerServices {
   readonly storageManager: ApexStorageManager;
   readonly documentProcessingService: DocumentProcessingService;
   readonly documentCloseProcessingService: DocumentCloseProcessingService;
+  readonly renameAssistService: RenameAssistService;
+  readonly occurrenceCandidateService: OccurrenceCandidateService;
   readonly factory: ServiceFactory;
 }
 
@@ -112,6 +116,14 @@ export const bootstrapDataOwnerServicesEffect: Effect.Effect<
     storageManager,
     documentProcessingService: factory.createDocumentProcessingService(),
     documentCloseProcessingService: new DocClose(logger),
+    renameAssistService: new RenameAssistService({
+      symbolManager,
+      storageManager,
+    }),
+    occurrenceCandidateService: new OccurrenceCandidateService({
+      symbolManager,
+      storageManager,
+    }),
     factory,
   };
 });

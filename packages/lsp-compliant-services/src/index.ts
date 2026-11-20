@@ -114,6 +114,8 @@ export {
   resolveOccurrencesForCursorEffect,
   type CursorOccurrenceResolution,
 } from './services/references/occurrenceResolution';
+export { RenameAssistService } from './services/dataOwner/RenameAssistService';
+export { OccurrenceCandidateService } from './services/dataOwner/OccurrenceCandidateService';
 export type {
   PositionReq,
   RefsReq,
