@@ -75,6 +75,14 @@ jobs:
       - name: Set API version from extension release
         id: release
         run: |
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            printf '%s' "${value%"${value##*[![:space:]]}"}"
+          }
+          RELEASE_TAG=$(trim "$RELEASE_TAG")
+          VERSION_INPUT=$(trim "$VERSION_INPUT")
+          NPM_DIST_TAG=$(trim "$NPM_DIST_TAG")
           VERSION="${RELEASE_TAG#apex-language-server-extension-v}"
           VERSION="${VERSION#v}"
           if [ "$DRY_RUN" != 'true' ] && { [ -z "$RELEASE_TAG" ] || [ -n "$VERSION_INPUT" ]; }; then
