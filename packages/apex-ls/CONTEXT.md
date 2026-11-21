@@ -37,13 +37,18 @@ the workers (each on its own thread), crossed by message-port wire protocol.
 Requests go coordinator→worker; assistance calls go worker→coordinator.
 
 **Log reachability (worker → output channel)**:
-From a worker, only two log paths reach the coordinator output channel: (1)
-Effect logs (`Effect.logInfo` etc.) run under the replaced `workerLogger`
-layer, and (2) `emitWorkerLog(level, msg)`, which posts a `WorkerLogMessage`
-directly over the assistance port from any context. Plain `getLogger()` calls in
-an async handler, and `Effect.logInfo` run under an ad-hoc `Effect.runPromise`
-(default logger), do NOT reach the channel. Use `emitWorkerLog` for diagnostics
-in async handlers.
+Effect logs (`Effect.logInfo` etc.) run under the replaced `workerLogger` layer
+(`worker.platform.ts` / `worker.platform.web.ts`) post a `WorkerLogMessage` over
+the assistance port, which the coordinator forwards to the output channel. Other
+log paths (plain `getLogger()`, ad-hoc `Effect.runPromise` with the default
+logger) are not wired to the port here; reachability is unverified.
+
+**Worker logic location**:
+Rename and find-references logic lives in `lsp-compliant-services`
+(`RenameProcessingService`, `ReferencesProcessingService`), reaching the
+data-owner through the typed `WorkerAssistancePort` that apex-ls injects in
+`ensureRequestServices`. `apex-ls/src/worker/` keeps only worker glue
+(`runtimeContext`, `dataOwnerQueue`, `requestTypes`, `crossFileResolution`).
 
 ## Dependent discovery
 

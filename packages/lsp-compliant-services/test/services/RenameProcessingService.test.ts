@@ -79,4 +79,42 @@ describe('RenameProcessingService (Phase-0 no-op)', () => {
     // request still settles null rather than rejecting.
     await expect(service.processRename(params)).resolves.toBeNull();
   });
+
+  describe('worker-side resolution without an assistance port', () => {
+    const source = [
+      'public class RenameTarget {',
+      '  public void run() {',
+      '    Integer count = 1;',
+      '    count = count + 1;',
+      '  }',
+      '}',
+    ].join('\n');
+    const localReq = {
+      textDocument: { uri: 'file:///test/RenameTarget.cls' },
+      position: { line: 2, character: 12 },
+      newName: 'total',
+      content: source,
+    };
+
+    it('still renames a local from the live cursor text', async () => {
+      const service = new RenameProcessingService(logger, {} as any);
+
+      const result = await service.resolveRename(localReq);
+
+      expect(result).toMatchObject({
+        changes: { [localReq.textDocument.uri]: expect.any(Array) },
+      });
+    });
+
+    it('returns null for cross-file kinds (no data-owner access)', async () => {
+      const service = new RenameProcessingService(logger, {} as any);
+      const fieldReq = {
+        ...localReq,
+        position: { line: 0, character: 15 },
+      };
+
+      await expect(service.resolveRename(fieldReq)).resolves.toBeNull();
+      await expect(service.resolvePrepareRename(fieldReq)).resolves.toBeNull();
+    });
+  });
 });
