@@ -120,7 +120,7 @@ jobs:
           echo "dist-tag=$DIST_TAG" >> "$GITHUB_OUTPUT"
 
           npm pkg set "version=$VERSION" --prefix packages/apex-language-server-extension-api
-          npm pkg set 'scripts.build=pnpm --filter @salesforce/apex-language-server-extension-api run build'
+          npm pkg set 'scripts.build=pnpm --filter @salesforce/apex-language-server-extension-api run compile'
 
       - name: Build and verify extension API
         run: |
@@ -160,7 +160,7 @@ jobs:
           fi
 
           npm pkg set "version=$VERSION" --prefix packages/apex-language-server-extension-api
-          npm pkg set 'scripts.build=pnpm --filter @salesforce/apex-language-server-extension-api run build'
+          npm pkg set 'scripts.build=pnpm --filter @salesforce/apex-language-server-extension-api run compile'
           git add packages/apex-language-server-extension-api/package.json package.json
           UNEXPECTED=$(git diff --cached --name-only | grep -Ev '^(package.json|packages/apex-language-server-extension-api/package.json)$' || true)
           [ -z "$UNEXPECTED" ] || { echo "Unexpected staged paths: $UNEXPECTED"; exit 1; }
