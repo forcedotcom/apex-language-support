@@ -12,7 +12,9 @@ import * as path from 'node:path';
 import { setupTestWorkspace } from '../utils/setup';
 
 /** Create a temporary workspace directory with Apex sample files for desktop tests */
-export const createDesktopTestWorkspace = async (): Promise<string> => {
+export const createDesktopTestWorkspace = async (options?: {
+  enableLspTraceExperiment?: boolean;
+}): Promise<string> => {
   // VS Code creates its main IPC socket below --user-data-dir. macOS limits
   // Unix-domain socket paths to 103 characters, while os.tmpdir() commonly
   // expands to a long /var/folders/... path. Use the short /tmp alias so the
@@ -25,6 +27,7 @@ export const createDesktopTestWorkspace = async (): Promise<string> => {
   await setupTestWorkspace({
     workspacePath: workspaceDir,
     verbose: false,
+    enableLspTraceExperiment: options?.enableLspTraceExperiment,
   });
 
   return workspaceDir;

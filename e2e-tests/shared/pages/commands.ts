@@ -20,10 +20,19 @@ import {
 export const openCommandPalette = async (page: Page): Promise<void> => {
   const widget = page.locator(QUICK_INPUT_WIDGET);
   const workbench = page.locator(WORKBENCH);
+  const skipSignIn = page
+    .getByRole('button', { name: /Skip|Continue without Signing In/i })
+    .first();
 
   await dismissAllQuickInputWidgets(page);
 
   await expect(async () => {
+    // VS Code may show first-run sign-in after the initial workbench load.
+    // Dismiss it here as well so it cannot intercept the Command Palette.
+    if (await skipSignIn.isVisible({ timeout: 500 }).catch(() => false)) {
+      await skipSignIn.click();
+    }
+    await page.keyboard.press('Escape');
     // Bring page to front to ensure VS Code window is active (critical on Windows)
     await page.bringToFront();
     // Explicitly focus the workbench before opening the command palette.

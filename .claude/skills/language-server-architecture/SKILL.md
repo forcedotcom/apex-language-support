@@ -129,17 +129,7 @@ Workers inherit profiling, debug, and heap-size flags from the main process via 
 
 ## Worker Log Reachability
 
-From inside a worker, only two log paths reach the coordinator's output channel:
-
-1. **Effect logs** (`Effect.logInfo`/`logDebug`/etc.) executed under the worker's replaced `workerLogger` layer — these post a `WorkerLogMessage` over the assistance port.
-2. **`emitWorkerLog(level, msg)`** (in `worker.platform.ts`) — posts a `WorkerLogMessage` directly; works from ANY context.
-
-These do NOT reach the channel:
-
-- **`getLogger().info/debug/warn()`** from an async request handler (e.g. `DispatchReferences`) — writes to a logger not wired to the parent port.
-- **`Effect.logInfo` run under an ad-hoc `Effect.runPromise`** inside a handler — uses the default logger, not `workerLogger`.
-
-**Rule of thumb:** for diagnostics in an async worker handler, use `emitWorkerLog`. If you must log from deep inside an Effect that a handler runs via `Effect.runPromise` (e.g. `addSymbolTable`), stash the message on an instance field and have the handler emit it via `emitWorkerLog` after the run.
+Effect logs (`Effect.logInfo`/`logDebug`/etc.) run under the worker's replaced `workerLogger` layer (`worker.platform.ts`, `worker.platform.web.ts`) post a `WorkerLogMessage` over the assistance port; the coordinator forwards them to the output channel. Reachability of plain `getLogger()` calls or Effects run under an ad-hoc `Effect.runPromise` (default logger) is unverified.
 
 ## Key Paths
 
@@ -151,3 +141,6 @@ These do NOT reach the channel:
 - GlobalTypeRegistry: `packages/apex-parser-ast/src/services/GlobalTypeRegistryService.ts`
 - Resource loader: `packages/apex-parser-ast/src/utils/resourceLoader.ts`
 - Enrichment bootstrap: `packages/lsp-compliant-services/src/workers/WorkerBackendBootstrap.ts`
+- Rename/references logic (not in apex-ls workers): `packages/lsp-compliant-services/src/services/{RenameProcessingService,ReferencesProcessingService}.ts`, `rename/`, `cursor/`, `references/`, `dataOwner/{RenameAssistService,OccurrenceCandidateService}.ts`
+- Typed `dataOwner:*` assistance port: `packages/lsp-compliant-services/src/services/assistance/WorkerAssistancePort.ts` (injected by apex-ls `ensureRequestServices`)
+- Worker glue: `packages/apex-ls/src/worker/{runtimeContext,dataOwnerQueue,requestTypes,crossFileResolution}.ts`

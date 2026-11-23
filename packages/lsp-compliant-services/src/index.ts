@@ -72,6 +72,55 @@ export * from './services/CompletionProcessingService';
 export * from './services/strategies';
 export * from './services/WorkspaceSymbolProcessingService';
 export * from './services/WorkspaceLoadCoordinator';
+export {
+  createWorkerAssistancePort,
+  type WorkerAssistancePort,
+  type FindOccurrenceCandidatesParams,
+  type FindOccurrenceCandidatesResult,
+  type CheckMemberConflictsParams,
+  type CheckMemberConflictsResult,
+  type ResolveMethodRenameFamilyParams,
+  type ResolveMethodRenameFamilyResult,
+} from './services/assistance/WorkerAssistancePort';
+export {
+  referenceIdentity,
+  exactCursorReference,
+  resolveCursorSymbol,
+  declaringFileForCursorSymbol,
+  scanCandidatesForOccurrences,
+  targetSymbolForCursor,
+  declarationLocationForCursor,
+  fieldDeclarationRangeFromParse,
+  fieldRenameDeclarationDecision,
+  methodDeclarationRangeFromParse,
+  type SymbolManagerHost,
+  type OccurrenceRange,
+  type CursorOccurrence,
+} from './services/cursor/cursorResolution';
+export {
+  resolveMissingNamesViaDataOwner as resolveMissingNamesViaAssistance,
+  hasCompleteLocalSymbolTable,
+  hasCompleteLocalSObjectTable,
+  recompileCursorFileAtFullDetail,
+  loadReferencedTypesForFile as loadReferencedTypesViaAssistance,
+} from './services/cursor/crossFileResolution';
+export { fullDetailCursorBySymbolManager } from './services/cursor/fullDetailCursorCache';
+export {
+  ReferencesProcessingService,
+  type IReferencesProcessor,
+} from './services/ReferencesProcessingService';
+export {
+  resolveOccurrencesForCursor,
+  resolveOccurrencesForCursorEffect,
+  type CursorOccurrenceResolution,
+} from './services/references/occurrenceResolution';
+export { RenameAssistService } from './services/dataOwner/RenameAssistService';
+export { OccurrenceCandidateService } from './services/dataOwner/OccurrenceCandidateService';
+export type {
+  PositionReq,
+  RefsReq,
+  RenameReq,
+} from './services/cursor/requestTypes';
 export * from './services/DiagnosticRefreshService';
 export * from './services/MissingArtifactResolutionService';
 export * from './services/SObjectEnrichmentService';

@@ -41,8 +41,12 @@ export const createDesktopTest = (options: CreateDesktopTestOptions) => {
       { scope: 'worker' },
     ],
 
-    workspaceDir: async ({}, use): Promise<void> => {
-      const dir = await createDesktopTestWorkspace();
+    workspaceDir: async ({}, use, testInfo): Promise<void> => {
+      const dir = await createDesktopTestWorkspace({
+        enableLspTraceExperiment: testInfo.file.endsWith(
+          'apex-output-trace-experiment.spec.ts',
+        ),
+      });
       await use(dir);
     },
 
