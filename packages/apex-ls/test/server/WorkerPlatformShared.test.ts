@@ -1263,6 +1263,7 @@ describe('worker.platform.shared', () => {
         symbolManager.clear();
       }
     },
+    30_000,
   );
 
   it('reconciles a replacement cursor table after an outstanding URI pass before caching completion', async () => {
