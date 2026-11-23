@@ -38,6 +38,7 @@
     "check:dupes:parser-ast": "jscpd packages/apex-parser-ast/src --config .jscpd.json --output ./jscpd-report-parser-ast --threshold 10",
     "check:dupes:parser-ast:strict": "jscpd packages/apex-parser-ast/src --config .jscpd.json --output ./jscpd-report-parser-ast --threshold 0",
     "compile": "wireit",
+    "build": "pnpm --filter @salesforce/apex-language-server-extension-api run build",
     "prepare": "husky",
     "clean": "wireit",
     "clean:all": "wireit",

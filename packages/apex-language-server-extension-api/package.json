@@ -49,6 +49,7 @@
     "directory": "packages/apex-language-server-extension-api"
   },
   "scripts": {
+    "build": "pnpm run compile",
     "compile": "wireit",
     "test": "wireit",
     "test:coverage": "wireit",
