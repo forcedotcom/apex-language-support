@@ -175,7 +175,7 @@ const SELF_LOADING_REQUEST_TYPES = new Set<LSPRequestType>([
   'documentSymbol',
   'semanticTokens',
   // renameLocal (W-23631077) recompiles the cursor file STANDALONE from
-  // req.content in the pool worker (resolveLocalRename), so like the others it
+  // req.content in the pool worker (RenameProcessingService.resolveRename), so like the others it
   // does not depend on the dataOwner graph being current. Without this entry
   // the cold-read gate fires on every open-file rename and, on a not-ready
   // verdict, drops the request to the coordinator-local RenameProcessingService

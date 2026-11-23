@@ -18,6 +18,7 @@ import { DefinitionProcessingService } from '../services/DefinitionProcessingSer
 import { CodeActionProcessingService } from '../services/CodeActionProcessingService';
 import { SignatureHelpProcessingService } from '../services/SignatureHelpProcessingService';
 import { RenameProcessingService } from '../services/RenameProcessingService';
+import { ReferencesProcessingService } from '../services/ReferencesProcessingService';
 import { DiagnosticProcessingService } from '../services/DiagnosticProcessingService';
 import { DocumentSymbolProcessingService } from '../services/DocumentSymbolProcessingService';
 import { DocumentProcessingService } from '../services/DocumentProcessingService';
@@ -139,6 +140,16 @@ export class ServiceFactory {
     );
     service.setLayerEnrichmentService(this.getLayerEnrichmentService());
     return service;
+  }
+
+  /**
+   * Create references processing service
+   */
+  createReferencesService(): ReferencesProcessingService {
+    return new ReferencesProcessingService(
+      this.dependencies.logger,
+      this.dependencies.symbolManager,
+    );
   }
 
   /**
