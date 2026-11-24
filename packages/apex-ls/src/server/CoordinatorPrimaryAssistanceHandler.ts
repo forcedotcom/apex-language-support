@@ -45,6 +45,8 @@ export interface PrimaryAssistanceHandlerDeps {
     artifacts: readonly MissingArtifactPayload[],
     originUri: string,
   ) => Promise<void>;
+  /** Request a debounced pull-diagnostic refresh after an accepted graph write. */
+  readonly signalDiagnosticRefresh?: () => Promise<void>;
 }
 
 /**
@@ -69,6 +71,7 @@ export const createPrimaryAssistanceHandler = (
     logger,
     getResourceLoaderProxy,
     installSObjectArtifacts,
+    signalDiagnosticRefresh,
   } = deps;
   return async (method, params) => {
     if (method === 'apex/findMissingArtifact') {
@@ -98,9 +101,13 @@ export const createPrimaryAssistanceHandler = (
       return undefined;
     }
     if (method === 'coordinator:SignalDiagnosticRefresh') {
-      await Effect.runPromise(
-        getDiagnosticRefreshService().signalEnrichmentComplete(),
-      );
+      if (signalDiagnosticRefresh) {
+        await signalDiagnosticRefresh();
+      } else {
+        await Effect.runPromise(
+          getDiagnosticRefreshService().signalEnrichmentComplete(),
+        );
+      }
       return undefined;
     }
     if (method === 'resourceLoader:resolveClass') {

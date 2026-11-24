@@ -243,13 +243,13 @@ Add a server-to-client notification, for example `apex/documentSemanticState`, f
 
 Use a separate active-document language-status detail from the existing workspace ingestion state:
 
-| Server state | Suggested status |
-| --- | --- |
-| Compile pending for current source | `Analyzing current version` |
+| Server state                               | Suggested status                            |
+| ------------------------------------------ | ------------------------------------------- |
+| Compile pending for current source         | `Analyzing current version`                 |
 | Parser complete, semantic work outstanding | `Syntax checked; semantic analysis pending` |
-| Semantic graph current | `Semantically current` |
-| Dependency or artifact unavailable | `Analysis incomplete: dependency loading` |
-| Newer edit superseded work | `Analysis stale: newer edit pending` |
+| Semantic graph current                     | `Semantically current`                      |
+| Dependency or artifact unavailable         | `Analysis incomplete: dependency loading`   |
+| Newer edit superseded work                 | `Analysis stale: newer edit pending`        |
 
 The UI must be observational. It must not infer semantic state from document text.
 
@@ -281,3 +281,5 @@ The first two items validate the dropped queued-enrichment Effect and the result
 ## Worker Topology
 
 In the worker-enabled topology, diagnostic processing runs in a request-pool worker while `prerequisiteEnrichment` is coordinator-only. The request worker therefore does not queue the coordinator-only task. Instead, it performs diagnostic prerequisites locally, awaits an accepted version-checked data-owner write-back, then requests the coordinator-owned debounced refresh through the assistance channel. This keeps graph authority and the LSP connection on their owning processes.
+
+The follow-up runs on an independent worker runtime rather than the request Effect scope, which closes when the parser-owned diagnostic response is serialized. This ensures returning the initial response cannot interrupt enrichment, the accepted write-back, or the subsequent refresh signal.

@@ -54,6 +54,7 @@ import {
   type WorkerRole,
 } from '@salesforce/apex-lsp-shared';
 import { Effect } from 'effect';
+import { vi } from 'vitest';
 
 const WORKER_ENTRY = path.resolve(__dirname, '../../dist/worker.platform.js');
 const LOG_LEVEL = 'debug';
@@ -86,11 +87,6 @@ private class ColdOpenTest {
 
 const URI = 'file:///test/MyInterface.cls';
 
-const stubConnection = {
-  sendRequest: async () => null,
-  sendNotification: async () => undefined,
-};
-
 /**
  * Wire the assistance bus exactly as LCSAdapter / EnrichmentRoundTrip does.
  */
@@ -98,15 +94,21 @@ function wireProductionMediator(
   topology: WorkerTopology,
   dispatcher: ReturnType<typeof makeWorkerDispatcher>,
   logger: ReturnType<typeof getLogger>,
+  connection = {
+    sendRequest: async () => null,
+    sendNotification: async () => undefined,
+  },
+  signalDiagnosticRefresh?: () => Promise<void>,
 ): CoordinatorAssistanceMediator {
   const resourceLoaderProxy = topology.resourceLoader
     ? new ResourceLoaderProxy(topology.resourceLoader, logger)
     : undefined;
   const mediator = new CoordinatorAssistanceMediator(
     createPrimaryAssistanceHandler({
-      connection: stubConnection,
+      connection,
       logger,
       getResourceLoaderProxy: () => resourceLoaderProxy,
+      signalDiagnosticRefresh,
     }),
     logger,
     (method, params) => dispatcher.queryDataOwner(method, params),
@@ -226,5 +228,76 @@ describe('documentSymbol on a cold-opened file (live assistance bus)', () => {
         'sf.apex.debug.method.run.delegate',
       ]),
     );
+  }, 120_000);
+
+  it('refreshes diagnostics only after worker enrichment commits to the data owner', async () => {
+    let resolveRefresh!: () => void;
+    let refreshTimeout: ReturnType<typeof setTimeout>;
+    const refreshReceived = new Promise<void>((resolve, reject) => {
+      resolveRefresh = () => {
+        clearTimeout(refreshTimeout);
+        resolve();
+      };
+      refreshTimeout = setTimeout(
+        () =>
+          reject(
+            new Error(
+              'Timed out waiting for diagnostic enrichment to signal a refresh',
+            ),
+          ),
+        10_000,
+      );
+    });
+    const signalDiagnosticRefresh = vi.fn(() => {
+      resolveRefresh();
+      return Promise.resolve();
+    });
+    const connection = {
+      sendRequest: async () => null,
+      sendNotification: async () => undefined,
+    };
+
+    const program = Effect.gen(function* () {
+      const topology = yield* initializeTopology({
+        poolSize: 1,
+        enableResourceLoader: true,
+        logger,
+        logLevel: LOG_LEVEL,
+        compilationPoolSize: COMPILATION_POOL_SIZE,
+        compilationConcurrency: 1,
+        workerLayerFactory,
+      });
+      const dispatcher = makeWorkerDispatcher(topology, logger, () => SAMPLE);
+      wireProductionMediator(
+        topology,
+        dispatcher,
+        logger,
+        connection,
+        signalDiagnosticRefresh,
+      );
+      yield* runRemoteStdlibWarmupPhase(topology, 1);
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('documentOpen', {
+          document: {
+            uri: URI,
+            languageId: 'apex',
+            version: 1,
+            getText: () => SAMPLE,
+          },
+          textDocument: { uri: URI },
+          text: SAMPLE,
+        }),
+      );
+
+      yield* Effect.promise(() =>
+        dispatcher.dispatch('diagnostics', { textDocument: { uri: URI } }),
+      );
+      // Keep the live topology scoped until the worker's fire-and-forget
+      // enrichment has called back through coordinator assistance.
+      yield* Effect.promise(() => refreshReceived);
+    }).pipe(Effect.scoped);
+
+    await Effect.runPromise(program);
+    expect(signalDiagnosticRefresh).toHaveBeenCalledTimes(1);
   }, 120_000);
 });

@@ -20,7 +20,7 @@
 
 import * as WorkerRunner from '@effect/platform/WorkerRunner';
 import type { TextDocument } from 'vscode-languageserver-textdocument';
-import { Cause, Effect, Schema, Deferred } from 'effect';
+import { Cause, Effect, Runtime, Schema, Deferred } from 'effect';
 import {
   WorkerInit,
   PingWorker,
@@ -3040,50 +3040,57 @@ const requestHandlers = {
           ),
         );
 
-        // Return parser-owned diagnostics immediately. The request worker owns
-        // the locally enriched table; its asynchronous follow-up commits that
-        // table to the data owner before the coordinator asks the client to
-        // re-pull diagnostics.
-        yield* Effect.forkDaemon(
-          Effect.gen(function* () {
-            const prerequisitesChanged = yield* Effect.tryPromise({
-              try: () =>
-                svc.diagnosticService.runDiagnosticPrerequisiteEnrichment(
+        // The request worker owns the locally enriched table; this asynchronous
+        // follow-up commits it to the data owner before the coordinator asks the
+        // client to re-pull diagnostics. The parser-owned result remains the
+        // response to the current request.
+        const runtime = yield* Effect.runtime();
+        const backgroundEnrichment = Effect.gen(function* () {
+          const prerequisitesChanged = yield* Effect.tryPromise({
+            try: () =>
+              svc.diagnosticService.runDiagnosticPrerequisiteEnrichment(
+                req.textDocument.uri,
+              ),
+            catch: (cause) => cause,
+          }).pipe(Effect.catchAll(() => Effect.succeed(false)));
+          if (!prerequisitesChanged) return;
+
+          const table = yield* Effect.promise(() =>
+            svc.symbolManager.getSymbolTableForFile(req.textDocument.uri),
+          );
+          const achievedSymbolCollectionLevel = table?.getDetailLevel() ?? null;
+          const wroteBack =
+            achievedSymbolCollectionLevel !== null &&
+            shouldEnrich(detailLevel, achievedSymbolCollectionLevel)
+              ? yield* writeBackEnrichedSymbols(
+                  svc,
                   req.textDocument.uri,
+                  version,
+                  achievedSymbolCollectionLevel,
+                )
+              : false;
+
+          if (wroteBack) {
+            yield* Effect.tryPromise({
+              try: () =>
+                requestCoordinatorAssistancePromiseShared(
+                  'coordinator:SignalDiagnosticRefresh',
+                  {},
+                  false,
                 ),
               catch: (cause) => cause,
-            }).pipe(Effect.catchAll(() => Effect.succeed(false)));
-            if (!prerequisitesChanged) return;
-
-            const table = yield* Effect.promise(() =>
-              svc.symbolManager.getSymbolTableForFile(req.textDocument.uri),
-            );
-            const achievedSymbolCollectionLevel =
-              table?.getDetailLevel() ?? null;
-            const wroteBack =
-              achievedSymbolCollectionLevel !== null &&
-              shouldEnrich(detailLevel, achievedSymbolCollectionLevel)
-                ? yield* writeBackEnrichedSymbols(
-                    svc,
-                    req.textDocument.uri,
-                    version,
-                    achievedSymbolCollectionLevel,
-                  )
-                : false;
-
-            if (wroteBack) {
-              yield* Effect.tryPromise({
-                try: () =>
-                  requestCoordinatorAssistancePromiseShared(
-                    'coordinator:SignalDiagnosticRefresh',
-                    {},
-                    false,
-                  ),
-                catch: (cause) => cause,
-              }).pipe(Effect.catchAll(() => Effect.void));
-            }
-          }),
-        );
+            }).pipe(Effect.catchAll(() => Effect.void));
+          }
+        });
+        // Worker request scopes close as soon as their response is serialized.
+        // Start this follow-up with the worker runtime so returning parser
+        // diagnostics cannot interrupt the enrichment, accepted write-back, or
+        // refresh signal.
+        yield* Effect.sync(() => {
+          void Runtime.runPromise(runtime)(backgroundEnrichment).catch(
+            () => {},
+          );
+        });
 
         return result;
       }),
