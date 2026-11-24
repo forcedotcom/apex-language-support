@@ -784,6 +784,13 @@ export class DispatchRename extends Schema.TaggedRequest<DispatchRename>()(
       textDocument: WireTextDocumentId,
       position: WirePosition,
       newName: Schema.String,
+      /** Client workspaceEdit capabilities; gates RenameFile ops (W-23631139). */
+      workspaceEditCapabilities: Schema.optional(
+        Schema.Struct({
+          documentChanges: Schema.optional(Schema.Boolean),
+          resourceOperations: Schema.optional(Schema.Array(Schema.String)),
+        }),
+      ),
       // Live (possibly unsaved) document text, threaded in for the same reason
       // as DispatchReferences: the stateless request-pool worker has no document
       // in local storage unless we pass the text, so cursor→symbol resolution

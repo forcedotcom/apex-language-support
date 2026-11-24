@@ -22,4 +22,12 @@ export type RefsReq = PositionReq & {
 };
 export type RenameReq = PositionReq & {
   newName: string;
+  /**
+   * Client `workspace.workspaceEdit` capabilities (W-23631139). Gates the
+   * `RenameFile` operations renameType emits; absent means "assume unsupported".
+   */
+  workspaceEditCapabilities?: {
+    documentChanges?: boolean;
+    resourceOperations?: readonly string[];
+  };
 };
