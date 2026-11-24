@@ -143,6 +143,14 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
     }
   }
 
+  private queuePrerequisiteEnrichment(uri: string): void {
+    void LSPQueueManager.getInstance().submitNotification(
+      'prerequisiteEnrichment',
+      { uri, requestType: 'diagnostics' },
+      { priority: Priority.Background },
+    );
+  }
+
   /**
    * Compile document (pure Effect, can be queued)
    * Wraps compilerService.compile() in Effect for non-blocking operation
@@ -326,14 +334,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         // Semantic diagnostics are calculated after background enrichment and
         // delivered by the subsequent workspace/diagnostic/refresh pull.
         if (this.prerequisiteOrchestrationService) {
-          LSPQueueManager.getInstance().submitNotification(
-            'prerequisiteEnrichment',
-            {
-              uri: params.textDocument.uri,
-              requestType: 'diagnostics',
-            },
-            { priority: Priority.Background },
-          );
+          this.queuePrerequisiteEnrichment(params.textDocument.uri);
         }
         // Convert cached errors to diagnostics and enhance (with yielding)
         const enhancedCachedDiagnostics = await Effect.runPromise(
@@ -552,14 +553,7 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
       // Preserve immediate parser diagnostics. Full semantic diagnostics are
       // produced after the background prerequisite triggers a refresh pull.
       if (this.prerequisiteOrchestrationService) {
-        LSPQueueManager.getInstance().submitNotification(
-          'prerequisiteEnrichment',
-          {
-            uri: params.textDocument.uri,
-            requestType: 'diagnostics',
-          },
-          { priority: Priority.Background },
-        );
+        this.queuePrerequisiteEnrichment(params.textDocument.uri);
       }
 
       // Enhance diagnostics with cross-file analysis using ApexSymbolManager (with yielding)

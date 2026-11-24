@@ -117,13 +117,11 @@ export class DiagnosticRefreshService {
       // Fork debounce timer as a daemon so it outlives the current fiber scope
       const timerEffect = Effect.sleep(Duration.millis(self.debounceMs)).pipe(
         Effect.andThen(
-          Effect.sync(() => {
-            try {
-              self.connection?.languages.diagnostics.refresh();
-            } catch {
-              // Ignore errors from the refresh call — client may have disconnected
-            }
-          }),
+          Effect.tryPromise({
+            try: () =>
+              Promise.resolve(self.connection?.languages.diagnostics.refresh()),
+            catch: () => undefined,
+          }).pipe(Effect.catchAll(() => Effect.void)),
         ),
         // Clear the ref once the timer fires
         Effect.andThen(Ref.set(self.pendingFiber, null)),

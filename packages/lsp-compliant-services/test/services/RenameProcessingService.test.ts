@@ -50,7 +50,7 @@ describe('RenameProcessingService (Phase-0 no-op)', () => {
         PrerequisiteOrchestrationService.prototype,
         'runPrerequisitesForLspRequestType',
       )
-      .mockResolvedValue();
+      .mockResolvedValue(false);
 
     const symbolManager = {} as any;
     const service = new RenameProcessingService(logger, symbolManager);

@@ -38,7 +38,7 @@ describe('DefinitionProcessingService', () => {
           PrerequisiteOrchestrationService.prototype,
           'runPrerequisitesForLspRequestType',
         )
-        .mockResolvedValue();
+        .mockResolvedValue(false);
       const receiverType = {
         id: 'receiver-class-id',
         name: 'ReceiverClass',
