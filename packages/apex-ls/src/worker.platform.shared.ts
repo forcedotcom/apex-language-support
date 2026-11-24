@@ -3030,25 +3030,60 @@ const requestHandlers = {
             {
               textDocument: { uri: req.textDocument.uri },
             },
-            { waitForDocumentCache: false },
+            {
+              waitForDocumentCache: false,
+              // The request worker has no coordinator-only queue handler.
+              // It runs the background semantic step below and asks the
+              // coordinator to refresh only after the data owner accepts it.
+              queuePrerequisiteEnrichment: false,
+            },
           ),
         );
 
-        const table = yield* Effect.promise(() =>
-          svc.symbolManager.getSymbolTableForFile(req.textDocument.uri),
+        // Return parser-owned diagnostics immediately. The request worker owns
+        // the locally enriched table; its asynchronous follow-up commits that
+        // table to the data owner before the coordinator asks the client to
+        // re-pull diagnostics.
+        yield* Effect.forkDaemon(
+          Effect.gen(function* () {
+            const prerequisitesChanged = yield* Effect.tryPromise({
+              try: () =>
+                svc.diagnosticService.runDiagnosticPrerequisiteEnrichment(
+                  req.textDocument.uri,
+                ),
+              catch: (cause) => cause,
+            }).pipe(Effect.catchAll(() => Effect.succeed(false)));
+            if (!prerequisitesChanged) return;
+
+            const table = yield* Effect.promise(() =>
+              svc.symbolManager.getSymbolTableForFile(req.textDocument.uri),
+            );
+            const achievedSymbolCollectionLevel =
+              table?.getDetailLevel() ?? null;
+            const wroteBack =
+              achievedSymbolCollectionLevel !== null &&
+              shouldEnrich(detailLevel, achievedSymbolCollectionLevel)
+                ? yield* writeBackEnrichedSymbols(
+                    svc,
+                    req.textDocument.uri,
+                    version,
+                    achievedSymbolCollectionLevel,
+                  )
+                : false;
+
+            if (wroteBack) {
+              yield* Effect.tryPromise({
+                try: () =>
+                  requestCoordinatorAssistancePromiseShared(
+                    'coordinator:SignalDiagnosticRefresh',
+                    {},
+                    false,
+                  ),
+                catch: (cause) => cause,
+              }).pipe(Effect.catchAll(() => Effect.void));
+            }
+          }),
         );
-        const achievedSymbolCollectionLevel = table?.getDetailLevel() ?? null;
-        if (
-          achievedSymbolCollectionLevel !== null &&
-          shouldEnrich(detailLevel, achievedSymbolCollectionLevel)
-        ) {
-          yield* writeBackEnrichedSymbols(
-            svc,
-            req.textDocument.uri,
-            version,
-            achievedSymbolCollectionLevel,
-          );
-        }
 
         return result;
       }),

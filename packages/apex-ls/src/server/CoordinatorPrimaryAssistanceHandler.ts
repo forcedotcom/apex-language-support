@@ -21,6 +21,7 @@ import type { Connection } from 'vscode-languageserver/browser';
 import {
   decodeFindMissingArtifactResult,
   ensureWorkspaceLoaded,
+  getDiagnosticRefreshService,
   LSPQueueManager,
 } from '@salesforce/apex-lsp-compliant-services';
 import type {
@@ -93,6 +94,12 @@ export const createPrimaryAssistanceHandler = (
       const p = params as { workDoneToken?: string | number };
       await Effect.runPromise(
         ensureWorkspaceLoaded(connection, logger, p.workDoneToken),
+      );
+      return undefined;
+    }
+    if (method === 'coordinator:SignalDiagnosticRefresh') {
+      await Effect.runPromise(
+        getDiagnosticRefreshService().signalEnrichmentComplete(),
       );
       return undefined;
     }

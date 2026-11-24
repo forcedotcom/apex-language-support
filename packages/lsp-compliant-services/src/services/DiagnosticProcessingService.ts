@@ -152,6 +152,21 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
   }
 
   /**
+   * Fulfill diagnostic prerequisites in the current process. Request-pool
+   * workers use this after returning their initial parser-owned result, then
+   * commit the enriched table through the data owner before requesting a
+   * coordinator-owned diagnostic refresh.
+   */
+  public runDiagnosticPrerequisiteEnrichment(uri: string): Promise<boolean> {
+    return this.prerequisiteOrchestrationService
+      ? this.prerequisiteOrchestrationService.runPrerequisitesForLspRequestType(
+          'diagnostics',
+          uri,
+        )
+      : Promise.resolve(false);
+  }
+
+  /**
    * Compile document (pure Effect, can be queued)
    * Wraps compilerService.compile() in Effect for non-blocking operation
    */
@@ -255,7 +270,10 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
    */
   public async processDiagnostic(
     params: DocumentDiagnosticParams,
-    options: { readonly waitForDocumentCache?: boolean } = {},
+    options: {
+      readonly waitForDocumentCache?: boolean;
+      readonly queuePrerequisiteEnrichment?: boolean;
+    } = {},
   ): Promise<Diagnostic[]> {
     this.logger.debug(
       () => `Processing diagnostic request for: ${params.textDocument.uri}`,
@@ -333,7 +351,10 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
         // Return parser diagnostics from the existing snapshot immediately.
         // Semantic diagnostics are calculated after background enrichment and
         // delivered by the subsequent workspace/diagnostic/refresh pull.
-        if (this.prerequisiteOrchestrationService) {
+        if (
+          options.queuePrerequisiteEnrichment !== false &&
+          this.prerequisiteOrchestrationService
+        ) {
           this.queuePrerequisiteEnrichment(params.textDocument.uri);
         }
         // Convert cached errors to diagnostics and enhance (with yielding)
@@ -552,7 +573,10 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
 
       // Preserve immediate parser diagnostics. Full semantic diagnostics are
       // produced after the background prerequisite triggers a refresh pull.
-      if (this.prerequisiteOrchestrationService) {
+      if (
+        options.queuePrerequisiteEnrichment !== false &&
+        this.prerequisiteOrchestrationService
+      ) {
         this.queuePrerequisiteEnrichment(params.textDocument.uri);
       }
 
