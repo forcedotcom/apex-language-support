@@ -36,6 +36,10 @@ module.exports = {
     Warning: 2,
     Error: 1,
   },
+  MarkupKind: {
+    PlainText: 'plaintext',
+    Markdown: 'markdown',
+  },
   TextDocuments: vi.fn().mockImplementation(() => ({
     listen: vi.fn(),
     get: vi.fn(),

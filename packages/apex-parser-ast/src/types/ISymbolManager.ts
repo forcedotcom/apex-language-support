@@ -68,6 +68,9 @@ export interface SymbolResolutionResult {
  * This allows for both production and test implementations
  */
 export interface ISymbolManager extends SymbolProvider {
+  /** Accepted table-state revision; absence disables completed hover reuse. */
+  getSymbolTableRevision?(): number;
+
   addSymbol(symbol: ApexSymbol, fileUri: string): Promise<void>;
 
   getSymbol(symbolId: string): Promise<ApexSymbol | null>;

@@ -65,18 +65,6 @@ const strictBlockingArtifactRequestTypes = new Set<
   LSPRequestType | 'workspace-load' | 'file-open-single'
 >(['signatureHelp', 'references', 'rename']);
 
-const toArtifactRequestKind = (
-  requestType: LSPRequestType | 'workspace-load' | 'file-open-single',
-): 'definition' | 'signatureHelp' | 'references' => {
-  if (requestType === 'definition') {
-    return 'definition';
-  }
-  if (requestType === 'signatureHelp') {
-    return 'signatureHelp';
-  }
-  return 'references';
-};
-
 const pickHighestDetailLevel = (
   a: SymbolCollectionLevel | undefined,
   b: SymbolCollectionLevel | undefined,
@@ -665,7 +653,7 @@ export class PrerequisiteOrchestrationService {
             identifiers: identifierSpecs,
             origin: {
               uri: fileUri,
-              requestKind: toArtifactRequestKind(requestType),
+              requestKind: requestType,
             },
             mode: 'blocking',
             timeoutMsHint: 2000,
@@ -701,7 +689,7 @@ export class PrerequisiteOrchestrationService {
           identifiers: identifierSpecs,
           origin: {
             uri: fileUri,
-            requestKind: 'references',
+            requestKind: requestType,
           },
           mode: 'background', // Use background mode - don't open files in editor
           timeoutMsHint: 2000,

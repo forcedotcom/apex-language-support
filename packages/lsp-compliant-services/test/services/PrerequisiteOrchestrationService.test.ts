@@ -150,6 +150,58 @@ describe('PrerequisiteOrchestrationService', () => {
     ).toHaveBeenCalledTimes(2);
   });
 
+  it('preserves the initiating request kind for background artifact discovery', async () => {
+    const unresolvedRef = {
+      name: 'ExternalOwner',
+      resolvedSymbolId: undefined,
+      context: ReferenceContext.TYPE_DECLARATION,
+      location: {
+        symbolRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 14,
+        },
+        identifierRange: {
+          startLine: 1,
+          startColumn: 1,
+          endLine: 1,
+          endColumn: 14,
+        },
+      },
+    };
+    const symbolManager = {
+      getSymbolTableForFile: vi.fn().mockResolvedValue({
+        getAllReferences: vi.fn().mockReturnValue([unresolvedRef]),
+        getMetadata: vi.fn().mockReturnValue({
+          documentVersion: 1,
+          parseCompleteness: 'complete',
+        }),
+      }),
+      isStandardLibraryType: vi.fn().mockResolvedValue(false),
+    };
+    const service = new PrerequisiteOrchestrationService(
+      logger,
+      symbolManager as never,
+      { enrichFiles: vi.fn() } as never,
+    );
+    mockMissingArtifactService.resolveInBackground.mockResolvedValue(
+      'scheduled',
+    );
+
+    await (service as any).handleMissingArtifactsAfterCrossFileResolution(
+      uri,
+      'implementation',
+    );
+
+    expect(mockMissingArtifactService.resolveInBackground).toHaveBeenCalledWith(
+      expect.objectContaining({
+        origin: expect.objectContaining({ requestKind: 'implementation' }),
+        mode: 'background',
+      }),
+    );
+  });
+
   it('keeps an ambiguous type reference conservative during document-wide prerequisites', async () => {
     const unresolvedRef = {
       name: 'Account',

@@ -24,6 +24,7 @@ import {
 import {
   isChainedSymbolReference,
   isBlockSymbol,
+  isVariableSymbol,
   isMethodSymbol as isMethodSymbolNarrowing,
 } from '../../utils/symbolNarrowing';
 import {
@@ -84,6 +85,45 @@ function isReferenceableTypeSymbol(symbol: ApexSymbol): boolean {
     symbol.kind === SymbolKind.Enum ||
     symbol.kind === SymbolKind.SObject
   );
+}
+
+/** Preserve a declaration identity proven by its exact TypeInfo links. */
+export async function resolveAuthoritativeDeclarationType(
+  self: Pick<SymbolManagerOps, 'getSymbol'>,
+  reference: SymbolReference,
+  table?: SymbolTable,
+): Promise<ApexSymbol | null> {
+  if (
+    reference.context !== ReferenceContext.TYPE_DECLARATION ||
+    !reference.resolvedSymbolId ||
+    reference.name.includes('.') ||
+    reference.chainNodes?.length
+  )
+    return null;
+  const target = await self.getSymbol(reference.resolvedSymbolId);
+  if (!target || !isReferenceableTypeSymbol(target)) return null;
+  if (reference.isSObject === true)
+    return target.kind === SymbolKind.SObject ? target : null;
+  if (!table || !target.fileUri || isStandardApexUri(target.fileUri))
+    return null;
+  const range = reference.location.identifierRange;
+  const referenceId =
+    `${table.getFileUri()}:${range.startLine}:${range.startColumn}:` +
+    `${reference.name}:${ReferenceContext[reference.context]}`;
+  const declarations = table
+    .getAllSymbols()
+    .filter(
+      (symbol) =>
+        isVariableSymbol(symbol) && symbol.type.typeReferenceId === referenceId,
+    );
+  return declarations.length > 0 &&
+    declarations.every(
+      (symbol) =>
+        isVariableSymbol(symbol) &&
+        symbol.type.resolvedSymbol?.id === target.id,
+    )
+    ? target
+    : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -2044,6 +2084,143 @@ export async function resolveMemberInContext(
           if (typeInfo) {
             const receiverTypeSubstitutions =
               typeSubstitutions ?? createGenericTypeSubstitutionMap(typeInfo);
+            const boundType: ApexSymbol | undefined = typeInfo.resolvedSymbol;
+            const declaredTypeName =
+              typeInfo.originalTypeString?.split('<')[0] || typeInfo.name;
+            const qualifiedTypeName = declaredTypeName.includes('.')
+              ? declaredTypeName
+              : typeInfo.namespace
+                ? `${typeInfo.namespace.toString()}.${typeInfo.name}`
+                : undefined;
+            if (
+              !typeInfo.isArray &&
+              !typeInfo.isCollection &&
+              (memberType === 'field' || memberType === 'property') &&
+              (qualifiedTypeName ||
+                (boundType?.fileUri && !isStandardApexUri(boundType.fileUri)))
+            ) {
+              // Explicit qualification and existing workspace/SObject bindings
+              // are authoritative. Keep the normal inheritance-aware resolver.
+              const authoritativeType = qualifiedTypeName
+                ? ((await self.findSymbolByFQN(qualifiedTypeName)) ??
+                  (await self.resolveStandardApexClass(qualifiedTypeName)))
+                : boundType;
+              if (!authoritativeType) return null;
+              typeInfo.resolvedSymbol = authoritativeType;
+              return resolveMemberInContext(
+                self,
+                { type: 'symbol', symbol: authoritativeType },
+                memberName,
+                memberType,
+                receiverTypeSubstitutions,
+              );
+            }
+            if (
+              !typeInfo.isArray &&
+              !typeInfo.isCollection &&
+              !qualifiedTypeName &&
+              boundType?.fileUri &&
+              isStandardApexUri(boundType.fileUri) &&
+              (memberType === 'field' || memberType === 'property')
+            ) {
+              const candidates = (
+                await self.findSymbolByName(typeInfo.name)
+              ).filter(isReferenceableTypeSymbol);
+              if (
+                candidates.some((symbol) => symbol.kind === SymbolKind.SObject)
+              ) {
+                const declaration = symbolTable
+                  .getAllReferences()
+                  .find(
+                    (reference) =>
+                      `${contextFile}:${reference.location.identifierRange.startLine}:` +
+                        `${reference.location.identifierRange.startColumn}:${reference.name}:` +
+                        `${ReferenceContext[reference.context]}` ===
+                      typeInfo.typeReferenceId,
+                  );
+                if (
+                  !declaration ||
+                  declaration.context !== ReferenceContext.TYPE_DECLARATION ||
+                  declaration.name.includes('.') ||
+                  declaration.chainNodes?.length
+                )
+                  return null;
+                // Only an unqualified stdlib default can be narrowed by members.
+                const lexicalScopes = symbolTable.getScopeHierarchy({
+                  line: declaration.location.identifierRange.startLine,
+                  character: declaration.location.identifierRange.startColumn,
+                });
+                const visibleOwners = new Set(
+                  lexicalScopes.flatMap((scope) => [scope.id, scope.parentId]),
+                );
+                const compatibleCandidates = candidates.filter((candidate) => {
+                  if (declaration.isSObject === true)
+                    return candidate.kind === SymbolKind.SObject;
+                  if (
+                    candidate.kind === SymbolKind.SObject ||
+                    (candidate.fileUri &&
+                      isStandardApexUri(candidate.fileUri)) ||
+                    !candidate.parentId
+                  )
+                    return true;
+                  const parent = candidate.fileUri
+                    ? self.symbolRefManager
+                        .getSymbolTableForFile(candidate.fileUri)
+                        ?.getSymbolById(candidate.parentId)
+                    : undefined;
+                  // Top-level workspace types are unqualified candidates; inner
+                  // types require their owning lexical scope, not just a name hit.
+                  return (
+                    (isBlockSymbol(parent) && parent.scopeType === 'file') ||
+                    (candidate.fileUri === contextFile &&
+                      visibleOwners.has(candidate.parentId))
+                  );
+                });
+                const owners = (
+                  await Promise.all(
+                    compatibleCandidates.map(async (candidate) => {
+                      const context = {
+                        type: 'symbol' as const,
+                        symbol: candidate,
+                      };
+                      const field = await resolveMemberInContext(
+                        self,
+                        context,
+                        memberName,
+                        SymbolKind.Field,
+                        receiverTypeSubstitutions,
+                      );
+                      const property = await resolveMemberInContext(
+                        self,
+                        context,
+                        memberName,
+                        SymbolKind.Property,
+                        receiverTypeSubstitutions,
+                      );
+                      const member = [field, property].find(
+                        (symbol) => symbol && !symbol.modifiers?.isStatic,
+                      );
+                      return member ? [{ candidate, member }] : [];
+                    }),
+                  )
+                ).flat();
+                if (owners.length !== 1) return null;
+                for (const symbol of symbolTable.getAllSymbols()) {
+                  if (
+                    isVariableSymbol(symbol) &&
+                    symbol.type.typeReferenceId === typeInfo.typeReferenceId
+                  ) {
+                    symbol.type.resolvedSymbol = owners[0].candidate;
+                  }
+                }
+                declaration.resolvedSymbolId = owners[0].candidate.id;
+                declaration.isSObject =
+                  owners[0].candidate.kind === SymbolKind.SObject;
+                return owners[0].member.kind === memberType
+                  ? owners[0].member
+                  : null;
+              }
+            }
             if (typeInfo.resolvedSymbol) {
               const typeSymbol = typeInfo.resolvedSymbol;
               const resolvedMember = await resolveMemberInContext(
@@ -2825,6 +3002,19 @@ export async function resolveMemberInContext(
           return null;
         }
 
+        if (contextSymbol.kind === SymbolKind.SObject) {
+          return (
+            symbolTable
+              .getAllSymbols()
+              .find(
+                (symbol) =>
+                  symbol.parentId === contextSymbol.id &&
+                  symbol.name.toLowerCase() === memberName.toLowerCase() &&
+                  symbol.kind === effectiveMemberType,
+              ) ?? null
+          );
+        }
+
         const allSymbols = symbolTable.getAllSymbols();
 
         const contextMembers = allSymbols.filter(
@@ -3335,6 +3525,9 @@ export async function findTargetSymbolForReference(
   resolverStats?: ResolverStats,
 ): Promise<ApexSymbol | null> {
   const requiresType = isExplicitTypeReferenceContext(typeRef.context);
+  const requiresSObject =
+    typeRef.isSObject === true ||
+    typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT;
   if (resolverStats) {
     resolverStats.resolverCalls += 1;
   }
@@ -3342,6 +3535,7 @@ export async function findTargetSymbolForReference(
     const resolvedSymbol = await self.getSymbol(typeRef.resolvedSymbolId);
     if (
       resolvedSymbol &&
+      (!requiresSObject || resolvedSymbol.kind === SymbolKind.SObject) &&
       (!requiresType || isReferenceableTypeSymbol(resolvedSymbol))
     ) {
       if (resolverStats) {
@@ -3389,7 +3583,7 @@ export async function findTargetSymbolForReference(
     }
   }
 
-  if (symbolTable && fileUri && !requiresType) {
+  if (symbolTable && fileUri && !requiresType && !requiresSObject) {
     const scopeHierarchyStart = Date.now();
     const position = {
       line: typeRef.location.identifierRange.startLine,
@@ -3520,12 +3714,9 @@ export async function findTargetSymbolForReference(
     const directMatch = allFileSymbols.find(
       (symbol) =>
         symbol.name?.toLowerCase() === typeRef.name.toLowerCase() &&
-        (requiresType
-          ? typeRef.context === ReferenceContext.TRIGGER_TARGET_SOBJECT
-            ? symbol.kind === SymbolKind.SObject
-            : isReferenceableTypeSymbol(symbol)
-          : typeRef.context !== ReferenceContext.TRIGGER_TARGET_SOBJECT ||
-            symbol.kind === SymbolKind.SObject),
+        (requiresSObject
+          ? symbol.kind === SymbolKind.SObject
+          : !requiresType || isReferenceableTypeSymbol(symbol)),
     );
     if (resolverStats) {
       resolverStats.resolverDirectLookupMs += Date.now() - directLookupStart;
@@ -3536,7 +3727,9 @@ export async function findTargetSymbolForReference(
   }
 
   const builtInStart = Date.now();
-  const builtInSymbol = await self.resolveStandardLibraryType(typeRef);
+  const builtInSymbol = requiresSObject
+    ? null
+    : await self.resolveStandardLibraryType(typeRef);
   if (resolverStats) {
     resolverStats.resolverBuiltInMs += Date.now() - builtInStart;
   }
@@ -3594,6 +3787,9 @@ export async function resolveSymbolReferenceToSymbol(
     }
 
     const requiresType = isExplicitTypeReferenceContext(typeReference.context);
+    const requiresSObject =
+      typeReference.isSObject === true ||
+      typeReference.context === ReferenceContext.TRIGGER_TARGET_SOBJECT;
     if (typeReference.resolvedSymbolId && !requiresType) {
       let shouldSkipFastPath = false;
       if (position && isChainedSymbolReference(typeReference)) {
@@ -3607,7 +3803,10 @@ export async function resolveSymbolReferenceToSymbol(
         const resolvedSymbol = await self.getSymbol(
           typeReference.resolvedSymbolId,
         );
-        if (resolvedSymbol) {
+        if (
+          resolvedSymbol &&
+          (!requiresSObject || resolvedSymbol.kind === SymbolKind.SObject)
+        ) {
           self.logger.debug(
             () =>
               `Using pre-resolved symbol ID "${typeReference.resolvedSymbolId}" ` +
@@ -3700,7 +3899,15 @@ export async function resolveSymbolReferenceToSymbol(
       typeReference.context === ReferenceContext.INHERITANCE ||
       typeReference.context === ReferenceContext.INTERFACE_IMPLEMENTATION ||
       typeReference.context === ReferenceContext.SOQL_FROM_TYPE;
-    if (canNameType) {
+    const authoritativeDeclaration = await resolveAuthoritativeDeclarationType(
+      self,
+      typeReference,
+      sourceFile
+        ? self.symbolRefManager.getSymbolTableForFile(sourceFile)
+        : undefined,
+    );
+    if (authoritativeDeclaration) return authoritativeDeclaration;
+    if (canNameType && !requiresSObject) {
       const builtInSymbol =
         await self.resolveStandardLibraryType(typeReference);
       if (builtInSymbol) {
@@ -3774,13 +3981,11 @@ export async function resolveSymbolReferenceToSymbol(
       typeReference.context === ReferenceContext.CLASS_REFERENCE ||
       (typeReference.context === ReferenceContext.VARIABLE_USAGE &&
         variableUsageLooksLikeClass);
-    const isTriggerTargetSObject =
-      typeReference.context === ReferenceContext.TRIGGER_TARGET_SOBJECT;
-    if (isClassReferenceContext || isTriggerTargetSObject) {
+    if (isClassReferenceContext || requiresSObject) {
       const candidates = await self.findSymbolByName(typeReference.name);
 
       let classCandidates = candidates.filter((symbol) =>
-        isTriggerTargetSObject
+        requiresSObject
           ? symbol.kind === SymbolKind.SObject
           : isReferenceableTypeSymbol(symbol),
       );
@@ -3793,7 +3998,7 @@ export async function resolveSymbolReferenceToSymbol(
           classCandidates = allSymbols.filter(
             (s) =>
               s.name === typeReference.name &&
-              (isTriggerTargetSObject
+              (requiresSObject
                 ? s.kind === SymbolKind.SObject
                 : isReferenceableTypeSymbol(s)),
           );
@@ -3867,7 +4072,7 @@ export async function resolveSymbolReferenceToSymbol(
 
               if (
                 symbol &&
-                (!isTriggerTargetSObject || symbol.kind === SymbolKind.SObject)
+                (!requiresSObject || symbol.kind === SymbolKind.SObject)
               ) {
                 classCandidates = [symbol];
                 self.logger.debug(
@@ -3914,7 +4119,7 @@ export async function resolveSymbolReferenceToSymbol(
         return classCandidates[0];
       }
 
-      const builtInSymbol2 = isTriggerTargetSObject
+      const builtInSymbol2 = requiresSObject
         ? null
         : await self.resolveStandardLibraryType(typeReference);
       if (builtInSymbol2) {
@@ -3925,7 +4130,7 @@ export async function resolveSymbolReferenceToSymbol(
         return builtInSymbol2;
       }
 
-      const standardClass2 = isTriggerTargetSObject
+      const standardClass2 = requiresSObject
         ? null
         : await self.resolveStandardApexClass(typeReference.name);
       if (standardClass2) {
@@ -3954,7 +4159,7 @@ export async function resolveSymbolReferenceToSymbol(
     const candidates2 = (
       await self.findSymbolByName(typeReference.name)
     ).filter(
-      (symbol) => !isTriggerTargetSObject || symbol.kind === SymbolKind.SObject,
+      (symbol) => !requiresSObject || symbol.kind === SymbolKind.SObject,
     );
 
     if (candidates2.length === 0) {
