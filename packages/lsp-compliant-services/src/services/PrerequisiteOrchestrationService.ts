@@ -241,7 +241,7 @@ export class PrerequisiteOrchestrationService {
 
   /**
    * Run prerequisites for an LSP request type
-   * Returns Promise that completes when prerequisites are satisfied (or skipped)
+   * Returns whether prerequisite execution changed semantic state.
    *
    * @param requestType The LSP request type or system operation
    * @param fileUri The file URI to fulfill prerequisites for
@@ -254,7 +254,7 @@ export class PrerequisiteOrchestrationService {
       workDoneToken?: ProgressToken | SharedProgressToken;
       skipIfUnavailable?: boolean;
     },
-  ): Promise<void> {
+  ): Promise<boolean> {
     // Use the well-defined mapping from LSP request types to prerequisites
     const requirements = getPrerequisitesForLspRequestType(requestType, {
       workspaceLoading: isWorkspaceLoading(),
@@ -265,7 +265,7 @@ export class PrerequisiteOrchestrationService {
       this.logger.debug(
         () => `Skipping prerequisites for ${requestType} (workspace loading)`,
       );
-      return;
+      return false;
     }
 
     // Check workspace load requirement for workspace-wide operations
@@ -346,7 +346,7 @@ export class PrerequisiteOrchestrationService {
               `[REQ-HARDEN] prereq satisfied-cache-hit type=${requestType} uri=${fileUri} version=${cachedVersion}`,
           );
         }
-        return;
+        return false;
       }
       const acquireResult = this.inFlightRegistry.acquireOrJoin(requestSpec);
 
@@ -359,9 +359,9 @@ export class PrerequisiteOrchestrationService {
           );
         }
         if (requirements.executionMode === 'blocking') {
-          await acquireResult.promise;
+          return acquireResult.promise;
         }
-        return;
+        return false;
       }
 
       if (observabilityRequestTypes.has(requestType)) {
@@ -377,14 +377,17 @@ export class PrerequisiteOrchestrationService {
         requestType,
         options,
       )
-        .then(() => this.inFlightRegistry.complete(acquireResult.key))
+        .then((didChange) => {
+          this.inFlightRegistry.complete(acquireResult.key, didChange);
+          return didChange;
+        })
         .catch((error) => {
           this.inFlightRegistry.fail(acquireResult.key, error);
           throw error;
         });
 
       if (requirements.executionMode === 'blocking') {
-        await coordinatedRunner;
+        return coordinatedRunner;
       } else {
         void coordinatedRunner.catch((error: unknown) => {
           this.logger.debug(
@@ -393,8 +396,10 @@ export class PrerequisiteOrchestrationService {
           );
         });
       }
-      return;
+      return false;
     }
+
+    let didChange = false;
 
     // Execute prerequisites
     if (requirements.executionMode === 'blocking') {
@@ -409,6 +414,7 @@ export class PrerequisiteOrchestrationService {
           'same-file',
           options?.workDoneToken,
         );
+        didChange = true;
       }
 
       if (
@@ -418,6 +424,7 @@ export class PrerequisiteOrchestrationService {
         await Effect.runPromise(
           this.symbolManager.resolveCrossFileReferencesForFile(fileUri),
         );
+        didChange = true;
 
         // Avoid blocking diagnostics on missing-artifact loading.
         // Diagnostics validators already support on-demand artifact loading via callback,
@@ -490,6 +497,8 @@ export class PrerequisiteOrchestrationService {
           });
       }
     }
+
+    return didChange;
   }
 
   private async runCoordinatedPrerequisites(
@@ -500,16 +509,17 @@ export class PrerequisiteOrchestrationService {
       workDoneToken?: ProgressToken | SharedProgressToken;
       skipIfUnavailable?: boolean;
     },
-  ): Promise<void> {
+  ): Promise<boolean> {
     const MAX_REVISION_ITERATIONS = 10;
     let lastObservedRevision = -1;
     let iterations = 0;
     const runStartedAt = Date.now();
+    let didChange = false;
 
     do {
       const entry = this.inFlightRegistry.get(key);
       if (!entry) {
-        return;
+        return false;
       }
 
       const revision = entry.revision;
@@ -536,12 +546,14 @@ export class PrerequisiteOrchestrationService {
           'same-file',
           options?.workDoneToken,
         );
+        didChange = true;
       }
 
       if (needsCrossFileResolution) {
         await Effect.runPromise(
           this.symbolManager.resolveCrossFileReferencesForFile(fileUri),
         );
+        didChange = true;
         if (requestType !== 'diagnostics') {
           await this.handleMissingArtifactsAfterCrossFileResolution(
             fileUri,
@@ -552,7 +564,7 @@ export class PrerequisiteOrchestrationService {
 
       const latestEntry = this.inFlightRegistry.get(key);
       if (!latestEntry) {
-        return;
+        return didChange;
       }
 
       if (latestEntry.revision === revision) {
@@ -569,11 +581,11 @@ export class PrerequisiteOrchestrationService {
               `[REQ-HARDEN] prereq complete type=${requestType} uri=${fileUri} durationMs=${Date.now() - runStartedAt}`,
           );
         }
-        return;
+        return didChange;
       }
 
       if (latestEntry.revision === lastObservedRevision) {
-        return;
+        return didChange;
       }
 
       lastObservedRevision = latestEntry.revision;
@@ -583,6 +595,7 @@ export class PrerequisiteOrchestrationService {
       `[REQ-HARDEN] coordinated prerequisite loop hit max iterations (${MAX_REVISION_ITERATIONS}) ` +
         `for type=${requestType} uri=${fileUri} durationMs=${Date.now() - runStartedAt}`,
     );
+    return didChange;
   }
 
   /**

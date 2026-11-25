@@ -146,6 +146,18 @@ describe('DiagnosticRefreshService', () => {
       await Promise.resolve();
       expect(refreshMock).toHaveBeenCalledTimes(1);
     });
+
+    it('ignores a rejected refresh request', async () => {
+      refreshMock.mockRejectedValue(new Error('client disconnected'));
+      const service = getDiagnosticRefreshService();
+      fullyEnabled(service);
+
+      await Effect.runPromise(service.signalEnrichmentComplete());
+      vi.advanceTimersByTime(300);
+      await Effect.runPromise(Effect.yieldNow());
+
+      expect(refreshMock).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('singleton', () => {

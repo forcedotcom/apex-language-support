@@ -8,6 +8,7 @@
 
 import { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import { ISymbolManager } from '@salesforce/apex-lsp-parser-ast';
+import { Effect } from 'effect';
 import { LSPRequestType } from '../queue';
 import { LayerEnrichmentService } from './LayerEnrichmentService';
 import { PrerequisiteOrchestrationService } from './PrerequisiteOrchestrationService';
@@ -40,11 +41,16 @@ export class PrerequisiteEnrichmentService {
     params: PrerequisiteEnrichmentParams,
   ): Promise<void> {
     try {
-      await this.prerequisiteService.runPrerequisitesForLspRequestType(
-        params.requestType,
-        params.uri,
-      );
-      getDiagnosticRefreshService().signalEnrichmentComplete();
+      const didChange =
+        await this.prerequisiteService.runPrerequisitesForLspRequestType(
+          params.requestType,
+          params.uri,
+        );
+      if (didChange && params.requestType === 'diagnostics') {
+        await Effect.runPromise(
+          getDiagnosticRefreshService().signalEnrichmentComplete(),
+        );
+      }
     } catch (error) {
       this.logger.debug(
         () =>

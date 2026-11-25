@@ -48,8 +48,8 @@ export interface InFlightPrerequisiteEntry extends PrerequisiteRequestSpec {
   enrichmentRequirement: EnrichmentRequirement;
   needsCrossFileResolution: boolean;
   revision: number;
-  promise: Promise<void>;
-  resolve: () => void;
+  promise: Promise<boolean>;
+  resolve: (didChange: boolean) => void;
   reject: (error: unknown) => void;
 }
 
@@ -57,7 +57,7 @@ export interface AcquireOrJoinResult {
   readonly key: string;
   readonly joined: boolean;
   readonly upgraded: boolean;
-  readonly promise: Promise<void>;
+  readonly promise: Promise<boolean>;
   readonly entry: InFlightPrerequisiteEntry;
 }
 
@@ -124,12 +124,13 @@ export class InFlightPrerequisiteRegistry {
       };
     }
 
-    let resolve!: () => void;
+    let resolve!: (didChange: boolean) => void;
     let reject!: (error: unknown) => void;
-    const promise = new Promise<void>((res, rej) => {
+    const promise = new Promise<boolean>((res, rej) => {
       resolve = res;
       reject = rej;
     });
+    void promise.catch(() => {});
 
     const entry: InFlightPrerequisiteEntry = {
       key,
@@ -153,7 +154,7 @@ export class InFlightPrerequisiteRegistry {
     return this.entries.get(key);
   }
 
-  public complete(key: string): void {
+  public complete(key: string, didChange = false): void {
     const entry = this.entries.get(key);
     if (!entry) {
       return;
@@ -163,7 +164,7 @@ export class InFlightPrerequisiteRegistry {
       needsCrossFileResolution: entry.needsCrossFileResolution,
     });
     this.entries.delete(key);
-    entry.resolve();
+    entry.resolve(didChange);
   }
 
   public fail(key: string, error: unknown): void {
@@ -182,7 +183,7 @@ export class InFlightPrerequisiteRegistry {
         entry.documentVersion !== currentVersion
       ) {
         this.entries.delete(key);
-        entry.resolve();
+        entry.resolve(false);
       }
     }
 

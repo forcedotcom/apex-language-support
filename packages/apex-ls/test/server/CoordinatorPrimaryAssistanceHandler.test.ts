@@ -7,7 +7,11 @@
  */
 
 import { vi } from 'vitest';
-import { LSPQueueManager } from '@salesforce/apex-lsp-compliant-services';
+import {
+  DiagnosticRefreshService,
+  getDiagnosticRefreshService,
+  LSPQueueManager,
+} from '@salesforce/apex-lsp-compliant-services';
 import type { LoggerInterface } from '@salesforce/apex-lsp-shared';
 import { createPrimaryAssistanceHandler } from '../../src/server/CoordinatorPrimaryAssistanceHandler';
 
@@ -59,6 +63,7 @@ function createHandler(
 describe('CoordinatorPrimaryAssistanceHandler', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    DiagnosticRefreshService.reset();
   });
 
   it('preserves validated sObject artifacts through coordinator assistance', async () => {
@@ -113,5 +118,21 @@ describe('CoordinatorPrimaryAssistanceHandler', () => {
       ),
     ).resolves.toEqual({ notFound: true });
     expect(installSObjectArtifacts).not.toHaveBeenCalled();
+  });
+
+  it('signals diagnostic refresh through the coordinator-owned connection', async () => {
+    vi.useFakeTimers();
+    const refresh = vi.fn();
+    const service = getDiagnosticRefreshService();
+    service.setConnection({ languages: { diagnostics: { refresh } } } as any);
+    service.setDiagnosticsEnabled(true);
+    service.setClientSupportsRefresh(true);
+
+    await createHandler()('coordinator:SignalDiagnosticRefresh', {});
+    vi.advanceTimersByTime(300);
+    await Promise.resolve();
+
+    expect(refresh).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
   });
 });

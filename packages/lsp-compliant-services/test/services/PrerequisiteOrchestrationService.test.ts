@@ -526,6 +526,40 @@ describe('PrerequisiteOrchestrationService', () => {
     expect(layerEnrichmentService.enrichFiles).toHaveBeenCalledTimes(1);
   });
 
+  it('reports whether coordinated prerequisites changed semantic state', async () => {
+    const symbolManager = {
+      getDetailLevelForFile: vi.fn().mockReturnValue('private'),
+      getSymbolTableForFile: vi.fn().mockReturnValue({
+        getAllReferences: vi.fn().mockReturnValue([]),
+      }),
+      resolveCrossFileReferencesForFile: vi
+        .fn()
+        .mockReturnValue(Effect.succeed(undefined)),
+      isStandardLibraryType: vi.fn().mockReturnValue(false),
+      findSymbolByName: vi.fn().mockReturnValue([]),
+    };
+    const layerEnrichmentService = {
+      enrichFiles: vi.fn().mockResolvedValue(undefined),
+    };
+    const service = new PrerequisiteOrchestrationService(
+      logger,
+      symbolManager as never,
+      layerEnrichmentService as never,
+    );
+
+    const firstResult = await service.runPrerequisitesForLspRequestType(
+      'diagnostics',
+      uri,
+    );
+    const secondResult = await service.runPrerequisitesForLspRequestType(
+      'diagnostics',
+      uri,
+    );
+
+    expect(firstResult).toBe(true);
+    expect(secondResult).toBe(false);
+  });
+
   it('re-runs coordinated loop when revision is upgraded mid-execution', async () => {
     const registry = getInFlightPrerequisiteRegistry();
     getDocumentStateCache().set(uri, {
