@@ -58,6 +58,15 @@ export class ApexEditorPage extends BasePage {
       const quickInput = this.page.locator('.quick-input-widget');
       await quickInput.waitFor({ state: 'visible', timeout: 5000 });
       await this.page.keyboard.type(filename);
+      // Wait for the filtered list to show the target before confirming: Enter
+      // pressed while the list still shows stale/recent entries opens the wrong
+      // file (seen for files below the explorer viewport, e.g. later-sorted
+      // fixtures). Best-effort — fall through to Enter if no row matches.
+      await quickInput
+        .locator(`.monaco-list-row[aria-label*="${filename}"]`)
+        .first()
+        .waitFor({ state: 'visible', timeout: 5000 })
+        .catch(() => {});
       await this.page.keyboard.press('Enter');
       await quickInput
         .waitFor({ state: 'hidden', timeout: 5000 })
