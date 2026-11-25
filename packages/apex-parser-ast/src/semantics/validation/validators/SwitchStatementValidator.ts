@@ -295,16 +295,70 @@ async function resolveIdentifierType(
   ctx: WhenLiteralContext,
   symbolTable: SymbolTable,
   symbolManager: ISymbolManagerInterface,
-): Promise<string | null> {
+): Promise<{ type: string; displayType: string } | null> {
   const symbol = await resolveWhenIdentifier(
     identifierParts,
     ctx,
     symbolTable,
     symbolManager,
   );
-  return isVariableSymbol(symbol)
-    ? (symbol.type?.name?.toLowerCase() ?? null)
-    : null;
+  if (!isVariableSymbol(symbol) || !symbol.type?.name) {
+    return null;
+  }
+
+  return {
+    type: symbol.type.name.toLowerCase(),
+    displayType: typeDisplay(
+      symbol.type.originalTypeString || symbol.type.name,
+    ),
+  };
+}
+
+function typeDisplay(type: string): string {
+  const primitiveType = type.replace(/^System\./i, '').toLowerCase();
+  switch (primitiveType) {
+    case 'blob':
+      return 'Blob';
+    case 'boolean':
+      return 'Boolean';
+    case 'date':
+      return 'Date';
+    case 'datetime':
+      return 'Datetime';
+    case 'decimal':
+      return 'Decimal';
+    case 'double':
+      return 'Double';
+    case 'id':
+      return 'Id';
+    case 'integer':
+      return 'Integer';
+    case 'long':
+      return 'Long';
+    case 'object':
+      return 'Object';
+    case 'string':
+      return 'String';
+    case 'time':
+      return 'Time';
+    default:
+      return type;
+  }
+}
+
+function switchTypeDisplay(typeInfo: ExpressionTypeInfo): string {
+  if (typeInfo.semanticType) {
+    return typeDisplay(
+      typeInfo.semanticType.originalTypeString || typeInfo.semanticType.name,
+    );
+  }
+
+  const normalizedType = typeInfo.resolvedType?.toLowerCase();
+  if (normalizedType === 'id') {
+    return 'Id';
+  }
+
+  return normalizedType ? typeDisplay(normalizedType) : '';
 }
 
 /**
@@ -576,7 +630,11 @@ export const SwitchStatementValidator: Validator = {
         // Resolve switch expression types (for TIER 2 or when expression available)
         const resolvedSwitchTypes = new Map<
           SwitchStatementContext,
-          { type: string; kind: SwitchExpressionKind }
+          {
+            type: string;
+            displayType: string;
+            kind: SwitchExpressionKind;
+          }
         >();
         for (const switchStmt of switchStatements) {
           if (switchStmt.expression) {
@@ -601,6 +659,7 @@ export const SwitchStatementValidator: Validator = {
               );
               resolvedSwitchTypes.set(switchStmt.ctx, {
                 type: typeInfo.resolvedType.toLowerCase(),
+                displayType: switchTypeDisplay(typeInfo),
                 kind,
               });
             }
@@ -631,7 +690,7 @@ export const SwitchStatementValidator: Validator = {
             errors.push({
               message: localizeTyped(
                 ErrorCodes.ILLEGAL_SWITCH_EXPRESSION_TYPE,
-                switchTypeInfo.type,
+                switchTypeInfo.displayType,
               ),
               location: switchLocation,
               code: ErrorCodes.ILLEGAL_SWITCH_EXPRESSION_TYPE,
@@ -787,9 +846,13 @@ export const SwitchStatementValidator: Validator = {
                 continue;
               }
               for (const wl of whenBlock.whenLiterals) {
-                let whenType: string | null = null;
+                let whenType: { type: string; displayType: string } | null =
+                  null;
                 if (wl.literalType) {
-                  whenType = wl.literalType;
+                  whenType = {
+                    type: wl.literalType,
+                    displayType: typeDisplay(wl.literalType),
+                  };
                 } else if (wl.identifierParts) {
                   whenType = yield* Effect.promise(() =>
                     resolveIdentifierType(
@@ -802,15 +865,15 @@ export const SwitchStatementValidator: Validator = {
                 }
                 if (whenType) {
                   const compatible = isWhenTypeCompatible(
-                    whenType,
+                    whenType.type,
                     switchTypeInfo.type,
                   );
                   if (!compatible) {
                     errors.push({
                       message: localizeTyped(
                         ErrorCodes.INVALID_WHEN_EXPRESSION_TYPE,
-                        whenType,
-                        switchTypeInfo.type,
+                        whenType.displayType,
+                        switchTypeInfo.displayType,
                       ),
                       location: getLocationFromContext(wl.ctx),
                       code: ErrorCodes.INVALID_WHEN_EXPRESSION_TYPE,
