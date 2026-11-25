@@ -5975,8 +5975,11 @@ export class ApexSymbolManager implements ISymbolManager, SymbolProvider {
   async findSObjectType(name: string): Promise<ApexSymbol | null> {
     const symbols = await this.findSymbolByName(name);
     return (
-      symbols.find((s) => s.kind === 'class' && s.namespace === 'SObject') ||
-      null
+      symbols.find(
+        (s) =>
+          s.kind === SymbolKind.SObject ||
+          (s.kind === SymbolKind.Class && s.namespace === 'SObject'),
+      ) || null
     );
   }
 
