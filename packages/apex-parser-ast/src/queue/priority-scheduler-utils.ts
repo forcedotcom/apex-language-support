@@ -235,8 +235,8 @@ function processQueuedItem<A, E, R>(
                 `[QUEUE] Failed ${requestType} (id: ${item.id}) ` +
                 `with priority ${priorityName}, error: ${error}`,
             );
-            // Yield the failure to propagate it, not return it
-            yield* Effect.fail(error);
+            // Return the failure to propagate it and terminate this generator.
+            return yield* Effect.fail(error);
           }),
         ),
       ),
@@ -267,6 +267,7 @@ function controllerLoop(
 
       yield* Effect.gen(function* () {
         let executed = false;
+        let yieldedForBudget = false;
         const currentTime = Date.now();
 
         const loopStart = Date.now();
@@ -280,6 +281,10 @@ function controllerLoop(
 
         for (const p of AllPrioritiesWithCritical) {
           if (Date.now() - loopStart >= YIELD_BUDGET_MS) {
+            // This is cooperative scheduling, not an idle iteration. Preserve
+            // the high-priority streak so a busy event loop cannot postpone
+            // starvation relief indefinitely.
+            yieldedForBudget = true;
             yield* yieldToEventLoop;
             break;
           }
@@ -390,7 +395,12 @@ function controllerLoop(
 
         // If no tasks were executed, sleep briefly before checking again
         if (!executed) {
-          streak = 0;
+          // Reset only after scanning the available priorities without finding
+          // work. A scan-budget yield must retain the streak accumulated before
+          // it so lower-priority work still receives starvation relief.
+          if (!yieldedForBudget) {
+            streak = 0;
+          }
           yield* yieldToEventLoop;
           yield* Effect.sleep(Duration.millis(cfg.idleSleepMs));
         }
