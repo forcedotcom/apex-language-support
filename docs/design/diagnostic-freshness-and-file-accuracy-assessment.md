@@ -282,4 +282,6 @@ The first two items validate the dropped queued-enrichment Effect and the result
 
 In the worker-enabled topology, diagnostic processing runs in a request-pool worker while `prerequisiteEnrichment` is coordinator-only. The request worker therefore does not queue the coordinator-only task. Instead, it performs diagnostic prerequisites locally, awaits an accepted version-checked data-owner write-back, then requests the coordinator-owned debounced refresh through the assistance channel. This keeps graph authority and the LSP connection on their owning processes.
 
+If the data owner rejects the write-back, the worker invalidates the completed prerequisite entry for that URI and document version. A later diagnostic pull can then rerun prerequisites and retry the authoritative commit; it does not request a refresh until a write-back is accepted.
+
 The follow-up runs on an independent worker runtime rather than the request Effect scope, which closes when the parser-owned diagnostic response is serialized. This ensures returning the initial response cannot interrupt enrichment, the accepted write-back, or the subsequent refresh signal.

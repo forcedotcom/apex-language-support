@@ -806,12 +806,6 @@ export function loadSymbolDataForEnrichment(
     : undefined;
 
   return Effect.gen(function* () {
-    if (content !== undefined) {
-      // Completion needs offsetAt/positionAt for live-buffer analysis.
-      const doc = makeWorkerDocument(uri, content);
-      svc.storageManager.getStorage().setDocument(uri, doc as never);
-    }
-
     if (
       options.allowOwnerQuerySkip &&
       options.reuseCompiledCursor &&
@@ -868,6 +862,15 @@ export function loadSymbolDataForEnrichment(
 
     version = response?.versions?.[uri] ?? -1;
     detailLevel = response?.detailLevels?.[uri] ?? 'public-api';
+
+    if (content !== undefined) {
+      // Keep local prerequisite/cache keys aligned with the data owner's
+      // version, so a rejected write-back invalidates the completed run that
+      // created it. Completion also needs offsetAt/positionAt for live-buffer
+      // analysis.
+      const doc = makeWorkerDocument(uri, content, version);
+      svc.storageManager.getStorage().setDocument(uri, doc as never);
+    }
 
     if (!ownerMetadataOnly && response?.entries) {
       const { SymbolTable, ReferenceContext } = yield* Effect.tryPromise({
@@ -1063,6 +1066,13 @@ export function loadSymbolDataForEnrichment(
         if (options.telemetry) {
           options.telemetry.reusedLocalTables = reusedLocalTables;
           options.telemetry.ingestedTables = ingestedTables;
+        }
+        if (content !== undefined) {
+          // No owner version was available. Retain the live buffer with the
+          // explicit unknown-version sentinel rather than silently treating it
+          // as version zero.
+          const doc = makeWorkerDocument(uri, content, version);
+          svc.storageManager.getStorage().setDocument(uri, doc as never);
         }
         return {
           version,
@@ -3059,16 +3069,28 @@ const requestHandlers = {
             svc.symbolManager.getSymbolTableForFile(req.textDocument.uri),
           );
           const achievedSymbolCollectionLevel = table?.getDetailLevel() ?? null;
-          const wroteBack =
+          const canWriteBack =
             achievedSymbolCollectionLevel !== null &&
-            shouldEnrich(detailLevel, achievedSymbolCollectionLevel)
-              ? yield* writeBackEnrichedSymbols(
-                  svc,
-                  req.textDocument.uri,
-                  version,
-                  achievedSymbolCollectionLevel,
-                )
-              : false;
+            shouldEnrich(detailLevel, achievedSymbolCollectionLevel);
+          const wroteBack = canWriteBack
+            ? yield* writeBackEnrichedSymbols(
+                svc,
+                req.textDocument.uri,
+                version,
+                achievedSymbolCollectionLevel,
+              )
+            : false;
+
+          if (canWriteBack && !wroteBack) {
+            svc.diagnosticService.invalidateCompletedDiagnosticPrerequisites(
+              req.textDocument.uri,
+              version,
+            );
+            yield* Effect.logDebug(
+              `[DIAGNOSTICS] Enriched symbol write-back rejected for ${req.textDocument.uri} ` +
+                `at version ${version}; invalidated prerequisite cache for retry`,
+            );
+          }
 
           if (wroteBack) {
             yield* Effect.tryPromise({

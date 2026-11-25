@@ -66,4 +66,23 @@ describe('InFlightPrerequisiteRegistry', () => {
       }),
     ).toBe(true);
   });
+
+  it('allows a same-version retry after invalidating a completed run', () => {
+    const registry = new InFlightPrerequisiteRegistry();
+    const request = {
+      fileUri: 'file:///Retry.cls',
+      documentVersion: 3,
+      enrichmentRequirement: 'full' as const,
+      needsCrossFileResolution: false,
+    };
+    const first = registry.acquireOrJoin(request);
+    registry.complete(first.key, true);
+
+    expect(registry.isSatisfied(request)).toBe(true);
+
+    registry.invalidateCompleted(request.fileUri, request.documentVersion);
+
+    expect(registry.isSatisfied(request)).toBe(false);
+    expect(registry.acquireOrJoin(request).joined).toBe(false);
+  });
 });

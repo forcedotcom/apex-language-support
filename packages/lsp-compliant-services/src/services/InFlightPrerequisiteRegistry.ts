@@ -176,6 +176,15 @@ export class InFlightPrerequisiteRegistry {
     entry.reject(error);
   }
 
+  /**
+   * Forget a completed prerequisite run when its enriched result could not be
+   * committed to the authoritative data owner. This permits a later request
+   * for the same document version to rerun and retry the commit.
+   */
+  public invalidateCompleted(fileUri: string, documentVersion: number): void {
+    this.completed.delete(getKey(fileUri, documentVersion));
+  }
+
   public evictStaleForUri(fileUri: string, currentVersion: number): void {
     for (const [key, entry] of this.entries.entries()) {
       if (

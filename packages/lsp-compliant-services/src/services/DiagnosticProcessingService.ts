@@ -167,6 +167,20 @@ export class DiagnosticProcessingService implements IDiagnosticProcessor {
   }
 
   /**
+   * Allow the next diagnostic pull at this version to rerun prerequisites
+   * after the worker's enriched-symbol write-back was not accepted.
+   */
+  public invalidateCompletedDiagnosticPrerequisites(
+    uri: string,
+    documentVersion: number,
+  ): void {
+    this.prerequisiteOrchestrationService?.invalidateCompletedPrerequisites(
+      uri,
+      documentVersion,
+    );
+  }
+
+  /**
    * Compile document (pure Effect, can be queued)
    * Wraps compilerService.compile() in Effect for non-blocking operation
    */

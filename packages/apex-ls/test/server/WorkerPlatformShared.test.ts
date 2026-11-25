@@ -599,9 +599,10 @@ describe('worker.platform.shared', () => {
   });
 
   it('preserves empty live document content in worker storage', async () => {
+    const uri = 'file:///Empty.cls';
     setAssistanceTransport(async () => ({
       entries: {},
-      versions: {},
+      versions: { [uri]: 41 },
       detailLevels: {},
     }));
     const setDocument = vi.fn();
@@ -610,12 +611,15 @@ describe('worker.platform.shared', () => {
       symbolManager: {},
     } as unknown as Parameters<typeof loadSymbolDataForEnrichment>[0];
 
-    await Effect.runPromise(
-      loadSymbolDataForEnrichment(svc, 'file:///Empty.cls', ''),
-    );
+    await Effect.runPromise(loadSymbolDataForEnrichment(svc, uri, ''));
 
     expect(setDocument).toHaveBeenCalledTimes(1);
-    expect(setDocument.mock.calls[0][1].getText()).toBe('');
+    const document = setDocument.mock.calls[0][1] as {
+      getText(): string;
+      version: number;
+    };
+    expect(document.getText()).toBe('');
+    expect(document.version).toBe(41);
   });
 
   it('loads Code Lens symbols without dependency or cross-file preparation', async () => {
