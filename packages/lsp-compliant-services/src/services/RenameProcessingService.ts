@@ -33,6 +33,10 @@ import {
   resolveMethodRename,
   resolvePrepareRenameForMethod,
 } from './rename/methodRename';
+import {
+  resolveTypeRename,
+  resolvePrepareRenameForType,
+} from './rename/typeRename';
 
 /**
  * Interface for rename processing functionality
@@ -99,13 +103,15 @@ export class RenameProcessingService implements IRenameProcessor {
     }
     const field = await resolveFieldRename(this.symbolHost, port, req);
     if (field !== null) return field;
-    return resolveMethodRename(this.symbolHost, port, req);
+    const method = await resolveMethodRename(this.symbolHost, port, req);
+    if (method !== null) return method;
+    return resolveTypeRename(this.symbolHost, port, req);
   }
 
   /**
    * prepareRename mirrors {@link resolveRename}: local → field → method, each
    * returning the identifier range + placeholder for its kind or `null` to fall
-   * through. Type prepareRename (renameType) is the extension seam here.
+   * through, then type (renameType).
    */
   public async resolvePrepareRename(
     req: PositionReq,
@@ -116,7 +122,8 @@ export class RenameProcessingService implements IRenameProcessor {
     if (!port) return null;
     return (
       (await resolvePrepareRenameForField(this.symbolHost, port, req)) ??
-      (await resolvePrepareRenameForMethod(this.symbolHost, port, req))
+      (await resolvePrepareRenameForMethod(this.symbolHost, port, req)) ??
+      (await resolvePrepareRenameForType(this.symbolHost, port, req))
     );
   }
 

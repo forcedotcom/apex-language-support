@@ -44,6 +44,7 @@ import {
   enableConsoleLogging,
   setLogLevel,
   LoggerInterface,
+  LSPConfigurationManager,
   type WorkerRole,
 } from '@salesforce/apex-lsp-shared';
 import { Effect, Exit, Scope } from 'effect';
@@ -211,15 +212,15 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
     it('routes rename to the request pool and settles with null (Phase 0)', async () => {
       const program = Effect.gen(function* () {
         const canDispatch = dispatcher.canDispatch('rename');
-        // Dispatch rename on the TYPE name `RenameTarget` — an unsupported rename
-        // kind (renameType is TBD), so every resolver returns null. We're proving
-        // the request crosses the worker boundary and settles, not the edit. (A
-        // method/field cursor now produces a real WorkspaceEdit, so this uses a
-        // type cursor to keep asserting the null-settles path.)
+        // Dispatch rename on the `public` modifier keyword — no rename kind
+        // claims it, so every resolver returns null. We're proving the request
+        // crosses the worker boundary and settles, not the edit. (Method, field
+        // and type cursors now produce real WorkspaceEdits, so this uses a
+        // keyword cursor to keep asserting the null-settles path.)
         const result = yield* Effect.promise(() =>
           dispatcher.dispatch('rename', {
             textDocument: { uri: UTIL_URI },
-            position: { line: 0, character: 18 }, // on `RenameTarget`
+            position: { line: 0, character: 2 }, // on `public`
             newName: 'Renamed',
           }),
         );
@@ -232,11 +233,108 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
         `[rename-topology] canDispatch=${canDispatch} result=${JSON.stringify(result)}`,
       );
 
-      // The pipe is live (rename is pool-dispatchable) and a type cursor (not yet
-      // a supported rename kind) returns null across the boundary — no throw, no
-      // hang.
+      // The pipe is live (rename is pool-dispatchable) and a cursor no rename kind
+      // services returns null across the boundary — no throw, no hang.
       expect(canDispatch).toBe(true);
       expect(result).toBeNull();
+    }, 120_000);
+
+    it('renames a top-level type with RenameFile ops when the client supports them (W-23631144)', async () => {
+      const manager = LSPConfigurationManager.getInstance();
+      const previous = manager.getClientCapabilities();
+      manager.setClientCapabilities({
+        workspace: {
+          workspaceEdit: {
+            documentChanges: true,
+            resourceOperations: ['rename'],
+          },
+        },
+      });
+      try {
+        const result = (await dispatcher.dispatch('rename', {
+          textDocument: { uri: LOCAL_URI },
+          position: { line: 0, character: 15 }, // on `RenameLocal`
+          newName: 'Renamed',
+        })) as {
+          documentChanges?: Array<Record<string, unknown>>;
+          changes?: unknown;
+        } | null;
+
+        expect(result?.changes).toBeUndefined();
+        const renames = (result?.documentChanges ?? []).filter(
+          (c) => c.kind === 'rename',
+        );
+        expect(renames).toEqual([
+          {
+            kind: 'rename',
+            oldUri: LOCAL_URI,
+            newUri: 'file:///test/Renamed.cls',
+          },
+          {
+            kind: 'rename',
+            oldUri: `${LOCAL_URI}-meta.xml`,
+            newUri: 'file:///test/Renamed.cls-meta.xml',
+          },
+        ]);
+        const textEdits = (result?.documentChanges ?? []).filter(
+          (c) => 'edits' in c,
+        );
+        expect(textEdits).toHaveLength(1);
+      } finally {
+        manager.setClientCapabilities(previous);
+      }
+    }, 120_000);
+
+    it('skips the file rename for a case-only type rename (W-23631144)', async () => {
+      const manager = LSPConfigurationManager.getInstance();
+      const previous = manager.getClientCapabilities();
+      manager.setClientCapabilities({
+        workspace: {
+          workspaceEdit: {
+            documentChanges: true,
+            resourceOperations: ['rename'],
+          },
+        },
+      });
+      try {
+        const result = (await dispatcher.dispatch('rename', {
+          textDocument: { uri: LOCAL_URI },
+          position: { line: 0, character: 15 }, // on `RenameLocal`
+          newName: 'renamelocal',
+        })) as {
+          documentChanges?: unknown;
+          changes?: Record<string, Array<{ newText: string }>>;
+        } | null;
+
+        // Same file on a case-insensitive FS: text edits only, no RenameFile.
+        expect(result?.documentChanges).toBeUndefined();
+        expect(Object.keys(result?.changes ?? {})).toEqual([LOCAL_URI]);
+        expect(result?.changes?.[LOCAL_URI][0].newText).toBe('renamelocal');
+      } finally {
+        manager.setClientCapabilities(previous);
+      }
+    }, 120_000);
+
+    it('falls back to text-edits-only when the client lacks RenameFile support (W-23631144)', async () => {
+      const manager = LSPConfigurationManager.getInstance();
+      const previous = manager.getClientCapabilities();
+      manager.setClientCapabilities({ workspace: {} });
+      try {
+        const result = (await dispatcher.dispatch('rename', {
+          textDocument: { uri: LOCAL_URI },
+          position: { line: 0, character: 15 },
+          newName: 'Renamed',
+        })) as {
+          documentChanges?: unknown;
+          changes?: Record<string, Array<{ newText: string }>>;
+        } | null;
+
+        expect(result?.documentChanges).toBeUndefined();
+        expect(Object.keys(result?.changes ?? {})).toEqual([LOCAL_URI]);
+        expect(result?.changes?.[LOCAL_URI][0].newText).toBe('Renamed');
+      } finally {
+        manager.setClientCapabilities(previous);
+      }
     }, 120_000);
 
     it('renames a local to a WorkspaceEdit, leaving a sibling-scope local untouched (W-23631077)', async () => {
@@ -375,16 +473,13 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
 
     it('returns null from prepareRename for a non-local cursor (W-23631080)', async () => {
       const program = Effect.gen(function* () {
-        // Cursor on the TYPE name `RenameLocal` (line 0, char 15). A type is not a
-        // local, field, or method, so it falls through the whole dispatch chain
-        // (local → field → method) and prepareRename returns null. (Before
-        // W-23631152 this used the method name `compute`, but a method cursor now
-        // resolves via resolvePrepareRenameForMethod, so the class name is the
-        // stable "no kind services this cursor" probe — renameType is Group 6.)
+        // Cursor on the `public` modifier keyword (line 0, char 2). No rename kind
+        // (local, field, method, type) services it, so it falls through the whole
+        // dispatch chain and prepareRename returns null.
         const result = yield* Effect.promise(() =>
           dispatcher.dispatch('prepareRename', {
             textDocument: { uri: LOCAL_URI },
-            position: { line: 0, character: 15 },
+            position: { line: 0, character: 2 },
           }),
         );
 
