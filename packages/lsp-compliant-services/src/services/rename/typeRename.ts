@@ -30,6 +30,9 @@ import {
   findOccurrencesInFile,
   validateRenameName,
   lexMentionsIdentifier,
+  type ApexSymbol,
+  ErrorCodes,
+  localizeTyped,
 } from '@salesforce/apex-lsp-parser-ast';
 import type {
   FindOccurrenceCandidatesResult,
@@ -47,6 +50,7 @@ import {
 } from '../cursor/crossFileResolution';
 import type { PositionReq, RenameReq } from '../cursor/requestTypes';
 import {
+  canBeRenamed,
   isUserOwnedApexUri,
   type WorkspaceEditResult,
   type RenameErrorResult,
@@ -283,7 +287,7 @@ async function resolveRenameableType(
   svc: SymbolManagerHost,
   uri: string,
   parserPosition: { line: number; character: number },
-): Promise<{ name: string; fileUri: string } | null> {
+): Promise<{ name: string; fileUri: string; symbol: ApexSymbol } | null> {
   const symbol = await resolveCursorSymbol(svc, uri, parserPosition);
   if (!symbol?.name) return null;
   let typeSym = symbol;
@@ -294,16 +298,150 @@ async function resolveRenameableType(
   }
   if (!isTypeKind(typeSym.kind)) return null;
   const fileUri = (typeSym as { fileUri?: string }).fileUri;
-  if (!isUserOwnedApexUri(fileUri)) return null;
+  if (!isUserOwnedApexUri(fileUri) || !canBeRenamed(typeSym)) return null;
   // Top-level only: a nested type has a containing type.
   if (await svc.symbolManager.getContainingType(typeSym)) return null;
-  return { name: typeSym.name, fileUri: fileUri as string };
+  return { name: typeSym.name, fileUri: fileUri as string, symbol: typeSym };
 }
 
 const decline = (message: string): RenameErrorResult => {
   getLogger().warn(() => `[RENAME] declined type rename — ${message}`);
   return { error: { code: -32600, message } }; // InvalidRequest
 };
+
+const endsWithException = (name: string): boolean =>
+  name.toLowerCase().endsWith('exception');
+
+type ExceptionLineage = 'exception' | 'not-exception' | 'unknown';
+
+/**
+ * Whether a class derives from `Exception`, walking the superclass chain
+ * through the symbol manager (parser-produced symbols only; no text scanning).
+ * `unknown` when a link cannot be resolved, so callers fail closed.
+ */
+async function classExceptionLineage(
+  svc: SymbolManagerHost,
+  cls: ApexSymbol,
+): Promise<ExceptionLineage> {
+  const seen = new Set<string>();
+  let current: ApexSymbol = cls;
+  for (;;) {
+    const superName = (current as { superClass?: string }).superClass;
+    if (!superName) return 'not-exception';
+    const lower = superName.toLowerCase();
+    if (lower === 'exception' || lower === 'system.exception') {
+      return 'exception';
+    }
+    if (seen.has(lower) || superName.includes('.')) return 'unknown';
+    seen.add(lower);
+    const candidates = (
+      await svc.symbolManager.findSymbolByName(superName)
+    ).filter(
+      (s) => s.kind === SymbolKind.Class && s.name.toLowerCase() === lower,
+    );
+    const topLevel = candidates.filter(
+      (s) => !(s as { parentId?: string | null }).parentId,
+    );
+    if (topLevel.length !== 1 && candidates.length !== 1) return 'unknown';
+    current = topLevel.length === 1 ? topLevel[0] : candidates[0];
+  }
+}
+
+/**
+ * ExceptionValidator's naming pair, applied to the NEW name (jorje
+ * `TypeRenameHandler.isIdentifierNameInvalid`): a class deriving from
+ * `Exception` must end in `Exception`; a class that does not must not. Classes
+ * only, matching ExceptionValidator. InvalidParams (-32602) on a violation;
+ * InvalidRequest (-32600) when the superclass chain cannot be resolved.
+ */
+export async function checkExceptionNamingRule(
+  svc: SymbolManagerHost,
+  typeSymbol: ApexSymbol,
+  newName: string,
+): Promise<RenameErrorResult | null> {
+  if (typeSymbol.kind !== SymbolKind.Class) return null;
+  const lineage = await classExceptionLineage(svc, typeSymbol);
+  if (lineage === 'unknown') {
+    return decline(
+      `Cannot verify the Exception naming rule for '${newName}': the ` +
+        `superclass chain of '${typeSymbol.name}' could not be resolved.`,
+    );
+  }
+  const ends = endsWithException(newName);
+  if (lineage === 'exception' && !ends) {
+    return {
+      error: {
+        code: -32602,
+        // Same localized text the NewExpressionValidator reports for this rule.
+        message: localizeTyped(ErrorCodes.NEW_NAME_INVALID_EXCEPTION),
+      },
+    };
+  }
+  if (lineage === 'not-exception' && ends) {
+    return {
+      error: {
+        code: -32602,
+        message: localizeTyped(ErrorCodes.NEW_NAME_CANNOT_END_EXCEPTION),
+      },
+    };
+  }
+  return null;
+}
+
+type QueryMatch = { name: string; fileUri: string; kind?: string };
+type QueryEntry = { symbols?: SymbolLike[] };
+
+/**
+ * Reject a rename onto the name of an existing top-level type anywhere the
+ * data-owner knows (workspace and standard library), case-insensitively.
+ * The declaring file is excluded so a case-only rename does not self-conflict.
+ * Nested types/members sharing the name are not conflicts. Fails closed
+ * (decline) when the data-owner query is unavailable.
+ */
+export async function checkTypeNameConflict(
+  port: WorkerAssistancePort,
+  currentName: string,
+  declaringUri: string,
+  newName: string,
+): Promise<RenameErrorResult | null> {
+  let response:
+    | { matches?: QueryMatch[]; entries?: Record<string, QueryEntry> }
+    | null
+    | undefined;
+  try {
+    response = (await port.transport(
+      'dataOwner:QuerySymbolByName',
+      { name: newName },
+      true,
+    )) as typeof response;
+  } catch (err) {
+    return decline(
+      `Cannot verify that '${newName}' is not already a type name: the ` +
+        `workspace symbol lookup failed. (${err})`,
+    );
+  }
+  const lower = newName.toLowerCase();
+  for (const m of response?.matches ?? []) {
+    if (m.name?.toLowerCase() !== lower || m.fileUri === declaringUri) continue;
+    if (m.kind !== undefined && !isTypeKind(m.kind)) continue;
+    const symbols = response?.entries?.[m.fileUri]?.symbols;
+    const isTopLevelType = symbols
+      ? symbols.some(
+          (s) =>
+            s.name?.toLowerCase() === lower &&
+            isTypeKind(s.kind) &&
+            s.parentId == null,
+        )
+      : true; // table unavailable: cannot prove it is nested, fail closed
+    if (isTopLevelType) {
+      return decline(
+        `Cannot rename '${currentName}' to '${newName}': a type named ` +
+          `'${m.name}' already exists (${m.fileUri}).`,
+      );
+    }
+  }
+  return null;
+}
 
 /**
  * Resolve a rename of the top-level type (or constructor) under the cursor.
@@ -352,6 +490,22 @@ export async function resolveTypeRename(
       return { error: { code: -32602, message: validation.message } };
     }
     if (req.newName === typeName) return null;
+
+    // Validation stages (W-23631147), before any workspace scan: the Exception
+    // naming pair rule, then top-level type-name conflicts.
+    const exceptionError = await checkExceptionNamingRule(
+      svc,
+      typeSym.symbol,
+      req.newName,
+    );
+    if (exceptionError) return exceptionError;
+    const conflictError = await checkTypeNameConflict(
+      port,
+      typeName,
+      typeSym.fileUri,
+      req.newName,
+    );
+    if (conflictError) return conflictError;
 
     const strategy = selectTypeRenameStrategy(req.workspaceEditCapabilities);
     if (strategy === 'text-edits-only') {
