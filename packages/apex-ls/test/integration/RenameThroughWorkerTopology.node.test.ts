@@ -2226,4 +2226,72 @@ describe('rename through the worker topology (Phase 0 no-op)', () => {
       expect(edits.some((e) => e.range.start.line === 5)).toBe(true);
     }, 120_000);
   });
+  // W-23631147 (6.3): renameType validation — Exception naming pair rule and
+  // top-level type-name conflict detection, both run BEFORE the workspace scan.
+  describe('renameType validation (W-23631147)', () => {
+    const PLAIN_URI = 'file:///test/PlainType.cls';
+    const PLAIN_SRC = 'public class PlainType {}';
+    const EXC_URI = 'file:///test/BoomException.cls';
+    const EXC_SRC = 'public class BoomException extends Exception {}';
+    const TAKEN_URI = 'file:///test/TakenName.cls';
+    const TAKEN_SRC = 'public class TakenName {}';
+    const SOURCES_VALIDATION: Record<string, string> = {
+      [PLAIN_URI]: PLAIN_SRC,
+      [EXC_URI]: EXC_SRC,
+      [TAKEN_URI]: TAKEN_SRC,
+    };
+    let dispatcher: ReturnType<typeof makeWorkerDispatcher>;
+
+    beforeAll(async () => {
+      const fixture = await startSharedServer(logger, SOURCES_VALIDATION);
+      activeSharedScope = fixture.scope;
+      dispatcher = fixture.dispatcher;
+    }, 120_000);
+
+    afterAll(async () => {
+      if (activeSharedScope) {
+        await Effect.runPromise(Scope.close(activeSharedScope, Exit.void));
+        activeSharedScope = undefined;
+      }
+      clearRawWorkers();
+    }, 30_000);
+
+    const run = (uri: string, src: string, newName: string) =>
+      dispatcher.dispatch('rename', {
+        textDocument: { uri },
+        position: { line: 0, character: 15 },
+        newName,
+        content: src,
+      }) as Promise<{
+        error?: { code: number; message: string };
+        changes?: unknown;
+        documentChanges?: unknown;
+      } | null>;
+
+    it('declines a rename onto an existing type name, case-insensitively', async () => {
+      const result = await run(PLAIN_URI, PLAIN_SRC, 'takenname');
+      expect(result?.error?.code).toBe(-32600);
+      expect(result?.error?.message).toContain('already exists');
+      expect(result).not.toHaveProperty('changes');
+      expect(result).not.toHaveProperty('documentChanges');
+    }, 120_000);
+
+    it('rejects a non-Exception class renamed to an *Exception name', async () => {
+      const result = await run(PLAIN_URI, PLAIN_SRC, 'PlainException');
+      expect(result?.error?.code).toBe(-32602);
+      expect(result?.error?.message).toContain("cannot end in 'Exception'");
+    }, 120_000);
+
+    it('rejects an Exception subclass renamed to a name without the suffix', async () => {
+      const result = await run(EXC_URI, EXC_SRC, 'Boom');
+      expect(result?.error?.code).toBe(-32602);
+      expect(result?.error?.message).toContain("must end in 'Exception'");
+    }, 120_000);
+
+    it('allows an Exception subclass renamed to another *Exception name', async () => {
+      const result = await run(EXC_URI, EXC_SRC, 'KaboomException');
+      expect(result?.error).toBeUndefined();
+      expect(result?.changes ?? result?.documentChanges).toBeDefined();
+    }, 120_000);
+  });
 });

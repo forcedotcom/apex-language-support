@@ -13,10 +13,13 @@ import {
 } from '@salesforce/apex-lsp-parser-ast';
 import {
   buildTypeRenameEdit,
+  checkExceptionNamingRule,
+  checkTypeNameConflict,
   declaresShadowingSymbol,
   fileRenamesForType,
   typeDeclarationRangesFromParse,
 } from '../../../src/services/rename/typeRename';
+import { canBeRenamed } from '../../../src/services/rename/renameTypes';
 
 const parse = (content: string, uri = 'file:///src/Foo.cls'): SymbolTable => {
   const table = new SymbolTable();
@@ -139,6 +142,208 @@ describe('typeRename (W-23631144)', () => {
         'file:///src/Other.cls',
       );
       expect(declaresShadowingSymbol(table as never, 'Foo', false)).toBe(false);
+    });
+  });
+});
+
+describe('typeRename validation (W-23631147)', () => {
+  const topLevelClass = (table: SymbolTable, name: string) =>
+    table
+      .getAllSymbols()
+      .find((s) => s.name === name && s.kind === 'class' && !s.parentId)!;
+
+  const svcFor = (tables: SymbolTable[]) =>
+    ({
+      symbolManager: {
+        findSymbolByName: async (n: string) =>
+          tables
+            .flatMap((t) => t.getAllSymbols())
+            .filter((s) => s.name.toLowerCase() === n.toLowerCase()),
+      },
+    }) as never;
+
+  describe('checkExceptionNamingRule', () => {
+    const exc = parse(
+      'public class MyException extends Exception {}',
+      'file:///src/MyException.cls',
+    );
+    const plain = parse('public class Plain {}', 'file:///src/Plain.cls');
+
+    it('rejects renaming an Exception subclass to a non-Exception name', async () => {
+      const r = await checkExceptionNamingRule(
+        svcFor([exc]),
+        topLevelClass(exc, 'MyException'),
+        'Oops',
+      );
+      expect(r?.error.code).toBe(-32602);
+      expect(r?.error.message).toContain("must end in 'Exception'");
+    });
+
+    it('allows renaming an Exception subclass to another *Exception name', async () => {
+      const r = await checkExceptionNamingRule(
+        svcFor([exc]),
+        topLevelClass(exc, 'MyException'),
+        'OtherEXCEPTION',
+      );
+      expect(r).toBeNull();
+    });
+
+    it('rejects renaming a non-Exception class to an *Exception name', async () => {
+      const r = await checkExceptionNamingRule(
+        svcFor([plain]),
+        topLevelClass(plain, 'Plain'),
+        'PlainException',
+      );
+      expect(r?.error.code).toBe(-32602);
+      expect(r?.error.message).toContain("cannot end in 'Exception'");
+    });
+
+    it('allows renaming a non-Exception class to an ordinary name', async () => {
+      const r = await checkExceptionNamingRule(
+        svcFor([plain]),
+        topLevelClass(plain, 'Plain'),
+        'Other',
+      );
+      expect(r).toBeNull();
+    });
+
+    it('follows the superclass chain transitively', async () => {
+      const base = parse(
+        'public virtual class BaseException extends Exception {}',
+        'file:///src/BaseException.cls',
+      );
+      const child = parse(
+        'public class ChildException extends BaseException {}',
+        'file:///src/ChildException.cls',
+      );
+      const svc = svcFor([base, child]);
+      const sym = topLevelClass(child, 'ChildException');
+      expect(
+        (await checkExceptionNamingRule(svc, sym, 'Child'))?.error.code,
+      ).toBe(-32602);
+      expect(
+        await checkExceptionNamingRule(svc, sym, 'KidException'),
+      ).toBeNull();
+    });
+
+    it('declines when the superclass cannot be resolved', async () => {
+      const orphan = parse(
+        'public class Orphan extends Missing {}',
+        'file:///src/Orphan.cls',
+      );
+      const r = await checkExceptionNamingRule(
+        svcFor([orphan]),
+        topLevelClass(orphan, 'Orphan'),
+        'Renamed',
+      );
+      expect(r?.error.code).toBe(-32600);
+    });
+
+    it('does not apply to interfaces or enums', async () => {
+      const e = parse('public enum Color { RED }', 'file:///src/Color.cls');
+      const sym = e.getAllSymbols().find((s) => s.name === 'Color')!;
+      expect(
+        await checkExceptionNamingRule(svcFor([e]), sym, 'ColorException'),
+      ).toBeNull();
+    });
+  });
+
+  describe('checkTypeNameConflict', () => {
+    const portReturning = (response: unknown) =>
+      ({ transport: vi.fn().mockResolvedValue(response) }) as never;
+    const other = parse('public class Other {}', 'file:///src/Other.cls');
+    const symbols = other.getAllSymbols();
+
+    it('rejects a name held by another top-level type, case-insensitively', async () => {
+      const r = await checkTypeNameConflict(
+        portReturning({
+          matches: [
+            { name: 'Other', fileUri: 'file:///src/Other.cls', kind: 'class' },
+          ],
+          entries: { 'file:///src/Other.cls': { symbols } },
+        }),
+        'Foo',
+        'file:///src/Foo.cls',
+        'OTHER',
+      );
+      expect(r?.error.code).toBe(-32600);
+      expect(r?.error.message).toContain('already exists');
+    });
+
+    it('ignores the declaring file (case-only rename)', async () => {
+      const r = await checkTypeNameConflict(
+        portReturning({
+          matches: [
+            { name: 'Foo', fileUri: 'file:///src/Foo.cls', kind: 'class' },
+          ],
+          entries: {},
+        }),
+        'Foo',
+        'file:///src/Foo.cls',
+        'foo',
+      );
+      expect(r).toBeNull();
+    });
+
+    it('ignores a nested type or non-type symbol with the same name', async () => {
+      const holder = parse(
+        'public class Holder {\n  public class Inner {}\n  public Integer val;\n}',
+        'file:///src/Holder.cls',
+      );
+      const hs = holder.getAllSymbols();
+      for (const [name, kind] of [
+        ['Inner', 'class'],
+        ['val', 'field'],
+      ]) {
+        const r = await checkTypeNameConflict(
+          portReturning({
+            matches: [{ name, fileUri: 'file:///src/Holder.cls', kind }],
+            entries: { 'file:///src/Holder.cls': { symbols: hs } },
+          }),
+          'Foo',
+          'file:///src/Foo.cls',
+          name,
+        );
+        expect(r).toBeNull();
+      }
+    });
+
+    it('allows a free name', async () => {
+      const r = await checkTypeNameConflict(
+        portReturning({ matches: [], entries: {} }),
+        'Foo',
+        'file:///src/Foo.cls',
+        'Free',
+      );
+      expect(r).toBeNull();
+    });
+
+    it('declines when the data-owner query fails', async () => {
+      const r = await checkTypeNameConflict(
+        { transport: vi.fn().mockRejectedValue(new Error('down')) } as never,
+        'Foo',
+        'file:///src/Foo.cls',
+        'Free',
+      );
+      expect(r?.error.code).toBe(-32600);
+    });
+  });
+
+  describe('canBeRenamed', () => {
+    it('rejects stdlib and generated-SObject declarations', () => {
+      expect(canBeRenamed({ fileUri: 'apexlib://x/String.cls' } as never)).toBe(
+        false,
+      );
+      expect(
+        canBeRenamed({ fileUri: 'apex-sobject://x/Account.cls' } as never),
+      ).toBe(false);
+    });
+
+    it('accepts user-owned and URI-less (local) declarations', () => {
+      expect(canBeRenamed({ fileUri: 'file:///src/Foo.cls' } as never)).toBe(
+        true,
+      );
+      expect(canBeRenamed({} as never)).toBe(true);
     });
   });
 });

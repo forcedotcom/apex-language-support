@@ -38,22 +38,22 @@ export type RenameErrorResult = {
 };
 
 /**
- * Check whether a local can be renamed (W-23631080 guard).
+ * Check whether a declaration can be renamed (W-23631080 guard, made real by
+ * W-23631147).
  *
- * For locals (variables/parameters) this is ALWAYS true — a local from a
- * standalone parse of the user's open file is always user-sourced, never stdlib.
- * The guard exists for extension by later rename groups (fields/methods/types),
- * which CAN resolve into the standard library (e.g. `String.valueOf`) and must
- * reject rename attempts on those (check whether the declaration's fileUri falls
- * under `STANDARD_APEX_LIBRARY_URI`).
+ * A declaration in a server-generated READ-ONLY source — the standard library
+ * (`apexlib://`) or a generated SObject (`apex-sobject://`) — is never
+ * renamable, so it is rejected via {@link isUserOwnedApexUri}. A symbol that
+ * carries no file URI at all (a local from a standalone parse of the user's open
+ * buffer) is user-sourced by construction and stays renamable, so the local path
+ * is unchanged.
  *
- * @param declaration The local's declaring symbol.
- * @returns `true` for locals; extension-ready for the stdlib-aware later groups.
+ * @param declaration The declaring symbol.
+ * @returns `false` for stdlib/synthetic-URI declarations, `true` otherwise.
  */
-export function canBeRenamed(_declaration: ApexSymbol): boolean {
-  // For locals, always true. Later groups: check
-  // `declaration.location?.uri.startsWith(STANDARD_APEX_LIBRARY_URI)` → false.
-  return true;
+export function canBeRenamed(declaration: ApexSymbol): boolean {
+  const uri = declaration.fileUri;
+  return !uri || isUserOwnedApexUri(uri);
 }
 
 /**
