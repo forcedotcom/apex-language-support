@@ -114,6 +114,13 @@ export {
   resolveOccurrencesForCursorEffect,
   type CursorOccurrenceResolution,
 } from './services/references/occurrenceResolution';
+export {
+  extractWorkspaceEditCapabilities,
+  supportsRenameFile,
+  selectTypeRenameStrategy,
+  type WorkspaceEditCapabilities,
+  type TypeRenameStrategy,
+} from './services/rename/renameFileCapability';
 export { RenameAssistService } from './services/dataOwner/RenameAssistService';
 export { OccurrenceCandidateService } from './services/dataOwner/OccurrenceCandidateService';
 export type {

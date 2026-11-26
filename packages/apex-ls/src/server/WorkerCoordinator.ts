@@ -66,6 +66,7 @@ import {
   type ResourceLoaderRequest,
   type WorkerRole,
   type MissingArtifactPayload,
+  LSPConfigurationManager,
 } from '@salesforce/apex-lsp-shared';
 import type {
   WorkerDispatchStrategy,
@@ -76,6 +77,7 @@ import type {
   WorkerDispatchArgs,
   WorkerDispatchResult,
 } from '@salesforce/apex-lsp-compliant-services';
+import { extractWorkspaceEditCapabilities } from '@salesforce/apex-lsp-compliant-services';
 import { injectTraceContextFromOtelSpan } from './traceContextInjection';
 
 // ---------------------------------------------------------------------------
@@ -1520,6 +1522,9 @@ function buildLspRequestMessage(
         textDocument: { uri: rn.textDocument.uri },
         position: rn.position,
         newName: rn.newName,
+        workspaceEditCapabilities: extractWorkspaceEditCapabilities(
+          LSPConfigurationManager.getInstance().getClientCapabilities(),
+        ),
         // Same as DispatchReferences: the pool worker resolves the cursor to a
         // symbol via its local document, so carry the live text or the rename
         // scan finds nothing on the pool.
