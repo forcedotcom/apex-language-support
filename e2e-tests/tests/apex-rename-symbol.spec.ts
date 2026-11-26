@@ -615,3 +615,286 @@ test.describe('Apex Rename Symbol - Method', () => {
     });
   });
 });
+
+/**
+ * E2E for textDocument/rename of TYPES (W-23631150 / 6.4) — renameType over a
+ * top-level class, started from the class name or from one of its constructors.
+ *
+ * The e2e client is real VS Code, which advertises `documentChanges` +
+ * `resourceOperations: ['rename']`, so the server returns `RenameFile` ops
+ * alongside the text edits (W-23631139). Cases:
+ *  1. class-name cursor: declaration, BOTH constructor declarations and the
+ *     cross-file `new` usage are rewritten, and the `.cls` + `.cls-meta.xml`
+ *     files are renamed;
+ *  2. constructor-declaration cursor renames the type (and the cross-file use);
+ *  3. `new Foo()` cursor in a consumer file renames the type;
+ *  4. a type-name conflict is declined with an error and edits nothing.
+ *
+ * Every case uses its own fixture files, because file renames mutate the
+ * workspace and the cases share one serial session. Fixture bodies never repeat
+ * the type name in comments, so "old name is gone" assertions are exact.
+ *
+ * @group rename
+ */
+test.describe('Apex Rename Symbol - Type', () => {
+  test.describe.configure({ mode: 'serial' });
+
+  // Normalize non-breaking-space indentation (U+00A0) so regexes match.
+  const normalize = (content: string): string => content.replace(/ /g, ' ');
+
+  test('renames a class from its name: declaration, constructors, cross-file usage and files', async ({
+    apexEditor,
+    outlineView,
+  }) => {
+    await test.step('Open the consumer then the declaring file', async () => {
+      await apexEditor.openFile('RenameTypeFileUser.cls');
+      await apexEditor.waitForLanguageServerReady();
+      await apexEditor.openFile('RenameTypeFileSubject.cls');
+      await apexEditor.waitForLanguageServerReady();
+    });
+
+    await test.step('Wait for full workspace ingestion', async () => {
+      // renameType declines mid-load rather than emit a partial edit.
+      await apexEditor.waitForWorkspaceReady();
+    });
+
+    await test.step('Warm the request pool for prepareRename', async () => {
+      await apexEditor.openFile('RenameTypeFileSubject.cls');
+      await outlineView.open();
+      const mainClass = await outlineView.findSymbol(
+        'RenameTypeFileSubject',
+        20000,
+      );
+      expect(
+        mainClass,
+        'Outline (documentSymbol) must resolve RenameTypeFileSubject before F2',
+      ).not.toBeNull();
+    });
+
+    await test.step('Position on the class name', async () => {
+      // Line 2: `public with sharing class RenameTypeFileSubject {` — the name
+      // starts at column 27; column 32 is INSIDE the token.
+      await apexEditor.goToPosition(2, 32);
+    });
+
+    await test.step('Rename the class to `RenameTypeFileRenamed`', async () => {
+      await apexEditor.rename('RenameTypeFileRenamed');
+    });
+
+    await test.step('Assert the .cls file was renamed (active tab follows the file)', async () => {
+      await apexEditor.waitForActiveTab('RenameTypeFileRenamed.cls');
+    });
+
+    await test.step('Assert the declaration and both constructors are renamed', async () => {
+      await apexEditor.waitForContentToInclude('RenameTypeFileRenamed');
+      const normalized = normalize(await apexEditor.getContent());
+      expect(normalized).toMatch(/class\s+RenameTypeFileRenamed\s*\{/);
+      expect(normalized).toMatch(
+        /public\s+RenameTypeFileRenamed\s*\(\s*\)\s*\{/,
+      );
+      expect(normalized).toMatch(
+        /public\s+RenameTypeFileRenamed\s*\(\s*Integer\s+initial\s*\)\s*\{/,
+      );
+      const body = normalized.slice(normalized.indexOf('public with sharing'));
+      expect(body).not.toContain('RenameTypeFileSubject');
+    });
+
+    await test.step('Assert the .cls-meta.xml file was renamed', async () => {
+      // Opening by the NEW name only succeeds if the companion file moved.
+      await apexEditor.openFile('RenameTypeFileRenamed.cls-meta.xml');
+      expect(await apexEditor.getContent()).toContain('ApexClass');
+    });
+
+    await test.step('Assert the cross-file usage is renamed', async () => {
+      await apexEditor.openFile('RenameTypeFileUser.cls');
+      await apexEditor.waitForContentToInclude('RenameTypeFileRenamed');
+      const normalized = normalize(await apexEditor.getContent());
+      expect(normalized).toMatch(
+        /RenameTypeFileRenamed\s+made\s*=\s*new\s+RenameTypeFileRenamed\s*\(\s*3\s*\)\s*;/,
+      );
+      const body = normalized.slice(normalized.indexOf('public with sharing'));
+      expect(body).not.toContain('RenameTypeFileSubject');
+    });
+  });
+
+  test('renames the type when the cursor is on a constructor declaration', async ({
+    apexEditor,
+    outlineView,
+  }) => {
+    await test.step('Open the consumer then the declaring file', async () => {
+      await apexEditor.openFile('RenameTypeCtorClient.cls');
+      await apexEditor.waitForLanguageServerReady();
+      await apexEditor.openFile('RenameTypeCtorTarget.cls');
+      await apexEditor.waitForLanguageServerReady();
+    });
+
+    await test.step('Wait for full workspace ingestion', async () => {
+      await apexEditor.waitForWorkspaceReady();
+    });
+
+    await test.step('Warm the request pool for prepareRename', async () => {
+      await apexEditor.openFile('RenameTypeCtorTarget.cls');
+      await outlineView.open();
+      const mainClass = await outlineView.findSymbol(
+        'RenameTypeCtorTarget',
+        20000,
+      );
+      expect(
+        mainClass,
+        'Outline (documentSymbol) must resolve RenameTypeCtorTarget before F2',
+      ).not.toBeNull();
+    });
+
+    await test.step('Position on the constructor name', async () => {
+      // Line 5: `    public RenameTypeCtorTarget() {` — the constructor name starts
+      // at column 12; column 16 is INSIDE the token.
+      await apexEditor.goToPosition(5, 16);
+    });
+
+    await test.step('Rename to `RenameTypeCtorRenamed`', async () => {
+      await apexEditor.rename('RenameTypeCtorRenamed');
+    });
+
+    await test.step('Assert the file, declaration and constructor are renamed', async () => {
+      await apexEditor.waitForActiveTab('RenameTypeCtorRenamed.cls');
+      await apexEditor.waitForContentToInclude('RenameTypeCtorRenamed');
+      const normalized = normalize(await apexEditor.getContent());
+      expect(normalized).toMatch(/class\s+RenameTypeCtorRenamed\s*\{/);
+      expect(normalized).toMatch(
+        /public\s+RenameTypeCtorRenamed\s*\(\s*\)\s*\{/,
+      );
+      const body = normalized.slice(normalized.indexOf('public with sharing'));
+      expect(body).not.toContain('RenameTypeCtorTarget');
+    });
+
+    await test.step('Assert the cross-file usage is renamed', async () => {
+      await apexEditor.openFile('RenameTypeCtorClient.cls');
+      await apexEditor.waitForContentToInclude('RenameTypeCtorRenamed');
+      const normalized = normalize(await apexEditor.getContent());
+      expect(normalized).toMatch(
+        /RenameTypeCtorRenamed\s+made\s*=\s*new\s+RenameTypeCtorRenamed\s*\(\s*\)\s*;/,
+      );
+      const body = normalized.slice(normalized.indexOf('public with sharing'));
+      expect(body).not.toContain('RenameTypeCtorTarget');
+    });
+  });
+
+  test('renames the type when the cursor is on a `new` expression in another file', async ({
+    apexEditor,
+    outlineView,
+  }) => {
+    await test.step('Open the declaring file then the consumer', async () => {
+      await apexEditor.openFile('RenameTypeNewTarget.cls');
+      await apexEditor.waitForLanguageServerReady();
+      await apexEditor.openFile('RenameTypeNewClient.cls');
+      await apexEditor.waitForLanguageServerReady();
+    });
+
+    await test.step('Wait for full workspace ingestion', async () => {
+      await apexEditor.waitForWorkspaceReady();
+    });
+
+    await test.step('Warm the request pool for prepareRename on the consumer', async () => {
+      await apexEditor.openFile('RenameTypeNewClient.cls');
+      await outlineView.open();
+      const mainClass = await outlineView.findSymbol(
+        'RenameTypeNewClient',
+        20000,
+      );
+      expect(
+        mainClass,
+        'Outline (documentSymbol) must resolve RenameTypeNewClient before F2',
+      ).not.toBeNull();
+    });
+
+    await test.step('Position inside the type name of `new RenameTypeNewTarget()`', async () => {
+      // Line 4: `        RenameTypeNewTarget made = new RenameTypeNewTarget();` — the
+      // `new` expression's type name starts at column 40; column 45 is INSIDE.
+      await apexEditor.goToPosition(4, 45);
+    });
+
+    await test.step('Rename to `RenameTypeNewRenamed`', async () => {
+      await apexEditor.rename('RenameTypeNewRenamed');
+    });
+
+    await test.step('Assert the consumer usages are renamed', async () => {
+      await apexEditor.waitForContentToInclude('RenameTypeNewRenamed');
+      const normalized = normalize(await apexEditor.getContent());
+      expect(normalized).toMatch(
+        /RenameTypeNewRenamed\s+made\s*=\s*new\s+RenameTypeNewRenamed\s*\(\s*\)\s*;/,
+      );
+      const body = normalized.slice(normalized.indexOf('public with sharing'));
+      expect(body).not.toContain('RenameTypeNewTarget');
+    });
+
+    await test.step('Assert the declaring file, constructor and files are renamed', async () => {
+      // Opening by the NEW names only succeeds if the files were renamed.
+      await apexEditor.openFile('RenameTypeNewRenamed.cls');
+      await apexEditor.waitForContentToInclude('RenameTypeNewRenamed');
+      const normalized = normalize(await apexEditor.getContent());
+      expect(normalized).toMatch(/class\s+RenameTypeNewRenamed\s*\{/);
+      expect(normalized).toMatch(
+        /public\s+RenameTypeNewRenamed\s*\(\s*\)\s*\{/,
+      );
+      await apexEditor.openFile('RenameTypeNewRenamed.cls-meta.xml');
+      expect(await apexEditor.getContent()).toContain('ApexClass');
+    });
+  });
+
+  test('declines a rename onto an existing type name and edits nothing', async ({
+    apexEditor,
+    outlineView,
+    page,
+  }) => {
+    await test.step('Open the conflicting and declaring files', async () => {
+      await apexEditor.openFile('RenameTypeDeclineExisting.cls');
+      await apexEditor.waitForLanguageServerReady();
+      await apexEditor.openFile('RenameTypeDeclineSubject.cls');
+      await apexEditor.waitForLanguageServerReady();
+    });
+
+    await test.step('Wait for full workspace ingestion', async () => {
+      // The conflict check needs the other type loaded; otherwise it declines
+      // for a different reason (cannot verify) and the test proves less.
+      await apexEditor.waitForWorkspaceReady();
+    });
+
+    await test.step('Warm the request pool for prepareRename', async () => {
+      await apexEditor.openFile('RenameTypeDeclineSubject.cls');
+      await outlineView.open();
+      const mainClass = await outlineView.findSymbol(
+        'RenameTypeDeclineSubject',
+        20000,
+      );
+      expect(
+        mainClass,
+        'Outline (documentSymbol) must resolve RenameTypeDeclineSubject before F2',
+      ).not.toBeNull();
+    });
+
+    await test.step('Position on the class name', async () => {
+      await apexEditor.goToPosition(2, 32);
+    });
+
+    await test.step('Attempt to rename onto the existing type name', async () => {
+      await apexEditor.rename('RenameTypeDeclineExisting');
+    });
+
+    await test.step('Assert an error is shown', async () => {
+      // VS Code surfaces a failed rename as an overlay message at the cursor
+      // (or a notification), carrying the server's message.
+      const error = page
+        .locator('.monaco-editor-overlaymessage, .notifications-toasts')
+        .filter({ hasText: /already exists/i });
+      await expect(error.first()).toBeVisible({ timeout: 10000 });
+    });
+
+    await test.step('Assert nothing was edited or renamed', async () => {
+      await apexEditor.waitForActiveTab('RenameTypeDeclineSubject.cls');
+      const normalized = normalize(await apexEditor.getContent());
+      expect(normalized).toMatch(/class\s+RenameTypeDeclineSubject\s*\{/);
+      const body = normalized.slice(normalized.indexOf('public with sharing'));
+      expect(body).not.toContain('RenameTypeDeclineExisting');
+    });
+  });
+});
