@@ -560,6 +560,44 @@ describe('PrerequisiteOrchestrationService', () => {
     expect(secondResult).toBe(false);
   });
 
+  it('retries diagnostics at the same version after an owner write-back rejection', async () => {
+    const symbolManager = {
+      getDetailLevelForFile: vi.fn().mockReturnValue('private'),
+      getSymbolTableForFile: vi.fn().mockReturnValue({
+        getAllReferences: vi.fn().mockReturnValue([]),
+      }),
+      resolveCrossFileReferencesForFile: vi
+        .fn()
+        .mockReturnValue(Effect.succeed(undefined)),
+      isStandardLibraryType: vi.fn().mockReturnValue(false),
+      findSymbolByName: vi.fn().mockReturnValue([]),
+    };
+    const layerEnrichmentService = {
+      enrichFiles: vi.fn().mockResolvedValue(undefined),
+    };
+    const service = new PrerequisiteOrchestrationService(
+      logger,
+      symbolManager as never,
+      layerEnrichmentService as never,
+    );
+
+    await expect(
+      service.runPrerequisitesForLspRequestType('diagnostics', uri),
+    ).resolves.toBe(true);
+    await expect(
+      service.runPrerequisitesForLspRequestType('diagnostics', uri),
+    ).resolves.toBe(false);
+
+    service.invalidateCompletedPrerequisites(uri, 1);
+
+    await expect(
+      service.runPrerequisitesForLspRequestType('diagnostics', uri),
+    ).resolves.toBe(true);
+    expect(
+      symbolManager.resolveCrossFileReferencesForFile,
+    ).toHaveBeenCalledTimes(2);
+  });
+
   it('re-runs coordinated loop when revision is upgraded mid-execution', async () => {
     const registry = getInFlightPrerequisiteRegistry();
     getDocumentStateCache().set(uri, {

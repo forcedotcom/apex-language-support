@@ -501,6 +501,17 @@ export class PrerequisiteOrchestrationService {
     return didChange;
   }
 
+  /**
+   * Permit a same-version retry when a worker could not commit completed
+   * prerequisite output to the authoritative symbol-table owner.
+   */
+  public invalidateCompletedPrerequisites(
+    fileUri: string,
+    documentVersion: number,
+  ): void {
+    this.inFlightRegistry.invalidateCompleted(fileUri, documentVersion);
+  }
+
   private async runCoordinatedPrerequisites(
     key: string,
     fileUri: string,
