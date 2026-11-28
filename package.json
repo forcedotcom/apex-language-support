@@ -109,7 +109,7 @@
     "tsx": "^4.23.13",
     "typescript": "^5.8.2",
     "vitest": "5.0.1",
-    "wireit": "^0.14.13",
+    "wireit": "^0.15.0",
     "zod": "^4.6.7"
   },
   "optionalDependencies": {
