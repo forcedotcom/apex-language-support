@@ -194,7 +194,7 @@
   },
   "dependencies": {
     "@effect/platform": "^0.97.1",
-    "@effect/platform-browser": "^0.77.1",
+    "@effect/platform-browser": "^0.77.2",
     "@effect/platform-node": "^0.108.4",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/context-async-hooks": "^2.11.0",
